@@ -1,0 +1,32 @@
+name = "healerbook"
+main = "workers/index.ts"
+compatibility_date = "2024-01-01"
+
+# Pages 配置
+pages_build_output_dir = "dist"
+
+# 开发环境
+[env.development]
+vars = {
+  ENVIRONMENT = "development",
+  FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client",
+  TOP100_LIMIT = "50",
+  CRON_ENABLED = "false",
+}
+
+# 生产环境
+[env.production]
+vars = {
+  ENVIRONMENT = "production",
+  FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client",
+  TOP100_LIMIT = "100",
+  CRON_SCHEDULE = "0 2 * * *",
+  CRON_ENABLED = "true",
+  RATE_LIMIT_RPM = "30",
+  RETRY_ATTEMPTS = "3",
+  CACHE_EXPIRATION_DAYS = "7",
+}
+
+# Secrets (通过 wrangler secret 设置)
+# FFLOGS_API_TOKEN
+# ADMIN_SECRET

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo:*)",
+      "Bash(README.md:*)",
+      "WebSearch",
+      "Bash(pnpm create:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx tailwindcss:*)"
+    ]
+  }
+}
