@@ -6,7 +6,10 @@
       "WebSearch",
       "Bash(pnpm create:*)",
       "Bash(pnpm add:*)",
-      "Bash(npx tailwindcss:*)"
+      "Bash(npx tailwindcss:*)",
+      "Bash(pnpm exec tsc:*)",
+      "WebFetch(domain:ff14.huijiwiki.com)",
+      "WebFetch(domain:na.finalfantasyxiv.com)"
     ]
   }
 }
