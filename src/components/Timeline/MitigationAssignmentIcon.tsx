@@ -71,6 +71,21 @@ export default function MitigationAssignmentIcon({
         />
       )}
 
+      {/* 持续时间文本（在持续时间条内侧） */}
+      {action.duration >= 3 && (
+        <Text
+          x={28}
+          y={0}
+          text={`${action.duration}s`}
+          fontSize={10}
+          fill="#10b981"
+          fontStyle="bold"
+          fontFamily="Arial, sans-serif"
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+
       {/* 冷却时间条（持续时间条右侧，蓝色，无圆角） */}
       {action.cooldown > 0 && (
         <Rect
@@ -81,6 +96,21 @@ export default function MitigationAssignmentIcon({
           fill="#3b82f6"
           opacity={0.2}
           shadowEnabled={false}
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+
+      {/* 冷却时间文本（在冷却时间条内侧） */}
+      {action.cooldown >= 3 && (
+        <Text
+          x={action.duration * zoomLevel + 2}
+          y={0}
+          text={`${action.cooldown}s`}
+          fontSize={10}
+          fill="#3b82f6"
+          fontStyle="bold"
+          fontFamily="Arial, sans-serif"
           perfectDrawEnabled={false}
           listening={false}
         />
@@ -116,36 +146,6 @@ export default function MitigationAssignmentIcon({
             listening={false}
           />
         </>
-      )}
-
-      {/* 时间文本（在冷却时间条右侧） */}
-      {action && (
-        <Group x={action.cooldown * zoomLevel + 5} y={-10}>
-          {/* 生效时间 */}
-          {action.duration > 0 && (
-            <Text
-              x={0}
-              y={0}
-              text={`生效: ${action.duration}s`}
-              fontSize={10}
-              fill="#10b981"
-              fontFamily="Arial, sans-serif"
-              perfectDrawEnabled={false}
-              listening={false}
-            />
-          )}
-          {/* 冷却时间 */}
-          <Text
-            x={0}
-            y={action.duration > 0 ? 12 : 0}
-            text={`CD: ${action.cooldown}s`}
-            fontSize={10}
-            fill="#3b82f6"
-            fontFamily="Arial, sans-serif"
-            perfectDrawEnabled={false}
-            listening={false}
-          />
-        </Group>
       )}
     </Group>
   )
