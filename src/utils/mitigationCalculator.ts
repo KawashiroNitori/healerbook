@@ -88,6 +88,7 @@ export class MitigationCalculator {
   ): CalculationResult {
     let damage = originalDamage
     const appliedEffects: MitigationEffect[] = []
+    const addedEffectIds = new Set<string>() // 跟踪已添加的效果
 
     // 1. 应用所有百分比减伤（乘算）
     // 注意：百分比减伤对特殊类型伤害无效
@@ -102,6 +103,11 @@ export class MitigationCalculator {
 
         if (reduceValue > 0) {
           damage *= 1 - reduceValue / 100
+
+          // 标记为已添加
+          if (effect.assignmentId) {
+            addedEffectIds.add(effect.assignmentId)
+          }
           appliedEffects.push(effect)
         }
       }
@@ -144,21 +150,25 @@ export class MitigationCalculator {
 
         remainingDamage -= barrierToConsume
 
-        // 添加到应用效果中，保存消耗前和消耗后的盾值
-        appliedEffects.push({
-          ...effect,
-          remainingBarrierBefore: remainingBarrier,
-          remainingBarrierAfter: consumeBarrier
-            ? Math.max(0, remainingBarrier - barrierToConsume)
-            : remainingBarrier
-        })
-      } else {
-        // 盾值已经耗尽，但仍然需要添加到应用效果中（显示为 0）
-        appliedEffects.push({
-          ...effect,
-          remainingBarrierBefore: 0,
-          remainingBarrierAfter: 0
-        })
+        // 如果这个效果已经在百分比减伤阶段添加过了，更新它的盾值信息
+        if (assignmentId && addedEffectIds.has(assignmentId)) {
+          const existingEffect = appliedEffects.find(e => e.assignmentId === assignmentId)
+          if (existingEffect) {
+            existingEffect.remainingBarrierBefore = remainingBarrier
+            existingEffect.remainingBarrierAfter = consumeBarrier
+              ? Math.max(0, remainingBarrier - barrierToConsume)
+              : remainingBarrier
+          }
+        } else {
+          // 否则添加新的效果
+          appliedEffects.push({
+            ...effect,
+            remainingBarrierBefore: remainingBarrier,
+            remainingBarrierAfter: consumeBarrier
+              ? Math.max(0, remainingBarrier - barrierToConsume)
+              : remainingBarrier
+          })
+        }
       }
     }
 
