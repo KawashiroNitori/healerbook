@@ -21,7 +21,8 @@
       "Bash(curl:*)",
       "Bash(pnpm run build:*)",
       "Bash(pnpm test:run:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
