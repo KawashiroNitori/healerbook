@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import type { MitigationAction } from '@/types/mitigation'
-import { getAllMitigationActions, getActionsByJob } from '@/api/mitigationData'
+import { getAllMitigationActions } from '@/api/mitigationData'
 import type { Job } from '@/types/timeline'
 
 interface MitigationState {
@@ -75,7 +75,9 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
 
     // 职业过滤
     if (filters.jobs.length > 0) {
-      filtered = filtered.filter((action) => filters.jobs.includes(action.job))
+      filtered = filtered.filter((action) =>
+        filters.jobs.some(job => action.jobs.includes(job))
+      )
     }
 
     // 注意：isPartyWide 字段已被删除，此过滤器暂时禁用

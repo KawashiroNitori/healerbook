@@ -57,7 +57,7 @@ export function saveTimeline(timeline: Timeline): void {
     const newMetadata: TimelineMetadata = {
       id: timeline.id,
       name: timeline.name,
-      encounterId: timeline.encounterId,
+      encounterId: timeline.encounter.id.toString(),
       createdAt: timeline.createdAt,
       updatedAt: new Date().toISOString(),
     }
@@ -102,7 +102,14 @@ export function createNewTimeline(encounterId: string, name: string): Timeline {
   return {
     id: `timeline-${Date.now()}`,
     name,
-    encounterId,
+    encounter: {
+      id: parseInt(encounterId) || 0,
+      name: name,
+      displayName: name,
+      zone: '',
+      difficulty: 'savage',
+      damageEvents: [],
+    },
     damageEvents: [],
     mitigationAssignments: [],
     composition: {

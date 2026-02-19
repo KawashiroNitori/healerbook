@@ -5,7 +5,6 @@
 import { GraphQLClient } from 'graphql-request'
 import type {
   FFLogsReport,
-  FFLogsFight,
   FFLogsEvent,
   FFLogsGraphQLResponse,
 } from '@/types/fflogs'
@@ -43,6 +42,7 @@ export class FFLogsClient {
         Authorization: `Bearer ${this.config.apiToken}`,
         'Content-Type': 'application/json',
       },
+      // @ts-expect-error - timeout 属性在某些版本的 graphql-request 中可能不存在
       timeout: this.config.timeout,
     })
   }

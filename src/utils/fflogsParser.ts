@@ -6,14 +6,15 @@ import type {
   FFLogsEvent,
   FFLogsDamageTakenEvent,
   FFLogsActor,
-  FFLogsComposition,
-  FFLogsPlayer,
 } from '@/types/fflogs'
 import type { DamageEvent, Composition, Job } from '@/types/timeline'
 
 /**
  * 职业 ID 到职业名称的映射
+ * TODO: 未来用于解析 FFLogs 数据
  */
+// @ts-expect-error - 保留用于未来功能
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const JOB_ID_MAP: Record<number, Job> = {
   // 坦克
   19: 'PLD',
@@ -87,6 +88,7 @@ export function parseDamageEvents(
       time: data.time,
       damage: Math.floor(avgDamage),
       type: detectDamageType(data.count),
+      damageType: 'physical', // 默认为物理伤害,TODO: 从技能数据库查询
       phaseId,
     })
   }
@@ -120,6 +122,7 @@ export function parseComposition(actors: FFLogsActor[]): Composition {
   for (const actor of actors) {
     if (actor.type !== 'Player') continue
 
+    // @ts-expect-error - subType 属性在某些版本的 FFLogsActor 中可能不存在
     const job = getJobFromSubType(actor.subType)
     if (!job) continue
 

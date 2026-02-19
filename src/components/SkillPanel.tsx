@@ -77,7 +77,7 @@ export default function ActionPanel() {
           <div className="divide-y">
             {allMembers.map((job, index) => {
               // 获取该职业的所有减伤技能
-              const jobActions = actions.filter((action) => action.job === job)
+              const jobActions = actions.filter((action) => action.jobs.includes(job))
 
               return (
                 <div key={`${job}-${index}`} className="p-3 relative">
@@ -103,7 +103,12 @@ export default function ActionPanel() {
                       jobActions.map((action) => (
                         <div
                           key={action.id}
-                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('actionId', action.id.toString())
+                            e.dataTransfer.setData('job', job)
+                          }}
+                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors cursor-move"
                         >
                           {/* 技能图标 */}
                           <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted">

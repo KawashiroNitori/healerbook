@@ -5,7 +5,7 @@
 import { Layer, Line, Rect } from 'react-konva'
 import MitigationAssignmentIcon from './MitigationAssignmentIcon'
 import type { SkillTrack } from './SkillTrackLabels'
-import type { Timeline, MitigationAssignment, Job } from '@/types/timeline'
+import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 
 interface SkillTracksCanvasProps {

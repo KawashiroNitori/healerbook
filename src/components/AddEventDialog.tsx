@@ -16,7 +16,10 @@ export default function AddEventDialog({ onClose }: AddEventDialogProps) {
   const [name, setName] = useState('')
   const [time, setTime] = useState(0)
   const [damage, setDamage] = useState(100000)
-  const [type, setType] = useState<'physical' | 'magical' | 'special'>('magical')
+  const [type, setType] = useState<'aoe' | 'tankbuster' | 'raidwide'>('raidwide')
+  const [damageType, setDamageType] = useState<'physical' | 'magical' | 'special'>('magical')
+
+  // TODO: 添加伤害类型选择器到 UI
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +35,8 @@ export default function AddEventDialog({ onClose }: AddEventDialogProps) {
       time,
       damage,
       type,
-      phaseId: null,
+      damageType,
+      phaseId: '',
     })
 
     toast.success('事件已添加')
@@ -92,10 +96,23 @@ export default function AddEventDialog({ onClose }: AddEventDialogProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">伤害类型</label>
+              <label className="block text-sm font-medium mb-1">攻击类型</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value as 'physical' | 'magical' | 'special')}
+                onChange={(e) => setType(e.target.value as 'aoe' | 'tankbuster' | 'raidwide')}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="raidwide">全团伤害</option>
+                <option value="aoe">AOE</option>
+                <option value="tankbuster">死刑</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">伤害类型</label>
+              <select
+                value={damageType}
+                onChange={(e) => setDamageType(e.target.value as 'physical' | 'magical' | 'special')}
                 className="w-full px-3 py-2 border rounded-md"
               >
                 <option value="physical">物理</option>

@@ -2,7 +2,7 @@
  * 时间轴类型定义
  */
 
-import type { Job, MitigationAction } from './mitigation'
+import type { Job } from './mitigation'
 
 export type { Job } from './mitigation'
 

@@ -5,7 +5,7 @@
 import { Group, Rect, Text } from 'react-konva'
 import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
-import type { MitigationAssignment, Job } from '@/types/timeline'
+import type { MitigationAssignment } from '@/types/timeline'
 
 interface MitigationAssignmentIconProps {
   assignment: MitigationAssignment
@@ -33,7 +33,6 @@ export default function MitigationAssignmentIcon({
   onContextMenu,
 }: MitigationAssignmentIconProps) {
   const x = assignment.time * zoomLevel
-  const currentDuration = action.cooldown
 
   return (
     <Group
@@ -67,14 +66,13 @@ export default function MitigationAssignmentIcon({
           opacity={0.3}
           shadowEnabled={false}
           perfectDrawEnabled={false}
-          listening={false}
         />
       )}
 
-      {/* 持续时间文本（在持续时间条内侧） */}
+      {/* 持续时间文本（在持续时间条末尾内侧） */}
       {action.duration >= 3 && (
         <Text
-          x={28}
+          x={action.duration * zoomLevel - 22}
           y={0}
           text={`${action.duration}s`}
           fontSize={10}
@@ -97,14 +95,13 @@ export default function MitigationAssignmentIcon({
           opacity={0.2}
           shadowEnabled={false}
           perfectDrawEnabled={false}
-          listening={false}
         />
       )}
 
-      {/* 冷却时间文本（在冷却时间条内侧） */}
+      {/* 冷却时间文本（在冷却时间条末尾内侧） */}
       {action.cooldown >= 3 && (
         <Text
-          x={action.duration * zoomLevel + 2}
+          x={action.cooldown * zoomLevel - 22}
           y={0}
           text={`${action.cooldown}s`}
           fontSize={10}

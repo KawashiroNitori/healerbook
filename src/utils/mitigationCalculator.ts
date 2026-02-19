@@ -4,7 +4,6 @@
  */
 
 import type {
-  MitigationType,
   MitigationEffect,
   MitigationAction,
 } from '@/types/mitigation'
@@ -60,7 +59,10 @@ export class MitigationCalculator {
   /** 盾值状态跟踪（assignmentId -> 剩余盾值） */
   private barrierState: Map<string, number> = new Map()
 
-  constructor(private actions: MitigationAction[]) {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_actions: MitigationAction[]) {
+    // actions 参数保留用于未来扩展
+  }
 
   /**
    * 重置盾值状态
@@ -186,11 +188,12 @@ export class MitigationCalculator {
       // 检查时间点是否在技能持续时间内
       if (time >= startTime && time <= endTime) {
         effects.push({
+          id: action.id,
           type: action.type,
           physicReduce: action.physicReduce,
           magicReduce: action.magicReduce,
           barrier: action.barrier,
-          remainingBarrier: this.barrierState.get(assignment.id) ?? action.barrier,
+          remainingBarrierBefore: this.barrierState.get(assignment.id) ?? action.barrier,
           startTime,
           endTime,
           actionId: action.id,
@@ -200,7 +203,70 @@ export class MitigationCalculator {
       }
     }
 
-    return effects
+    // 处理互斥组：同组技能只保留最后生效的
+    return this.filterUniqueGroupEffects(effects, actions)
+  }
+
+  /**
+   * 过滤互斥组效果
+   * 同一互斥组中，只保留最后生效的效果
+   */
+  private filterUniqueGroupEffects(
+    effects: MitigationEffect[],
+    actions: MitigationAction[]
+  ): MitigationEffect[] {
+    // 如果没有效果，直接返回
+    if (effects.length === 0) {
+      return effects
+    }
+
+    // 构建互斥关系映射：技能 ID -> 与其互斥的技能 ID 集合
+    const mutuallyExclusiveMap = new Map<number, Set<number>>()
+    actions.forEach(action => {
+      if (action.uniqueGroup && action.uniqueGroup.length > 0) {
+        mutuallyExclusiveMap.set(action.id, new Set(action.uniqueGroup))
+      }
+    })
+
+    // 如果没有互斥关系，直接返回
+    if (mutuallyExclusiveMap.size === 0) {
+      return effects
+    }
+
+    // 按开始时间排序（从早到晚）
+    const sortedEffects = [...effects].sort((a, b) => a.startTime - b.startTime)
+
+    // 过滤互斥效果：对于每个效果，检查是否有更晚生效的互斥技能
+    const filteredEffects: MitigationEffect[] = []
+
+    for (const effect of sortedEffects) {
+      const mutuallyExclusiveIds = mutuallyExclusiveMap.get(effect.actionId)
+
+      // 如果该技能没有互斥关系，直接保留
+      if (!mutuallyExclusiveIds) {
+        filteredEffects.push(effect)
+        continue
+      }
+
+      // 检查是否有更晚生效的互斥技能
+      const hasLaterMutuallyExclusive = sortedEffects.some(otherEffect => {
+        // 必须是不同的效果
+        if (otherEffect.assignmentId === effect.assignmentId) return false
+
+        // 必须是互斥的技能
+        if (!mutuallyExclusiveIds.has(otherEffect.actionId)) return false
+
+        // 必须更晚生效
+        return otherEffect.startTime > effect.startTime
+      })
+
+      // 如果没有更晚的互斥技能，保留该效果
+      if (!hasLaterMutuallyExclusive) {
+        filteredEffects.push(effect)
+      }
+    }
+
+    return filteredEffects
   }
 
   /**

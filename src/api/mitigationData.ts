@@ -16,7 +16,7 @@ export function getAllMitigationActions(): MitigationAction[] {
  * 根据职业获取减伤技能
  */
 export function getActionsByJob(job: Job): MitigationAction[] {
-  return MITIGATION_DATA.actions.filter(action => action.job === job)
+  return MITIGATION_DATA.actions.filter(action => action.jobs.includes(job))
 }
 
 /**

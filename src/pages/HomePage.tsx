@@ -259,7 +259,7 @@ function CreateDialog({
  */
 function ImportDialog({
   onClose,
-  onImported,
+  onImported: _onImported, // TODO: 导入成功后调用此回调刷新列表
 }: {
   onClose: () => void
   onImported: () => void

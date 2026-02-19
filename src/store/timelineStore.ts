@@ -4,7 +4,6 @@
 
 import { create } from 'zustand'
 import type { Timeline, DamageEvent, MitigationAssignment, Composition } from '@/types/timeline'
-import type { MitigationAction } from '@/types/mitigation'
 import { saveTimeline } from '@/utils/timelineStorage'
 
 // 自动保存延迟时间 (毫秒)
@@ -24,7 +23,7 @@ interface TimelineState {
   /** 缩放级别 (像素/秒) */
   zoomLevel: number
   /** 自动保存定时器 */
-  autoSaveTimer: NodeJS.Timeout | null
+  autoSaveTimer: number | null
 
   // Actions
   /** 设置时间轴 */

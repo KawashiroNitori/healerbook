@@ -12,6 +12,7 @@ interface DamageEventCardProps {
   isSelected: boolean
   zoomLevel: number
   trackHeight: number
+  yOffset: number
   onSelect: () => void
   onDragStart: () => void
   onDragMove: (x: number) => void
@@ -24,12 +25,14 @@ export default function DamageEventCard({
   isSelected,
   zoomLevel,
   trackHeight,
+  yOffset,
   onSelect,
   onDragStart,
   onDragMove,
   onDragEnd,
 }: DamageEventCardProps) {
   const x = event.time * zoomLevel
+  const y = yOffset + trackHeight / 2
   const finalDamage = result.finalDamage
   const mitigationPercent = result.mitigationPercentage.toFixed(1)
 
@@ -44,11 +47,11 @@ export default function DamageEventCard({
   return (
     <Group
       x={x}
-      y={trackHeight / 2}
+      y={y}
       draggable
       dragBoundFunc={(pos) => ({
         x: Math.max(0, pos.x),
-        y: trackHeight / 2,
+        y: y,
       })}
       onClick={onSelect}
       onTap={onSelect}

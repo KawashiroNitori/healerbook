@@ -19,6 +19,7 @@ export default defineConfig({
       },
     },
   },
+  // @ts-expect-error - test 配置由 vitest 提供
   test: {
     globals: true,
     environment: 'node',

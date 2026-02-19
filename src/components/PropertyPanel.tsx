@@ -221,7 +221,7 @@ export default function PropertyPanel() {
                     </div>
                     <div>
                       <div className="font-medium">{action.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{action.job}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{action.jobs.join(', ')}</div>
                     </div>
                   </div>
                 </div>

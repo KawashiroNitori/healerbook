@@ -294,13 +294,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     e.preventDefault()
 
     const actionIdStr = e.dataTransfer.getData('actionId')
-    if (!actionIdStr || !timeline || !scrollContainerRef.current) return
+    const jobStr = e.dataTransfer.getData('job')
+    if (!actionIdStr || !jobStr || !timeline || !scrollContainerRef.current) return
 
     const actionId = parseInt(actionIdStr, 10)
     if (isNaN(actionId)) return
 
     const action = actions.find((s) => s.id === actionId)
     if (!action) return
+
+    // 验证 job 是否在 action.jobs 中
+    if (!action.jobs.includes(jobStr as Job)) {
+      toast.error('该职业无法使用此技能')
+      return
+    }
 
     const rect = scrollContainerRef.current.getBoundingClientRect()
     const scrollLeft = scrollContainerRef.current.scrollLeft
@@ -330,7 +337,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       actionId,
       damageEventId: damageEventId || timeline.damageEvents[0]?.id || '',
       time: Math.round(time * 10) / 10,
-      job: action.job,
+      job: jobStr as Job,
     }
 
     addAssignment(assignment)
@@ -395,7 +402,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   const skillTracks: SkillTrack[] = []
   allMembers.forEach((job) => {
-    const jobActions = actions.filter((action) => action.job === job)
+    const jobActions = actions.filter((action) => action.jobs.includes(job))
     jobActions.forEach((action) => {
       skillTracks.push({
         job,

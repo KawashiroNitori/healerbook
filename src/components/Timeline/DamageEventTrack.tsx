@@ -54,6 +54,7 @@ export default function DamageEventTrack({
               isSelected={selectedEventId === event.id}
               zoomLevel={zoomLevel}
               trackHeight={trackHeight}
+              yOffset={yOffset}
               onSelect={() => onSelectEvent(event.id)}
               onDragStart={() => onDragStart(event.id, event.time * zoomLevel)}
               onDragMove={(x) => onDragMove(event.id, x)}

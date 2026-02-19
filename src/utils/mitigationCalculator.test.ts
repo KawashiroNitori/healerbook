@@ -207,7 +207,7 @@ describe('MitigationCalculator', () => {
         name: '节制',
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
-        job: 'WHM',
+        jobs: ['WHM'],
         type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
@@ -220,7 +220,7 @@ describe('MitigationCalculator', () => {
         name: '鼓舞',
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
-        job: 'SCH',
+        jobs: ['SCH'],
         type: 'barrier',
         physicReduce: 0,
         magicReduce: 0,
@@ -300,7 +300,7 @@ describe('MitigationCalculator', () => {
         name: '节制',
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
-        job: 'WHM',
+        jobs: ['WHM'],
         type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
@@ -367,7 +367,7 @@ describe('MitigationCalculator', () => {
         name: '节制',
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
-        job: 'WHM',
+        jobs: ['WHM'],
         type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
@@ -426,7 +426,7 @@ describe('MitigationCalculator', () => {
         name: '节制',
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
-        job: 'WHM',
+        jobs: ['WHM'],
         type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
@@ -483,7 +483,7 @@ describe('MitigationCalculator', () => {
         id: 2001,
         name: '野战治疗阵',
         icon: '/icon.png',
-        job: 'SCH',
+        jobs: ['SCH'],
         type: 'barrier',
         physicReduce: 0,
         magicReduce: 0,
@@ -514,12 +514,12 @@ describe('MitigationCalculator', () => {
       // 第一次伤害：3000
       const result1 = calculator.calculate(3000, effects, 'physical', true)
       expect(result1.finalDamage).toBe(0) // 3000 - 5000 = 0
-      expect(result1.appliedEffects[0].remainingBarrier).toBe(2000) // 5000 - 3000 = 2000
+      expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(2000) // 5000 - 3000 = 2000
 
       // 第二次伤害：3000（使用相同的 effects）
       const result2 = calculator.calculate(3000, effects, 'physical', true)
       expect(result2.finalDamage).toBe(1000) // 3000 - 2000 = 1000
-      expect(result2.appliedEffects[0].remainingBarrier).toBe(0) // 2000 - 2000 = 0
+      expect(result2.appliedEffects[0].remainingBarrierAfter).toBe(0) // 2000 - 2000 = 0
     })
 
     it('盾值耗尽后不应再减伤', () => {
@@ -543,7 +543,7 @@ describe('MitigationCalculator', () => {
       // 第一次伤害：6000（耗尽盾值）
       const result1 = calculator.calculate(6000, effects, 'physical', true)
       expect(result1.finalDamage).toBe(1000) // 6000 - 5000 = 1000
-      expect(result1.appliedEffects[0].remainingBarrier).toBe(0)
+      expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(0)
 
       // 第二次伤害：3000（盾值已耗尽）
       const result2 = calculator.calculate(3000, effects, 'physical', true)
@@ -571,12 +571,162 @@ describe('MitigationCalculator', () => {
       // 预览模式：不消耗盾值
       const result1 = calculator.calculate(3000, effects, 'physical', false)
       expect(result1.finalDamage).toBe(0)
-      expect(result1.appliedEffects[0].remainingBarrier).toBe(5000) // 未消耗
+      expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(5000) // 未消耗
 
       // 再次预览
       const result2 = calculator.calculate(3000, effects, 'physical', false)
       expect(result2.finalDamage).toBe(0)
-      expect(result2.appliedEffects[0].remainingBarrier).toBe(5000) // 仍未消耗
+      expect(result2.appliedEffects[0].remainingBarrierAfter).toBe(5000) // 仍未消耗
+    })
+  })
+
+  describe('互斥技能测试', () => {
+    const actions: MitigationAction[] = [
+      {
+        id: 7405,
+        name: '行吟',
+        icon: '/icon.png',
+        jobs: ['BRD'],
+        uniqueGroup: [16889, 16012], // 与策动、防守之桑巴互斥
+        type: 'non_target_percentage',
+        physicReduce: 15,
+        magicReduce: 15,
+        barrier: 0,
+        duration: 15,
+        cooldown: 90,
+      },
+      {
+        id: 16889,
+        name: '策动',
+        icon: '/icon.png',
+        jobs: ['MCH'],
+        uniqueGroup: [7405, 16012], // 与行吟、防守之桑巴互斥
+        type: 'non_target_percentage',
+        physicReduce: 15,
+        magicReduce: 15,
+        barrier: 0,
+        duration: 15,
+        cooldown: 90,
+      },
+      {
+        id: 16012,
+        name: '防守之桑巴',
+        icon: '/icon.png',
+        jobs: ['DNC'],
+        uniqueGroup: [7405, 16889], // 与行吟、策动互斥
+        type: 'non_target_percentage',
+        physicReduce: 15,
+        magicReduce: 15,
+        barrier: 0,
+        duration: 15,
+        cooldown: 90,
+      },
+    ]
+
+    it('后生效的互斥技能应覆盖先生效的', () => {
+      const calculator = new MitigationCalculator(actions)
+
+      const assignments: MitigationAssignment[] = [
+        {
+          id: 'assign1',
+          actionId: 7405, // 行吟，10秒生效
+          damageEventId: 'event1',
+          time: 10,
+          job: 'BRD',
+        },
+        {
+          id: 'assign2',
+          actionId: 16889, // 策动，15秒生效（更晚）
+          damageEventId: 'event1',
+          time: 15,
+          job: 'MCH',
+        },
+      ]
+
+      // 在 20 秒时，两个技能都在持续时间内（行吟 10-25s，策动 15-30s）
+      // 但策动更晚生效，应该覆盖行吟
+      const effects = calculator.getActiveEffects(20, assignments, actions)
+
+      expect(effects.length).toBe(1)
+      expect(effects[0].actionId).toBe(16889) // 只保留策动
+    })
+
+    it('不互斥的技能应该同时生效', () => {
+      const calculator = new MitigationCalculator(actions)
+
+      const nonMutualActions: MitigationAction[] = [
+        ...actions,
+        {
+          id: 16160,
+          name: '光之心',
+          icon: '/icon.png',
+          jobs: ['GNB'],
+          // 没有 uniqueGroup，不与任何技能互斥
+          type: 'non_target_percentage',
+          physicReduce: 5,
+          magicReduce: 10,
+          barrier: 0,
+          duration: 15,
+          cooldown: 90,
+        },
+      ]
+
+      const assignments: MitigationAssignment[] = [
+        {
+          id: 'assign1',
+          actionId: 7405, // 行吟
+          damageEventId: 'event1',
+          time: 10,
+          job: 'BRD',
+        },
+        {
+          id: 'assign2',
+          actionId: 16160, // 光之心（不互斥）
+          damageEventId: 'event1',
+          time: 12,
+          job: 'GNB',
+        },
+      ]
+
+      const effects = calculator.getActiveEffects(15, assignments, nonMutualActions)
+
+      expect(effects.length).toBe(2) // 两个技能都生效
+      expect(effects.map(e => e.actionId).sort()).toEqual([7405, 16160].sort())
+    })
+
+    it('三个互斥技能只保留最后生效的', () => {
+      const calculator = new MitigationCalculator(actions)
+
+      const assignments: MitigationAssignment[] = [
+        {
+          id: 'assign1',
+          actionId: 7405, // 行吟，10秒
+          damageEventId: 'event1',
+          time: 10,
+          job: 'BRD',
+        },
+        {
+          id: 'assign2',
+          actionId: 16889, // 策动，15秒
+          damageEventId: 'event1',
+          time: 15,
+          job: 'MCH',
+        },
+        {
+          id: 'assign3',
+          actionId: 16012, // 防守之桑巴，20秒
+          damageEventId: 'event1',
+          time: 20,
+          job: 'DNC',
+        },
+      ]
+
+      // 在 22 秒时，三个技能都在持续时间内
+      // 但只保留最后生效的防守之桑巴
+      const effects = calculator.getActiveEffects(22, assignments, actions)
+
+      expect(effects.length).toBe(1)
+      expect(effects[0].actionId).toBe(16012) // 只保留防守之桑巴
     })
   })
 })

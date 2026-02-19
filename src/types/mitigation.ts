@@ -55,8 +55,10 @@ export interface MitigationAction {
   icon: string
   /** 技能高清图标 URL */
   iconHD?: string
-  /** 可使用的职业 */
-  job: Job
+  /** 可使用的职业列表 */
+  jobs: Job[]
+  /** 互斥技能 ID 列表（与这些技能互斥，同时只能生效一个） */
+  uniqueGroup?: number[]
   /** 减伤类型 */
   type: MitigationType
   /** 物理减伤百分比（0-100） */
@@ -75,6 +77,8 @@ export interface MitigationAction {
  * 减伤效果（运行时）
  */
 export interface MitigationEffect {
+  /** 效果 ID */
+  id?: number
   /** 减伤类型 */
   type: MitigationType
   /** 物理减伤值 */
