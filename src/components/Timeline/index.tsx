@@ -70,9 +70,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const currentAction = actions.find((a) => a.id === actionId)
     if (!currentAction) return false
 
-    // 如果技能允许重叠,则不检查
-    if (currentAction.canOverlap) return false
-
     const currentEndTime = newTime + currentAction.cooldown
 
     return timeline.mitigationAssignments.some((other) => {
@@ -350,7 +347,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (checkOverlap(time, track.job, track.actionId)) {
       const action = actions.find((a) => a.id === track.actionId)
       toast.error('无法添加技能', {
-        description: `${action?.name || '该技能'}在此时间段与其他技能冲突`,
+        description: `${action?.name || '该技能'}在此时间段与其他技能重叠`,
       })
       return
     }

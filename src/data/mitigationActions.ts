@@ -31,7 +31,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 30,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7385,
@@ -45,7 +45,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 15,
       barrier: 0,
       duration: 18,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 7388,
@@ -59,7 +59,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 30,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7405,
@@ -73,7 +73,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 15,
       barrier: 0,
       duration: 15,
-      cooldown: 120
+      cooldown: 90,
     },
     {
       id: 16536,
@@ -86,8 +86,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       physicReduce: 10,
       magicReduce: 10,
       barrier: 0,
-      duration: 20,
-      cooldown: 120
+      duration: 25,
+      cooldown: 120,
     },
     {
       id: 7433,
@@ -100,7 +100,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 10,
-      cooldown: 60
+      cooldown: 60,
     },
     {
       id: 37011,
@@ -113,7 +113,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 10,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 185,
@@ -127,7 +127,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 30,
-      cooldown: 2.5
+      cooldown: 2.5,
     },
     {
       id: 188,
@@ -140,8 +140,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       physicReduce: 10,
       magicReduce: 10,
       barrier: 0,
-      duration: 15,
-      cooldown: 30
+      duration: 18,
+      cooldown: 30,
     },
     {
       id: 16538,
@@ -155,7 +155,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 20,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 16546,
@@ -169,8 +169,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 170000,
       duration: 30,
-      cooldown: 30,
-      canOverlap: true
+      cooldown: 0.5,
     },
     {
       id: 25868,
@@ -184,7 +183,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 20,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 37013,
@@ -198,7 +197,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 30,
-      cooldown: 2.5
+      cooldown: 2.5,
     },
     {
       id: 16889,
@@ -212,7 +211,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 15,
       barrier: 0,
       duration: 15,
-      cooldown: 120
+      cooldown: 90,
     },
     {
       id: 16471,
@@ -226,7 +225,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 3613,
@@ -240,7 +239,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 5,
-      cooldown: 60
+      cooldown: 60,
     },
     {
       id: 37031,
@@ -254,7 +253,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 25857,
@@ -268,7 +267,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 10,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 16160,
@@ -282,7 +281,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 16012,
@@ -296,7 +295,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 15,
       barrier: 0,
       duration: 15,
-      cooldown: 120
+      cooldown: 90,
     },
     {
       id: 24311,
@@ -310,7 +309,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 15,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 24298,
@@ -324,7 +323,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 30
+      cooldown: 30,
     },
     {
       id: 24310,
@@ -338,7 +337,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 20,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 37034,
@@ -352,7 +351,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 30,
-      cooldown: 1.4
+      cooldown: 1.4,
     },
     {
       id: 34686,
@@ -366,7 +365,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 17000,
       duration: 10,
-      cooldown: 1
+      cooldown: 1,
     },
     {
       id: 2887,
@@ -380,7 +379,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 10,
-      cooldown: 120
+      cooldown: 120,
     },
     {
       id: 7535,
@@ -394,7 +393,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 60
+      cooldown: 60,
     },
     {
       id: 7535,
@@ -408,7 +407,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 60
+      cooldown: 60,
     },
     {
       id: 7535,
@@ -422,7 +421,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 60
+      cooldown: 60,
     },
     {
       id: 7535,
@@ -436,7 +435,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 60
+      cooldown: 60,
     },
     {
       id: 7549,
@@ -450,7 +449,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7549,
@@ -464,7 +463,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7549,
@@ -478,7 +477,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7549,
@@ -492,7 +491,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7549,
@@ -506,7 +505,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7549,
@@ -520,7 +519,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 5,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7560,
@@ -534,7 +533,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7560,
@@ -548,7 +547,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7560,
@@ -562,7 +561,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 90
+      cooldown: 90,
     },
     {
       id: 7560,
@@ -576,8 +575,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 10,
       barrier: 0,
       duration: 15,
-      cooldown: 90
-    }
+      cooldown: 90,
+    },
   ]
 }
 

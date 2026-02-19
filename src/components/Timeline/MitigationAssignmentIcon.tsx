@@ -67,6 +67,7 @@ export default function MitigationAssignmentIcon({
           opacity={0.3}
           shadowEnabled={false}
           perfectDrawEnabled={false}
+          listening={false}
         />
       )}
 
@@ -81,6 +82,7 @@ export default function MitigationAssignmentIcon({
           opacity={0.2}
           shadowEnabled={false}
           perfectDrawEnabled={false}
+          listening={false}
         />
       )}
 
