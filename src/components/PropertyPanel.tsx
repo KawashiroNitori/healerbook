@@ -151,11 +151,17 @@ export default function PropertyPanel() {
 
                       displayValue = `${consumed.toLocaleString()} / ${before.toLocaleString()} (${equivalentMitigation}%)`
                     } else {
-                      // 显示物理和魔法减伤
-                      if (effect.physicReduce === effect.magicReduce) {
+                      // 根据伤害类型显示对应的减伤百分比
+                      const damageType = event.damageType || 'physical'
+
+                      if (damageType === 'physical') {
                         displayValue = `${effect.physicReduce}%`
+                      } else if (damageType === 'magical') {
+                        displayValue = `${effect.magicReduce}%`
                       } else {
-                        displayValue = `物理: ${effect.physicReduce}% | 魔法: ${effect.magicReduce}%`
+                        // 特殊伤害：显示两者中较小的值
+                        const minReduce = Math.min(effect.physicReduce, effect.magicReduce)
+                        displayValue = `${minReduce}%`
                       }
                     }
 
