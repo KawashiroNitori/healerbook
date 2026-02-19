@@ -23,7 +23,8 @@
       "Bash(pnpm test:run:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npx knip:*)"
+      "Bash(npx knip:*)",
+      "Bash(wc:*)"
     ]
   }
 }

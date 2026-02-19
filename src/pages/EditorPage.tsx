@@ -10,7 +10,7 @@ import { getTimeline } from '@/utils/timelineStorage'
 import EditorToolbar from '@/components/EditorToolbar'
 import ActionPanel from '@/components/SkillPanel'
 import PropertyPanel from '@/components/PropertyPanel'
-import TimelineCanvas from '@/components/TimelineCanvas'
+import TimelineCanvas from '@/components/Timeline'
 import { toast } from 'sonner'
 
 export default function EditorPage() {
