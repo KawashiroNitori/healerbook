@@ -137,8 +137,9 @@ export class MitigationCalculator {
         const barrierToConsume = Math.min(remainingBarrier, remainingDamage)
 
         if (consumeBarrier) {
-          // 更新剩余盾值
-          this.barrierState.set(assignmentId, remainingBarrier - barrierToConsume)
+          // 更新剩余盾值，确保不会变成负数
+          const newBarrierValue = Math.max(0, remainingBarrier - barrierToConsume)
+          this.barrierState.set(assignmentId, newBarrierValue)
         }
 
         remainingDamage -= barrierToConsume
@@ -148,7 +149,7 @@ export class MitigationCalculator {
           ...effect,
           remainingBarrierBefore: remainingBarrier,
           remainingBarrierAfter: consumeBarrier
-            ? remainingBarrier - barrierToConsume
+            ? Math.max(0, remainingBarrier - barrierToConsume)
             : remainingBarrier
         })
       }
@@ -187,12 +188,17 @@ export class MitigationCalculator {
 
       // 检查时间点是否在技能持续时间内
       if (time >= startTime && time <= endTime) {
+        // 获取当前的剩余盾值（如果有的话）
+        const currentBarrier = this.barrierState.has(assignment.id)
+          ? this.barrierState.get(assignment.id)!
+          : action.barrier
+
         effects.push({
           id: action.id,
           physicReduce: action.physicReduce,
           magicReduce: action.magicReduce,
           barrier: action.barrier,
-          remainingBarrierBefore: this.barrierState.get(assignment.id) ?? action.barrier,
+          remainingBarrierBefore: Math.max(0, currentBarrier),
           startTime,
           endTime,
           actionId: action.id,
