@@ -126,12 +126,14 @@ export default function ActionPanel() {
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-medium truncate">{action.name}</div>
                             <div className="text-[10px] text-muted-foreground">
-                              {action.type === 'barrier' ? (
+                              {action.barrier > 0 && action.physicReduce === 0 && action.magicReduce === 0 ? (
                                 `盾: ${action.barrier}`
-                              ) : action.physicReduce === action.magicReduce ? (
+                              ) : action.barrier === 0 && action.physicReduce === action.magicReduce ? (
                                 `${action.physicReduce}%`
-                              ) : (
+                              ) : action.barrier === 0 ? (
                                 `物${action.physicReduce}% 魔${action.magicReduce}%`
+                              ) : (
+                                `盾: ${action.barrier} + ${action.physicReduce === action.magicReduce ? action.physicReduce : `物${action.physicReduce}/魔${action.magicReduce}`}%`
                               )}
                               {' · '}
                               {action.duration}s

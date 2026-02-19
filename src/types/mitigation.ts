@@ -59,8 +59,6 @@ export interface MitigationAction {
   jobs: Job[]
   /** 互斥技能 ID 列表（与这些技能互斥，同时只能生效一个） */
   uniqueGroup?: number[]
-  /** 减伤类型 */
-  type: MitigationType
   /** 物理减伤百分比（0-100） */
   physicReduce: number
   /** 魔法减伤百分比（0-100） */
@@ -79,8 +77,6 @@ export interface MitigationAction {
 export interface MitigationEffect {
   /** 效果 ID */
   id?: number
-  /** 减伤类型 */
-  type: MitigationType
   /** 物理减伤值 */
   physicReduce: number
   /** 魔法减伤值 */

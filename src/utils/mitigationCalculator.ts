@@ -93,7 +93,7 @@ export class MitigationCalculator {
     // 注意：百分比减伤对特殊类型伤害无效
     if (damageType !== 'special') {
       const percentageEffects = effects.filter(
-        e => e.type === 'target_percentage' || e.type === 'non_target_percentage'
+        e => e.physicReduce > 0 || e.magicReduce > 0
       )
 
       for (const effect of percentageEffects) {
@@ -109,7 +109,7 @@ export class MitigationCalculator {
 
     // 2. 应用盾值减伤（减算）
     // 盾值对所有类型伤害都有效
-    const barrierEffects = effects.filter(e => e.type === 'barrier')
+    const barrierEffects = effects.filter(e => e.barrier > 0)
 
     let remainingDamage = damage
     for (const effect of barrierEffects) {
@@ -189,7 +189,6 @@ export class MitigationCalculator {
       if (time >= startTime && time <= endTime) {
         effects.push({
           id: action.id,
-          type: action.type,
           physicReduce: action.physicReduce,
           magicReduce: action.magicReduce,
           barrier: action.barrier,

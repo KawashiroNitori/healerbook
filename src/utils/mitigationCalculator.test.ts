@@ -15,7 +15,6 @@ describe('MitigationCalculator', () => {
     it('应该正确计算单个百分比减伤', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'non_target_percentage',
           physicReduce: 10,
           magicReduce: 10,
           barrier: 0,
@@ -37,7 +36,6 @@ describe('MitigationCalculator', () => {
     it('应该正确计算多个百分比减伤（乘算）', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'target_percentage',
           physicReduce: 10,
           magicReduce: 10,
           barrier: 0,
@@ -47,7 +45,6 @@ describe('MitigationCalculator', () => {
           job: 'WHM',
         },
         {
-          type: 'non_target_percentage',
           physicReduce: 5,
           magicReduce: 5,
           barrier: 0,
@@ -68,7 +65,6 @@ describe('MitigationCalculator', () => {
     it('应该正确计算盾值减伤', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 1000,
@@ -88,7 +84,6 @@ describe('MitigationCalculator', () => {
     it('应该正确计算百分比减伤和盾值减伤的组合', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'non_target_percentage',
           physicReduce: 10,
           magicReduce: 10,
           barrier: 0,
@@ -98,7 +93,6 @@ describe('MitigationCalculator', () => {
           job: 'WHM',
         },
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 1000,
@@ -119,7 +113,6 @@ describe('MitigationCalculator', () => {
     it('盾值超过伤害时，最终伤害应为 0', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 15000,
@@ -139,7 +132,6 @@ describe('MitigationCalculator', () => {
     it('特殊类型伤害不受百分比减伤影响', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'non_target_percentage',
           physicReduce: 10,
           magicReduce: 10,
           barrier: 0,
@@ -160,7 +152,6 @@ describe('MitigationCalculator', () => {
     it('特殊类型伤害受盾值减伤影响', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 1000,
@@ -181,7 +172,6 @@ describe('MitigationCalculator', () => {
     it('物理和魔法减伤应该分别计算', () => {
       const effects: MitigationEffect[] = [
         {
-          type: 'non_target_percentage',
           physicReduce: 10,
           magicReduce: 5,
           barrier: 0,
@@ -208,7 +198,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
         jobs: ['WHM'],
-        type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
         barrier: 0,
@@ -221,7 +210,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
         jobs: ['SCH'],
-        type: 'barrier',
         physicReduce: 0,
         magicReduce: 0,
         barrier: 500,
@@ -301,7 +289,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
         jobs: ['WHM'],
-        type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
         barrier: 0,
@@ -368,7 +355,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
         jobs: ['WHM'],
-        type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
         barrier: 0,
@@ -427,7 +413,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         iconHD: '/icon_hd.png',
         jobs: ['WHM'],
-        type: 'non_target_percentage',
         physicReduce: 10,
         magicReduce: 10,
         barrier: 0,
@@ -484,7 +469,6 @@ describe('MitigationCalculator', () => {
         name: '野战治疗阵',
         icon: '/icon.png',
         jobs: ['SCH'],
-        type: 'barrier',
         physicReduce: 0,
         magicReduce: 0,
         barrier: 5000,
@@ -499,7 +483,6 @@ describe('MitigationCalculator', () => {
 
       const effects: MitigationEffect[] = [
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 5000,
@@ -528,7 +511,6 @@ describe('MitigationCalculator', () => {
 
       const effects: MitigationEffect[] = [
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 5000,
@@ -556,7 +538,6 @@ describe('MitigationCalculator', () => {
 
       const effects: MitigationEffect[] = [
         {
-          type: 'barrier',
           physicReduce: 0,
           magicReduce: 0,
           barrier: 5000,
@@ -588,7 +569,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         jobs: ['BRD'],
         uniqueGroup: [16889, 16012], // 与策动、防守之桑巴互斥
-        type: 'non_target_percentage',
         physicReduce: 15,
         magicReduce: 15,
         barrier: 0,
@@ -601,7 +581,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         jobs: ['MCH'],
         uniqueGroup: [7405, 16012], // 与行吟、防守之桑巴互斥
-        type: 'non_target_percentage',
         physicReduce: 15,
         magicReduce: 15,
         barrier: 0,
@@ -614,7 +593,6 @@ describe('MitigationCalculator', () => {
         icon: '/icon.png',
         jobs: ['DNC'],
         uniqueGroup: [7405, 16889], // 与行吟、策动互斥
-        type: 'non_target_percentage',
         physicReduce: 15,
         magicReduce: 15,
         barrier: 0,
@@ -662,7 +640,6 @@ describe('MitigationCalculator', () => {
           icon: '/icon.png',
           jobs: ['GNB'],
           // 没有 uniqueGroup，不与任何技能互斥
-          type: 'non_target_percentage',
           physicReduce: 5,
           magicReduce: 10,
           barrier: 0,

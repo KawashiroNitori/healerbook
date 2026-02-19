@@ -138,7 +138,10 @@ export default function PropertyPanel() {
 
                     // 根据伤害类型显示对应的减伤值
                     let displayValue = ''
-                    if (effect.type === 'barrier') {
+                    const hasBarrier = effect.barrier > 0
+                    const hasPercentReduce = effect.physicReduce > 0 || effect.magicReduce > 0
+
+                    if (hasBarrier) {
                       // 使用作用前和作用后的盾值
                       const before = effect.remainingBarrierBefore ?? effect.barrier
                       const after = effect.remainingBarrierAfter ?? effect.barrier
@@ -149,19 +152,29 @@ export default function PropertyPanel() {
                         ? (consumed / event.damage * 100).toFixed(1)
                         : '0.0'
 
-                      displayValue = `${consumed.toLocaleString()} / ${before.toLocaleString()} (${equivalentMitigation}%)`
-                    } else {
+                      displayValue = `盾: ${consumed.toLocaleString()} / ${before.toLocaleString()} (${equivalentMitigation}%)`
+                    }
+
+                    if (hasPercentReduce) {
                       // 根据伤害类型显示对应的减伤百分比
                       const damageType = event.damageType || 'physical'
+                      let percentValue = ''
 
                       if (damageType === 'physical') {
-                        displayValue = `${effect.physicReduce}%`
+                        percentValue = `${effect.physicReduce}%`
                       } else if (damageType === 'magical') {
-                        displayValue = `${effect.magicReduce}%`
+                        percentValue = `${effect.magicReduce}%`
                       } else {
                         // 特殊伤害：显示两者中较小的值
                         const minReduce = Math.min(effect.physicReduce, effect.magicReduce)
-                        displayValue = `${minReduce}%`
+                        percentValue = `${minReduce}%`
+                      }
+
+                      // 如果同时有盾值和百分比减伤，用 + 连接
+                      if (hasBarrier) {
+                        displayValue += ` + ${percentValue}`
+                      } else {
+                        displayValue = percentValue
                       }
                     }
 
@@ -241,15 +254,18 @@ export default function PropertyPanel() {
               <div>
                 <label className="block text-sm font-medium mb-1">效果</label>
                 <div className="text-sm space-y-1">
-                  {action.type === 'barrier' ? (
-                    <div>盾值: {action.barrier}</div>
-                  ) : action.physicReduce === action.magicReduce ? (
-                    <div>减伤: {action.physicReduce}%</div>
-                  ) : (
-                    <>
-                      <div>物理减伤: {action.physicReduce}%</div>
-                      <div>魔法减伤: {action.magicReduce}%</div>
-                    </>
+                  {action.barrier > 0 && (
+                    <div>盾值: {action.barrier.toLocaleString()}</div>
+                  )}
+                  {(action.physicReduce > 0 || action.magicReduce > 0) && (
+                    action.physicReduce === action.magicReduce ? (
+                      <div>减伤: {action.physicReduce}%</div>
+                    ) : (
+                      <>
+                        {action.physicReduce > 0 && <div>物理减伤: {action.physicReduce}%</div>}
+                        {action.magicReduce > 0 && <div>魔法减伤: {action.magicReduce}%</div>}
+                      </>
+                    )
                   )}
                 </div>
               </div>
