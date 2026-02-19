@@ -671,39 +671,47 @@ describe('MitigationCalculator', () => {
       expect(effects.map(e => e.actionId).sort()).toEqual([7405, 16160].sort())
     })
 
-    it('三个互斥技能只保留最后生效的', () => {
+    it('同一技能的多次使用应该互斥', () => {
       const calculator = new MitigationCalculator(actions)
+
+      const sameActionTwice: MitigationAction[] = [
+        {
+          id: 24310,
+          name: '整体论',
+          icon: '/icon.png',
+          jobs: ['SGE'],
+          uniqueGroup: [24310], // 与自己互斥
+          physicReduce: 10,
+          magicReduce: 10,
+          barrier: 17300,
+          duration: 20,
+          cooldown: 120,
+        },
+      ]
 
       const assignments: MitigationAssignment[] = [
         {
           id: 'assign1',
-          actionId: 7405, // 行吟，10秒
+          actionId: 24310, // 整体论1，5秒生效
           damageEventId: 'event1',
-          time: 10,
-          job: 'BRD',
+          time: 5,
+          job: 'SGE',
         },
         {
           id: 'assign2',
-          actionId: 16889, // 策动，15秒
+          actionId: 24310, // 整体论2，8秒生效（更晚）
           damageEventId: 'event1',
-          time: 15,
-          job: 'MCH',
-        },
-        {
-          id: 'assign3',
-          actionId: 16012, // 防守之桑巴，20秒
-          damageEventId: 'event1',
-          time: 20,
-          job: 'DNC',
+          time: 8,
+          job: 'SGE',
         },
       ]
 
-      // 在 22 秒时，三个技能都在持续时间内
-      // 但只保留最后生效的防守之桑巴
-      const effects = calculator.getActiveEffects(22, assignments, actions)
+      // 在 9 秒时，两个整体论都在持续时间内（5-25s 和 8-28s）
+      // 但整体论2更晚生效，应该覆盖整体论1
+      const effects = calculator.getActiveEffects(9, assignments, sameActionTwice)
 
       expect(effects.length).toBe(1)
-      expect(effects[0].actionId).toBe(16012) // 只保留防守之桑巴
+      expect(effects[0].assignmentId).toBe('assign2') // 只保留整体论2
     })
   })
 })

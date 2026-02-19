@@ -152,6 +152,13 @@ export class MitigationCalculator {
             ? Math.max(0, remainingBarrier - barrierToConsume)
             : remainingBarrier
         })
+      } else {
+        // 盾值已经耗尽，但仍然需要添加到应用效果中（显示为 0）
+        appliedEffects.push({
+          ...effect,
+          remainingBarrierBefore: 0,
+          remainingBarrierAfter: 0
+        })
       }
     }
 

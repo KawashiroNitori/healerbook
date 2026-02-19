@@ -345,7 +345,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       description: '恢复自身及周围队员的体力\n<span style="color:#00cc22;">恢复力：</span>100\n<span style="color:#00cc22;">追加效果：</span>为目标附加能够抵御一定伤害的防护罩\n该防护罩能够抵消相当于治疗量360%的伤害\n<span style="color:#00cc22;">持续时间：</span>30秒\n无法与均衡诊断及学者的鼓舞效果共存\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">均衡</span>状态中\n\n<span style="color:#ffff66;">※该技能无法设置到热键栏\n　满足发动条件后，预后变为均衡预后II</span>',
       icon: '/i/003000/003689.png',
       iconHD: '/i/003000/003689_hr1.png',
-      uniqueGroup: [24310, 185, 37013],
+      uniqueGroup: [37034, 185, 37013],
       jobs: ['SGE'],
       physicReduce: 0,
       magicReduce: 0,
