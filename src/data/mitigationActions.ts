@@ -169,7 +169,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       magicReduce: 0,
       barrier: 170000,
       duration: 30,
-      cooldown: 30
+      cooldown: 30,
+      canOverlap: true
     },
     {
       id: 25868,

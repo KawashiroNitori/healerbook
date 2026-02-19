@@ -69,6 +69,8 @@ export interface MitigationAction {
   duration: number
   /** 冷却时间（秒） */
   cooldown: number
+  /** 是否可重叠（同一职业的同一技能是否允许在时间轴上重叠） */
+  canOverlap?: boolean
 }
 
 /**

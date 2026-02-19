@@ -70,10 +70,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const currentAction = actions.find((a) => a.id === actionId)
     if (!currentAction) return false
 
-    // 盾值类技能允许重叠
-    if (currentAction.type === 'barrier') {
-      return false
-    }
+    // 如果技能允许重叠,则不检查
+    if (currentAction.canOverlap) return false
 
     const currentEndTime = newTime + currentAction.cooldown
 
@@ -83,11 +81,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       const otherAction = actions.find((a) => a.id === other.actionId)
       if (!otherAction) return false
-
-      // 如果对方是盾值类技能,也允许重叠
-      if (otherAction.type === 'barrier') {
-        return false
-      }
 
       const otherEndTime = other.time + otherAction.cooldown
 
