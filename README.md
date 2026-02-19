@@ -430,7 +430,7 @@ export function parseDamageEvents(rawEvents: any[]): DamageEvent[] {
 }
 
 export function parseComposition(report: any): Composition {
-  // 解析队伍阵容
+  // 解析小队阵容
 }
 ```
 

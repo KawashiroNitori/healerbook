@@ -120,7 +120,7 @@ export class FFLogsClient {
   }
 
   /**
-   * 获取战斗的队伍阵容
+   * 获取战斗的小队阵容
    */
   async getComposition(reportCode: string, fightId: number) {
     const query = `

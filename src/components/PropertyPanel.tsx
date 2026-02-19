@@ -4,10 +4,9 @@
 
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
-import { MitigationCalculator } from '@/utils/mitigationCalculator'
+import { useDamageCalculation } from '@/hooks/useDamageCalculation'
+import { getIconUrl } from '@/utils/iconUtils'
 import { Trash2 } from 'lucide-react'
-
-const calculator = new MitigationCalculator()
 
 export default function PropertyPanel() {
   const {
@@ -18,7 +17,10 @@ export default function PropertyPanel() {
     removeDamageEvent,
     removeAssignment,
   } = useTimelineStore()
-  const { skills } = useMitigationStore()
+  const { actions } = useMitigationStore()
+
+  // 使用统一的伤害计算 Hook
+  const eventResults = useDamageCalculation(timeline, actions)
 
   if (!timeline) {
     return (
@@ -33,12 +35,9 @@ export default function PropertyPanel() {
     const event = timeline.damageEvents.find((e) => e.id === selectedEventId)
     if (!event) return null
 
-    // 计算该事件的减伤效果
-    const eventAssignments = timeline.mitigationAssignments.filter(
-      (a) => a.damageEventId === event.id
-    )
-    const effects = calculator.getActiveEffects(event.time, eventAssignments, skills)
-    const result = calculator.calculate(event.damage, effects)
+    // 使用预先计算的结果
+    const result = eventResults.get(event.id)
+    if (!result) return null
 
     return (
       <div className="w-80 border-l bg-background flex flex-col h-full">
@@ -54,7 +53,7 @@ export default function PropertyPanel() {
         </div>
 
         {/* Properties */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-custom">
           <div>
             <label className="block text-sm font-medium mb-1">事件名称</label>
             <input
@@ -93,17 +92,17 @@ export default function PropertyPanel() {
           <div>
             <label className="block text-sm font-medium mb-1">伤害类型</label>
             <select
-              value={event.type}
+              value={event.damageType || 'physical'}
               onChange={(e) =>
                 updateDamageEvent(event.id, {
-                  type: e.target.value as 'physical' | 'magical' | 'unique',
+                  damageType: e.target.value as 'physical' | 'magical' | 'special',
                 })
               }
               className="w-full px-3 py-2 border rounded-md text-sm"
             >
               <option value="physical">物理</option>
               <option value="magical">魔法</option>
-              <option value="unique">无属性</option>
+              <option value="special">特殊</option>
             </select>
           </div>
 
@@ -135,17 +134,39 @@ export default function PropertyPanel() {
                 <div className="text-sm font-medium mb-2">已应用技能:</div>
                 <div className="space-y-1">
                   {result.appliedEffects.map((effect, index) => {
-                    const skill = skills.find((s) => s.id === effect.skillId)
+                    const action = actions.find((s) => s.id === effect.actionId)
+
+                    // 根据伤害类型显示对应的减伤值
+                    let displayValue = ''
+                    if (effect.type === 'barrier') {
+                      // 使用作用前和作用后的盾值
+                      const before = effect.remainingBarrierBefore ?? effect.barrier
+                      const after = effect.remainingBarrierAfter ?? effect.barrier
+                      const consumed = before - after
+
+                      // 计算等效减伤百分比
+                      const equivalentMitigation = event.damage > 0
+                        ? (consumed / event.damage * 100).toFixed(1)
+                        : '0.0'
+
+                      displayValue = `${consumed.toLocaleString()} / ${before.toLocaleString()} (${equivalentMitigation}%)`
+                    } else {
+                      // 显示物理和魔法减伤
+                      if (effect.physicReduce === effect.magicReduce) {
+                        displayValue = `${effect.physicReduce}%`
+                      } else {
+                        displayValue = `物理: ${effect.physicReduce}% | 魔法: ${effect.magicReduce}%`
+                      }
+                    }
+
                     return (
                       <div
                         key={index}
-                        className="text-xs p-2 bg-muted rounded flex justify-between"
+                        className="text-xs p-2 bg-muted rounded flex justify-between items-center gap-2"
                       >
-                        <span>{skill?.name || effect.skillId}</span>
-                        <span className="text-muted-foreground">
-                          {effect.type === 'shield'
-                            ? `${effect.value}`
-                            : `${effect.value}%`}
+                        <span className="truncate">{action?.name || effect.actionId}</span>
+                        <span className="text-muted-foreground whitespace-nowrap text-right">
+                          {displayValue}
                         </span>
                       </div>
                     )
@@ -164,7 +185,7 @@ export default function PropertyPanel() {
     const assignment = timeline.mitigationAssignments.find((a) => a.id === selectedAssignmentId)
     if (!assignment) return null
 
-    const skill = skills.find((s) => s.id === assignment.skillId)
+    const action = actions.find((s) => s.id === assignment.actionId)
     const event = timeline.damageEvents.find((e) => e.id === assignment.damageEventId)
 
     return (
@@ -181,14 +202,28 @@ export default function PropertyPanel() {
         </div>
 
         {/* Properties */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {skill && (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-custom">
+          {action && (
             <>
               <div>
                 <label className="block text-sm font-medium mb-1">技能</label>
                 <div className="p-3 border rounded-md">
-                  <div className="font-medium">{skill.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{skill.nameEn}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-muted">
+                      <img
+                        src={getIconUrl(action.icon)}
+                        alt={action.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div className="font-medium">{action.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{action.job}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -199,21 +234,28 @@ export default function PropertyPanel() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">效果</label>
-                <div className="text-sm">
-                  {skill.type === 'shield'
-                    ? `盾值: ${skill.value}`
-                    : `减伤: ${skill.value}%`}
+                <div className="text-sm space-y-1">
+                  {action.type === 'barrier' ? (
+                    <div>盾值: {action.barrier}</div>
+                  ) : action.physicReduce === action.magicReduce ? (
+                    <div>减伤: {action.physicReduce}%</div>
+                  ) : (
+                    <>
+                      <div>物理减伤: {action.physicReduce}%</div>
+                      <div>魔法减伤: {action.magicReduce}%</div>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">持续时间</label>
-                <div className="text-sm">{skill.duration}s</div>
+                <div className="text-sm">{action.duration}s</div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">冷却时间</label>
-                <div className="text-sm">{skill.cooldown}s</div>
+                <div className="text-sm">{action.cooldown}s</div>
               </div>
             </>
           )}

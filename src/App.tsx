@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import EditorPage from './pages/EditorPage'
+import { Toaster } from '@/components/ui/sonner'
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/editor/:timelineId" element={<EditorPage />} />
       </Routes>
+      <Toaster />
     </BrowserRouter>
   )
 }

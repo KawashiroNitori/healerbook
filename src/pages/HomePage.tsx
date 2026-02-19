@@ -13,12 +13,16 @@ import {
   type TimelineMetadata,
 } from '@/utils/timelineStorage'
 import { format } from 'date-fns'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import { toast } from 'sonner'
 
 export default function HomePage() {
   const navigate = useNavigate()
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [timelines, setTimelines] = useState<TimelineMetadata[]>([])
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [timelineToDelete, setTimelineToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     loadTimelines()
@@ -38,10 +42,8 @@ export default function HomePage() {
   }
 
   const handleDeleteTimeline = (id: string) => {
-    if (confirm('确定要删除这个时间轴吗?')) {
-      deleteTimeline(id)
-      loadTimelines()
-    }
+    setTimelineToDelete(id)
+    setDeleteConfirmOpen(true)
   }
 
   return (
@@ -140,6 +142,23 @@ export default function HomePage() {
           onImported={loadTimelines}
         />
       )}
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="删除时间轴"
+        description="确定要删除这个时间轴吗？"
+        onConfirm={() => {
+          if (timelineToDelete) {
+            deleteTimeline(timelineToDelete)
+            loadTimelines()
+            setTimelineToDelete(null)
+            toast.success('时间轴已删除')
+          }
+          setDeleteConfirmOpen(false)
+        }}
+      />
     </div>
   )
 }
@@ -162,7 +181,7 @@ function CreateDialog({
     e.preventDefault()
 
     if (!name.trim()) {
-      alert('请输入时间轴名称')
+      toast.error('请输入时间轴名称')
       return
     }
 

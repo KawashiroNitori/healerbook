@@ -2,7 +2,14 @@
  * 时间轴类型定义
  */
 
-import type { Job, MitigationSkill } from './mitigation'
+import type { Job, MitigationAction } from './mitigation'
+
+export type { Job } from './mitigation'
+
+/**
+ * 最大队员数量
+ */
+export const MAX_PARTY_SIZE = 8
 
 /**
  * 时间轴
@@ -14,12 +21,16 @@ export interface Timeline {
   name: string
   /** 副本信息 */
   encounter: Encounter
-  /** 队伍阵容 */
+  /** 小队阵容 */
   composition: Composition
   /** 阶段列表 */
   phases: Phase[]
-  /** 减伤规划 */
-  mitigationPlan: MitigationPlan
+  /** 伤害事件列表（扁平化，便于访问） */
+  damageEvents: DamageEvent[]
+  /** 减伤分配列表（扁平化，便于访问） */
+  mitigationAssignments: MitigationAssignment[]
+  /** 减伤规划（已废弃，保留用于向后兼容） */
+  mitigationPlan?: MitigationPlan
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
@@ -56,8 +67,10 @@ export interface DamageEvent {
   time: number
   /** 原始伤害 */
   damage: number
-  /** 伤害类型 */
+  /** 攻击类型 */
   type: 'aoe' | 'tankbuster' | 'raidwide'
+  /** 伤害类型 */
+  damageType: 'physical' | 'magical' | 'special'
   /** 所属阶段 ID */
   phaseId: string
 }
@@ -77,7 +90,7 @@ export interface Phase {
 }
 
 /**
- * 队伍阵容
+ * 小队阵容
  */
 export interface Composition {
   /** 坦克职业列表 */
@@ -103,7 +116,7 @@ export interface MitigationAssignment {
   /** 分配 ID */
   id: string
   /** 技能 ID */
-  skillId: string
+  actionId: number
   /** 对应的伤害事件 ID */
   damageEventId: string
   /** 使用时间（秒） */

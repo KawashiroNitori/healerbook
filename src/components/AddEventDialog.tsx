@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { X } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface AddEventDialogProps {
   onClose: () => void
@@ -15,13 +16,13 @@ export default function AddEventDialog({ onClose }: AddEventDialogProps) {
   const [name, setName] = useState('')
   const [time, setTime] = useState(0)
   const [damage, setDamage] = useState(100000)
-  const [type, setType] = useState<'physical' | 'magical' | 'unique'>('magical')
+  const [type, setType] = useState<'physical' | 'magical' | 'special'>('magical')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!name.trim()) {
-      alert('请输入事件名称')
+      toast.error('请输入事件名称')
       return
     }
 
@@ -34,6 +35,7 @@ export default function AddEventDialog({ onClose }: AddEventDialogProps) {
       phaseId: null,
     })
 
+    toast.success('事件已添加')
     onClose()
   }
 
@@ -93,12 +95,12 @@ export default function AddEventDialog({ onClose }: AddEventDialogProps) {
               <label className="block text-sm font-medium mb-1">伤害类型</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value as 'physical' | 'magical' | 'unique')}
+                onChange={(e) => setType(e.target.value as 'physical' | 'magical' | 'special')}
                 className="w-full px-3 py-2 border rounded-md"
               >
                 <option value="physical">物理</option>
                 <option value="magical">魔法</option>
-                <option value="unique">无属性</option>
+                <option value="special">特殊</option>
               </select>
             </div>
 

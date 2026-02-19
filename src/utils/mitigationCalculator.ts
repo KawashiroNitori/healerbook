@@ -6,9 +6,14 @@
 import type {
   MitigationType,
   MitigationEffect,
-  MitigationSkill,
+  MitigationAction,
 } from '@/types/mitigation'
 import type { MitigationAssignment } from '@/types/timeline'
+
+/**
+ * 伤害类型
+ */
+export type DamageType = 'physical' | 'magical' | 'special'
 
 /**
  * 计算结果
@@ -39,9 +44,9 @@ export interface CooldownValidationResult {
  */
 export interface CooldownError {
   /** 技能 ID */
-  skillId: string
+  actionId: number
   /** 技能名称 */
-  skillName: string
+  actionName: string
   /** 冲突的分配 ID 列表 */
   conflictingAssignments: string[]
   /** 错误消息 */
@@ -52,30 +57,102 @@ export interface CooldownError {
  * 减伤计算器
  */
 export class MitigationCalculator {
+  /** 盾值状态跟踪（assignmentId -> 剩余盾值） */
+  private barrierState: Map<string, number> = new Map()
+
+  constructor(private actions: MitigationAction[]) {}
+
+  /**
+   * 重置盾值状态
+   */
+  resetBarrierState() {
+    this.barrierState.clear()
+  }
+
   /**
    * 计算减伤后的最终伤害
    * 公式: 最终伤害 = 原始伤害 × (1-减伤1%) × (1-减伤2%) × ... - 盾值
+   *
+   * @param originalDamage 原始伤害
+   * @param effects 减伤效果列表
+   * @param damageType 伤害类型（物理/魔法/特殊）
+   * @param consumeBarrier 是否消耗盾值（默认 true）
    */
-  calculate(originalDamage: number, effects: MitigationEffect[]): CalculationResult {
+  calculate(
+    originalDamage: number,
+    effects: MitigationEffect[],
+    damageType: DamageType = 'physical',
+    consumeBarrier: boolean = true
+  ): CalculationResult {
     let damage = originalDamage
     const appliedEffects: MitigationEffect[] = []
 
     // 1. 应用所有百分比减伤（乘算）
-    const percentageEffects = effects.filter(
-      e => e.type === 'target_percentage' || e.type === 'non_target_percentage'
-    )
+    // 注意：百分比减伤对特殊类型伤害无效
+    if (damageType !== 'special') {
+      const percentageEffects = effects.filter(
+        e => e.type === 'target_percentage' || e.type === 'non_target_percentage'
+      )
 
-    for (const effect of percentageEffects) {
-      damage *= 1 - effect.value / 100
-      appliedEffects.push(effect)
+      for (const effect of percentageEffects) {
+        // 根据伤害类型选择对应的减伤值
+        const reduceValue = damageType === 'physical' ? effect.physicReduce : effect.magicReduce
+
+        if (reduceValue > 0) {
+          damage *= 1 - reduceValue / 100
+          appliedEffects.push(effect)
+        }
+      }
     }
 
     // 2. 应用盾值减伤（减算）
-    const shieldEffects = effects.filter(e => e.type === 'shield')
-    const totalShield = shieldEffects.reduce((sum, e) => sum + e.value, 0)
-    damage = Math.max(0, damage - totalShield)
+    // 盾值对所有类型伤害都有效
+    const barrierEffects = effects.filter(e => e.type === 'barrier')
 
-    appliedEffects.push(...shieldEffects)
+    let remainingDamage = damage
+    for (const effect of barrierEffects) {
+      if (remainingDamage <= 0) break
+
+      // 获取或初始化盾值剩余量
+      const assignmentId = effect.assignmentId
+      if (!assignmentId) {
+        // 如果没有 assignmentId，使用原始盾值（向后兼容）
+        const barrierToUse = Math.min(effect.barrier, remainingDamage)
+        remainingDamage -= barrierToUse
+        appliedEffects.push(effect)
+        continue
+      }
+
+      // 从状态中获取剩余盾值，如果不存在则初始化
+      if (!this.barrierState.has(assignmentId)) {
+        this.barrierState.set(assignmentId, effect.barrier)
+      }
+
+      const remainingBarrier = this.barrierState.get(assignmentId)!
+
+      if (remainingBarrier > 0) {
+        // 计算本次消耗的盾值
+        const barrierToConsume = Math.min(remainingBarrier, remainingDamage)
+
+        if (consumeBarrier) {
+          // 更新剩余盾值
+          this.barrierState.set(assignmentId, remainingBarrier - barrierToConsume)
+        }
+
+        remainingDamage -= barrierToConsume
+
+        // 添加到应用效果中，保存消耗前和消耗后的盾值
+        appliedEffects.push({
+          ...effect,
+          remainingBarrierBefore: remainingBarrier,
+          remainingBarrierAfter: consumeBarrier
+            ? remainingBarrier - barrierToConsume
+            : remainingBarrier
+        })
+      }
+    }
+
+    damage = Math.max(0, remainingDamage)
 
     const finalDamage = Math.round(damage)
     const mitigationPercentage =
@@ -95,26 +172,30 @@ export class MitigationCalculator {
   getActiveEffects(
     time: number,
     assignments: MitigationAssignment[],
-    skills: MitigationSkill[]
+    actions: MitigationAction[]
   ): MitigationEffect[] {
     const effects: MitigationEffect[] = []
 
     for (const assignment of assignments) {
-      const skill = skills.find(s => s.id === assignment.skillId)
-      if (!skill) continue
+      const action = actions.find(s => s.id === assignment.actionId)
+      if (!action) continue
 
       const startTime = assignment.time
-      const endTime = startTime + skill.duration
+      const endTime = startTime + action.duration
 
       // 检查时间点是否在技能持续时间内
       if (time >= startTime && time <= endTime) {
         effects.push({
-          type: skill.type,
-          value: skill.value,
+          type: action.type,
+          physicReduce: action.physicReduce,
+          magicReduce: action.magicReduce,
+          barrier: action.barrier,
+          remainingBarrier: this.barrierState.get(assignment.id) ?? action.barrier,
           startTime,
           endTime,
-          skillId: skill.id,
+          actionId: action.id,
           job: assignment.job,
+          assignmentId: assignment.id,
         })
       }
     }
@@ -127,25 +208,25 @@ export class MitigationCalculator {
    */
   validateCooldown(
     assignments: MitigationAssignment[],
-    skills: MitigationSkill[]
+    actions: MitigationAction[]
   ): CooldownValidationResult {
     const errors: CooldownError[] = []
 
     // 按技能分组
-    const assignmentsBySkill = new Map<string, MitigationAssignment[]>()
+    const assignmentsByAction = new Map<number, MitigationAssignment[]>()
     for (const assignment of assignments) {
-      const list = assignmentsBySkill.get(assignment.skillId) || []
+      const list = assignmentsByAction.get(assignment.actionId) || []
       list.push(assignment)
-      assignmentsBySkill.set(assignment.skillId, list)
+      assignmentsByAction.set(assignment.actionId, list)
     }
 
     // 检查每个技能的 CD
-    for (const [skillId, skillAssignments] of assignmentsBySkill) {
-      const skill = skills.find(s => s.id === skillId)
-      if (!skill) continue
+    for (const [actionId, actionAssignments] of assignmentsByAction) {
+      const action = actions.find(s => s.id === actionId)
+      if (!action) continue
 
       // 按时间排序
-      const sorted = [...skillAssignments].sort((a, b) => a.time - b.time)
+      const sorted = [...actionAssignments].sort((a, b) => a.time - b.time)
 
       // 检查相邻使用之间的时间间隔
       for (let i = 1; i < sorted.length; i++) {
@@ -153,12 +234,12 @@ export class MitigationCalculator {
         const curr = sorted[i]
         const timeDiff = curr.time - prev.time
 
-        if (timeDiff < skill.cooldown) {
+        if (timeDiff < action.cooldown) {
           errors.push({
-            skillId: skill.id,
-            skillName: skill.name,
+            actionId: action.id,
+            actionName: action.name,
             conflictingAssignments: [prev.id, curr.id],
-            message: `${skill.name} CD 冲突: ${prev.time}s 和 ${curr.time}s 之间只有 ${timeDiff}s，需要 ${skill.cooldown}s CD`,
+            message: `${action.name} CD 冲突: ${prev.time}s 和 ${curr.time}s 之间只有 ${timeDiff}s，需要 ${action.cooldown}s CD`,
           })
         }
       }
@@ -174,13 +255,13 @@ export class MitigationCalculator {
    * 计算多个时间点的伤害
    */
   calculateMultiple(
-    damageEvents: Array<{ time: number; damage: number }>,
+    damageEvents: Array<{ time: number; damage: number; damageType?: DamageType }>,
     assignments: MitigationAssignment[],
-    skills: MitigationSkill[]
+    actions: MitigationAction[]
   ): Array<CalculationResult & { time: number }> {
     return damageEvents.map(event => {
-      const effects = this.getActiveEffects(event.time, assignments, skills)
-      const result = this.calculate(event.damage, effects)
+      const effects = this.getActiveEffects(event.time, assignments, actions)
+      const result = this.calculate(event.damage, effects, event.damageType || 'physical')
       return {
         ...result,
         time: event.time,
@@ -191,29 +272,29 @@ export class MitigationCalculator {
   /**
    * 检查技能是否可以在指定时间使用
    */
-  canUseSkillAt(
-    skillId: string,
+  canUseActionAt(
+    actionId: number,
     time: number,
     assignments: MitigationAssignment[],
-    skills: MitigationSkill[]
+    actions: MitigationAction[]
   ): { canUse: boolean; reason?: string } {
-    const skill = skills.find(s => s.id === skillId)
-    if (!skill) {
+    const action = actions.find(s => s.id === actionId)
+    if (!action) {
       return { canUse: false, reason: '技能不存在' }
     }
 
     // 查找该技能的所有使用记录
-    const skillAssignments = assignments
-      .filter(a => a.skillId === skillId)
+    const actionAssignments = assignments
+      .filter(a => a.actionId === actionId)
       .sort((a, b) => a.time - b.time)
 
     // 检查是否有 CD 冲突
-    for (const assignment of skillAssignments) {
+    for (const assignment of actionAssignments) {
       const timeDiff = Math.abs(time - assignment.time)
-      if (timeDiff < skill.cooldown && timeDiff > 0) {
+      if (timeDiff < action.cooldown && timeDiff > 0) {
         return {
           canUse: false,
-          reason: `CD 未就绪，需要等待 ${skill.cooldown - timeDiff}s`,
+          reason: `CD 未就绪，需要等待 ${action.cooldown - timeDiff}s`,
         }
       }
     }
@@ -225,24 +306,24 @@ export class MitigationCalculator {
    * 获取技能下次可用时间
    */
   getNextAvailableTime(
-    skillId: string,
+    actionId: number,
     currentTime: number,
     assignments: MitigationAssignment[],
-    skills: MitigationSkill[]
+    actions: MitigationAction[]
   ): number {
-    const skill = skills.find(s => s.id === skillId)
-    if (!skill) return currentTime
+    const action = actions.find(s => s.id === actionId)
+    if (!action) return currentTime
 
     // 查找该技能在当前时间之前的最后一次使用
     const lastUse = assignments
-      .filter(a => a.skillId === skillId && a.time <= currentTime)
+      .filter(a => a.actionId === actionId && a.time <= currentTime)
       .sort((a, b) => b.time - a.time)[0]
 
     if (!lastUse) {
       return currentTime // 从未使用过，立即可用
     }
 
-    const nextAvailable = lastUse.time + skill.cooldown
+    const nextAvailable = lastUse.time + action.cooldown
     return Math.max(currentTime, nextAvailable)
   }
 }
@@ -250,6 +331,6 @@ export class MitigationCalculator {
 /**
  * 创建减伤计算器实例
  */
-export function createMitigationCalculator(): MitigationCalculator {
-  return new MitigationCalculator()
+export function createMitigationCalculator(actions: MitigationAction[]): MitigationCalculator {
+  return new MitigationCalculator(actions)
 }

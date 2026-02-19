@@ -3,8 +3,12 @@
  */
 
 import { create } from 'zustand'
-import type { Timeline, DamageEvent, MitigationAssignment } from '@/types/timeline'
-import type { MitigationSkill } from '@/types/mitigation'
+import type { Timeline, DamageEvent, MitigationAssignment, Composition } from '@/types/timeline'
+import type { MitigationAction } from '@/types/mitigation'
+import { saveTimeline } from '@/utils/timelineStorage'
+
+// 自动保存延迟时间 (毫秒)
+const AUTO_SAVE_DELAY = 2000
 
 interface TimelineState {
   /** 当前时间轴 */
@@ -19,6 +23,8 @@ interface TimelineState {
   isPlaying: boolean
   /** 缩放级别 (像素/秒) */
   zoomLevel: number
+  /** 自动保存定时器 */
+  autoSaveTimer: NodeJS.Timeout | null
 
   // Actions
   /** 设置时间轴 */
@@ -33,6 +39,8 @@ interface TimelineState {
   togglePlay: () => void
   /** 设置缩放级别 */
   setZoomLevel: (level: number) => void
+  /** 更新阵容 */
+  updateComposition: (composition: Composition) => void
   /** 添加伤害事件 */
   addDamageEvent: (event: DamageEvent) => void
   /** 更新伤害事件 */
@@ -45,6 +53,8 @@ interface TimelineState {
   updateAssignment: (assignmentId: string, updates: Partial<MitigationAssignment>) => void
   /** 删除减伤分配 */
   removeAssignment: (assignmentId: string) => void
+  /** 触发自动保存 */
+  triggerAutoSave: () => void
   /** 重置状态 */
   reset: () => void
 }
@@ -56,9 +66,10 @@ const initialState = {
   currentTime: 0,
   isPlaying: false,
   zoomLevel: 50, // 50 像素/秒
+  autoSaveTimer: null,
 }
 
-export const useTimelineStore = create<TimelineState>((set) => ({
+export const useTimelineStore = create<TimelineState>((set, get) => ({
   ...initialState,
 
   setTimeline: (timeline) =>
@@ -97,7 +108,35 @@ export const useTimelineStore = create<TimelineState>((set) => ({
       zoomLevel: Math.max(10, Math.min(200, level)),
     }),
 
-  addDamageEvent: (event) =>
+  updateComposition: (composition) => {
+    set((state) => {
+      if (!state.timeline) return state
+
+      // 获取新阵容中的所有职业
+      const newJobs = [
+        ...(composition.tanks || []),
+        ...(composition.healers || []),
+        ...(composition.dps || []),
+      ]
+
+      // 过滤掉不在新阵容中的职业的技能分配
+      const filteredAssignments = state.timeline.mitigationAssignments.filter((assignment) =>
+        newJobs.includes(assignment.job)
+      )
+
+      return {
+        timeline: {
+          ...state.timeline,
+          composition,
+          mitigationAssignments: filteredAssignments,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    })
+    get().triggerAutoSave()
+  },
+
+  addDamageEvent: (event) => {
     set((state) => {
       if (!state.timeline) return state
 
@@ -107,9 +146,11 @@ export const useTimelineStore = create<TimelineState>((set) => ({
           damageEvents: [...state.timeline.damageEvents, event],
         },
       }
-    }),
+    })
+    get().triggerAutoSave()
+  },
 
-  updateDamageEvent: (eventId, updates) =>
+  updateDamageEvent: (eventId, updates) => {
     set((state) => {
       if (!state.timeline) return state
 
@@ -121,9 +162,11 @@ export const useTimelineStore = create<TimelineState>((set) => ({
           ),
         },
       }
-    }),
+    })
+    get().triggerAutoSave()
+  },
 
-  removeDamageEvent: (eventId) =>
+  removeDamageEvent: (eventId) => {
     set((state) => {
       if (!state.timeline) return state
 
@@ -137,9 +180,11 @@ export const useTimelineStore = create<TimelineState>((set) => ({
         },
         selectedEventId: state.selectedEventId === eventId ? null : state.selectedEventId,
       }
-    }),
+    })
+    get().triggerAutoSave()
+  },
 
-  addAssignment: (assignment) =>
+  addAssignment: (assignment) => {
     set((state) => {
       if (!state.timeline) return state
 
@@ -149,9 +194,11 @@ export const useTimelineStore = create<TimelineState>((set) => ({
           mitigationAssignments: [...state.timeline.mitigationAssignments, assignment],
         },
       }
-    }),
+    })
+    get().triggerAutoSave()
+  },
 
-  updateAssignment: (assignmentId, updates) =>
+  updateAssignment: (assignmentId, updates) => {
     set((state) => {
       if (!state.timeline) return state
 
@@ -163,9 +210,11 @@ export const useTimelineStore = create<TimelineState>((set) => ({
           ),
         },
       }
-    }),
+    })
+    get().triggerAutoSave()
+  },
 
-  removeAssignment: (assignmentId) =>
+  removeAssignment: (assignmentId) => {
     set((state) => {
       if (!state.timeline) return state
 
@@ -179,7 +228,35 @@ export const useTimelineStore = create<TimelineState>((set) => ({
         selectedAssignmentId:
           state.selectedAssignmentId === assignmentId ? null : state.selectedAssignmentId,
       }
-    }),
+    })
+    get().triggerAutoSave()
+  },
 
-  reset: () => set(initialState),
+  triggerAutoSave: () => {
+    const state = get()
+
+    // 清除之前的定时器
+    if (state.autoSaveTimer) {
+      clearTimeout(state.autoSaveTimer)
+    }
+
+    // 设置新的定时器
+    const timer = setTimeout(() => {
+      const currentState = get()
+      if (currentState.timeline) {
+        saveTimeline(currentState.timeline)
+        console.log('自动保存完成')
+      }
+    }, AUTO_SAVE_DELAY)
+
+    set({ autoSaveTimer: timer })
+  },
+
+  reset: () => {
+    const state = get()
+    if (state.autoSaveTimer) {
+      clearTimeout(state.autoSaveTimer)
+    }
+    set(initialState)
+  },
 }))

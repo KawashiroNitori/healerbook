@@ -6,9 +6,9 @@
  * 减伤类型
  * - target_percentage: 目标百分比减伤（降低 boss 造成的伤害）
  * - non_target_percentage: 非目标百分比减伤（降低玩家受到的伤害）
- * - shield: 盾值减伤（临时生命值）
+ * - barrier: 盾值减伤（临时生命值）
  */
-export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'shield'
+export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'barrier'
 
 /**
  * FF14 职业
@@ -44,29 +44,31 @@ export type Job =
 /**
  * 减伤技能
  */
-export interface MitigationSkill {
+export interface MitigationAction {
   /** 技能 ID */
-  id: string
+  id: number
   /** 技能名称（中文） */
   name: string
-  /** 技能名称（英文） */
-  nameEn: string
+  /** 技能描述 */
+  description?: string
   /** 技能图标 URL */
   icon: string
+  /** 技能高清图标 URL */
+  iconHD?: string
   /** 可使用的职业 */
   job: Job
   /** 减伤类型 */
   type: MitigationType
-  /** 减伤值（百分比或盾值） */
-  value: number
+  /** 物理减伤百分比（0-100） */
+  physicReduce: number
+  /** 魔法减伤百分比（0-100） */
+  magicReduce: number
+  /** 盾值 */
+  barrier: number
   /** 持续时间（秒） */
   duration: number
   /** 冷却时间（秒） */
   cooldown: number
-  /** 技能描述 */
-  description: string
-  /** 是否为团队减伤 */
-  isPartyWide: boolean
 }
 
 /**
@@ -75,14 +77,24 @@ export interface MitigationSkill {
 export interface MitigationEffect {
   /** 减伤类型 */
   type: MitigationType
-  /** 减伤值 */
-  value: number
+  /** 物理减伤值 */
+  physicReduce: number
+  /** 魔法减伤值 */
+  magicReduce: number
+  /** 盾值（初始值） */
+  barrier: number
+  /** 作用前的剩余盾值 */
+  remainingBarrierBefore?: number
+  /** 作用后的剩余盾值 */
+  remainingBarrierAfter?: number
   /** 开始时间 */
   startTime: number
   /** 结束时间 */
   endTime: number
   /** 关联的技能 ID */
-  skillId: string
+  actionId: number
   /** 使用者职业 */
   job: Job
+  /** 关联的分配 ID（用于跟踪盾值消耗） */
+  assignmentId?: string
 }

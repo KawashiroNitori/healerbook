@@ -9,7 +9,19 @@
       "Bash(npx tailwindcss:*)",
       "Bash(pnpm exec tsc:*)",
       "WebFetch(domain:ff14.huijiwiki.com)",
-      "WebFetch(domain:na.finalfantasyxiv.com)"
+      "WebFetch(domain:na.finalfantasyxiv.com)",
+      "Bash(pnpm test:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(pnpm build:*)",
+      "Bash(src/data/mitigationActions.ts:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:cafemaker.wakingsands.com)",
+      "Bash(curl:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(git add:*)"
     ]
   }
 }

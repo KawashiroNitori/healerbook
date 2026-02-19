@@ -1,95 +1,144 @@
-/**
- * 技能面板组件
- */
-
 import { useEffect } from 'react'
 import { useMitigationStore } from '@/store/mitigationStore'
-import type { Job } from '@/types/timeline'
+import { useTimelineStore } from '@/store/timelineStore'
+import CompositionDialog from './CompositionDialog'
+import JobIcon from './JobIcon'
+import { Button } from '@/components/ui/button'
+import { X } from 'lucide-react'
+import type { Composition, Job } from '@/types/timeline'
+import { MAX_PARTY_SIZE } from '@/types/timeline'
+import { getIconUrl } from '@/utils/iconUtils'
+import { sortJobsByOrder, getJobName } from '@/data/jobs'
 
-export default function SkillPanel() {
-  const { skills, loadSkills, filters, setJobFilter, getFilteredSkills } = useMitigationStore()
+export default function ActionPanel() {
+  const { actions, loadActions } = useMitigationStore()
+  const { timeline, updateComposition } = useTimelineStore()
 
   useEffect(() => {
-    if (skills.length === 0) {
-      loadSkills()
+    if (actions.length === 0) {
+      loadActions()
     }
-  }, [skills.length, loadSkills])
+  }, [actions.length, loadActions])
 
-  const filteredSkills = getFilteredSkills()
+  if (!timeline) {
+    return (
+      <div className="w-64 border-r bg-background flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">未加载时间轴</p>
+      </div>
+    )
+  }
 
-  const jobGroups: Job[] = ['WHM', 'SCH', 'AST', 'SGE', 'PLD', 'WAR', 'DRK', 'GNB']
+  const composition = timeline.composition || { tanks: [], healers: [], dps: [] }
 
-  const handleJobToggle = (job: Job) => {
-    const newJobs = filters.jobs.includes(job)
-      ? filters.jobs.filter((j) => j !== job)
-      : [...filters.jobs, job]
-    setJobFilter(newJobs)
+  const allMembers = sortJobsByOrder([
+    ...(composition.tanks || []),
+    ...(composition.healers || []),
+    ...(composition.dps || []),
+  ])
+
+  const canAddMore = allMembers.length < MAX_PARTY_SIZE
+
+  const handleSaveComposition = (newComposition: Composition) => {
+    updateComposition(newComposition)
+  }
+
+  const handleRemoveMember = (job: Job) => {
+    const newComposition = { ...composition }
+    newComposition.tanks = newComposition.tanks.filter((j) => j !== job)
+    newComposition.healers = newComposition.healers.filter((j) => j !== job)
+    newComposition.dps = newComposition.dps.filter((j) => j !== job)
+    updateComposition(newComposition)
   }
 
   return (
     <div className="w-64 border-r bg-background flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b">
-        <h2 className="font-semibold">减伤技能</h2>
-        <p className="text-xs text-muted-foreground mt-1">拖拽到时间轴分配</p>
-      </div>
-
-      {/* Filters */}
-      <div className="p-4 border-b">
-        <div className="text-sm font-medium mb-2">职业筛选</div>
-        <div className="flex flex-wrap gap-1">
-          {jobGroups.map((job) => (
-            <button
-              key={job}
-              onClick={() => handleJobToggle(job)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                filters.jobs.includes(job)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              {job}
-            </button>
-          ))}
+      <div className="p-4 border-b space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">小队阵容</h2>
+          <span className="text-sm text-muted-foreground">
+            {allMembers.length}/{MAX_PARTY_SIZE}
+          </span>
         </div>
+        <CompositionDialog
+          composition={composition}
+          onSave={handleSaveComposition}
+          disabled={!canAddMore}
+        />
       </div>
 
-      {/* Skills List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {filteredSkills.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            {filters.jobs.length > 0 ? '无匹配技能' : '选择职业查看技能'}
-          </p>
+      {/* Members and Skills List */}
+      <div className="flex-1 overflow-y-auto scrollbar-custom">
+        {allMembers.length === 0 ? (
+          <div className="p-4 text-center">
+            <p className="text-sm text-muted-foreground">点击"新增队员"添加队员</p>
+          </div>
         ) : (
-          <div className="space-y-2">
-            {filteredSkills.map((skill) => (
-              <div
-                key={skill.id}
-                className="p-3 border rounded-lg hover:border-primary cursor-move transition-colors"
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('skillId', skill.id)
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  {/* Icon placeholder */}
-                  <div className="w-8 h-8 bg-muted rounded flex-shrink-0" />
+          <div className="divide-y">
+            {allMembers.map((job, index) => {
+              // 获取该职业的所有减伤技能
+              const jobActions = actions.filter((action) => action.job === job)
 
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{skill.name}</div>
-                    <div className="text-xs text-muted-foreground">{skill.job}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {skill.type === 'shield'
-                        ? `盾值: ${skill.value}`
-                        : `减伤: ${skill.value}%`}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      CD: {skill.cooldown}s | 持续: {skill.duration}s
-                    </div>
+              return (
+                <div key={`${job}-${index}`} className="p-3 relative">
+                  {/* 职业名称和删除按钮 */}
+                  <div className="font-medium text-sm mb-2 flex items-center gap-2">
+                    <JobIcon job={job} size="md" />
+                    {getJobName(job)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-auto"
+                      onClick={() => handleRemoveMember(job)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+
+                  {/* 技能列表 */}
+                  <div className="space-y-1.5 ml-4">
+                    {jobActions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">无可用技能</p>
+                    ) : (
+                      jobActions.map((action) => (
+                        <div
+                          key={action.id}
+                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors"
+                        >
+                          {/* 技能图标 */}
+                          <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted">
+                            <img
+                              src={getIconUrl(action.icon)}
+                              alt={action.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          </div>
+
+                          {/* 技能信息 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium truncate">{action.name}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {action.type === 'barrier' ? (
+                                `盾: ${action.barrier}`
+                              ) : action.physicReduce === action.magicReduce ? (
+                                `${action.physicReduce}%`
+                              ) : (
+                                `物${action.physicReduce}% 魔${action.magicReduce}%`
+                              )}
+                              {' · '}
+                              {action.duration}s
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -41,10 +41,10 @@ export async function importTimelineFromFFLogs(
     const damageEvents = parseDamageEvents(rawEvents, 'phase_1')
     console.log('伤害事件数量:', damageEvents.length)
 
-    // 6. 获取队伍阵容
+    // 6. 获取小队阵容
     const compositionData = await client.getComposition(reportCode, fightId)
     const composition = parseComposition(compositionData.masterData.actors)
-    console.log('队伍阵容:', composition)
+    console.log('小队阵容:', composition)
 
     return {
       report,

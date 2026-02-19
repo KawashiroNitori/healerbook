@@ -90,7 +90,7 @@ export interface FFLogsActor {
 }
 
 /**
- * FFLogs 队伍阵容
+ * FFLogs 小队阵容
  */
 export interface FFLogsComposition {
   /** 玩家列表 */
@@ -125,7 +125,7 @@ export interface FFLogsRanking {
   startTime: number
   /** 持续时间（毫秒） */
   duration: number
-  /** 队伍阵容 */
+  /** 小队阵容 */
   composition: FFLogsComposition
   /** 治疗合计伤害 */
   totalHealerDamage: number

@@ -3,15 +3,15 @@
  */
 
 import { create } from 'zustand'
-import type { MitigationSkill } from '@/types/mitigation'
-import { getAllMitigationSkills, getSkillsByJob } from '@/api/mitigationData'
+import type { MitigationAction } from '@/types/mitigation'
+import { getAllMitigationActions, getActionsByJob } from '@/api/mitigationData'
 import type { Job } from '@/types/timeline'
 
 interface MitigationState {
   /** 所有减伤技能 */
-  skills: MitigationSkill[]
+  actions: MitigationAction[]
   /** 选中的技能 ID */
-  selectedSkillId: string | null
+  selectedActionId: string | null
   /** 技能过滤器 */
   filters: {
     jobs: Job[]
@@ -20,15 +20,15 @@ interface MitigationState {
 
   // Actions
   /** 初始化技能数据 */
-  loadSkills: () => void
+  loadActions: () => void
   /** 选择技能 */
-  selectSkill: (skillId: string | null) => void
+  selectAction: (actionId: string | null) => void
   /** 设置职业过滤器 */
   setJobFilter: (jobs: Job[]) => void
   /** 设置团队减伤过滤器 */
   setPartyWideFilter: (isPartyWide: boolean | null) => void
   /** 获取过滤后的技能 */
-  getFilteredSkills: () => MitigationSkill[]
+  getFilteredActions: () => MitigationAction[]
   /** 重置过滤器 */
   resetFilters: () => void
 }
@@ -39,18 +39,18 @@ const initialFilters = {
 }
 
 export const useMitigationStore = create<MitigationState>((set, get) => ({
-  skills: [],
-  selectedSkillId: null,
+  actions: [],
+  selectedActionId: null,
   filters: initialFilters,
 
-  loadSkills: () => {
-    const skills = getAllMitigationSkills()
-    set({ skills })
+  loadActions: () => {
+    const actions = getAllMitigationActions()
+    set({ actions })
   },
 
-  selectSkill: (skillId) =>
+  selectAction: (actionId) =>
     set({
-      selectedSkillId: skillId,
+      selectedActionId: actionId,
     }),
 
   setJobFilter: (jobs) =>
@@ -69,19 +69,17 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
       },
     })),
 
-  getFilteredSkills: () => {
-    const { skills, filters } = get()
-    let filtered = skills
+  getFilteredActions: () => {
+    const { actions, filters } = get()
+    let filtered = actions
 
     // 职业过滤
     if (filters.jobs.length > 0) {
-      filtered = filtered.filter((skill) => filters.jobs.includes(skill.job))
+      filtered = filtered.filter((action) => filters.jobs.includes(action.job))
     }
 
-    // 团队减伤过滤
-    if (filters.isPartyWide !== null) {
-      filtered = filtered.filter((skill) => skill.isPartyWide === filters.isPartyWide)
-    }
+    // 注意：isPartyWide 字段已被删除，此过滤器暂时禁用
+    // 如果需要团队减伤过滤，需要根据新的数据结构重新实现
 
     return filtered
   },

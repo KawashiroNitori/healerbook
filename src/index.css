@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* FF14 职业图标字体 */
+@font-face {
+  font-family: 'xivicons';
+  src: url('/fonts/xivicons/FFXIVAppIcons.woff') format('woff'),
+       url('/fonts/xivicons/FFXIVAppIcons.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -66,4 +76,108 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* 自定义滚动条样式 */
+@layer utilities {
+  /* Webkit 浏览器（Chrome, Safari, Edge） */
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+    transition: background-color 0.2s;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+
+  /* Firefox */
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  /* 更细的滚动条变体 */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-border/60 rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-border;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border) / 0.6) transparent;
+  }
+
+  /* 隐藏滚动条但保持滚动功能 */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  /* 职业图标基础样式 */
+  .job-icon {
+    font-family: 'xivicons';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    display: inline-block;
+    vertical-align: -0.05em;
+  }
+
+  /* 职业图标类名（通过 :before 伪元素显示） */
+  [class^='xiv-']:before,
+  [class*=' xiv-']:before {
+    font-family: 'xivicons';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    vertical-align: -0.05em;
+  }
+
+  /* 职业图标 Unicode 字符映射 */
+  .xiv-class_job_019:before{content:'\f019';} /* PLD - 骑士 */
+  .xiv-class_job_020:before{content:'\f020';} /* MNK - 武僧 */
+  .xiv-class_job_021:before{content:'\f021';} /* WAR - 战士 */
+  .xiv-class_job_022:before{content:'\f022';} /* DRG - 龙骑士 */
+  .xiv-class_job_023:before{content:'\f023';} /* BRD - 吟游诗人 */
+  .xiv-class_job_024:before{content:'\f024';} /* WHM - 白魔法师 */
+  .xiv-class_job_025:before{content:'\f025';} /* BLM - 黑魔法师 */
+  .xiv-class_job_027:before{content:'\f027';} /* SMN - 召唤师 */
+  .xiv-class_job_028:before{content:'\f028';} /* SCH - 学者 */
+  .xiv-class_job_030:before{content:'\f030';} /* NIN - 忍者 */
+  .xiv-class_job_031:before{content:'\f031';} /* MCH - 机工士 */
+  .xiv-class_job_032:before{content:'\f032';} /* DRK - 暗黑骑士 */
+  .xiv-class_job_033:before{content:'\f033';} /* AST - 占星术士 */
+  .xiv-class_job_034:before{content:'\f034';} /* SAM - 武士 */
+  .xiv-class_job_035:before{content:'\f035';} /* RDM - 赤魔法师 */
+  .xiv-class_job_037:before{content:'\f037';} /* GNB - 绝枪战士 */
+  .xiv-class_job_038:before{content:'\f038';} /* DNC - 舞者 */
+  .xiv-class_job_039:before{content:'\f039';} /* RPR - 钐镰客 */
+  .xiv-class_job_040:before{content:'\f040';} /* SGE - 贤者 */
+  .xiv-class_job_041:before{content:'\f041';} /* VPR - 蝰蛇 */
+  .xiv-class_job_042:before{content:'\f042';} /* PCT - 绘灵法师 */
 }

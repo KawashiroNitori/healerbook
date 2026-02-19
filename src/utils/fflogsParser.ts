@@ -110,7 +110,7 @@ function detectDamageType(hitCount: number): 'aoe' | 'tankbuster' | 'raidwide' {
 }
 
 /**
- * 解析队伍阵容
+ * 解析小队阵容
  */
 export function parseComposition(actors: FFLogsActor[]): Composition {
   const tanks: Job[] = []
