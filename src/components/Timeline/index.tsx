@@ -345,9 +345,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (!timeline) return
 
     if (checkOverlap(time, track.job, track.actionId)) {
-      const action = actions.find((a) => a.id === track.actionId)
       toast.error('无法添加技能', {
-        description: `${action?.name || '该技能'}在此时间段与其他技能重叠`,
+        description: `该技能与已有技能重叠`,
       })
       return
     }

@@ -117,6 +117,36 @@ export default function MitigationAssignmentIcon({
           />
         </>
       )}
+
+      {/* 时间文本（在冷却时间条右侧） */}
+      {action && (
+        <Group x={action.cooldown * zoomLevel + 5} y={-10}>
+          {/* 生效时间 */}
+          {action.duration > 0 && (
+            <Text
+              x={0}
+              y={0}
+              text={`生效: ${action.duration}s`}
+              fontSize={10}
+              fill="#10b981"
+              fontFamily="Arial, sans-serif"
+              perfectDrawEnabled={false}
+              listening={false}
+            />
+          )}
+          {/* 冷却时间 */}
+          <Text
+            x={0}
+            y={action.duration > 0 ? 12 : 0}
+            text={`CD: ${action.cooldown}s`}
+            fontSize={10}
+            fill="#3b82f6"
+            fontFamily="Arial, sans-serif"
+            perfectDrawEnabled={false}
+            listening={false}
+          />
+        </Group>
+      )}
     </Group>
   )
 }
