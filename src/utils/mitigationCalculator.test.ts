@@ -6,6 +6,136 @@ import { describe, it, expect } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
 import type { MitigationEffect, MitigationAction } from '@/types/mitigation'
 import type { MitigationAssignment } from '@/types/timeline'
+import type { CooldownValidationResult, CooldownError, CalculationResult, DamageType } from './mitigationCalculator'
+
+/**
+ * 测试辅助函数：验证技能使用是否违反 CD 限制
+ */
+function validateCooldown(
+  calculator: MitigationCalculator,
+  assignments: MitigationAssignment[],
+  actions: MitigationAction[]
+): CooldownValidationResult {
+  const errors: CooldownError[] = []
+
+  // 按技能分组
+  const assignmentsByAction = new Map<number, MitigationAssignment[]>()
+  for (const assignment of assignments) {
+    const list = assignmentsByAction.get(assignment.actionId) || []
+    list.push(assignment)
+    assignmentsByAction.set(assignment.actionId, list)
+  }
+
+  // 检查每个技能的 CD
+  for (const [actionId, actionAssignments] of assignmentsByAction) {
+    const action = actions.find(s => s.id === actionId)
+    if (!action) continue
+
+    // 按时间排序
+    const sorted = [...actionAssignments].sort((a, b) => a.time - b.time)
+
+    // 检查相邻使用之间的时间间隔
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1]
+      const curr = sorted[i]
+      const timeDiff = curr.time - prev.time
+
+      if (timeDiff < action.cooldown) {
+        errors.push({
+          actionId: action.id,
+          actionName: action.name,
+          conflictingAssignments: [prev.id, curr.id],
+          message: `${action.name} CD 冲突: ${prev.time}s 和 ${curr.time}s 之间只有 ${timeDiff}s，需要 ${action.cooldown}s CD`,
+        })
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  }
+}
+
+/**
+ * 测试辅助函数：计算多个时间点的伤害
+ */
+function calculateMultiple(
+  calculator: MitigationCalculator,
+  damageEvents: Array<{ time: number; damage: number; damageType?: DamageType }>,
+  assignments: MitigationAssignment[],
+  actions: MitigationAction[]
+): Array<CalculationResult & { time: number }> {
+  return damageEvents.map(event => {
+    const effects = calculator.getActiveEffects(event.time, assignments, actions)
+    const result = calculator.calculate(event.damage, effects, event.damageType || 'physical')
+    return {
+      ...result,
+      time: event.time,
+    }
+  })
+}
+
+/**
+ * 测试辅助函数：检查技能是否可以在指定时间使用
+ */
+function canUseActionAt(
+  calculator: MitigationCalculator,
+  actionId: number,
+  time: number,
+  assignments: MitigationAssignment[],
+  actions: MitigationAction[]
+): { canUse: boolean; reason?: string } {
+  const action = actions.find(s => s.id === actionId)
+  if (!action) {
+    return { canUse: false, reason: '技能不存在' }
+  }
+
+  // 查找该技能的所有使用记录
+  const actionAssignments = assignments
+    .filter(a => a.actionId === actionId)
+    .sort((a, b) => a.time - b.time)
+
+  // 检查是否有 CD 冲突
+  for (const assignment of actionAssignments) {
+    const timeDiff = Math.abs(time - assignment.time)
+    if (timeDiff < action.cooldown && timeDiff > 0) {
+      return {
+        canUse: false,
+        reason: `CD 未就绪，需要等待 ${action.cooldown - timeDiff}s`,
+      }
+    }
+  }
+
+  return { canUse: true }
+}
+
+/**
+ * 测试辅助函数：获取技能下次可用时间
+ */
+function getNextAvailableTime(
+  calculator: MitigationCalculator,
+  actionId: number,
+  currentTime: number,
+  assignments: MitigationAssignment[],
+  actions: MitigationAction[]
+): number {
+  const action = actions.find(s => s.id === actionId)
+  if (!action) return currentTime
+
+  // 查找该技能在当前时间之前的最后一次使用
+  const lastUse = assignments
+    .filter(a => a.actionId === actionId && a.time <= currentTime)
+    .sort((a, b) => b.time - a.time)[0]
+
+  if (!lastUse) {
+    return currentTime // 从未使用过，立即可用
+  }
+
+  const nextAvailable = lastUse.time + action.cooldown
+  return Math.max(currentTime, nextAvailable)
+}
+
 
 describe('MitigationCalculator', () => {
   const mockActions: MitigationAction[] = []
@@ -315,7 +445,7 @@ describe('MitigationCalculator', () => {
         },
       ]
 
-      const result = calculator.validateCooldown(assignments, actions)
+      const result = validateCooldown(calculator, assignments, actions)
 
       expect(result.valid).toBe(true)
       expect(result.errors).toHaveLength(0)
@@ -339,7 +469,7 @@ describe('MitigationCalculator', () => {
         },
       ]
 
-      const result = calculator.validateCooldown(assignments, actions)
+      const result = validateCooldown(calculator, assignments, actions)
 
       expect(result.valid).toBe(false)
       expect(result.errors).toHaveLength(1)
@@ -366,7 +496,7 @@ describe('MitigationCalculator', () => {
     it('首次使用时应该可用', () => {
       const assignments: MitigationAssignment[] = []
 
-      const result = calculator.canUseActionAt(1001, 10, assignments, actions)
+      const result = canUseActionAt(calculator, 1001, 10, assignments, actions)
 
       expect(result.canUse).toBe(true)
     })
@@ -382,7 +512,7 @@ describe('MitigationCalculator', () => {
         },
       ]
 
-      const result = calculator.canUseActionAt(1001, 130, assignments, actions)
+      const result = canUseActionAt(calculator, 1001, 130, assignments, actions)
 
       expect(result.canUse).toBe(true)
     })
@@ -398,7 +528,7 @@ describe('MitigationCalculator', () => {
         },
       ]
 
-      const result = calculator.canUseActionAt(1001, 60, assignments, actions)
+      const result = canUseActionAt(calculator, 1001, 60, assignments, actions)
 
       expect(result.canUse).toBe(false)
       expect(result.reason).toContain('CD 未就绪')
@@ -424,7 +554,7 @@ describe('MitigationCalculator', () => {
     it('首次使用时应返回当前时间', () => {
       const assignments: MitigationAssignment[] = []
 
-      const nextTime = calculator.getNextAvailableTime(1001, 10, assignments, actions)
+      const nextTime = getNextAvailableTime(calculator, 1001, 10, assignments, actions)
 
       expect(nextTime).toBe(10)
     })
@@ -440,7 +570,7 @@ describe('MitigationCalculator', () => {
         },
       ]
 
-      const nextTime = calculator.getNextAvailableTime(1001, 50, assignments, actions)
+      const nextTime = getNextAvailableTime(calculator, 1001, 50, assignments, actions)
 
       expect(nextTime).toBe(120) // 0 + 120
     })
@@ -456,7 +586,7 @@ describe('MitigationCalculator', () => {
         },
       ]
 
-      const nextTime = calculator.getNextAvailableTime(1001, 130, assignments, actions)
+      const nextTime = getNextAvailableTime(calculator, 1001, 130, assignments, actions)
 
       expect(nextTime).toBe(130)
     })
