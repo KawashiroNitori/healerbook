@@ -78,13 +78,11 @@ export class MitigationCalculator {
    * @param originalDamage 原始伤害
    * @param effects 减伤效果列表
    * @param damageType 伤害类型（物理/魔法/特殊）
-   * @param consumeBarrier 是否消耗盾值（默认 true）
    */
   calculate(
     originalDamage: number,
     effects: MitigationEffect[],
-    damageType: DamageType = 'physical',
-    consumeBarrier: boolean = true
+    damageType: DamageType = 'physical'
   ): CalculationResult {
     let damage = originalDamage
     const appliedEffects: MitigationEffect[] = []
@@ -142,11 +140,9 @@ export class MitigationCalculator {
         // 计算本次消耗的盾值
         const barrierToConsume = Math.min(remainingBarrier, remainingDamage)
 
-        if (consumeBarrier) {
-          // 更新剩余盾值，确保不会变成负数
-          const newBarrierValue = Math.max(0, remainingBarrier - barrierToConsume)
-          this.barrierState.set(assignmentId, newBarrierValue)
-        }
+        // 更新剩余盾值，确保不会变成负数
+        const newBarrierValue = Math.max(0, remainingBarrier - barrierToConsume)
+        this.barrierState.set(assignmentId, newBarrierValue)
 
         remainingDamage -= barrierToConsume
 
@@ -155,18 +151,14 @@ export class MitigationCalculator {
           const existingEffect = appliedEffects.find(e => e.assignmentId === assignmentId)
           if (existingEffect) {
             existingEffect.remainingBarrierBefore = remainingBarrier
-            existingEffect.remainingBarrierAfter = consumeBarrier
-              ? Math.max(0, remainingBarrier - barrierToConsume)
-              : remainingBarrier
+            existingEffect.remainingBarrierAfter = Math.max(0, remainingBarrier - barrierToConsume)
           }
         } else {
           // 否则添加新的效果
           appliedEffects.push({
             ...effect,
             remainingBarrierBefore: remainingBarrier,
-            remainingBarrierAfter: consumeBarrier
-              ? Math.max(0, remainingBarrier - barrierToConsume)
-              : remainingBarrier
+            remainingBarrierAfter: Math.max(0, remainingBarrier - barrierToConsume)
           })
         }
       }

@@ -57,7 +57,7 @@ export function saveTimeline(timeline: Timeline): void {
     const newMetadata: TimelineMetadata = {
       id: timeline.id,
       name: timeline.name,
-      encounterId: timeline.encounter.id.toString(),
+      encounterId: timeline.encounter?.id?.toString() || 'unknown',
       createdAt: timeline.createdAt,
       updatedAt: new Date().toISOString(),
     }

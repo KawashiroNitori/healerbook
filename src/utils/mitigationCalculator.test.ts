@@ -495,12 +495,12 @@ describe('MitigationCalculator', () => {
       ]
 
       // 第一次伤害：3000
-      const result1 = calculator.calculate(3000, effects, 'physical', true)
+      const result1 = calculator.calculate(3000, effects, 'physical')
       expect(result1.finalDamage).toBe(0) // 3000 - 5000 = 0
       expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(2000) // 5000 - 3000 = 2000
 
       // 第二次伤害：3000（使用相同的 effects）
-      const result2 = calculator.calculate(3000, effects, 'physical', true)
+      const result2 = calculator.calculate(3000, effects, 'physical')
       expect(result2.finalDamage).toBe(1000) // 3000 - 2000 = 1000
       expect(result2.appliedEffects[0].remainingBarrierAfter).toBe(0) // 2000 - 2000 = 0
     })
@@ -523,41 +523,13 @@ describe('MitigationCalculator', () => {
       ]
 
       // 第一次伤害：6000（耗尽盾值）
-      const result1 = calculator.calculate(6000, effects, 'physical', true)
+      const result1 = calculator.calculate(6000, effects, 'physical')
       expect(result1.finalDamage).toBe(1000) // 6000 - 5000 = 1000
       expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(0)
 
       // 第二次伤害：3000（盾值已耗尽）
-      const result2 = calculator.calculate(3000, effects, 'physical', true)
+      const result2 = calculator.calculate(3000, effects, 'physical')
       expect(result2.finalDamage).toBe(3000) // 无盾值，全额伤害
-    })
-
-    it('不消耗盾值时应保持剩余量不变', () => {
-      const calculator = new MitigationCalculator(actions)
-      calculator.resetBarrierState()
-
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 5000,
-          startTime: 0,
-          endTime: 15,
-          actionId: 2001,
-          job: 'SCH',
-          assignmentId: 'assign1',
-        },
-      ]
-
-      // 预览模式：不消耗盾值
-      const result1 = calculator.calculate(3000, effects, 'physical', false)
-      expect(result1.finalDamage).toBe(0)
-      expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(5000) // 未消耗
-
-      // 再次预览
-      const result2 = calculator.calculate(3000, effects, 'physical', false)
-      expect(result2.finalDamage).toBe(0)
-      expect(result2.appliedEffects[0].remainingBarrierAfter).toBe(5000) // 仍未消耗
     })
   })
 

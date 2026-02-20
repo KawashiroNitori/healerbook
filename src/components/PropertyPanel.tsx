@@ -143,9 +143,9 @@ export default function PropertyPanel() {
 
                     if (hasBarrier) {
                       // 使用作用前和作用后的盾值
-                      const before = effect.remainingBarrierBefore ?? effect.barrier
-                      const after = effect.remainingBarrierAfter ?? effect.barrier
-                      const consumed = before - after
+                      const before = Math.max(0, effect.remainingBarrierBefore ?? effect.barrier)
+                      const after = Math.max(0, effect.remainingBarrierAfter ?? before)
+                      const consumed = Math.max(0, before - after)
 
                       // 计算等效减伤百分比
                       const equivalentMitigation = event.damage > 0

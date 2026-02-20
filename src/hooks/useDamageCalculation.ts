@@ -38,8 +38,7 @@ export function useDamageCalculation(
       const result = calculator.calculate(
         event.damage,
         activeEffects,
-        event.damageType || 'physical',
-        true // 消耗盾值
+        event.damageType || 'physical'
       )
       results.set(event.id, result)
     }
