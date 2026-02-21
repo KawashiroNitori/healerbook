@@ -1,0 +1,3 @@
+[submodule "ff14-overlay-vue"]
+	path = ff14-overlay-vue
+	url = git@github.com:Souma-Sumire/ff14-overlay-vue.git

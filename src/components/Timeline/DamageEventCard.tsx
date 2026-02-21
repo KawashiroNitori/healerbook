@@ -36,13 +36,13 @@ export default function DamageEventCard({
   const finalDamage = result.finalDamage
   const mitigationPercent = result.mitigationPercentage.toFixed(1)
 
-  // 伤害类型映射
-  const damageTypeMap: Record<string, string> = {
-    physical: '物理',
-    magical: '魔法',
-    special: '特殊',
+  // 伤害类型颜色映射
+  const damageTypeColorMap: Record<string, string> = {
+    physical: '#ef4444', // 红色
+    magical: '#1e40af',  // 深蓝色
+    special: '#c026d3',  // 紫红色
   }
-  const damageTypeText = damageTypeMap[event.damageType || 'physical'] || '物理'
+  const nameColor = damageTypeColorMap[event.damageType || 'physical'] || '#ef4444'
 
   return (
     <Group
@@ -85,7 +85,7 @@ export default function DamageEventCard({
         width={140}
         text={event.name}
         fontSize={14}
-        fill="#000000"
+        fill={nameColor}
         fontStyle="bold"
         fontFamily="Arial, sans-serif"
         wrap="none"
@@ -127,19 +127,6 @@ export default function DamageEventCard({
         fontSize={12}
         fill="#ef4444"
         fontFamily="Arial, sans-serif"
-        perfectDrawEnabled={false}
-        listening={false}
-      />
-
-      {/* 右上角伤害类型 */}
-      <Text
-        x={125}
-        y={-35}
-        text={damageTypeText}
-        fontSize={11}
-        fill="##9ca3af"
-        fontFamily="Arial, sans-serif"
-        align="right"
         perfectDrawEnabled={false}
         listening={false}
       />

@@ -49,8 +49,6 @@ export interface Encounter {
   displayName: string
   /** 区域名称 */
   zone: string
-  /** 难度 */
-  difficulty: 'savage' | 'ultimate' | 'extreme'
   /** 伤害事件列表 */
   damageEvents: DamageEvent[]
 }
@@ -71,8 +69,6 @@ export interface DamageEvent {
   type: 'aoe' | 'tankbuster' | 'raidwide'
   /** 伤害类型 */
   damageType: 'physical' | 'magical' | 'special'
-  /** 所属阶段 ID */
-  phaseId: string
 }
 
 /**

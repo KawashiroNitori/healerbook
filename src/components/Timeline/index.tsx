@@ -414,11 +414,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   })
 
   // 计算时间轴总长度
-  const maxTime = Math.max(
+  // 找到最后一个事件或减伤的时间
+  const lastEventTime = Math.max(
+    0,
     ...timeline.damageEvents.map((e) => e.time),
-    ...timeline.mitigationAssignments.map((a) => a.time),
-    600
+    ...timeline.mitigationAssignments.map((a) => a.time)
   )
+
+  // 如果有事件，则为最后事件时间 + 60 秒；否则至少 300 秒
+  const maxTime = lastEventTime > 0 ? lastEventTime + 60 : 300
 
   const timelineWidth = maxTime * zoomLevel
   const fixedAreaHeight = timeRulerHeight + eventTrackHeight
@@ -437,7 +441,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             style={{ height: timeRulerHeight }}
             className="border-b bg-muted/30 flex items-center px-2"
           >
-            <span className="text-xs text-muted-foreground">技能</span>
+            <span className="text-xs text-muted-foreground">时间</span>
           </div>
 
           <div

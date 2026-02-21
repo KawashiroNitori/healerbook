@@ -24,7 +24,11 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(npx knip:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(pnpm tsx:*)",
+      "WebFetch(domain:www.fflogs.com)",
+      "Bash(python -m json.tool:*)",
+      "Bash(pnpm tsc:*)"
     ]
   }
 }

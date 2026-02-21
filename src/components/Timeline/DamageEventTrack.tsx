@@ -41,7 +41,13 @@ export default function DamageEventTrack({
 
       {/* 伤害事件 */}
       {[...events]
-        .sort((a, b) => a.time - b.time)
+        .sort((a, b) => {
+          // 选中的事件排在最后（渲染在最顶层）
+          if (a.id === selectedEventId) return 1
+          if (b.id === selectedEventId) return -1
+          // 其他事件按时间排序
+          return a.time - b.time
+        })
         .map((event) => {
           const result = eventResults.get(event.id)
           if (!result) return null

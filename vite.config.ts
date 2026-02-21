@@ -12,10 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/icons': {
-        target: 'https://cafemaker.wakingsands.com',
+      // 代理 FFLogs API 到 Workers
+      '/api/fflogs': {
+        target: 'http://localhost:8787',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/icons/, ''),
       },
     },
   },

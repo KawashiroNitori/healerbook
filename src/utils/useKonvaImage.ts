@@ -20,7 +20,7 @@ export function useKonvaImage(iconPath: string): HTMLImageElement | null {
     }
 
     const img = new window.Image()
-    img.crossOrigin = 'anonymous' // 允许跨域加载
+    // 移除 crossOrigin 设置，允许跨域图片但不导出 Canvas
 
     img.onload = () => {
       setImage(img)
@@ -59,7 +59,7 @@ export function preloadIcons(iconPaths: string[]): Promise<Map<string, HTMLImage
 
     iconPaths.forEach((path) => {
       const img = new window.Image()
-      img.crossOrigin = 'anonymous'
+      // 移除 crossOrigin 设置
 
       const onComplete = () => {
         loadedCount++

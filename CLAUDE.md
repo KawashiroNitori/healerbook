@@ -49,8 +49,7 @@ Healerbook 是一个专为 FF14 治疗职业设计的减伤技能规划工具。
 ```
 src/
 ├── api/                    # API 客户端
-│   ├── fflogsClient.ts    # FFLogs GraphQL 客户端
-│   ├── fflogsExample.ts   # API 示例数据
+│   ├── fflogsClient.ts    # FFLogs v1 REST API 客户端
 │   └── mitigationData.ts  # 减伤技能数据加载
 ├── components/            # React 组件
 │   ├── ui/               # shadcn/ui 基础组件
@@ -74,7 +73,9 @@ src/
 │   ├── mitigationCalculator.ts      # 减伤计算引擎
 │   ├── mitigationCalculator.test.ts # 计算器测试
 │   ├── timelineStorage.ts           # 本地存储
-│   └── fflogsParser.ts              # FFLogs 数据解析
+│   ├── fflogsParser.ts              # FFLogs URL 解析
+│   ├── fflogsImporter.ts            # FFLogs 数据导入
+│   └── fflogsImporter.test.ts       # 导入工具测试
 ├── data/                  # 静态数据
 │   └── mitigationActions.json # 减伤技能数据
 ├── lib/                   # 第三方库配置

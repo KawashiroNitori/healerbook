@@ -107,7 +107,6 @@ export function createNewTimeline(encounterId: string, name: string): Timeline {
       name: name,
       displayName: name,
       zone: '',
-      difficulty: 'savage',
       damageEvents: [],
     },
     damageEvents: [],

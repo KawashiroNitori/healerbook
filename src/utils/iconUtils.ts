@@ -4,10 +4,10 @@
 
 /**
  * 图标资源 Base URL
- * 开发环境使用代理，生产环境使用实际 URL
+ * 直接使用外部 CDN，不使用代理
+ * 注意：Canvas 将无法导出包含这些图片的内容（tainted canvas）
  */
-export const ICON_BASE_URL =
-  import.meta.env.DEV ? '/api/icons' : 'https://cafemaker.wakingsands.com'
+export const ICON_BASE_URL = 'https://cafemaker.wakingsands.com'
 
 /**
  * 拼接图标 URL

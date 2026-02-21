@@ -53,7 +53,10 @@ export default function EditorToolbar() {
 
       {/* Add Event Dialog */}
       {showAddEventDialog && (
-        <AddEventDialog onClose={() => setShowAddEventDialog(false)} />
+        <AddEventDialog
+          open={showAddEventDialog}
+          onClose={() => setShowAddEventDialog(false)}
+        />
       )}
     </div>
   )

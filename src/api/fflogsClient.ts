@@ -1,190 +1,165 @@
 /**
- * FFLogs GraphQL API 客户端
+ * FFLogs API 客户端（通过后端代理）
  */
 
-import { GraphQLClient } from 'graphql-request'
-import type {
-  FFLogsReport,
-  FFLogsEvent,
-  FFLogsGraphQLResponse,
-} from '@/types/fflogs'
+import type { FFLogsV1Report, FFLogsReport, FFLogsFight } from '@/types/fflogs'
 
-const FFLOGS_API_URL = 'https://www.fflogs.com/api/v2/client'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 
 /**
- * FFLogs API 客户端配置
+ * 将 v1 响应转换为统一格式
  */
-export interface FFLogsClientConfig {
-  /** API Token */
-  apiToken: string
-  /** API URL（可选，默认使用官方 API） */
-  apiUrl?: string
-  /** 请求超时时间（毫秒） */
-  timeout?: number
+function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogsReport {
+  return {
+    code: reportCode,
+    title: v1Report.title || '未命名报告',
+    lang: v1Report.lang,
+    startTime: v1Report.start,
+    endTime: v1Report.end,
+    fights: v1Report.fights.map((fight) => ({
+      id: fight.id,
+      name: fight.name,
+      difficulty: fight.difficulty,
+      kill: fight.kill || false,
+      startTime: fight.start_time,
+      endTime: fight.end_time,
+      encounterID: fight.boss,
+    })),
+    friendlies: v1Report.friendlies,
+    enemies: v1Report.enemies,
+  }
 }
 
 /**
- * FFLogs API 客户端
+ * FFLogs 客户端
  */
 export class FFLogsClient {
-  private client: GraphQLClient
-  private config: Required<FFLogsClientConfig>
+  private baseUrl: string
 
-  constructor(config: FFLogsClientConfig) {
-    this.config = {
-      apiUrl: config.apiUrl || FFLOGS_API_URL,
-      apiToken: config.apiToken,
-      timeout: config.timeout || 30000,
-    }
-
-    this.client = new GraphQLClient(this.config.apiUrl, {
-      headers: {
-        Authorization: `Bearer ${this.config.apiToken}`,
-        'Content-Type': 'application/json',
-      },
-      // @ts-expect-error - timeout 属性在某些版本的 graphql-request 中可能不存在
-      timeout: this.config.timeout,
-    })
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl
   }
 
   /**
    * 获取战斗报告
    */
   async getReport(reportCode: string): Promise<FFLogsReport> {
-    const query = `
-      query {
-        reportData {
-          report(code: "${reportCode}") {
-            code
-            title
-            startTime
-            endTime
-            fights {
-              id
-              name
-              difficulty
-              kill
-              startTime
-              endTime
-              encounterID
-            }
-          }
-        }
-      }
-    `
+    const url = `${this.baseUrl}/report/${reportCode}`
 
     try {
-      const response = await this.client.request<FFLogsGraphQLResponse>(query)
+      const response = await fetch(url)
 
-      if (response.errors) {
-        throw new Error(`FFLogs API Error: ${response.errors[0].message}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `HTTP ${response.status}`)
       }
 
-      return response.data.reportData.report
+      const v1Report: FFLogsV1Report = await response.json()
+      return convertV1ToReport(v1Report, reportCode)
     } catch (error) {
       throw this.handleError(error)
     }
   }
 
   /**
-   * 获取指定战斗的伤害事件
+   * 获取战斗事件（单页）
    */
-  async getDamageEvents(reportCode: string, fightId: number): Promise<FFLogsEvent[]> {
-    const query = `
-      query {
-        reportData {
-          report(code: "${reportCode}") {
-            events(
-              fightIDs: [${fightId}]
-              dataType: DamageTaken
-              limit: 10000
-            ) {
-              data
-            }
-          }
-        }
-      }
-    `
+  async getEvents(reportCode: string, params: {
+    start?: number
+    end?: number
+    actorid?: number
+    actorinstance?: number
+    actorclass?: string
+    cutoff?: number
+    encounter?: number
+    wipes?: number
+    difficulty?: number
+    filter?: string
+    translate?: boolean
+    lang?: string
+  } = {}) {
+    const queryParams = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      )
+    )
+
+    const url = `${this.baseUrl}/events/${reportCode}?${queryParams}`
 
     try {
-      const response = await this.client.request<FFLogsGraphQLResponse>(query)
+      const response = await fetch(url)
 
-      if (response.errors) {
-        throw new Error(`FFLogs API Error: ${response.errors[0].message}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `HTTP ${response.status}`)
       }
 
-      return response.data.reportData.report.events.data
+      return await response.json()
     } catch (error) {
       throw this.handleError(error)
     }
   }
 
   /**
-   * 获取战斗的小队阵容
+   * 获取战斗所有事件（自动分页）
    */
-  async getComposition(reportCode: string, fightId: number) {
-    const query = `
-      query {
-        reportData {
-          report(code: "${reportCode}") {
-            masterData {
-              actors(type: "Player") {
-                id
-                name
-                type
-                subType
-                server
-              }
-            }
-            fights(fightIDs: [${fightId}]) {
-              id
-              friendlyPlayers
-            }
-          }
-        }
+  async getAllEvents(
+    reportCode: string,
+    params: {
+      start: number
+      end: number
+      lang?: string
+    },
+    onProgress?: (progress: { current: number; total: number; percentage: number }) => void
+  ) {
+    const allEvents: any[] = []
+    let currentStart = params.start
+    const { end, lang } = params
+    const totalRange = end - params.start
+
+    // 最多请求 100 页，防止无限循环
+    const MAX_PAGES = 100
+    let pageCount = 0
+
+    while (currentStart < end && pageCount < MAX_PAGES) {
+      pageCount++
+
+      const response = await this.getEvents(reportCode, {
+        start: currentStart,
+        end,
+        lang,
+      })
+
+      // 收集事件
+      if (response.events && response.events.length > 0) {
+        allEvents.push(...response.events)
       }
-    `
 
-    try {
-      const response = await this.client.request<FFLogsGraphQLResponse>(query)
-
-      if (response.errors) {
-        throw new Error(`FFLogs API Error: ${response.errors[0].message}`)
+      // 检查是否有下一页
+      if (response.nextPageTimestamp && response.nextPageTimestamp < end) {
+        currentStart = response.nextPageTimestamp
+      } else {
+        // 没有更多数据
+        currentStart = end
       }
 
-      return response.data.reportData.report
-    } catch (error) {
-      throw this.handleError(error)
+      // 报告进度
+      if (onProgress) {
+        const processedRange = currentStart - params.start
+        const percentage = Math.min(Math.round((processedRange / totalRange) * 100), 100)
+        onProgress({
+          current: processedRange,
+          total: totalRange,
+          percentage,
+        })
+      }
     }
-  }
 
-  /**
-   * 搜索 TOP100 排名
-   */
-  async getTop100Rankings(encounterId: number, limit: number = 100) {
-    const query = `
-      query {
-        worldData {
-          encounter(id: ${encounterId}) {
-            characterRankings(
-              metric: hps
-              size: ${limit}
-            )
-          }
-        }
-      }
-    `
-
-    try {
-      const response = await this.client.request<FFLogsGraphQLResponse>(query)
-
-      if (response.errors) {
-        throw new Error(`FFLogs API Error: ${response.errors[0].message}`)
-      }
-
-      return response.data.worldData.encounter.characterRankings
-    } catch (error) {
-      throw this.handleError(error)
+    return {
+      events: allEvents,
+      totalPages: pageCount,
     }
   }
 
@@ -193,36 +168,23 @@ export class FFLogsClient {
    */
   private handleError(error: unknown): Error {
     if (error instanceof Error) {
-      // 网络错误
-      if (error.message.includes('fetch')) {
-        return new Error('网络连接失败，请检查网络设置')
-      }
-
-      // 超时错误
-      if (error.message.includes('timeout')) {
-        return new Error('请求超时，请稍后重试')
-      }
-
-      // API 错误
       if (error.message.includes('401')) {
-        return new Error('API Token 无效，请检查配置')
+        return new Error('FFLogs 连接配置错误，请联系开发者')
       }
-
       if (error.message.includes('403')) {
         return new Error('没有访问权限')
       }
-
       if (error.message.includes('404')) {
         return new Error('报告不存在或已被删除')
       }
-
       if (error.message.includes('429')) {
         return new Error('请求过于频繁，请稍后重试')
       }
-
+      if (error.message.includes('fetch')) {
+        return new Error('网络连接失败，请检查网络设置')
+      }
       return error
     }
-
     return new Error('未知错误')
   }
 }
@@ -230,6 +192,6 @@ export class FFLogsClient {
 /**
  * 创建 FFLogs 客户端实例
  */
-export function createFFLogsClient(apiToken: string): FFLogsClient {
-  return new FFLogsClient({ apiToken })
+export function createFFLogsClient(): FFLogsClient {
+  return new FFLogsClient()
 }
