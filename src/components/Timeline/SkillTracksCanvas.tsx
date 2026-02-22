@@ -3,7 +3,7 @@
  */
 
 import { Layer, Line, Rect } from 'react-konva'
-import MitigationAssignmentIcon from './MitigationAssignmentIcon'
+import CastEventIcon from './CastEventIcon'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -16,12 +16,13 @@ interface SkillTracksCanvasProps {
   timelineWidth: number
   trackHeight: number
   maxTime: number
-  selectedAssignmentId: string | null
+  selectedCastEventId: string | null
   draggingEventPosition: { eventId: string; x: number } | null
-  onSelectAssignment: (id: string) => void
-  onUpdateAssignment: (id: string, x: number) => void
-  onContextMenu: (assignmentId: string) => void
+  onSelectCastEvent: (id: string) => void
+  onUpdateCastEvent: (id: string, x: number) => void
+  onContextMenu: (castEventId: string) => void
   onDoubleClickTrack: (track: SkillTrack, time: number) => void
+  isReadOnly?: boolean
 }
 
 export default function SkillTracksCanvas({
@@ -32,12 +33,13 @@ export default function SkillTracksCanvas({
   timelineWidth,
   trackHeight,
   maxTime,
-  selectedAssignmentId,
+  selectedCastEventId,
   draggingEventPosition,
-  onSelectAssignment,
-  onUpdateAssignment,
+  onSelectCastEvent,
+  onUpdateCastEvent,
   onContextMenu,
   onDoubleClickTrack,
+  isReadOnly = false,
 }: SkillTracksCanvasProps) {
   const skillTracksHeight = skillTracks.length * trackHeight
 
@@ -47,7 +49,7 @@ export default function SkillTracksCanvas({
         {/* 技能轨道背景（可双击添加技能） */}
         {skillTracks.map((track, index) => (
           <Rect
-            key={`track-bg-${track.job}-${track.actionId}`}
+            key={`track-bg-${track.playerId}-${track.actionId}`}
             x={0}
             y={index * trackHeight}
             width={timelineWidth}
@@ -55,6 +57,7 @@ export default function SkillTracksCanvas({
             fill={index % 2 === 0 ? '#fafafa' : '#ffffff'}
             draggableBackground={true}
             onDblClick={(e) => {
+              if (isReadOnly) return
               const stage = e.target.getStage()
               if (!stage) return
 
@@ -70,7 +73,7 @@ export default function SkillTracksCanvas({
         {/* 技能轨道分隔线 */}
         {skillTracks.map((track, index) => (
           <Line
-            key={`track-line-${track.job}-${track.actionId}`}
+            key={`track-line-${track.playerId}-${track.actionId}`}
             points={[0, (index + 1) * trackHeight, timelineWidth, (index + 1) * trackHeight]}
             stroke="#e5e7eb"
             strokeWidth={1}
@@ -92,7 +95,7 @@ export default function SkillTracksCanvas({
         })}
       </Layer>
 
-      {/* 减伤分配层 */}
+      {/* 技能使用事件层 */}
       <Layer>
         {/* 伤害事件时刻的红色虚线 */}
         {timeline.damageEvents.map((event) => {
@@ -115,62 +118,67 @@ export default function SkillTracksCanvas({
           )
         })}
 
-        {timeline.mitigationAssignments.map((assignment) => {
+        {timeline.castEvents.map((castEvent) => {
           const trackIndex = skillTracks.findIndex(
-            (t) => t.job === assignment.job && t.actionId === assignment.actionId
+            (t) => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
           )
 
           if (trackIndex === -1) return null
 
           const trackY = trackIndex * trackHeight + trackHeight / 2
-          const isSelected = assignment.id === selectedAssignmentId
+          const isSelected = castEvent.id === selectedCastEventId
 
-          const action = actions.find((a) => a.id === assignment.actionId)
+          const action = actions.find((a) => a.id === castEvent.actionId)
           if (!action) return null
 
+          const castEventTimeSeconds = castEvent.timestamp / 1000
+
           // 计算拖动边界
-          const sameTrackAssignments = timeline.mitigationAssignments
+          const sameTrackCastEvents = timeline.castEvents
             .filter(
               (other) =>
-                other.id !== assignment.id &&
-                other.job === assignment.job &&
-                other.actionId === assignment.actionId
+                other.id !== castEvent.id &&
+                other.playerId === castEvent.playerId &&
+                other.actionId === castEvent.actionId
             )
             .map((other) => {
               const otherAction = actions.find((a) => a.id === other.actionId)
+              const otherTimeSeconds = other.timestamp / 1000
               return {
-                startTime: other.time,
-                endTime: other.time + (otherAction?.cooldown || 0),
+                startTime: otherTimeSeconds,
+                endTime: otherTimeSeconds + (otherAction?.cooldown || 0),
               }
             })
             .sort((a, b) => a.startTime - b.startTime)
 
           const currentDuration = action.cooldown
 
-          const leftBoundary = sameTrackAssignments
-            .filter((other) => other.endTime <= assignment.time)
+          const leftBoundary = sameTrackCastEvents
+            .filter((other) => other.endTime <= castEventTimeSeconds)
             .reduce((max, other) => Math.max(max, other.endTime), 0)
 
-          const rightBoundary = sameTrackAssignments
-            .filter((other) => other.startTime >= assignment.time + currentDuration)
+          const rightBoundary = sameTrackCastEvents
+            .filter((other) => other.startTime >= castEventTimeSeconds + currentDuration)
             .reduce((min, other) => Math.min(min, other.startTime - currentDuration), Infinity)
 
           return (
-            <MitigationAssignmentIcon
-              key={assignment.id}
-              assignment={assignment}
+            <CastEventIcon
+              key={castEvent.id}
+              castEvent={castEvent}
               action={action}
               isSelected={isSelected}
               zoomLevel={zoomLevel}
               trackY={trackY}
               leftBoundary={leftBoundary}
               rightBoundary={rightBoundary}
-              onSelect={() => onSelectAssignment(assignment.id)}
-              onDragEnd={(x) => onUpdateAssignment(assignment.id, x)}
+              onSelect={() => onSelectCastEvent(castEvent.id)}
+              onDragEnd={(x) => onUpdateCastEvent(castEvent.id, x)}
               onContextMenu={(e) => {
+                if (isReadOnly) return
                 e.evt.preventDefault()
-                onContextMenu(assignment.id)
+                onContextMenu(castEvent.id)
               }}
+              isReadOnly={isReadOnly}
             />
           )
         })}

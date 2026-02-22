@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import type { MitigationAction } from '@/types/mitigation'
-import { getAllMitigationActions } from '@/api/mitigationData'
+import { MITIGATION_DATA } from '@/data/mitigationActions.new'
 import type { Job } from '@/types/timeline'
 
 interface MitigationState {
@@ -44,7 +44,7 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
   filters: initialFilters,
 
   loadActions: () => {
-    const actions = getAllMitigationActions()
+    const actions = MITIGATION_DATA.actions
     set({ actions })
   },
 

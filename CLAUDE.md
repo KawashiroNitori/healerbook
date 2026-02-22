@@ -50,34 +50,49 @@ Healerbook 是一个专为 FF14 治疗职业设计的减伤技能规划工具。
 src/
 ├── api/                    # API 客户端
 │   ├── fflogsClient.ts    # FFLogs v1 REST API 客户端
-│   └── mitigationData.ts  # 减伤技能数据加载
+│   └── mitigationData.ts  # 减伤技能数据加载 (已废弃)
 ├── components/            # React 组件
 │   ├── ui/               # shadcn/ui 基础组件
-│   ├── TimelineCanvas.tsx    # 时间轴 Canvas 主组件
-│   ├── SkillPanel.tsx        # 技能面板（导出 ActionPanel）
+│   ├── Timeline/         # 时间轴组件
+│   │   ├── index.tsx           # 时间轴主组件
+│   │   ├── DamageEventCard.tsx # 伤害事件卡片
+│   │   └── DamageEventTrack.tsx # 伤害事件轨道
+│   ├── SkillPanel.tsx        # 技能面板
 │   ├── PropertyPanel.tsx     # 属性面板
+│   ├── StatusIndicator.tsx   # 状态指示器 (新)
 │   ├── EditorToolbar.tsx     # 编辑器工具栏
 │   └── AddEventDialog.tsx    # 添加事件对话框
 ├── pages/                 # 页面组件
 │   ├── HomePage.tsx      # 首页（时间轴列表）
 │   └── EditorPage.tsx    # 编辑器页面
 ├── store/                 # Zustand 状态管理
-│   ├── timelineStore.ts  # 时间轴状态
+│   ├── timelineStore.ts  # 时间轴状态 + 小队状态管理
 │   ├── mitigationStore.ts # 减伤技能状态
 │   └── uiStore.ts        # UI 状态
 ├── types/                 # TypeScript 类型定义
 │   ├── timeline.ts       # 时间轴相关类型
-│   ├── mitigation.ts     # 减伤技能类型
+│   ├── mitigation.ts     # 减伤技能类型 (新架构)
+│   ├── status.ts         # 状态类型 (新)
+│   ├── partyState.ts     # 小队状态类型 (新)
 │   └── fflogs.ts         # FFLogs API 类型
 ├── utils/                 # 工具函数
-│   ├── mitigationCalculator.ts      # 减伤计算引擎
-│   ├── mitigationCalculator.test.ts # 计算器测试
+│   ├── mitigationCalculator.ts      # 旧计算引擎 (已废弃)
+│   ├── mitigationCalculator.v2.ts   # 新计算引擎 (基于状态)
+│   ├── statusRegistry.ts            # 状态注册表 (新)
 │   ├── timelineStorage.ts           # 本地存储
 │   ├── fflogsParser.ts              # FFLogs URL 解析
-│   ├── fflogsImporter.ts            # FFLogs 数据导入
-│   └── fflogsImporter.test.ts       # 导入工具测试
+│   └── fflogsImporter.ts            # FFLogs 数据导入
+├── executors/             # 技能执行器 (新)
+│   ├── createFriendlyBuffExecutor.ts  # 友方 Buff 工厂
+│   ├── createEnemyDebuffExecutor.ts   # 敌方 Debuff 工厂
+│   ├── createShieldExecutor.ts        # 盾值工厂
+│   └── utils.ts                       # ID 生成工具
 ├── data/                  # 静态数据
-│   └── mitigationActions.json # 减伤技能数据
+│   ├── mitigationActions.ts     # 旧技能数据 (已废弃)
+│   └── mitigationActions.new.ts # 新技能数据 (31 个技能)
+├── hooks/                 # React Hooks
+│   ├── useDamageCalculation.ts    # 旧计算 Hook (已废弃)
+│   └── useDamageCalculationV2.ts  # 新计算 Hook (基于状态)
 ├── lib/                   # 第三方库配置
 │   └── utils.ts          # shadcn/ui 工具函数
 ├── App.tsx               # 应用根组件
@@ -86,95 +101,178 @@ src/
 
 ## 核心概念
 
-### 1. 减伤机制
+### 1. 新架构：技能使用与状态附加解耦
 
-FF14 中有三种减伤类型：
+**核心思想**: 技能使用时不直接产生减伤效果,而是附加状态,减伤效果由状态决定。
 
-```typescript
-type MitigationType =
-  | 'target_percentage'      // 目标百分比减伤（降低 boss 造成的伤害）
-  | 'non_target_percentage'  // 非目标百分比减伤（降低玩家受到的伤害）
-  | 'shield'                 // 盾值减伤（临时生命值）
+#### 架构组件
+
+1. **技能 (MitigationAction)**
+   - 定义技能的基本信息 (ID, 名称, 图标, 职业等)
+   - 包含 `executor` 函数,负责附加状态
+
+2. **状态 (MitigationStatus)**
+   - 运行时状态实例,包含开始/结束时间
+   - 可选的 `remainingBarrier` 字段用于盾值
+
+3. **状态元数据 (MitigationStatusMetadata)**
+   - 引用自 `ff14-overlay-vue/keigenn.ts`
+   - 定义状态的减伤效果 (物理/魔法/特殊)
+
+4. **小队状态 (PartyState)**
+   - 包含所有玩家的状态列表
+   - 包含虚拟敌方的状态列表
+
+5. **执行器 (ActionExecutor)**
+   - 接收 `ActionExecutionContext`,返回新的 `PartyState`
+   - 不可变更新,不修改原状态
+
+#### 数据流
+
+```
+技能使用 → Executor → 附加状态 → PartyState 更新
+                                      ↓
+                            计算器读取状态 → 计算减伤
 ```
 
-### 2. 减伤计算公式
+### 2. 减伤机制
+
+FF14 中的减伤通过状态实现：
+
+```typescript
+// 状态类型
+type StatusType =
+  | 'multiplier'  // 百分比减伤 (乘算)
+  | 'absorbed'    // 盾值减伤 (减算)
+
+// 状态性能
+interface StatusPerformance {
+  physics: number   // 物理减伤倍率 (0-1)
+  magic: number     // 魔法减伤倍率 (0-1)
+  darkness: number  // 特殊减伤倍率 (0-1)
+}
+```
+
+### 3. 减伤计算公式
+
+### 3. 减伤计算公式
 
 ```
 最终伤害 = 原始伤害 × (1-减伤1%) × (1-减伤2%) × ... - 盾值
 ```
 
-- 百分比减伤采用**乘算**
-- 盾值减伤采用**减算**
+- 百分比减伤采用**乘算** (multiplicative)
+- 盾值减伤采用**减算** (subtractive)
 - 盾值在百分比减伤之后应用
 
 示例：
 ```
 原始伤害: 10000
-减伤1: 10% (非目标)
-减伤2: 5% (非目标)
-盾值: 1000
+状态1: 节制 (10% 减伤)
+状态2: 雪仇 (10% 减伤)
+状态3: 鼓舞盾 (1000 盾值)
 
 计算过程:
-10000 × (1-0.1) × (1-0.05) - 1000 = 8550 - 1000 = 7550
+10000 × (1-0.1) × (1-0.1) - 1000 = 8100 - 1000 = 7100
 ```
 
-### 3. 数据模型
+### 4. 数据模型
 
-#### Timeline（时间轴）
+#### PartyState（小队状态）
 ```typescript
-interface Timeline {
-  id: string
-  name: string
-  encounter: Encounter           // 副本信息
-  composition: Composition       // 小队阵容
-  phases: Phase[]                // 阶段列表
-  mitigationPlan: MitigationPlan // 减伤规划
-  createdAt: string
-  updatedAt: string
+interface PartyState {
+  players: PlayerState[]  // 玩家列表
+  enemy: EnemyState       // 虚拟敌方
+  timestamp: number       // 当前时间戳
+}
+
+interface PlayerState {
+  id: number              // 玩家 ID (对应 FFLogsActor.id)
+  job: Job                // 职业
+  currentHP: number       // 当前 HP
+  maxHP: number           // 最大 HP
+  statuses: MitigationStatus[]  // 状态列表
+}
+
+interface EnemyState {
+  statuses: MitigationStatus[]  // 敌方状态列表 (无 id 字段)
 }
 ```
 
-#### DamageEvent（伤害事件）
+#### MitigationStatus（状态实例）
 ```typescript
-interface DamageEvent {
-  id: string
-  name: string        // 技能名称
-  time: number        // 时间（秒）
-  damage: number      // 原始伤害
-  type: 'aoe' | 'tankbuster' | 'raidwide'
-  phaseId: string
+interface MitigationStatus {
+  instanceId: string      // 唯一实例 ID
+  statusId: number        // 状态 ID (引用 keigenn.ts)
+  startTime: number       // 开始时间 (秒)
+  endTime: number         // 结束时间 (秒)
+  remainingBarrier?: number  // 剩余盾值 (可选)
+  sourceActionId?: number    // 来源技能 ID
+  sourcePlayerId?: number    // 来源玩家 ID
 }
 ```
 
-#### MitigationAction（减伤技能）
+#### MitigationAction（技能）
 ```typescript
 interface MitigationAction {
-  id: string
-  name: string        // 中文名
-  nameEn: string      // 英文名
-  icon: string        // 图标 URL
-  job: Job            // 职业
-  type: MitigationType
-  value: number       // 减伤值（百分比或盾值）
-  duration: number    // 持续时间（秒）
-  cooldown: number    // 冷却时间（秒）
-  description: string
-  isPartyWide: boolean // 是否为团队减伤
+  id: number              // 技能 ID
+  name: string            // 技能名称
+  icon: string            // 图标路径
+  uniqueGroup: number[]   // 互斥组
+  jobs: Job[]             // 可用职业
+  duration: number        // 持续时间 (秒)
+  cooldown: number        // 冷却时间 (秒)
+  executor: ActionExecutor  // 执行器函数
+}
+
+type ActionExecutor = (context: ActionExecutionContext) => PartyState
+
+interface ActionExecutionContext {
+  actionId: number        // 技能 ID
+  useTime: number         // 使用时间 (秒)
+  partyState: PartyState  // 当前小队状态
+  targetPlayerId?: number // 目标玩家 ID (可选)
 }
 ```
 
-#### MitigationAssignment（减伤分配）
+### 5. 执行器工厂
+
+项目提供三种工厂函数用于创建常见的执行器：
+
+#### createFriendlyBuffExecutor
+为友方附加 Buff 状态 (群体或单体)
+
 ```typescript
-interface MitigationAssignment {
-  id: string
-  actionId: string         // 技能 ID
-  damageEventId: string    // 对应的伤害事件 ID
-  time: number             // 使用时间（秒）
-  job: Job                 // 使用者职业
-}
+createFriendlyBuffExecutor(
+  statusIds: number[],      // 状态 ID 列表
+  duration: number,         // 持续时间
+  isPartyWide: boolean      // 是否群体技能
+): ActionExecutor
 ```
 
-### 4. 时间轴布局
+#### createEnemyDebuffExecutor
+为敌方附加 Debuff 状态
+
+```typescript
+createEnemyDebuffExecutor(
+  statusIds: number[],      // 状态 ID 列表
+  duration: number          // 持续时间
+): ActionExecutor
+```
+
+#### createShieldExecutor
+为友方附加盾值状态
+
+```typescript
+createShieldExecutor(
+  statusIds: number[],      // 状态 ID 列表
+  duration: number,         // 持续时间
+  isPartyWide: boolean,     // 是否群体技能
+  shieldMultiplier: number  // 盾值倍率 (相对于最大 HP)
+): ActionExecutor
+```
+
+### 6. 时间轴布局
 
 时间轴采用水平轨道布局：
 
@@ -279,11 +377,31 @@ const clickedOnBackground =
 pnpm test          # 运行测试
 pnpm test:ui       # 测试 UI
 pnpm test:run      # CI 模式
+pnpm test:run --coverage  # 运行测试并生成覆盖率报告
 ```
 
-当前测试覆盖：
-- ✅ `mitigationCalculator.ts` - 17 个测试用例
-- 🔄 其他模块待补充
+### 测试覆盖率
+
+**总体覆盖率**: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
+
+**核心模块覆盖率**:
+- ✅ `executors/` - 100% (友方 Buff, 敌方 Debuff, 盾值工厂)
+- ✅ `statusRegistry.ts` - 100% (6 个测试)
+- ✅ `mitigationCalculator.v2.ts` - 87.5% (13 个测试)
+- ✅ `mitigationActions.new.ts` - 93.1% (11 个测试)
+- ✅ `fflogsImporter.ts` - 100% (15 个测试)
+- ⚠️ `timelineStore.ts` - 41% (9 个测试,主要测试状态管理功能)
+
+**测试文件**:
+- `src/utils/statusRegistry.test.ts` - 状态注册表测试
+- `src/executors/executors.test.ts` - 执行器工厂测试
+- `src/data/mitigationActions.new.test.ts` - 技能数据测试
+- `src/utils/mitigationCalculator.v2.test.ts` - 计算器测试
+- `src/store/timelineStore.test.ts` - 状态管理测试
+- `src/utils/fflogsImporter.test.ts` - FFLogs 导入测试
+- `src/utils/mitigationCalculator.test.ts` - 旧计算器测试 (25 个测试)
+
+**总计**: 84 个测试,全部通过
 
 ### 代码风格
 

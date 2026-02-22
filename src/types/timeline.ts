@@ -27,10 +27,18 @@ export interface Timeline {
   phases: Phase[]
   /** 伤害事件列表（扁平化，便于访问） */
   damageEvents: DamageEvent[]
-  /** 减伤分配列表（扁平化，便于访问） */
-  mitigationAssignments: MitigationAssignment[]
+  /** 技能使用事件列表 */
+  castEvents: CastEvent[]
+  /** 状态事件列表（编辑模式由 executor 生成，回放模式从 FFLogs 导入） */
+  statusEvents: StatusEvent[]
+  /** 是否为回放模式 */
+  isReplayMode?: boolean
+  /** 减伤分配列表（已废弃，使用 castEvents 代替） */
+  mitigationAssignments?: MitigationAssignment[]
   /** 减伤规划（已废弃，保留用于向后兼容） */
   mitigationPlan?: MitigationPlan
+  /** 回放模式的原始状态事件（已废弃，使用 statusEvents 代替） */
+  replayStateEvents?: ReplayStateEvent[]
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
@@ -69,6 +77,8 @@ export interface DamageEvent {
   type: 'aoe' | 'tankbuster' | 'raidwide'
   /** 伤害类型 */
   damageType: 'physical' | 'magical' | 'special'
+  /** 目标玩家 ID（可选，用于单体伤害） */
+  targetPlayerId?: number
 }
 
 /**
@@ -89,12 +99,12 @@ export interface Phase {
  * 小队阵容
  */
 export interface Composition {
-  /** 坦克职业列表 */
-  tanks: Job[]
-  /** 治疗职业列表 */
-  healers: Job[]
-  /** DPS 职业列表 */
-  dps: Job[]
+  /** 玩家列表 */
+  players: Array<{
+    id: number
+    job: Job
+    name: string
+  }>
 }
 
 /**
@@ -106,7 +116,26 @@ export interface MitigationPlan {
 }
 
 /**
- * 减伤分配
+ * 技能使用事件
+ */
+export interface CastEvent {
+  /** 事件 ID */
+  id: string
+  /** 技能 ID */
+  actionId: number
+  /** 使用时间（毫秒） */
+  timestamp: number
+  /** 使用者玩家 ID */
+  playerId: number
+  /** 使用者职业 */
+  job: Job
+  /** 目标玩家 ID（可选，用于单体技能） */
+  targetPlayerId?: number
+}
+
+/**
+ * 减伤分配（已废弃，使用 CastEvent 代替）
+ * @deprecated
  */
 export interface MitigationAssignment {
   /** 分配 ID */
@@ -119,6 +148,10 @@ export interface MitigationAssignment {
   time: number
   /** 使用者职业 */
   job: Job
+  /** 使用者玩家 ID */
+  playerId: number
+  /** 目标玩家 ID（可选，用于单体技能） */
+  targetPlayerId?: number
 }
 
 /**
@@ -147,4 +180,41 @@ export interface TimelineSummary {
   updatedAt: string
   /** 减伤分配数量 */
   assignmentCount: number
+}
+
+/**
+ * 状态事件（编辑模式由 executor 生成，回放模式从 FFLogs 导入）
+ */
+export interface StatusEvent {
+  /** 状态 ID */
+  statusId: number
+  /** 开始时间（毫秒） */
+  startTime: number
+  /** 结束时间（毫秒） */
+  endTime: number
+  /** 来源玩家 ID */
+  sourcePlayerId?: number
+  /** 目标玩家 ID */
+  targetPlayerId?: number
+  /** 目标实例 */
+  targetInstance?: number
+}
+
+/**
+ * 回放模式状态事件（从 FFLogs 导入）
+ * @deprecated 使用 StatusEvent 代替
+ */
+export interface ReplayStateEvent {
+  /** 事件类型 */
+  type: 'applybuff' | 'removebuff' | 'applydebuff' | 'removedebuff'
+  /** 时间戳（相对战斗开始，毫秒） */
+  timestamp: number
+  /** 状态 ID */
+  abilityGameID: number
+  /** 来源玩家 ID */
+  sourceID?: number
+  /** 目标玩家 ID */
+  targetID?: number
+  /** 目标类型 */
+  targetInstance?: number
 }

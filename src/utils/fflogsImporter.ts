@@ -3,7 +3,8 @@
  */
 
 import type { FFLogsReport, FFLogsV1Actor } from '@/types/fflogs'
-import type { Composition, Job, DamageEvent, MitigationAssignment } from '@/types/timeline'
+import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
+import { MITIGATION_DATA } from '@/data/mitigationActions.new'
 
 /**
  * 职业名称映射
@@ -40,9 +41,7 @@ export function parseComposition(
   fightId: number
 ): Composition {
   const composition: Composition = {
-    tanks: [],
-    healers: [],
-    dps: [],
+    players: [],
   }
 
   if (!report.friendlies) return composition
@@ -56,18 +55,11 @@ export function parseComposition(
     const job = JOB_MAP[player.type]
     if (!job) continue
 
-    const role = getJobRole(job)
-    switch (role) {
-      case 'tank':
-        composition.tanks.push(job)
-        break
-      case 'healer':
-        composition.healers.push(job)
-        break
-      case 'dps':
-        composition.dps.push(job)
-        break
-    }
+    composition.players.push({
+      id: player.id,
+      job,
+      name: player.name,
+    })
   }
 
   return composition
@@ -208,33 +200,148 @@ function detectDamageTypeFromAbility(abilityType: number): 'physical' | 'magical
 }
 
 /**
- * 解析减伤技能使用记录
+ * 解析状态附加/移除事件，转换为 StatusEvent
+ *
+ * 逻辑：
+ * 1. 遍历所有 applybuff/applydebuff 事件
+ * 2. 查找对应的 removebuff/removedebuff 事件
+ * 3. 生成带有 startTime/endTime 的 StatusEvent
  */
-export function parseMitigationAssignments(
+export function parseStatusEvents(
+  events: any[],
+  fightStartTime: number
+): StatusEvent[] {
+  const statusEvents: StatusEvent[] = []
+
+  // 按状态 ID 和目标分组，存储 apply 事件
+  const applyEventsMap = new Map<string, any[]>()
+  const removeEventsMap = new Map<string, any[]>()
+
+  // 第一遍：收集所有 apply 和 remove 事件
+  for (const event of events) {
+    if (
+      event.type !== 'applybuff' &&
+      event.type !== 'removebuff' &&
+      event.type !== 'applydebuff' &&
+      event.type !== 'removedebuff'
+    ) {
+      continue
+    }
+
+    // 提取状态 ID（去除 1000000 偏移）
+    const statusId = event.ability?.guid
+      ? Math.max(0, event.ability.guid - 1e6)
+      : 0
+
+    if (!statusId) continue
+
+    // 生成唯一键：statusId + targetID + targetInstance
+    const key = `${statusId}-${event.targetID || 0}-${event.targetInstance || 0}`
+
+    if (event.type === 'applybuff' || event.type === 'applydebuff') {
+      if (!applyEventsMap.has(key)) {
+        applyEventsMap.set(key, [])
+      }
+      applyEventsMap.get(key)!.push(event)
+    } else {
+      if (!removeEventsMap.has(key)) {
+        removeEventsMap.set(key, [])
+      }
+      removeEventsMap.get(key)!.push(event)
+    }
+  }
+
+  // 第二遍：配对 apply 和 remove 事件
+  for (const [key, applyEvents] of applyEventsMap) {
+    const removeEvents = removeEventsMap.get(key) || []
+
+    // 按时间排序
+    applyEvents.sort((a, b) => a.timestamp - b.timestamp)
+    removeEvents.sort((a, b) => a.timestamp - b.timestamp)
+
+    let removeIndex = 0
+
+    for (const applyEvent of applyEvents) {
+      const statusId = Math.max(0, (applyEvent.ability?.guid || 0) - 1e6)
+      const startTime = applyEvent.timestamp - fightStartTime
+
+      // 查找对应的 remove 事件（时间晚于 apply）
+      let endTime = startTime + 30000 // 默认 30 秒
+
+      while (removeIndex < removeEvents.length) {
+        const removeEvent = removeEvents[removeIndex]
+        const removeTime = removeEvent.timestamp - fightStartTime
+
+        if (removeTime > startTime) {
+          endTime = removeTime
+          removeIndex++
+          break
+        }
+        removeIndex++
+      }
+
+      statusEvents.push({
+        statusId,
+        startTime,
+        endTime,
+        sourcePlayerId: applyEvent.sourceID,
+        targetPlayerId: applyEvent.targetID,
+        targetInstance: applyEvent.targetInstance,
+      })
+    }
+  }
+
+  return statusEvents
+}
+
+/**
+ * 从 FFLogs 数据解析技能使用事件（CastEvent）
+ */
+export function parseCastEventsFromFFLogs(
   events: any[],
   fightStartTime: number,
   playerMap: Map<number, FFLogsV1Actor>,
   damageEvents: DamageEvent[]
-): MitigationAssignment[] {
-  const assignments: MitigationAssignment[] = []
+): CastEvent[] {
+  const castEventsResult: CastEvent[] = []
 
-  // 收集所有技能施放和 buff 应用事件
-  const skillEvents = events.filter((event) => {
-    // 处理技能施放、buff 应用、buff 刷新事件
-    return (
-      event.type === 'cast' ||
-      event.type === 'applybuff' ||
-      event.type === 'applydebuff' ||
-      event.type === 'refreshbuff'
-    )
-  })
+  // 创建有效技能 ID 集合
+  const validActionIds = new Set(MITIGATION_DATA.actions.map((a) => a.id))
 
-  for (const event of skillEvents) {
-    const abilityId = Math.max(0, event.ability?.guid - 1e6)
-    if (!abilityId) continue
+  // 解析技能使用事件
+  const rawCastEvents: Array<{
+    timestamp: number
+    abilityGameID: number
+    sourceID: number
+    targetID?: number
+    sourceIsFriendly: boolean
+  }> = []
+
+  for (const event of events) {
+    // 只处理技能使用事件
+    if (event.type !== 'cast') {
+      continue
+    }
+
+    // 提取技能 ID（技能 ID 没有偏移）
+    const abilityGameID = event.ability?.guid
+    if (!abilityGameID) continue
+
+    rawCastEvents.push({
+      timestamp: event.timestamp - fightStartTime, // 相对时间（毫秒）
+      abilityGameID,
+      sourceID: event.sourceID,
+      targetID: event.targetID,
+      sourceIsFriendly: event.sourceIsFriendly === true,
+    })
+  }
+
+  for (const event of rawCastEvents) {
+    // 只保留在我们技能列表中的技能
+    if (!validActionIds.has(event.abilityGameID)) continue
 
     // 检查是否为友方玩家施放的技能
-    if (event.sourceIsFriendly !== true) continue
+    if (!event.sourceIsFriendly) continue
 
     const sourceId = event.sourceID
     const player = playerMap.get(sourceId)
@@ -243,28 +350,16 @@ export function parseMitigationAssignments(
     const job = JOB_MAP[player.type]
     if (!job) continue
 
-    // 计算相对时间（秒）
-    const relativeTime = Math.floor((event.timestamp - fightStartTime) / 1000)
-    if (relativeTime < 0) continue
-
-    // 查找最接近的伤害事件（前后 30 秒内）
-    const nearestDamageEvent = damageEvents.find((dmgEvent) => {
-      const timeDiff = Math.abs(dmgEvent.time - relativeTime)
-      return timeDiff <= 30
-    })
-
-    // 如果没有找到最接近的伤害事件，仍然记录技能，但不关联到具体事件
-    const damageEventId = nearestDamageEvent?.id || ''
-
-    // 创建减伤分配记录
-    assignments.push({
-      id: `assignment-${assignments.length}`,
-      actionId: abilityId,
-      damageEventId,
-      time: relativeTime,
+    // 创建 CastEvent
+    castEventsResult.push({
+      id: `cast-${castEventsResult.length}`,
+      actionId: event.abilityGameID,
+      timestamp: event.timestamp,
+      playerId: sourceId,
       job,
+      targetPlayerId: event.targetID,
     })
   }
 
-  return assignments
+  return castEventsResult
 }

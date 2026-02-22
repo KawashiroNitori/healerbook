@@ -8,6 +8,7 @@ import type { Job } from '@/types/timeline'
 
 export interface SkillTrack {
   job: Job
+  playerId: number
   actionId: number
   actionName: string
   actionIcon: string
@@ -23,7 +24,7 @@ export default function SkillTrackLabels({ skillTracks, trackHeight }: SkillTrac
     <div>
       {skillTracks.map((track, index) => (
         <div
-          key={`label-${track.job}-${track.actionId}`}
+          key={`label-${track.playerId}-${track.actionId}`}
           style={{ height: trackHeight }}
           className={`border-b flex items-center gap-2 px-2 ${
             index % 2 === 0 ? 'bg-background' : 'bg-muted/20'

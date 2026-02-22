@@ -2,6 +2,8 @@
  * 减伤技能类型定义
  */
 
+import type { PartyState } from './partyState'
+
 /**
  * 减伤类型
  * - target_percentage: 目标百分比减伤（降低 boss 造成的伤害）
@@ -42,6 +44,26 @@ export type Job =
   | 'PCT' // 绘灵法师
 
 /**
+ * 技能执行器上下文
+ */
+export interface ActionExecutionContext {
+  /** 技能 ID */
+  actionId: number
+  /** 使用时间（秒） */
+  useTime: number
+  /** 当前小队状态 */
+  partyState: PartyState
+  /** 目标玩家 ID（对应 FFLogsActor.id，可选） */
+  targetPlayerId?: number
+}
+
+/**
+ * 技能执行器函数
+ * 接收执行上下文，返回新的小队状态
+ */
+export type ActionExecutor = (context: ActionExecutionContext) => PartyState
+
+/**
  * 减伤技能
  */
 export interface MitigationAction {
@@ -59,16 +81,12 @@ export interface MitigationAction {
   jobs: Job[]
   /** 互斥技能 ID 列表（与这些技能互斥，同时只能生效一个） */
   uniqueGroup?: number[]
-  /** 物理减伤百分比（0-100） */
-  physicReduce: number
-  /** 魔法减伤百分比（0-100） */
-  magicReduce: number
-  /** 盾值 */
-  barrier: number
   /** 持续时间（秒） */
   duration: number
   /** 冷却时间（秒） */
   cooldown: number
+  /** 技能执行器 */
+  executor: ActionExecutor
 }
 
 /**

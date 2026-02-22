@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import CompositionDialog from './CompositionDialog'
 import JobIcon from './JobIcon'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
-import type { Composition, Job } from '@/types/timeline'
+import type { Composition } from '@/types/timeline'
 import { MAX_PARTY_SIZE } from '@/types/timeline'
 import { getIconUrl } from '@/utils/iconUtils'
 import { sortJobsByOrder, getJobName } from '@/data/jobs'
@@ -13,6 +14,7 @@ import { sortJobsByOrder, getJobName } from '@/data/jobs'
 export default function ActionPanel() {
   const { actions, loadActions } = useMitigationStore()
   const { timeline, updateComposition } = useTimelineStore()
+  const isReadOnly = useEditorReadOnly()
 
   useEffect(() => {
     if (actions.length === 0) {
@@ -28,25 +30,24 @@ export default function ActionPanel() {
     )
   }
 
-  const composition = timeline.composition || { tanks: [], healers: [], dps: [] }
+  const composition = timeline.composition || { players: [] }
 
-  const allMembers = sortJobsByOrder([
-    ...(composition.tanks || []),
-    ...(composition.healers || []),
-    ...(composition.dps || []),
-  ])
+  // 按职业顺序排序玩家
+  const sortedPlayers = [...composition.players].sort((a, b) => {
+    const jobs = sortJobsByOrder([a.job, b.job])
+    return jobs.indexOf(a.job) - jobs.indexOf(b.job)
+  })
 
-  const canAddMore = allMembers.length < MAX_PARTY_SIZE
+  const canAddMore = sortedPlayers.length < MAX_PARTY_SIZE
 
   const handleSaveComposition = (newComposition: Composition) => {
     updateComposition(newComposition)
   }
 
-  const handleRemoveMember = (job: Job) => {
-    const newComposition = { ...composition }
-    newComposition.tanks = newComposition.tanks.filter((j) => j !== job)
-    newComposition.healers = newComposition.healers.filter((j) => j !== job)
-    newComposition.dps = newComposition.dps.filter((j) => j !== job)
+  const handleRemoveMember = (playerId: number) => {
+    const newComposition = {
+      players: composition.players.filter((p) => p.id !== playerId),
+    }
     updateComposition(newComposition)
   }
 
@@ -57,42 +58,44 @@ export default function ActionPanel() {
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">小队阵容</h2>
           <span className="text-sm text-muted-foreground">
-            {allMembers.length}/{MAX_PARTY_SIZE}
+            {sortedPlayers.length}/{MAX_PARTY_SIZE}
           </span>
         </div>
         <CompositionDialog
           composition={composition}
           onSave={handleSaveComposition}
-          disabled={!canAddMore}
+          disabled={!canAddMore || isReadOnly}
         />
       </div>
 
       {/* Members and Skills List */}
       <div className="flex-1 overflow-y-auto scrollbar-custom">
-        {allMembers.length === 0 ? (
+        {sortedPlayers.length === 0 ? (
           <div className="p-4 text-center">
             <p className="text-sm text-muted-foreground">点击"新增队员"添加队员</p>
           </div>
         ) : (
           <div className="divide-y">
-            {allMembers.map((job, index) => {
+            {sortedPlayers.map((player) => {
               // 获取该职业的所有减伤技能
-              const jobActions = actions.filter((action) => action.jobs.includes(job))
+              const jobActions = actions.filter((action) => action.jobs.includes(player.job))
 
               return (
-                <div key={`${job}-${index}`} className="p-3 relative">
+                <div key={`player-${player.id}`} className="p-3 relative">
                   {/* 职业名称和删除按钮 */}
                   <div className="font-medium text-sm mb-2 flex items-center gap-2">
-                    <JobIcon job={job} size="md" />
-                    {getJobName(job)}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 ml-auto"
-                      onClick={() => handleRemoveMember(job)}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
+                    <JobIcon job={player.job} size="md" />
+                    {getJobName(player.job)}
+                    {!isReadOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-auto"
+                        onClick={() => handleRemoveMember(player.id)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
 
                   {/* 技能列表 */}
@@ -103,12 +106,7 @@ export default function ActionPanel() {
                       jobActions.map((action) => (
                         <div
                           key={action.id}
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('actionId', action.id.toString())
-                            e.dataTransfer.setData('job', job)
-                          }}
-                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors cursor-move"
+                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors"
                         >
                           {/* 技能图标 */}
                           <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted">
@@ -126,17 +124,7 @@ export default function ActionPanel() {
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-medium truncate">{action.name}</div>
                             <div className="text-[10px] text-muted-foreground">
-                              {action.barrier > 0 && action.physicReduce === 0 && action.magicReduce === 0 ? (
-                                `盾: ${action.barrier}`
-                              ) : action.barrier === 0 && action.physicReduce === action.magicReduce ? (
-                                `${action.physicReduce}%`
-                              ) : action.barrier === 0 ? (
-                                `物${action.physicReduce}% 魔${action.magicReduce}%`
-                              ) : (
-                                `盾: ${action.barrier} + ${action.physicReduce === action.magicReduce ? action.physicReduce : `物${action.physicReduce}/魔${action.magicReduce}`}%`
-                              )}
-                              {' · '}
-                              {action.duration}s
+                              {action.duration}s · CD {action.cooldown}s
                             </div>
                           </div>
                         </div>

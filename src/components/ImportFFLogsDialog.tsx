@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
-import { parseComposition, parseDamageEvents, parseMitigationAssignments } from '@/utils/fflogsImporter'
+import { parseComposition, parseDamageEvents, parseCastEventsFromFFLogs, parseStatusEvents } from '@/utils/fflogsImporter'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 
@@ -18,7 +18,7 @@ interface ImportFFLogsDialogProps {
   onImported: () => void
 }
 
-export default function ImportFFLogsDialog({ open, onClose, onImported }: ImportFFLogsDialogProps) {
+export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialogProps) {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState('')
@@ -157,24 +157,27 @@ export default function ImportFFLogsDialog({ open, onClose, onImported }: Import
           playerMap.set(player.id, player)
         })
 
-        // 解析减伤技能使用记录
-        const mitigationAssignments = parseMitigationAssignments(
+        // 解析技能使用事件
+        const castEvents = parseCastEventsFromFFLogs(
           eventsData.events || [],
           fight.startTime,
           playerMap,
           damageEvents
         )
 
-        // 将减伤分配添加到时间轴
-        if (!newTimeline.mitigationPlan) {
-          newTimeline.mitigationPlan = {
-            assignments: [],
-          }
-        }
-        newTimeline.mitigationPlan.assignments = mitigationAssignments
+        // 解析状态事件
+        const statusEvents = parseStatusEvents(
+          eventsData.events || [],
+          fight.startTime
+        )
+
+        // 设置为回放模式
+        newTimeline.isReplayMode = true
+        newTimeline.castEvents = castEvents
+        newTimeline.statusEvents = statusEvents
 
         toast.success(
-          `已导入：${timelineName}（${duration}秒，${damageEvents.length} 个伤害事件，${mitigationAssignments.length} 个减伤技能，${composition.tanks.length + composition.healers.length + composition.dps.length} 名玩家）`
+          `已导入：${timelineName}（${duration}秒，${damageEvents.length} 个伤害事件，${castEvents.length} 个技能使用，${composition.players.length} 名玩家）`
         )
       } catch (eventError) {
         console.error('Failed to fetch events:', eventError)

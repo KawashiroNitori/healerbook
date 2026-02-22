@@ -35,7 +35,6 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
       damage,
       type,
       damageType,
-      phaseId: '',
     })
 
     toast.success('事件已添加')

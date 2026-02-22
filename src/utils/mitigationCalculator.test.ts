@@ -355,6 +355,7 @@ describe('MitigationCalculator', () => {
         damageEventId: 'event1',
         time: 10,
         job: 'WHM',
+        playerId: 1,
       },
       {
         id: 'assign2',
@@ -362,6 +363,7 @@ describe('MitigationCalculator', () => {
         damageEventId: 'event1',
         time: 15,
         job: 'SCH',
+        playerId: 2,
       },
     ]
 
@@ -399,6 +401,7 @@ describe('MitigationCalculator', () => {
           damageEventId: 'event1',
           time: 5,
           job: 'WHM',
+          playerId: 1,
         },
       ]
 

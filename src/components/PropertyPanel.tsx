@@ -3,8 +3,10 @@
  */
 
 import { useTimelineStore } from '@/store/timelineStore'
+import { useDamageCalculationV2 } from '@/hooks/useDamageCalculationV2'
 import { useMitigationStore } from '@/store/mitigationStore'
-import { useDamageCalculation } from '@/hooks/useDamageCalculation'
+import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
+import { getStatusById } from '@/utils/statusRegistry'
 import { getIconUrl } from '@/utils/iconUtils'
 import { Trash2 } from 'lucide-react'
 
@@ -12,15 +14,16 @@ export default function PropertyPanel() {
   const {
     timeline,
     selectedEventId,
-    selectedAssignmentId,
+    selectedCastEventId,
     updateDamageEvent,
     removeDamageEvent,
-    removeAssignment,
+    removeCastEvent,
   } = useTimelineStore()
   const { actions } = useMitigationStore()
+  const isReadOnly = useEditorReadOnly()
 
-  // 使用统一的伤害计算 Hook
-  const eventResults = useDamageCalculation(timeline, actions)
+  // 使用新的伤害计算 Hook（基于状态）
+  const eventResults = useDamageCalculationV2(timeline)
 
   if (!timeline) {
     return (
@@ -44,12 +47,14 @@ export default function PropertyPanel() {
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold">伤害事件</h2>
-          <button
-            onClick={() => removeDamageEvent(event.id)}
-            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => removeDamageEvent(event.id)}
+              className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Properties */}
@@ -60,7 +65,8 @@ export default function PropertyPanel() {
               type="text"
               value={event.name}
               onChange={(e) => updateDamageEvent(event.id, { name: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+              disabled={isReadOnly}
             />
           </div>
 
@@ -72,8 +78,9 @@ export default function PropertyPanel() {
               onChange={(e) =>
                 updateDamageEvent(event.id, { time: parseFloat(e.target.value) || 0 })
               }
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               step="0.1"
+              disabled={isReadOnly}
             />
           </div>
 
@@ -85,7 +92,8 @@ export default function PropertyPanel() {
               onChange={(e) =>
                 updateDamageEvent(event.id, { damage: parseInt(e.target.value) || 0 })
               }
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+              disabled={isReadOnly}
             />
           </div>
 
@@ -98,7 +106,8 @@ export default function PropertyPanel() {
                   damageType: e.target.value as 'physical' | 'magical' | 'special',
                 })
               }
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+              disabled={isReadOnly}
             >
               <option value="physical">物理</option>
               <option value="magical">魔法</option>
@@ -108,82 +117,63 @@ export default function PropertyPanel() {
 
           {/* Mitigation Result */}
           <div className="pt-4 border-t">
-            <h3 className="font-medium mb-2">减伤效果</h3>
+            <h3 className="font-medium mb-2">预估减伤效果</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">原始伤害:</span>
+                <span className="text-muted-foreground">原始伤害</span>
                 <span className="font-medium">{result.originalDamage.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">最终伤害:</span>
+                <span className="text-muted-foreground">最终伤害</span>
                 <span className="font-medium text-primary">
                   {result.finalDamage.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">减伤比例:</span>
+                <span className="text-muted-foreground">减伤比例</span>
                 <span className="font-medium text-green-600">
                   {result.mitigationPercentage.toFixed(1)}%
                 </span>
               </div>
             </div>
 
-            {/* Applied Skills */}
-            {result.appliedEffects.length > 0 && (
+            {/* Applied Statuses */}
+            {result.appliedStatuses && result.appliedStatuses.length > 0 && (
               <div className="mt-4">
-                <div className="text-sm font-medium mb-2">已应用技能:</div>
+                <div className="text-sm font-medium mb-2">已应用状态</div>
                 <div className="space-y-1">
-                  {result.appliedEffects.map((effect, index) => {
-                    const action = actions.find((s) => s.id === effect.actionId)
+                  {result.appliedStatuses.map((status, index) => {
+                    const statusMeta = getStatusById(status.statusId)
+                    if (!statusMeta) return null
 
                     // 根据伤害类型显示对应的减伤值
                     let displayValue = ''
-                    const hasBarrier = effect.barrier > 0
-                    const hasPercentReduce = effect.physicReduce > 0 || effect.magicReduce > 0
+                    const damageType = event.damageType || 'physical'
 
-                    if (hasBarrier) {
-                      // 使用作用前和作用后的盾值
-                      const before = Math.max(0, effect.remainingBarrierBefore ?? effect.barrier)
-                      const after = Math.max(0, effect.remainingBarrierAfter ?? before)
-                      const consumed = Math.max(0, before - after)
-
-                      // 计算等效减伤百分比
-                      const equivalentMitigation = event.damage > 0
-                        ? (consumed / event.damage * 100).toFixed(1)
-                        : '0.0'
-
-                      displayValue = `盾: ${consumed.toLocaleString()} / ${before.toLocaleString()} (${equivalentMitigation}%)`
-                    }
-
-                    if (hasPercentReduce) {
-                      // 根据伤害类型显示对应的减伤百分比
-                      const damageType = event.damageType || 'physical'
-                      let percentValue = ''
-
+                    if (statusMeta.type === 'multiplier') {
+                      // 百分比减伤
+                      let multiplier = 1.0
                       if (damageType === 'physical') {
-                        percentValue = `${effect.physicReduce}%`
+                        multiplier = statusMeta.performance.physics
                       } else if (damageType === 'magical') {
-                        percentValue = `${effect.magicReduce}%`
+                        multiplier = statusMeta.performance.magic
                       } else {
-                        // 特殊伤害：显示两者中较小的值
-                        const minReduce = Math.min(effect.physicReduce, effect.magicReduce)
-                        percentValue = `${minReduce}%`
+                        multiplier = statusMeta.performance.darkness
                       }
-
-                      // 如果同时有盾值和百分比减伤，用 + 连接
-                      if (hasBarrier) {
-                        displayValue += ` + ${percentValue}`
-                      } else {
-                        displayValue = percentValue
-                      }
+                      const reduction = ((1 - multiplier) * 100).toFixed(1)
+                      displayValue = `${reduction}%`
+                    } else if (statusMeta.type === 'absorbed') {
+                      // 盾值
+                      const remaining = status.remainingBarrier || 0
+                      displayValue = `盾: ${remaining.toLocaleString()}`
                     }
 
                     return (
                       <div
-                        key={index}
+                        key={`${status.statusId}-${index}`}
                         className="text-xs p-2 bg-muted rounded flex justify-between items-center gap-2"
                       >
-                        <span className="truncate">{action?.name || effect.actionId}</span>
+                        <span className="truncate">{statusMeta.name}</span>
                         <span className="text-muted-foreground whitespace-nowrap text-right">
                           {displayValue}
                         </span>
@@ -199,21 +189,20 @@ export default function PropertyPanel() {
     )
   }
 
-  // 显示减伤分配属性
-  if (selectedAssignmentId) {
-    const assignment = timeline.mitigationAssignments.find((a) => a.id === selectedAssignmentId)
-    if (!assignment) return null
+  // 显示技能使用事件属性
+  if (selectedCastEventId) {
+    const castEvent = timeline.castEvents.find((ce) => ce.id === selectedCastEventId)
+    if (!castEvent) return null
 
-    const action = actions.find((s) => s.id === assignment.actionId)
-    const event = timeline.damageEvents.find((e) => e.id === assignment.damageEventId)
+    const action = actions.find((s) => s.id === castEvent.actionId)
 
     return (
       <div className="w-80 border-l bg-background flex flex-col h-full">
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">减伤分配</h2>
+          <h2 className="font-semibold">技能使用</h2>
           <button
-            onClick={() => removeAssignment(assignment.id)}
+            onClick={() => removeCastEvent(castEvent.id)}
             className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
           >
             <Trash2 className="w-4 h-4" />
@@ -248,50 +237,25 @@ export default function PropertyPanel() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">职业</label>
-                <div className="text-sm">{assignment.job}</div>
+                <div className="text-sm">{castEvent.job}</div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">使用时间</label>
+                <div className="text-sm">{(castEvent.timestamp / 1000).toFixed(1)}s</div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">效果</label>
                 <div className="text-sm space-y-1">
-                  {action.barrier > 0 && (
-                    <div>盾值: {action.barrier.toLocaleString()}</div>
-                  )}
-                  {(action.physicReduce > 0 || action.magicReduce > 0) && (
-                    action.physicReduce === action.magicReduce ? (
-                      <div>减伤: {action.physicReduce}%</div>
-                    ) : (
-                      <>
-                        {action.physicReduce > 0 && <div>物理减伤: {action.physicReduce}%</div>}
-                        {action.magicReduce > 0 && <div>魔法减伤: {action.magicReduce}%</div>}
-                      </>
-                    )
-                  )}
+                  <div>持续时间: {action.duration}s</div>
+                  <div>冷却时间: {action.cooldown}s</div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    具体减伤效果由附加的状态决定
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">持续时间</label>
-                <div className="text-sm">{action.duration}s</div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">冷却时间</label>
-                <div className="text-sm">{action.cooldown}s</div>
               </div>
             </>
-          )}
-
-          {event && (
-            <div className="pt-4 border-t">
-              <label className="block text-sm font-medium mb-1">目标事件</label>
-              <div className="p-3 border rounded-md">
-                <div className="font-medium">{event.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  时间: {event.time}s | 伤害: {event.damage.toLocaleString()}
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>

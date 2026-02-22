@@ -4,7 +4,7 @@
 
 import { Group, Rect, Text } from 'react-konva'
 import type { DamageEvent } from '@/types/timeline'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { CalculationResult } from '@/utils/mitigationCalculator.v2'
 
 interface DamageEventCardProps {
   event: DamageEvent
@@ -17,6 +17,7 @@ interface DamageEventCardProps {
   onDragStart: () => void
   onDragMove: (x: number) => void
   onDragEnd: (x: number) => void
+  isReadOnly?: boolean
 }
 
 export default function DamageEventCard({
@@ -30,6 +31,7 @@ export default function DamageEventCard({
   onDragStart,
   onDragMove,
   onDragEnd,
+  isReadOnly = false,
 }: DamageEventCardProps) {
   const x = event.time * zoomLevel
   const y = yOffset + trackHeight / 2
@@ -48,7 +50,7 @@ export default function DamageEventCard({
     <Group
       x={x}
       y={y}
-      draggable
+      draggable={!isReadOnly}
       dragBoundFunc={(pos) => ({
         x: Math.max(0, pos.x),
         y: y,

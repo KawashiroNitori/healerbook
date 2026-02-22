@@ -275,11 +275,12 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 188,
       name: '野战治疗阵',
-      icon: '/i/002000/002805.png',
+      icon: '/i/002000/002804.png',
+      iconHD: '/i/002000/002804_hr1.png',
       uniqueGroup: [188],
       jobs: ['SCH'],
-      duration: 15,
-      cooldown: 120,
+      duration: 18,
+      cooldown: 30,
       executor: createFriendlyBuffExecutor(299, 18),
     },
 
@@ -387,7 +388,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       uniqueGroup: [24298],
       jobs: ['SGE'],
       duration: 15,
-      cooldown: 90,
+      cooldown: 30,
       executor: createFriendlyBuffExecutor(2618, 15, true),
     },
 

@@ -28,7 +28,9 @@
       "Bash(pnpm tsx:*)",
       "WebFetch(domain:www.fflogs.com)",
       "Bash(python -m json.tool:*)",
-      "Bash(pnpm tsc:*)"
+      "Bash(pnpm tsc:*)",
+      "Bash(cut:*)",
+      "Bash(cd:*)"
     ]
   }
 }

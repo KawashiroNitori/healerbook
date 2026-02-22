@@ -18,6 +18,7 @@ interface MitigationAssignmentIconProps {
   onSelect: () => void
   onDragEnd: (x: number) => void
   onContextMenu: (e: any) => void
+  isReadOnly?: boolean
 }
 
 export default function MitigationAssignmentIcon({
@@ -31,6 +32,7 @@ export default function MitigationAssignmentIcon({
   onSelect,
   onDragEnd,
   onContextMenu,
+  isReadOnly = false,
 }: MitigationAssignmentIconProps) {
   const x = assignment.time * zoomLevel
 
@@ -38,7 +40,7 @@ export default function MitigationAssignmentIcon({
     <Group
       x={x}
       y={trackY}
-      draggable
+      draggable={!isReadOnly}
       dragBoundFunc={(pos) => {
         const minX = leftBoundary * zoomLevel
         const maxX = rightBoundary === Infinity ? pos.x : rightBoundary * zoomLevel

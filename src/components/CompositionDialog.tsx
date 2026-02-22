@@ -22,7 +22,6 @@ import type { Job, Composition } from '@/types/timeline'
 import {
   JOB_ORDER,
   getJobName,
-  getJobRole,
   ROLE_LABELS,
   ROLE_ORDER,
   groupJobsByRole,
@@ -43,15 +42,8 @@ export default function CompositionDialog({
   const [open, setOpen] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | ''>('')
 
-  const allMembers = [
-    ...composition.tanks,
-    ...composition.healers,
-    ...composition.dps,
-  ]
-
-  // 按职业类别分组可用职业
-  const availableJobs = JOB_ORDER.filter((job) => !allMembers.includes(job))
-  const jobsByRole = groupJobsByRole(availableJobs)
+  // 按职业类别分组所有职业（允许重复职业）
+  const jobsByRole = groupJobsByRole(JOB_ORDER)
 
   const handleSave = () => {
     if (!selectedJob) {
@@ -59,19 +51,18 @@ export default function CompositionDialog({
       return
     }
 
-    const role = getJobRole(selectedJob)
-    if (!role) {
-      setOpen(false)
-      return
-    }
+    // 生成新的玩家 ID（使用时间戳 + 随机数）
+    const newPlayerId = Date.now() + Math.floor(Math.random() * 1000)
 
-    const newComposition = { ...composition }
-    if (role === 'tank') {
-      newComposition.tanks = [...newComposition.tanks, selectedJob]
-    } else if (role === 'healer') {
-      newComposition.healers = [...newComposition.healers, selectedJob]
-    } else {
-      newComposition.dps = [...newComposition.dps, selectedJob]
+    const newComposition = {
+      players: [
+        ...composition.players,
+        {
+          id: newPlayerId,
+          job: selectedJob,
+          name: `${selectedJob} Player`,
+        },
+      ],
     }
 
     onSave(newComposition)

@@ -6,8 +6,9 @@ import { useRef, useEffect, useState } from 'react'
 import { Stage, Layer } from 'react-konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
+import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { sortJobsByOrder } from '@/data/jobs'
-import { useDamageCalculation } from '@/hooks/useDamageCalculation'
+import { useDamageCalculationV2 } from '@/hooks/useDamageCalculationV2'
 import { toast } from 'sonner'
 import ConfirmDialog from '../ConfirmDialog'
 import TimeRuler from './TimeRuler'
@@ -15,7 +16,7 @@ import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
 import SkillTracksCanvas from './SkillTracksCanvas'
 import type { SkillTrack } from './SkillTrackLabels'
-import type { MitigationAssignment, Job } from '@/types/timeline'
+import type { CastEvent } from '@/types/timeline'
 
 interface TimelineCanvasProps {
   width: number
@@ -30,7 +31,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const labelColumnContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedZoom = useRef(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [assignmentToDelete, setAssignmentToDelete] = useState<string | null>(null)
+  const [castEventToDelete, setCastEventToDelete] = useState<string | null>(null)
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
     eventId: string
     x: number
@@ -40,17 +41,18 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     timeline,
     zoomLevel,
     selectedEventId,
-    selectedAssignmentId,
+    selectedCastEventId,
     selectEvent,
-    selectAssignment,
-    addAssignment,
+    selectCastEvent,
+    addCastEvent,
     removeDamageEvent,
-    removeAssignment,
+    removeCastEvent,
     setZoomLevel,
   } = useTimelineStore()
   const { actions } = useMitigationStore()
+  const isReadOnly = useEditorReadOnly()
 
-  const eventResults = useDamageCalculation(timeline, actions)
+  const eventResults = useDamageCalculationV2(timeline)
 
   // 布局常量
   const timeRulerHeight = 30
@@ -61,9 +63,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 检查技能是否与同轨道的其他技能重叠
   const checkOverlap = (
     newTime: number,
-    job: Job,
+    playerId: number,
     actionId: number,
-    excludeAssignmentId?: string
+    excludeCastEventId?: string
   ): boolean => {
     if (!timeline) return false
 
@@ -72,16 +74,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
     const currentEndTime = newTime + currentAction.cooldown
 
-    return timeline.mitigationAssignments.some((other) => {
-      if (excludeAssignmentId && other.id === excludeAssignmentId) return false
-      if (other.job !== job || other.actionId !== actionId) return false
+    return timeline.castEvents.some((other) => {
+      if (excludeCastEventId && other.id === excludeCastEventId) return false
+      if (other.playerId !== playerId || other.actionId !== actionId) return false
 
       const otherAction = actions.find((a) => a.id === other.actionId)
       if (!otherAction) return false
 
-      const otherEndTime = other.time + otherAction.cooldown
+      const otherTimeSeconds = other.timestamp / 1000
+      const otherEndTime = otherTimeSeconds + otherAction.cooldown
 
-      return newTime < otherEndTime && other.time < currentEndTime
+      return newTime < otherEndTime && otherTimeSeconds < currentEndTime
     })
   }
 
@@ -140,18 +143,19 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 处理键盘删除
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isReadOnly) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedEventId) {
           removeDamageEvent(selectedEventId)
-        } else if (selectedAssignmentId) {
-          removeAssignment(selectedAssignmentId)
+        } else if (selectedCastEventId) {
+          removeCastEvent(selectedCastEventId)
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedEventId, selectedAssignmentId, removeDamageEvent, removeAssignment])
+  }, [selectedEventId, selectedCastEventId, removeDamageEvent, removeCastEvent, isReadOnly])
 
   // 处理顶部固定区域的 Stage 拖动
   useEffect(() => {
@@ -289,98 +293,42 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [timeline])
 
-  // 处理拖放
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-
-    const actionIdStr = e.dataTransfer.getData('actionId')
-    const jobStr = e.dataTransfer.getData('job')
-    if (!actionIdStr || !jobStr || !timeline || !scrollContainerRef.current) return
-
-    const actionId = parseInt(actionIdStr, 10)
-    if (isNaN(actionId)) return
-
-    const action = actions.find((s) => s.id === actionId)
-    if (!action) return
-
-    // 验证 job 是否在 action.jobs 中
-    if (!action.jobs.includes(jobStr as Job)) {
-      toast.error('该职业无法使用此技能')
-      return
-    }
-
-    const rect = scrollContainerRef.current.getBoundingClientRect()
-    const scrollLeft = scrollContainerRef.current.scrollLeft
-    const scrollTop = scrollContainerRef.current.scrollTop
-
-    const x = e.clientX - rect.left + scrollLeft
-    const y = e.clientY - rect.top + scrollTop
-
-    const time = Math.max(0, x / zoomLevel)
-
-    let damageEventId: string | null = null
-    let minDistance = Infinity
-
-    for (const event of timeline.damageEvents) {
-      const eventX = event.time * zoomLevel
-      const eventY = 100
-      const distance = Math.sqrt(Math.pow(x - eventX, 2) + Math.pow(y - eventY, 2))
-
-      if (distance < 50 && distance < minDistance) {
-        minDistance = distance
-        damageEventId = event.id
-      }
-    }
-
-    const assignment: MitigationAssignment = {
-      id: `assignment-${Date.now()}`,
-      actionId,
-      damageEventId: damageEventId || timeline.damageEvents[0]?.id || '',
-      time: Math.round(time * 10) / 10,
-      job: jobStr as Job,
-    }
-
-    addAssignment(assignment)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-  }
-
   // 处理双击轨道添加技能
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
-    if (!timeline) return
+    if (!timeline || isReadOnly) return
 
-    if (checkOverlap(time, track.job, track.actionId)) {
+    if (checkOverlap(time, track.playerId, track.actionId)) {
       toast.error('无法添加技能', {
         description: `该技能与已有技能重叠`,
       })
       return
     }
 
-    const assignment: MitigationAssignment = {
-      id: `assignment-${Date.now()}`,
+    const castEvent: CastEvent = {
+      id: `cast-${Date.now()}`,
       actionId: track.actionId,
-      damageEventId: timeline.damageEvents[0]?.id || '',
-      time,
+      timestamp: time * 1000, // 转换为毫秒
+      playerId: track.playerId,
       job: track.job,
     }
-    addAssignment(assignment)
+    addCastEvent(castEvent)
   }
 
   // 处理伤害事件拖动
   const handleEventDragEnd = (eventId: string, x: number) => {
+    if (isReadOnly) return
     const newTime = Math.max(0, Math.round((x / zoomLevel) * 10) / 10)
     const { updateDamageEvent } = useTimelineStore.getState()
     updateDamageEvent(eventId, { time: newTime })
     setDraggingEventPosition(null)
   }
 
-  // 处理减伤分配拖动
-  const handleAssignmentDragEnd = (assignmentId: string, x: number) => {
+  // 处理技能使用事件拖动
+  const handleCastEventDragEnd = (castEventId: string, x: number) => {
+    if (isReadOnly) return
     const newTime = Math.max(0, Math.round((x / zoomLevel) * 10) / 10)
-    const { updateAssignment } = useTimelineStore.getState()
-    updateAssignment(assignmentId, { time: newTime })
+    const { updateCastEvent } = useTimelineStore.getState()
+    updateCastEvent(castEventId, { timestamp: newTime * 1000 }) // 转换为毫秒
   }
 
   if (!timeline) {
@@ -392,20 +340,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }
 
   // 获取阵容和技能轨道信息
-  const composition = timeline.composition || { tanks: [], healers: [], dps: [] }
+  const composition = timeline.composition || { players: [] }
 
-  const allMembers = sortJobsByOrder([
-    ...(composition.tanks || []),
-    ...(composition.healers || []),
-    ...(composition.dps || []),
-  ])
+  // 按职业顺序排序玩家
+  const sortedPlayers = [...composition.players].sort((a, b) => {
+    const jobOrder = sortJobsByOrder([a.job, b.job])
+    return jobOrder.indexOf(a.job) - jobOrder.indexOf(b.job)
+  })
 
   const skillTracks: SkillTrack[] = []
-  allMembers.forEach((job) => {
-    const jobActions = actions.filter((action) => action.jobs.includes(job))
+  sortedPlayers.forEach((player) => {
+    const jobActions = actions.filter((action) => action.jobs.includes(player.job))
     jobActions.forEach((action) => {
       skillTracks.push({
-        job,
+        job: player.job,
+        playerId: player.id,
         actionId: action.id,
         actionName: action.name,
         actionIcon: action.icon,
@@ -414,15 +363,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   })
 
   // 计算时间轴总长度
-  // 找到最后一个事件或减伤的时间
+  // 找到最后一个事件或技能使用的时间
   const lastEventTime = Math.max(
     0,
     ...timeline.damageEvents.map((e) => e.time),
-    ...timeline.mitigationAssignments.map((a) => a.time)
+    ...timeline.castEvents.map((ce) => ce.timestamp / 1000) // 转换为秒
   )
 
   // 如果有事件，则为最后事件时间 + 60 秒；否则至少 300 秒
-  const maxTime = lastEventTime > 0 ? lastEventTime + 60 : 300
+  const maxTime = Math.max(300, lastEventTime + 60)
 
   const timelineWidth = maxTime * zoomLevel
   const fixedAreaHeight = timeRulerHeight + eventTrackHeight
@@ -486,6 +435,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   setDraggingEventPosition({ eventId, x })
                 }}
                 onDragEnd={handleEventDragEnd}
+                isReadOnly={isReadOnly}
               />
             </Layer>
           </Stage>
@@ -509,8 +459,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           ref={scrollContainerRef}
           className="flex-1 overflow-auto scrollbar-custom"
           style={{ cursor: 'grab' }}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
         >
           <Stage
             width={Math.max(width - labelColumnWidth, timelineWidth)}
@@ -526,15 +474,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               timelineWidth={timelineWidth}
               trackHeight={skillTrackHeight}
               maxTime={maxTime}
-              selectedAssignmentId={selectedAssignmentId}
+              selectedCastEventId={selectedCastEventId}
               draggingEventPosition={draggingEventPosition}
-              onSelectAssignment={selectAssignment}
-              onUpdateAssignment={handleAssignmentDragEnd}
-              onContextMenu={(assignmentId) => {
-                setAssignmentToDelete(assignmentId)
+              onSelectCastEvent={selectCastEvent}
+              onUpdateCastEvent={handleCastEventDragEnd}
+              onContextMenu={(castEventId) => {
+                setCastEventToDelete(castEventId)
                 setDeleteConfirmOpen(true)
               }}
               onDoubleClickTrack={handleDoubleClickTrack}
+              isReadOnly={isReadOnly}
             />
           </Stage>
         </div>
@@ -545,13 +494,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         onConfirm={() => {
-          if (assignmentToDelete) {
-            removeAssignment(assignmentToDelete)
-            setAssignmentToDelete(null)
+          if (castEventToDelete) {
+            removeCastEvent(castEventToDelete)
+            setCastEventToDelete(null)
           }
         }}
-        title="删除减伤分配"
-        description="确定要删除这个减伤分配吗?"
+        title="删除技能使用"
+        description="确定要删除这个技能使用吗?"
       />
     </div>
   )

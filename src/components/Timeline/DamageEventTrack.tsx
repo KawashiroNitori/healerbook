@@ -5,7 +5,7 @@
 import { Rect } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
 import type { DamageEvent } from '@/types/timeline'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { CalculationResult } from '@/utils/mitigationCalculator.v2'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]
@@ -19,6 +19,7 @@ interface DamageEventTrackProps {
   onDragStart: (eventId: string, x: number) => void
   onDragMove: (eventId: string, x: number) => void
   onDragEnd: (eventId: string, x: number) => void
+  isReadOnly?: boolean
 }
 
 export default function DamageEventTrack({
@@ -33,6 +34,7 @@ export default function DamageEventTrack({
   onDragStart,
   onDragMove,
   onDragEnd,
+  isReadOnly = false,
 }: DamageEventTrackProps) {
   return (
     <>
@@ -65,6 +67,7 @@ export default function DamageEventTrack({
               onDragStart={() => onDragStart(event.id, event.time * zoomLevel)}
               onDragMove={(x) => onDragMove(event.id, x)}
               onDragEnd={(x) => onDragEnd(event.id, x)}
+              isReadOnly={isReadOnly}
             />
           )
         })}

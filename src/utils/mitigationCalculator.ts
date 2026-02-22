@@ -200,13 +200,13 @@ export class MitigationCalculator {
         // 获取当前的剩余盾值（如果有的话）
         const currentBarrier = this.barrierState.has(assignment.id)
           ? this.barrierState.get(assignment.id)!
-          : action.barrier
+          : 0 // 旧系统不再使用 barrier 字段
 
         effects.push({
           id: action.id,
-          physicReduce: action.physicReduce,
-          magicReduce: action.magicReduce,
-          barrier: action.barrier,
+          physicReduce: 0, // 旧系统不再使用
+          magicReduce: 0, // 旧系统不再使用
+          barrier: 0, // 旧系统不再使用
           remainingBarrierBefore: Math.max(0, currentBarrier),
           startTime,
           endTime,

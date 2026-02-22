@@ -2,7 +2,7 @@
  * FFLogs API 客户端（通过后端代理）
  */
 
-import type { FFLogsV1Report, FFLogsReport, FFLogsFight } from '@/types/fflogs'
+import type { FFLogsV1Report, FFLogsReport } from '@/types/fflogs'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 

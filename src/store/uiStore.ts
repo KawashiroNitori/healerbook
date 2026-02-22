@@ -21,6 +21,8 @@ interface UIState {
   showCooldownIndicators: boolean
   /** 主题模式 */
   theme: 'light' | 'dark'
+  /** 是否为只读模式 */
+  isReadOnly: boolean
 
   // Actions
   /** 切换侧边栏 */
@@ -39,6 +41,8 @@ interface UIState {
   toggleCooldownIndicators: () => void
   /** 设置主题 */
   setTheme: (theme: 'light' | 'dark') => void
+  /** 切换只读模式 */
+  toggleReadOnly: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -50,6 +54,7 @@ export const useUIStore = create<UIState>((set) => ({
   showTimeRuler: true,
   showCooldownIndicators: true,
   theme: 'light',
+  isReadOnly: false,
 
   toggleSidebar: () =>
     set((state) => ({
@@ -94,4 +99,10 @@ export const useUIStore = create<UIState>((set) => ({
     set({
       theme,
     }),
+
+  toggleReadOnly: () =>
+    set((state) => ({
+      isReadOnly: !state.isReadOnly,
+    })),
+
 }))
