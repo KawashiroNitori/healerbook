@@ -3,6 +3,7 @@
  */
 
 import type { FFLogsV1Report, FFLogsReport } from '@/types/fflogs'
+import type { IFFLogsClient } from './IFFLogsClient'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000 
@@ -54,7 +55,7 @@ function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogs
 /**
  * FFLogs 客户端
  */
-export class FFLogsClient {
+export class FFLogsClient implements IFFLogsClient {
   private baseUrl: string
 
   constructor(baseUrl: string = API_BASE_URL) {
@@ -83,22 +84,16 @@ export class FFLogsClient {
   }
 
   /**
-   * 获取战斗事件（单页）
+   * 获取战斗事件（单页，内部使用）
    */
-  async getEvents(reportCode: string, params: {
-    start?: number
-    end?: number
-    actorid?: number
-    actorinstance?: number
-    actorclass?: string
-    cutoff?: number
-    encounter?: number
-    wipes?: number
-    difficulty?: number
-    filter?: string
-    translate?: boolean
-    lang?: string
-  } = {}) {
+  private async getEvents(
+    reportCode: string,
+    params: {
+      start?: number
+      end?: number
+      lang?: string
+    } = {}
+  ) {
     const queryParams = new URLSearchParams(
       Object.fromEntries(
         Object.entries(params)
