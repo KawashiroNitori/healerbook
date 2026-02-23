@@ -3,7 +3,7 @@
  * 使用 xivapi/classjob-icons 字体库显示职业图标
  */
 
-import { getJobIconClass } from '@/data/jobs'
+import { getJobIconClass, getJobRole } from '@/data/jobs'
 import type { Job } from '@/types/timeline'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +31,7 @@ export default function JobIcon({
   size = 'md'
 }: JobIconProps) {
   const iconClass = getJobIconClass(job)
+  const role = getJobRole(job)
 
   const sizeClasses = {
     sm: 'text-sm w-4 h-4',
@@ -38,9 +39,24 @@ export default function JobIcon({
     lg: 'text-lg w-6 h-6',
   }
 
+  // 根据职业角色设置颜色
+  const roleColorClasses = {
+    tank: 'text-blue-500',
+    healer: 'text-green-500',
+    melee: 'text-red-500',
+    ranged: 'text-red-500',
+    caster: 'text-red-500',
+  }
+
   return (
     <i
-      className={cn('job-icon', iconClass, sizeClasses[size], className)}
+      className={cn(
+        'job-icon',
+        iconClass,
+        sizeClasses[size],
+        roleColorClasses[role],
+        className
+      )}
       aria-label={job}
     />
   )

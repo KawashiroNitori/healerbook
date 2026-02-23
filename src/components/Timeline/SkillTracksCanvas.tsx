@@ -2,7 +2,7 @@
  * 技能轨道 Canvas 区域组件
  */
 
-import { Layer, Line, Rect } from 'react-konva'
+import { Group, Layer, Line, Rect, Text } from 'react-konva'
 import CastEventIcon from './CastEventIcon'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Timeline } from '@/types/timeline'
@@ -118,6 +118,85 @@ export default function SkillTracksCanvas({
           )
         })}
 
+        {/* 技能空转时间提示 */}
+        {skillTracks.map((track, trackIndex) => {
+          // 获取该轨道的所有技能使用记录，按时间排序
+          const trackCastEvents = timeline.castEvents
+            .filter(
+              (castEvent) =>
+                castEvent.playerId === track.playerId && castEvent.actionId === track.actionId
+            )
+            .sort((a, b) => a.timestamp - b.timestamp)
+
+          if (trackCastEvents.length < 2) return null
+
+          const action = actions.find((a) => a.id === track.actionId)
+          if (!action) return null
+
+          // 只对冷却时间 >= 40 秒的技能显示空转提示
+          if (action.cooldown < 40) return null
+
+          const trackY = trackIndex * trackHeight + trackHeight / 2
+
+          // 检查每两个相邻技能之间的空转时间
+          return trackCastEvents.slice(0, -1).map((castEvent, index) => {
+            const nextCastEvent = trackCastEvents[index + 1]
+            const timeDiff = nextCastEvent.timestamp - castEvent.timestamp
+            const idleTime = timeDiff - action.cooldown
+
+            // 只显示时间差大于 2 倍冷却时间的情况
+            if (timeDiff <= action.cooldown * 2) return null
+
+            // 计算提示位置（在两个技能之间的中点）
+            const startX = (castEvent.timestamp + action.cooldown) * zoomLevel
+            const endX = nextCastEvent.timestamp * zoomLevel
+            const centerX = (startX + endX) / 2
+
+            return (
+              <Group key={`idle-${castEvent.id}-${nextCastEvent.id}`}>
+                {/* 左侧连接线 */}
+                <Line
+                  points={[startX, trackY, centerX - 35, trackY]}
+                  stroke="#d1d5db"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  opacity={0.6}
+                  shadowEnabled={false}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+
+                {/* 右侧连接线 */}
+                <Line
+                  points={[centerX + 35, trackY, endX, trackY]}
+                  stroke="#d1d5db"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  opacity={0.6}
+                  shadowEnabled={false}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+
+                {/* 空转时间文本 */}
+                <Text
+                  x={centerX}
+                  y={trackY - 6}
+                  text={`空转 ${idleTime.toFixed(1)}s`}
+                  fontSize={11}
+                  fill="#f59e0b"
+                  fontStyle="bold"
+                  fontFamily="Arial, sans-serif"
+                  align="center"
+                  offsetX={30}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+              </Group>
+            )
+          })
+        })}
+
         {timeline.castEvents.map((castEvent) => {
           const trackIndex = skillTracks.findIndex(
             (t) => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
@@ -131,7 +210,7 @@ export default function SkillTracksCanvas({
           const action = actions.find((a) => a.id === castEvent.actionId)
           if (!action) return null
 
-          const castEventTimeSeconds = castEvent.timestamp / 1000
+          const castEventTimeSeconds = castEvent.timestamp // timestamp 已经是秒
 
           // 计算拖动边界
           const sameTrackCastEvents = timeline.castEvents
@@ -143,7 +222,7 @@ export default function SkillTracksCanvas({
             )
             .map((other) => {
               const otherAction = actions.find((a) => a.id === other.actionId)
-              const otherTimeSeconds = other.timestamp / 1000
+              const otherTimeSeconds = other.timestamp // timestamp 已经是秒
               return {
                 startTime: otherTimeSeconds,
                 endTime: otherTimeSeconds + (otherAction?.cooldown || 0),
