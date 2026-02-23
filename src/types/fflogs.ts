@@ -226,6 +226,21 @@ export interface FFLogsRanking {
 }
 
 /**
+ * FFLogs 事件数据类型
+ */
+export type FFLogsEventDataType = 'Buffs' | 'Debuffs' | 'Casts' | 'DamageTaken'
+
+/**
+ * FFLogs 事件响应
+ */
+export interface FFLogsEventsResponse {
+  /** 事件列表 */
+  events: FFLogsEvent[]
+  /** 下一页时间戳 */
+  nextPageTimestamp?: number
+}
+
+/**
  * FFLogs GraphQL 查询响应
  */
 export interface FFLogsGraphQLResponse<T = any> {

@@ -1,12 +1,13 @@
 /**
- * FFLogs API 客户端（通过后端代理）
+ * FFLogs API 客户端（前端薄客户端）
+ *
+ * 只负责调用 Worker 的 HTTP 接口，不包含任何 FFLogs API 调用逻辑
  */
 
 import type { FFLogsV1Report, FFLogsReport } from '@/types/fflogs'
-import type { IFFLogsClient } from './IFFLogsClient'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
-const REQUEST_TIMEOUT = 60000 
+const REQUEST_TIMEOUT = 60000
 
 /**
  * 带超时的 fetch 请求
@@ -53,9 +54,9 @@ function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogs
 }
 
 /**
- * FFLogs 客户端
+ * FFLogs 客户端（前端）
  */
-export class FFLogsClient implements IFFLogsClient {
+export class FFLogsClient {
   private baseUrl: string
 
   constructor(baseUrl: string = API_BASE_URL) {
@@ -78,41 +79,6 @@ export class FFLogsClient implements IFFLogsClient {
 
       const v1Report: FFLogsV1Report = await response.json()
       return convertV1ToReport(v1Report, reportCode)
-    } catch (error) {
-      throw this.handleError(error)
-    }
-  }
-
-  /**
-   * 获取战斗事件（单页，内部使用）
-   */
-  private async getEvents(
-    reportCode: string,
-    params: {
-      start?: number
-      end?: number
-      lang?: string
-    } = {}
-  ) {
-    const queryParams = new URLSearchParams(
-      Object.fromEntries(
-        Object.entries(params)
-          .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => [k, String(v)])
-      )
-    )
-
-    const url = `${this.baseUrl}/events/${reportCode}?${queryParams}`
-
-    try {
-      const response = await fetchWithTimeout(url)
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || `HTTP ${response.status}`)
-      }
-
-      return await response.json()
     } catch (error) {
       throw this.handleError(error)
     }
@@ -176,6 +142,41 @@ export class FFLogsClient implements IFFLogsClient {
     return {
       events: allEvents,
       totalPages: pageCount,
+    }
+  }
+
+  /**
+   * 获取战斗事件（单页，私有方法）
+   */
+  private async getEvents(
+    reportCode: string,
+    params: {
+      start?: number
+      end?: number
+      lang?: string
+    } = {}
+  ) {
+    const queryParams = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      )
+    )
+
+    const url = `${this.baseUrl}/events/${reportCode}?${queryParams}`
+
+    try {
+      const response = await fetchWithTimeout(url)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `HTTP ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      throw this.handleError(error)
     }
   }
 

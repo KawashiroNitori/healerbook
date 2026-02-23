@@ -2,28 +2,59 @@
  * FFLogs API 代理 Worker
  *
  * 用途：
- * 1. 隐藏 API Key，避免暴露到前端
+ * 1. 隐藏 API Key 和 Client Secret，避免暴露到前端
  * 2. 添加缓存层，减少 API 调用
  * 3. 统一错误处理
+ * 4. 对外提供统一接口，内部根据常量选择 v1 或 v2 API
  */
 
+import { FFLogsClientV1, GetReportParams, GetEventsParams } from './fflogsClientV1'
+import { FFLogsClientV2 } from './fflogsClientV2'
+import type { FFLogsV1Report, FFLogsEventsResponse } from '../src/types/fflogs'
+
 export interface Env {
-  // FFLogs API Key（在 Cloudflare Workers 环境变量中配置）
-  FFLOGS_API_KEY: string
+  // FFLogs v1 API Key
+  FFLOGS_API_KEY?: string
+  // FFLogs v2 OAuth Client ID
+  FFLOGS_CLIENT_ID?: string
+  // FFLogs v2 OAuth Client Secret
+  FFLOGS_CLIENT_SECRET?: string
   // KV 缓存（可选）
   FFLOGS_CACHE?: KVNamespace
 }
 
 const CACHE_TTL = 3600 // 1 小时缓存
 
+// API 版本选择（硬编码常量）
+const USE_API_VERSION: 'v1' | 'v2' = 'v2' // 修改此常量来切换 API 版本
+
 /**
- * 根据 lang 获取对应的 API 域名
- * - 如果 lang 存在，使用 {lang}.fflogs.com
- * - 如果 lang 为空，使用 www.fflogs.com
+ * 统一的 FFLogs 客户端接口
  */
-function getApiUrl(lang?: string): string {
-  const subdomain = lang || 'www'
-  return `https://${subdomain}.fflogs.com/v1`
+export interface IFFLogsClient {
+  getReport(params: GetReportParams): Promise<FFLogsV1Report>
+  getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse>
+}
+
+/**
+ * 创建 FFLogs 客户端实例
+ * 根据 USE_API_VERSION 常量选择 v1 或 v2 客户端
+ */
+function createClient(env: Env): IFFLogsClient {
+  if (USE_API_VERSION === 'v2') {
+    if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET) {
+      throw new Error('FFLogs v2 credentials not configured')
+    }
+    return new FFLogsClientV2({
+      clientId: env.FFLOGS_CLIENT_ID,
+      clientSecret: env.FFLOGS_CLIENT_SECRET,
+    })
+  } else {
+    if (!env.FFLOGS_API_KEY) {
+      throw new Error('FFLogs v1 API key not configured')
+    }
+    return new FFLogsClientV1({ apiKey: env.FFLOGS_API_KEY })
+  }
 }
 
 export default {
@@ -37,7 +68,7 @@ export default {
     const path = url.pathname
 
     try {
-      // 路由处理
+      // 统一路由处理（不暴露 v1/v2 差异）
       if (path.startsWith('/api/fflogs/report/')) {
         return await handleReport(request, env)
       } else if (path.startsWith('/api/fflogs/events/')) {
@@ -56,7 +87,7 @@ export default {
 }
 
 /**
- * 处理报告请求
+ * 处理报告请求（统一接口）
  * GET /api/fflogs/report/:reportCode
  */
 async function handleReport(request: Request, env: Env): Promise<Response> {
@@ -68,42 +99,37 @@ async function handleReport(request: Request, env: Env): Promise<Response> {
   }
 
   // 检查缓存
-  const cacheKey = `report:${reportCode}`
+  const cacheKey = `report:${USE_API_VERSION}:${reportCode}`
   if (env.FFLOGS_CACHE) {
     const cached = await env.FFLOGS_CACHE.get(cacheKey, 'json')
     if (cached) {
-      return jsonResponse(cached, 200, { 'X-Cache': 'HIT' })
+      return jsonResponse(cached, 200, { 'X-Cache': 'HIT', 'X-API-Version': USE_API_VERSION })
     }
   }
 
-  // 调用 FFLogs API（使用默认域名）
-  const apiUrl = getApiUrl()
-  const fflogsUrl = `${apiUrl}/report/fights/${reportCode}?api_key=${env.FFLOGS_API_KEY}`
-  console.log(fflogsUrl)
-  const response = await fetch(fflogsUrl)
+  try {
+    const client = createClient(env)
+    const data = await client.getReport({ reportCode })
 
-  if (!response.ok) {
+    // 存入缓存
+    if (env.FFLOGS_CACHE) {
+      await env.FFLOGS_CACHE.put(cacheKey, JSON.stringify(data), {
+        expirationTtl: CACHE_TTL,
+      })
+    }
+
+    return jsonResponse(data, 200, { 'X-Cache': 'MISS', 'X-API-Version': USE_API_VERSION })
+  } catch (error) {
     return jsonResponse(
-      { error: `FFLogs API error: ${response.statusText}` },
-      response.status
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      500
     )
   }
-
-  const data = await response.json()
-
-  // 存入缓存
-  if (env.FFLOGS_CACHE) {
-    await env.FFLOGS_CACHE.put(cacheKey, JSON.stringify(data), {
-      expirationTtl: CACHE_TTL,
-    })
-  }
-
-  return jsonResponse(data, 200, { 'X-Cache': 'MISS' })
 }
 
 /**
- * 处理事件请求
- * GET /api/fflogs/events/:reportCode?start=0&end=1000&lang=cn&...
+ * 处理事件请求（统一接口）
+ * GET /api/fflogs/events/:reportCode?start=0&end=1000&lang=cn
  */
 async function handleEvents(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
@@ -113,53 +139,47 @@ async function handleEvents(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: 'Missing report code' }, 400)
   }
 
-  // 构建查询参数
   const params = new URLSearchParams(url.search)
-
-  // 提取 lang 参数
+  const start = params.get('start')
+  const end = params.get('end')
   const lang = params.get('lang') || undefined
 
-  // 移除 lang 参数（不传给 FFLogs API）
-  params.delete('lang')
-
-  // 固定添加 translate=true
-  params.set('translate', 'true')
-
-  // 添加 API Key
-  params.set('api_key', env.FFLOGS_API_KEY)
+  if (!start || !end) {
+    return jsonResponse({ error: 'Missing start or end parameter' }, 400)
+  }
 
   // 检查缓存
-  const cacheKey = `events:${reportCode}:${params.toString()}`
+  const cacheKey = `events:${USE_API_VERSION}:${reportCode}:${params.toString()}`
   if (env.FFLOGS_CACHE) {
     const cached = await env.FFLOGS_CACHE.get(cacheKey, 'json')
     if (cached) {
-      return jsonResponse(cached, 200, { 'X-Cache': 'HIT' })
+      return jsonResponse(cached, 200, { 'X-Cache': 'HIT', 'X-API-Version': USE_API_VERSION })
     }
   }
 
-  // 根据 lang 选择对应的 API 域名
-  const apiUrl = getApiUrl(lang)
-  const fflogsUrl = `${apiUrl}/report/events/${reportCode}?${params}`
-  console.log(fflogsUrl)
-  const response = await fetch(fflogsUrl)
+  try {
+    const client = createClient(env)
+    const data = await client.getEvents({
+      reportCode,
+      start: parseFloat(start),
+      end: parseFloat(end),
+      lang,
+    })
 
-  if (!response.ok) {
+    // 存入缓存
+    if (env.FFLOGS_CACHE) {
+      await env.FFLOGS_CACHE.put(cacheKey, JSON.stringify(data), {
+        expirationTtl: CACHE_TTL,
+      })
+    }
+
+    return jsonResponse(data, 200, { 'X-Cache': 'MISS', 'X-API-Version': USE_API_VERSION })
+  } catch (error) {
     return jsonResponse(
-      { error: `FFLogs API error: ${response.statusText}` },
-      response.status
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      500
     )
   }
-
-  const data = await response.json()
-
-  // 存入缓存
-  if (env.FFLOGS_CACHE) {
-    await env.FFLOGS_CACHE.put(cacheKey, JSON.stringify(data), {
-      expirationTtl: CACHE_TTL,
-    })
-  }
-
-  return jsonResponse(data, 200, { 'X-Cache': 'MISS' })
 }
 
 /**
@@ -170,8 +190,8 @@ function handleCORS(): Response {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
     },
   })

@@ -21,4 +21,9 @@ RATE_LIMIT_RPM = "30"
 CACHE_TTL = "3600"
 
 # Secrets (通过 wrangler secret 设置)
+# v1 API
 # wrangler secret put FFLOGS_API_KEY
+#
+# v2 API (OAuth)
+# wrangler secret put FFLOGS_CLIENT_ID
+# wrangler secret put FFLOGS_CLIENT_SECRET

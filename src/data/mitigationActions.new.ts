@@ -296,9 +296,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
     },
 
     {
-      id: 16546,
+      id: 25868,
       name: '疾风怒涛之计',
-      icon: '/i/002000/002829.png',
+      icon: '/i/002000/002878.png',
       uniqueGroup: [16546],
       jobs: ['SCH'],
       duration: 20,

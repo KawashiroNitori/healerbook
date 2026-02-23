@@ -2,7 +2,11 @@
  * FFLogs v2 API 客户端（GraphQL）
  *
  * FFLogs v2 使用 GraphQL API，需要通过后端代理访问
- * API 文档：https://www.fflogs.com/api/docs
+ * API 文档：https://www.archon.gg/ffxiv/articles/help/api-documentation
+ *
+ * 认证流程：
+ * 1. 使用 client_id 和 client_secret 获取 access_token
+ * 2. 在 GraphQL 请求中使用 Bearer token
  */
 
 import type { FFLogsReport } from '@/types/fflogs'
@@ -10,6 +14,15 @@ import type { IFFLogsClient } from './IFFLogsClient'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000
+
+/**
+ * OAuth Token 响应
+ */
+interface OAuthTokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+}
 
 /**
  * 带超时的 fetch 请求
@@ -43,15 +56,57 @@ async function fetchWithTimeout(
  */
 export class FFLogsClientV2 implements IFFLogsClient {
   private baseUrl: string
+  private accessToken: string | null = null
+  private tokenExpiresAt: number = 0
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
   }
 
   /**
+   * 获取 Access Token（使用 Client Credentials Flow）
+   *
+   * 通过后端代理获取 token，避免在前端暴露 client_secret
+   */
+  private async getAccessToken(): Promise<string> {
+    // 检查 token 是否有效（提前 5 分钟刷新）
+    const now = Date.now()
+    if (this.accessToken && this.tokenExpiresAt > now + 5 * 60 * 1000) {
+      return this.accessToken
+    }
+
+    // 通过后端代理获取 token
+    const url = `${this.baseUrl}/v2/token`
+
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `HTTP ${response.status}`)
+      }
+
+      const data: OAuthTokenResponse = await response.json()
+
+      // 保存 token 和过期时间
+      this.accessToken = data.access_token
+      this.tokenExpiresAt = now + data.expires_in * 1000
+
+      return this.accessToken
+    } catch (error) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
    * 执行 GraphQL 查询
    */
   private async query<T = any>(query: string, variables: Record<string, any> = {}): Promise<T> {
+    // 获取 access token
+    const token = await this.getAccessToken()
+
     const url = `${this.baseUrl}/v2/graphql`
 
     try {
@@ -59,6 +114,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           query,
