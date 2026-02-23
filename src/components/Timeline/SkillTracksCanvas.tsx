@@ -128,7 +128,7 @@ export default function SkillTracksCanvas({
             )
             .sort((a, b) => a.timestamp - b.timestamp)
 
-          if (trackCastEvents.length < 2) return null
+          if (trackCastEvents.length < 1) return null
 
           const action = actions.find((a) => a.id === track.actionId)
           if (!action) return null
@@ -138,21 +138,76 @@ export default function SkillTracksCanvas({
 
           const trackY = trackIndex * trackHeight + trackHeight / 2
 
+          const idleWarnings: JSX.Element[] = []
+
+          // 检查第一个技能与战斗开始时间的空转
+          const firstCastEvent = trackCastEvents[0]
+          const firstTimeDiff = firstCastEvent.timestamp // 战斗开始时间为 0
+          if (firstTimeDiff > action.cooldown) {
+            const firstIdleTime = firstTimeDiff // 完整的使用时间即为空转时间
+            const startX = 0 // 从战斗开始位置
+            const endX = firstCastEvent.timestamp * zoomLevel
+            const centerX = (startX + endX) / 2
+
+            idleWarnings.push(
+              <Group key={`idle-start-${firstCastEvent.id}`}>
+                {/* 左侧连接线（从战斗开始 + CD） */}
+                <Line
+                  points={[startX, trackY, centerX - 35, trackY]}
+                  stroke="#d1d5db"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  opacity={0.6}
+                  shadowEnabled={false}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+
+                {/* 右侧连接线 */}
+                <Line
+                  points={[centerX + 35, trackY, endX, trackY]}
+                  stroke="#d1d5db"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  opacity={0.6}
+                  shadowEnabled={false}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+
+                {/* 空转时间文本 */}
+                <Text
+                  x={centerX}
+                  y={trackY - 6}
+                  text={`空转 ${firstIdleTime.toFixed(1)}s`}
+                  fontSize={11}
+                  fill="#f59e0b"
+                  fontStyle="bold"
+                  fontFamily="Arial, sans-serif"
+                  align="center"
+                  offsetX={30}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+              </Group>
+            )
+          }
+
           // 检查每两个相邻技能之间的空转时间
-          return trackCastEvents.slice(0, -1).map((castEvent, index) => {
+          trackCastEvents.slice(0, -1).forEach((castEvent, index) => {
             const nextCastEvent = trackCastEvents[index + 1]
             const timeDiff = nextCastEvent.timestamp - castEvent.timestamp
             const idleTime = timeDiff - action.cooldown
 
             // 只显示时间差大于 2 倍冷却时间的情况
-            if (timeDiff <= action.cooldown * 2) return null
+            if (timeDiff <= action.cooldown * 2) return
 
             // 计算提示位置（在两个技能之间的中点）
             const startX = (castEvent.timestamp + action.cooldown) * zoomLevel
             const endX = nextCastEvent.timestamp * zoomLevel
             const centerX = (startX + endX) / 2
 
-            return (
+            idleWarnings.push(
               <Group key={`idle-${castEvent.id}-${nextCastEvent.id}`}>
                 {/* 左侧连接线 */}
                 <Line
@@ -195,6 +250,8 @@ export default function SkillTracksCanvas({
               </Group>
             )
           })
+
+          return idleWarnings
         })}
 
         {timeline.castEvents.map((castEvent) => {

@@ -5,6 +5,18 @@
 import type { FFLogsReport, FFLogsV1Actor } from '@/types/fflogs'
 import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions.new'
+// 直接导入 JSON 数据，避免引入 Vue 依赖
+import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
+
+// 技能 ID 到中文名的映射
+const actionChinese: Record<string, string> = actionChineseRaw
+
+/**
+ * 获取技能中文名
+ */
+function getActionChinese(actionId: number): string | undefined {
+  return actionChinese[actionId.toString()]
+}
 
 /**
  * 职业名称映射
@@ -85,11 +97,22 @@ function getJobRole(job: Job): 'tank' | 'healer' | 'dps' {
  * 2. 多个 damage 事件为同一个伤害给每个玩家所造成的伤害
  * 3. 原始伤害对应的字段是 unmitigatedAmount
  * 4. ability.type 判断伤害类型：1024=魔法，128=物理
+ * 5. 记录每个玩家的详细伤害信息
+ * 6. 伤害量 = 非坦克玩家的平均值，如果只有坦克则为所有玩家平均值
+ * 7. 时间精确到 0.1 秒
+ * 8. 0.9 秒内的同名伤害事件合并
  */
 export function parseDamageEvents(
   events: any[],
-  fightStartTime: number
+  fightStartTime: number,
+  playerMap: Map<number, FFLogsV1Actor>
 ): DamageEvent[] {
+  // 普通攻击技能名正则（多语言：中文/英文/德文/法文/日文/韩文）
+  const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
+
+  // 坦克职业列表（使用 Job 类型）
+  const TANK_JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB']
+
   // 按 packetID 聚合伤害
   const packetMap = new Map<
     number,
@@ -97,10 +120,18 @@ export function parseDamageEvents(
       name: string
       abilityId: number
       abilityType: number
-      totalUnmitigatedDamage: number
-      hitCount: number
       firstTime: number
       sourceID: number
+      playerDamages: Map<
+        number,
+        {
+          playerId: number
+          job: string
+          unmitigatedDamage: number
+          absorbedDamage: number
+          finalDamage: number
+        }
+      >
     }
   >()
 
@@ -117,23 +148,38 @@ export function parseDamageEvents(
     const abilityId = event.ability?.guid || 0
     const abilityName = event.ability?.name || '未知技能'
     const abilityType = event.ability?.type || 0
-    const unmitigatedAmount = event.unmitigatedAmount || event.amount || 0
     const timestamp = event.timestamp || 0
     const sourceID = event.sourceID || 0
 
-    if (packetMap.has(packetID)) {
-      const existing = packetMap.get(packetID)!
-      existing.totalUnmitigatedDamage += unmitigatedAmount
-      existing.hitCount += 1
-    } else {
+    // 忽略普通攻击（多语言匹配）
+    if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
+
+    const targetId = event.targetID
+    const unmitigatedAmount = event.unmitigatedAmount || event.amount || 0
+    const absorbedAmount = event.absorbed || 0
+    const finalAmount = event.amount || 0
+
+    if (!packetMap.has(packetID)) {
       packetMap.set(packetID, {
         name: abilityName,
         abilityId,
         abilityType,
-        totalUnmitigatedDamage: unmitigatedAmount,
-        hitCount: 1,
         firstTime: timestamp,
         sourceID,
+        playerDamages: new Map(),
+      })
+    }
+
+    const packet = packetMap.get(packetID)!
+    const player = playerMap.get(targetId)
+
+    if (player) {
+      packet.playerDamages.set(targetId, {
+        playerId: targetId,
+        job: player.type,
+        unmitigatedDamage: unmitigatedAmount,
+        absorbedDamage: absorbedAmount,
+        finalDamage: finalAmount,
       })
     }
   }
@@ -143,27 +189,174 @@ export function parseDamageEvents(
   let index = 0
 
   for (const [, data] of packetMap) {
-    // 只保留造成显著伤害的技能（总伤害 > 10000）
-    if (data.totalUnmitigatedDamage < 10000) continue
+    // 计算总伤害（用于过滤）
+    let totalUnmitigatedDamage = 0
+    for (const playerDamage of data.playerDamages.values()) {
+      totalUnmitigatedDamage += playerDamage.unmitigatedDamage
+    }
 
-    // 计算相对时间（秒）
-    const relativeTime = Math.floor((data.firstTime - fightStartTime) / 1000)
+    // 只保留造成显著伤害的技能（总伤害 > 10000）
+    if (totalUnmitigatedDamage < 10000) continue
+
+    // 计算相对时间（精确到 0.01 秒）
+    const relativeTime = Math.round((data.firstTime - fightStartTime) / 10) / 100
 
     // 跳过负数时间
     if (relativeTime < 0) continue
 
+    // 获取技能中文名，如果没有则使用原始名称
+    const chineseName = getActionChinese(data.abilityId)
+    const skillName = chineseName ?? data.name
+
+    // 构建玩家伤害详情列表
+    const playerDamageDetails: Array<{
+      playerId: number
+      job: Job
+      skillName: string
+      unmitigatedDamage: number
+      absorbedDamage: number
+      finalDamage: number
+    }> = []
+
+    for (const playerDamage of data.playerDamages.values()) {
+      const job = JOB_MAP[playerDamage.job]
+      if (!job) continue
+
+      playerDamageDetails.push({
+        playerId: playerDamage.playerId,
+        job,
+        skillName,
+        unmitigatedDamage: playerDamage.unmitigatedDamage,
+        absorbedDamage: playerDamage.absorbedDamage,
+        finalDamage: playerDamage.finalDamage,
+      })
+    }
+
+    // 计算平均伤害：优先使用非坦克玩家的平均值
+    const nonTankDamages = playerDamageDetails.filter(
+      (detail) => !TANK_JOBS.includes(detail.job)
+    )
+
+    let averageDamage: number
+    if (nonTankDamages.length > 0) {
+      // 有非坦克玩家，使用非坦克玩家的平均值
+      const sum = nonTankDamages.reduce((acc, d) => acc + d.unmitigatedDamage, 0)
+      averageDamage = Math.floor(sum / nonTankDamages.length)
+    } else {
+      // 只有坦克玩家，使用所有玩家的平均值
+      const sum = playerDamageDetails.reduce((acc, d) => acc + d.unmitigatedDamage, 0)
+      averageDamage = Math.floor(sum / playerDamageDetails.length)
+    }
+
     damageEvents.push({
       id: `event-${index++}`,
-      name: data.name,
+      name: skillName,
       time: relativeTime,
-      damage: Math.floor(data.totalUnmitigatedDamage),
-      type: detectDamageType(data.hitCount),
+      damage: averageDamage,
+      type: detectDamageType(data.playerDamages.size),
       damageType: detectDamageTypeFromAbility(data.abilityType),
+      playerDamageDetails,
     })
   }
 
   // 按时间排序
-  return damageEvents.sort((a, b) => a.time - b.time)
+  damageEvents.sort((a, b) => a.time - b.time)
+
+  // 合并 0.9 秒内的同名伤害事件
+  const mergedEvents: DamageEvent[] = []
+  let i = 0
+
+  while (i < damageEvents.length) {
+    const currentEvent = damageEvents[i]
+    const eventsToMerge: DamageEvent[] = [currentEvent]
+
+    // 查找 0.9 秒内的同名事件
+    let j = i + 1
+    while (j < damageEvents.length) {
+      const nextEvent = damageEvents[j]
+      const timeDiff = nextEvent.time - currentEvent.time
+
+      if (timeDiff <= 0.9 && nextEvent.name === currentEvent.name) {
+        eventsToMerge.push(nextEvent)
+        j++
+      } else {
+        break
+      }
+    }
+
+    if (eventsToMerge.length === 1) {
+      // 没有需要合并的事件
+      mergedEvents.push(currentEvent)
+      i++
+    } else {
+      // 合并多个事件
+      const mergedEvent = mergeMultipleDamageEvents(eventsToMerge)
+      mergedEvents.push(mergedEvent)
+      i = j
+    }
+  }
+
+  return mergedEvents
+}
+
+/**
+ * 合并多个伤害事件
+ */
+function mergeMultipleDamageEvents(events: DamageEvent[]): DamageEvent {
+  if (events.length === 1) return events[0]
+
+  // 使用第一个事件作为基础
+  const baseEvent = events[0]
+
+  // 合并所有玩家伤害详情
+  const playerDamageMap = new Map<
+    number,
+    {
+      playerId: number
+      job: Job
+      skillName: string
+      unmitigatedDamage: number
+      absorbedDamage: number
+      finalDamage: number
+    }
+  >()
+
+  for (const event of events) {
+    for (const detail of event.playerDamageDetails || []) {
+      const existing = playerDamageMap.get(detail.playerId)
+      if (existing) {
+        // 累加伤害
+        existing.unmitigatedDamage += detail.unmitigatedDamage
+        existing.absorbedDamage += detail.absorbedDamage
+        existing.finalDamage += detail.finalDamage
+      } else {
+        playerDamageMap.set(detail.playerId, { ...detail })
+      }
+    }
+  }
+
+  const mergedPlayerDamageDetails = Array.from(playerDamageMap.values())
+
+  // 重新计算平均伤害
+  const TANK_JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB']
+  const nonTankDamages = mergedPlayerDamageDetails.filter(
+    (detail) => !TANK_JOBS.includes(detail.job)
+  )
+
+  let averageDamage: number
+  if (nonTankDamages.length > 0) {
+    const sum = nonTankDamages.reduce((acc, d) => acc + d.unmitigatedDamage, 0)
+    averageDamage = Math.floor(sum / nonTankDamages.length)
+  } else {
+    const sum = mergedPlayerDamageDetails.reduce((acc, d) => acc + d.unmitigatedDamage, 0)
+    averageDamage = Math.floor(sum / mergedPlayerDamageDetails.length)
+  }
+
+  return {
+    ...baseEvent,
+    damage: averageDamage,
+    playerDamageDetails: mergedPlayerDamageDetails,
+  }
 }
 
 /**
@@ -263,14 +456,14 @@ export function parseStatusEvents(
 
     for (const applyEvent of applyEvents) {
       const statusId = Math.max(0, (applyEvent.ability?.guid || 0) - 1e6)
-      const startTime = applyEvent.timestamp - fightStartTime
+      const startTime = (applyEvent.timestamp - fightStartTime) / 1000 // 转换为秒
 
       // 查找对应的 remove 事件（时间晚于 apply）
-      let endTime = startTime + 30000 // 默认 30 秒
+      let endTime = startTime + 30 // 默认 30 秒
 
       while (removeIndex < removeEvents.length) {
         const removeEvent = removeEvents[removeIndex]
-        const removeTime = removeEvent.timestamp - fightStartTime
+        const removeTime = (removeEvent.timestamp - fightStartTime) / 1000 // 转换为秒
 
         if (removeTime > startTime) {
           endTime = removeTime
@@ -287,6 +480,7 @@ export function parseStatusEvents(
         sourcePlayerId: applyEvent.sourceID,
         targetPlayerId: applyEvent.targetID,
         targetInstance: applyEvent.targetInstance,
+        absorb: applyEvent.absorb, // FFLogs 盾值字段
       })
     }
   }
@@ -328,7 +522,7 @@ export function parseCastEventsFromFFLogs(
     if (!abilityGameID) continue
 
     rawCastEvents.push({
-      timestamp: event.timestamp - fightStartTime, // 相对时间（毫秒）
+      timestamp: (event.timestamp - fightStartTime) / 1000, // 相对时间（秒）
       abilityGameID,
       sourceID: event.sourceID,
       targetID: event.targetID,

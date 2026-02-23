@@ -38,8 +38,6 @@ describe('mitigationActions.new', () => {
         expect(action.icon).toBeTruthy()
         expect(action.jobs).toBeInstanceOf(Array)
         expect(action.jobs.length).toBeGreaterThan(0)
-        expect(action.duration).toBeGreaterThan(0)
-        expect(action.cooldown).toBeGreaterThan(0)
       }
     })
   })

@@ -81,7 +81,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const otherAction = actions.find((a) => a.id === other.actionId)
       if (!otherAction) return false
 
-      const otherTimeSeconds = other.timestamp / 1000
+      const otherTimeSeconds = other.timestamp // timestamp 已经是秒
       const otherEndTime = otherTimeSeconds + otherAction.cooldown
 
       return newTime < otherEndTime && otherTimeSeconds < currentEndTime
@@ -169,17 +169,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const handleStageMouseDown = (e: any) => {
       const target = e.target
 
-      let node = target
-      while (node && node !== stage) {
-        if (node.attrs?.draggable) {
-          return
+      // 只读模式下，允许在任何地方拖动时间轴
+      if (!isReadOnly) {
+        let node = target
+        while (node && node !== stage) {
+          if (node.attrs?.draggable) {
+            return
+          }
+          node = node.parent
         }
-        node = node.parent
       }
 
       const clickedOnBackground = target === stage || target.getClassName() === 'Rect'
 
-      if (clickedOnBackground) {
+      if (clickedOnBackground || isReadOnly) {
         isDragging = true
         startX = e.evt.clientX + (scrollContainer?.scrollLeft || 0)
         scrollContainer.style.cursor = 'grabbing'
@@ -211,7 +214,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.off('mouseup', handleStageMouseUp)
       stage.off('mouseleave', handleStageMouseUp)
     }
-  }, [timeline])
+  }, [timeline, isReadOnly])
 
   // 处理 Stage 拖动
   useEffect(() => {
@@ -226,17 +229,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const handleStageMouseDown = (e: any) => {
       const target = e.target
 
-      let node = target
-      while (node && node !== stage) {
-        if (node.attrs?.draggable) {
-          return
+      // 只读模式下，允许在任何地方拖动时间轴
+      if (!isReadOnly) {
+        let node = target
+        while (node && node !== stage) {
+          if (node.attrs?.draggable) {
+            return
+          }
+          node = node.parent
         }
-        node = node.parent
       }
 
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
 
-      if (clickedOnBackground) {
+      if (clickedOnBackground || isReadOnly) {
         isDragging = true
         startX = e.evt.clientX + (scrollContainer?.scrollLeft || 0)
         startY = e.evt.clientY + (scrollContainer?.scrollTop || 0)
@@ -291,7 +297,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.off('mouseleave', handleStageMouseUp)
       scrollContainer.removeEventListener('wheel', handleNativeWheel)
     }
-  }, [timeline])
+  }, [timeline, isReadOnly])
 
   // 处理双击轨道添加技能
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
@@ -307,7 +313,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const castEvent: CastEvent = {
       id: `cast-${Date.now()}`,
       actionId: track.actionId,
-      timestamp: time * 1000, // 转换为毫秒
+      timestamp: time, // timestamp 已经是秒
       playerId: track.playerId,
       job: track.job,
     }
@@ -328,7 +334,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (isReadOnly) return
     const newTime = Math.max(0, Math.round((x / zoomLevel) * 10) / 10)
     const { updateCastEvent } = useTimelineStore.getState()
-    updateCastEvent(castEventId, { timestamp: newTime * 1000 }) // 转换为毫秒
+    updateCastEvent(castEventId, { timestamp: newTime }) // timestamp 已经是秒
   }
 
   if (!timeline) {
@@ -367,7 +373,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const lastEventTime = Math.max(
     0,
     ...timeline.damageEvents.map((e) => e.time),
-    ...timeline.castEvents.map((ce) => ce.timestamp / 1000) // 转换为秒
+    ...timeline.castEvents.map((ce) => ce.timestamp) // timestamp 已经是秒
   )
 
   // 如果有事件，则为最后事件时间 + 60 秒；否则至少 300 秒

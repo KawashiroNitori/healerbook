@@ -29,6 +29,7 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
   const [parsedInfo, setParsedInfo] = useState<{
     reportCode: string | null
     fightId: number | null
+    isLastFight: boolean
   } | null>(null)
 
   // 自动聚焦输入框并检测剪贴板
@@ -42,7 +43,7 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
         if (text) {
           // 检查是否为合法的 FFLogs 链接（必须同时包含 reportCode 和 fightId）
           const parsed = parseFFLogsUrl(text)
-          if (parsed.reportCode && parsed.fightId) {
+          if (parsed.reportCode && (parsed.fightId || parsed.isLastFight)) {
             setUrl(text)
           }
         }
@@ -82,8 +83,8 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
       return
     }
 
-    if (!parsed.fightId) {
-      setError('无法从 URL 中提取战斗 ID，请确保 URL 包含 #fight=N 或 ?fight=N')
+    if (!parsed.fightId && !parsed.isLastFight) {
+      setError('无法从 URL 中提取战斗 ID，请确保 URL 包含 #fight=N 或 #fight=last')
       return
     }
 
@@ -95,14 +96,24 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
       const client = createFFLogsClient()
       const report = await client.getReport(parsed.reportCode)
 
+      // 确定战斗 ID
+      let fightId = parsed.fightId
+      if (parsed.isLastFight) {
+        // 获取最后一个战斗
+        if (!report.fights || report.fights.length === 0) {
+          throw new Error('报告中没有战斗记录')
+        }
+        fightId = report.fights[report.fights.length - 1].id
+      }
+
       // 查找指定的战斗
-      const fight = report.fights?.find((f) => f.id === parsed.fightId)
+      const fight = report.fights?.find((f) => f.id === fightId)
       if (!fight) {
-        throw new Error(`战斗 #${parsed.fightId} 不存在`)
+        throw new Error(`战斗 #${fightId} 不存在`)
       }
 
       // 创建时间轴名称
-      const timelineName = `${report.title || '未命名报告'} - ${fight.name || `战斗 ${parsed.fightId}`}`
+      const timelineName = `${report.title || '未命名报告'} - ${fight.name || `战斗 ${fightId}`}`
 
       // 创建新时间轴
       const newTimeline = createNewTimeline(
@@ -120,7 +131,7 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
       }
 
       // 解析阵容
-      const composition = parseComposition(report, parsed.fightId)
+      const composition = parseComposition(report, fightId)
       newTimeline.composition = composition
 
       // 计算战斗时长（秒）
@@ -147,15 +158,15 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
         setLoadingStep(`已获取 ${eventsData.totalPages} 页数据，正在解析...`)
         setProgress(100)
 
-        // 解析伤害事件
-        const damageEvents = parseDamageEvents(eventsData.events || [], fight.startTime)
-        newTimeline.damageEvents = damageEvents
-
         // 构建玩家 ID 映射
         const playerMap = new Map<number, any>()
         report.friendlies?.forEach((player) => {
           playerMap.set(player.id, player)
         })
+
+        // 解析伤害事件
+        const damageEvents = parseDamageEvents(eventsData.events || [], fight.startTime, playerMap)
+        newTimeline.damageEvents = damageEvents
 
         // 解析技能使用事件
         const castEvents = parseCastEventsFromFFLogs(
@@ -244,10 +255,14 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">战斗:</span>
                     <span className="font-mono">
-                      {parsedInfo.fightId !== null ? `#${parsedInfo.fightId}` : '未识别'}
+                      {parsedInfo.fightId !== null
+                        ? `#${parsedInfo.fightId}`
+                        : parsedInfo.isLastFight
+                          ? 'last'
+                          : '未识别'}
                     </span>
                   </div>
-                  {parsedInfo.fightId === null && (
+                  {parsedInfo.fightId === null && !parsedInfo.isLastFight && (
                     <p className="text-xs text-destructive mt-1">
                       ⚠️ 链接中未包含战斗编号，请在 FFLogs 选择具体战斗后再复制链接
                     </p>

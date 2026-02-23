@@ -22,7 +22,7 @@ function buildPartyStateFromStatusEvents(
   statusEvents: StatusEvent[],
   time: number
 ): PartyState {
-  const timeMs = time * 1000 // 转换为毫秒
+  // time 和 statusEvents 都是秒
 
   // 初始化状态
   const currentState: PartyState = {
@@ -38,7 +38,7 @@ function buildPartyStateFromStatusEvents(
 
   // 过滤出在当前时间有效的状态事件
   const activeStatusEvents = statusEvents.filter(
-    (event) => event.startTime <= timeMs && event.endTime > timeMs
+    (event) => event.startTime <= time && event.endTime > time
   )
 
   // 将状态事件转换为 MitigationStatus 并分配到玩家/敌人
@@ -49,9 +49,11 @@ function buildPartyStateFromStatusEvents(
     const status: MitigationStatus = {
       instanceId: `${event.targetPlayerId}-${event.statusId}-${event.targetInstance || 0}`,
       statusId: event.statusId,
-      startTime: event.startTime / 1000,
-      endTime: event.endTime / 1000,
+      startTime: event.startTime,
+      endTime: event.endTime,
       sourcePlayerId: event.sourcePlayerId,
+      // 如果是盾值类型状态且有 absorb 字段，则初始化 remainingBarrier
+      remainingBarrier: statusMeta.type === 'absorbed' && event.absorb ? event.absorb : undefined,
     }
 
     // 判断是友方还是敌方状态
@@ -234,7 +236,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     // 获取所有在指定时间之前使用的技能
     const castEvents = (state.timeline.castEvents || [])
-      .filter((ce) => ce.timestamp / 1000 <= time)
+      .filter((ce) => ce.timestamp <= time)
       .sort((a, b) => a.timestamp - b.timestamp)
 
     // 依次执行技能
@@ -244,7 +246,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
       const context: ActionExecutionContext = {
         actionId: castEvent.actionId,
-        useTime: castEvent.timestamp / 1000,
+        useTime: castEvent.timestamp,
         partyState: currentState,
         targetPlayerId: castEvent.targetPlayerId,
       }

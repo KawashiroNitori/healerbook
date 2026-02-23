@@ -5,6 +5,27 @@
 import type { FFLogsV1Report, FFLogsReport } from '@/types/fflogs'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
+const REQUEST_TIMEOUT = 60000 
+
+/**
+ * 带超时的 fetch 请求
+ */
+async function fetchWithTimeout(url: string, timeout: number = REQUEST_TIMEOUT): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeoutId)
+    return response
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('请求超时，请稍后重试')
+    }
+    throw error
+  }
+}
 
 /**
  * 将 v1 响应转换为统一格式
@@ -47,7 +68,7 @@ export class FFLogsClient {
     const url = `${this.baseUrl}/report/${reportCode}`
 
     try {
-      const response = await fetch(url)
+      const response = await fetchWithTimeout(url)
 
       if (!response.ok) {
         const error = await response.json()
@@ -89,7 +110,7 @@ export class FFLogsClient {
     const url = `${this.baseUrl}/events/${reportCode}?${queryParams}`
 
     try {
-      const response = await fetch(url)
+      const response = await fetchWithTimeout(url)
 
       if (!response.ok) {
         const error = await response.json()
@@ -168,6 +189,9 @@ export class FFLogsClient {
    */
   private handleError(error: unknown): Error {
     if (error instanceof Error) {
+      if (error.message.includes('请求超时')) {
+        return error
+      }
       if (error.message.includes('401')) {
         return new Error('FFLogs 连接配置错误，请联系开发者')
       }

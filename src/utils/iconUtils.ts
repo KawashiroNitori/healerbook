@@ -8,6 +8,7 @@
  * 注意：Canvas 将无法导出包含这些图片的内容（tainted canvas）
  */
 export const ICON_BASE_URL = 'https://cafemaker.wakingsands.com'
+export const FFLOGS_ICON_BASE_URL = 'https://assets.rpglogs.cn/img/ff/abilities/'
 
 /**
  * 拼接图标 URL
@@ -22,17 +23,9 @@ export function getIconUrl(iconPath: string): string {
     return iconPath
   }
 
-  // 确保路径以 / 开头
-  const path = iconPath.startsWith('/') ? iconPath : `/${iconPath}`
-
-  return `${ICON_BASE_URL}${path}`
-}
-
-/**
- * 拼接高清图标 URL
- * @param iconHDPath 高清图标路径
- * @returns 完整的高清图标 URL
- */
-export function getIconHDUrl(iconHDPath: string): string {
-  return getIconUrl(iconHDPath)
+  if (iconPath.startsWith('/i/')) {
+    return `${ICON_BASE_URL}${iconPath}`
+  } else {
+    return `${FFLOGS_ICON_BASE_URL}${iconPath}`
+  }
 }

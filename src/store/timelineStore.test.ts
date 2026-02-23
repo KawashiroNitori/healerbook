@@ -116,14 +116,14 @@ describe('timelineStore - 状态管理', () => {
           {
             id: 'c1',
             actionId: 16536, // 节制
-            timestamp: 10000, // 10 秒（毫秒）
+            timestamp: 10, // 10 秒
             playerId: 1,
             job: 'WHM',
           },
           {
             id: 'c2',
             actionId: 7535, // 雪仇
-            timestamp: 15000, // 15 秒（毫秒）
+            timestamp: 15, // 15 秒
             playerId: 2,
             job: 'PLD',
           },
@@ -151,7 +151,7 @@ describe('timelineStore - 状态管理', () => {
           {
             id: 'c1',
             actionId: 16536, // 节制 (持续 25 秒)
-            timestamp: 10000, // 10 秒（毫秒）
+            timestamp: 10, // 10 秒
             playerId: 1,
             job: 'WHM',
           },
@@ -204,6 +204,74 @@ describe('timelineStore - 状态管理', () => {
 
       store.updatePartyState(newPartyState)
       expect(useTimelineStore.getState().partyState?.players[0].currentHP).toBe(50000)
+    })
+  })
+
+  describe('回放模式盾值处理', () => {
+    it('应该正确初始化盾值状态的 remainingBarrier', () => {
+      const store = useTimelineStore.getState()
+
+      // 创建带有盾值状态事件的时间轴
+      const timeline: Timeline = {
+        id: 'test-replay',
+        name: '回放测试',
+        composition: mockComposition,
+        damageEvents: [],
+        castEvents: [],
+        statusEvents: [
+          {
+            statusId: 297, // 鼓舞盾 (absorbed 类型)
+            startTime: 5, // 秒
+            endTime: 35, // 秒
+            sourcePlayerId: 1,
+            targetPlayerId: 1,
+            absorb: 15000, // 盾值
+          },
+        ],
+        isReplayMode: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+
+      store.setTimeline(timeline)
+
+      // 获取时间点 10 的状态
+      const state = store.getPartyStateAtTime(10)
+      expect(state?.players[0].statuses).toHaveLength(1)
+      expect(state?.players[0].statuses[0].statusId).toBe(297)
+      expect(state?.players[0].statuses[0].remainingBarrier).toBe(15000)
+    })
+
+    it('应该忽略非盾值状态的 absorb 字段', () => {
+      const store = useTimelineStore.getState()
+
+      const timeline: Timeline = {
+        id: 'test-replay-2',
+        name: '回放测试2',
+        composition: mockComposition,
+        damageEvents: [],
+        castEvents: [],
+        statusEvents: [
+          {
+            statusId: 1195, // 节制 (multiplier 类型)
+            startTime: 5, // 秒
+            endTime: 35, // 秒
+            sourcePlayerId: 1,
+            targetPlayerId: 1,
+            absorb: 999, // 不应该被使用
+          },
+        ],
+        isReplayMode: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+
+      store.setTimeline(timeline)
+
+      const state = store.getPartyStateAtTime(10)
+      expect(state?.players[0].statuses).toHaveLength(1)
+      expect(state?.players[0].statuses[0].statusId).toBe(1195)
+      expect(state?.players[0].statuses[0].remainingBarrier).toBeUndefined()
     })
   })
 })

@@ -82,7 +82,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3638,
       name: '暗黑布道',
-      icon: '/i/002000/002629.png',
+      icon: '/i/003000/003087.png',
       uniqueGroup: [3638],
       jobs: ['DRK'],
       duration: 15,
@@ -139,7 +139,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 1,
       executor: createShieldExecutor(3903, 10),
     },
-    
+
     // 学者 (SCH)
     // 鼓舞激励之策 - 学者单体盾
     {
@@ -162,12 +162,12 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '展开战术',
       description:
         '将目标身上的<span style="color:#ff7b1a;">鼓舞</span>或<span style="color:#ff7b1a;">激励</span>效果扩散到自身及周围队员身上',
-      icon: '/i/002000/002813.png',
-      iconHD: '/i/002000/002813_hr1.png',
+      icon: "/i/002000/002808.png",
+      iconHD: "/i/002000/002808_hr1.png",
       uniqueGroup: [3585],
       jobs: ['SCH'],
-      duration: 30,
-      cooldown: 120,
+      duration: 0,
+      cooldown: 90,
       executor: (ctx: ActionExecutionContext) => {
         const targetPlayer = ctx.partyState.players.find(
           (p) => p.id === ctx.targetPlayerId
@@ -308,14 +308,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
 
     // 占星术士 (AST)
     {
-      id: 3613,
+      id: 16559,
       name: '中间学派',
-      icon: '/i/002000/003128.png',
-      uniqueGroup: [3613],
+      icon: '/i/003000/003552.png',
+      uniqueGroup: [16559],
       jobs: ['AST'],
-      duration: 15,
-      cooldown: 90,
-      executor: createFriendlyBuffExecutor(1892, 15),
+      duration: 20,
+      cooldown: 120,
+      executor: createFriendlyBuffExecutor(1892, 20),
     },
 
     {
@@ -340,10 +340,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
       uniqueGroup: [37031],
       jobs: ['AST'],
       duration: 15,
-      cooldown: 120,
+      cooldown: 1,
       executor: createFriendlyBuffExecutor(3896, 15),
     },
-    
+
     // 贤者 (SGE)
     // 泛输血 - 贤者群体盾
     {
@@ -376,7 +376,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const modifierExecutor = createFriendlyBuffExecutor(3003, 20)
         const shieldExecutor = createShieldExecutor(3365, 20)
         const partyState = modifierExecutor(ctx)
-        return shieldExecutor({...ctx, partyState})
+        return shieldExecutor({ ...ctx, partyState })
       },
     },
 
@@ -423,7 +423,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
 
 
     // ==================== 远程物理 DPS ====================
-    
+
     // 吟游诗人 (BRD)
     {
       id: 7405,

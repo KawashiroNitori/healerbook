@@ -9,6 +9,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getIconUrl } from '@/utils/iconUtils'
 import { Trash2 } from 'lucide-react'
+import PlayerDamageDetails from './PlayerDamageDetails'
 
 export default function PropertyPanel() {
   const {
@@ -18,6 +19,7 @@ export default function PropertyPanel() {
     updateDamageEvent,
     removeDamageEvent,
     removeCastEvent,
+    getPartyStateAtTime,
   } = useTimelineStore()
   const { actions } = useMitigationStore()
   const isReadOnly = useEditorReadOnly()
@@ -115,75 +117,88 @@ export default function PropertyPanel() {
             </select>
           </div>
 
-          {/* Mitigation Result */}
-          <div className="pt-4 border-t">
-            <h3 className="font-medium mb-2">预估减伤效果</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">原始伤害</span>
-                <span className="font-medium">{result.originalDamage.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">最终伤害</span>
-                <span className="font-medium text-primary">
-                  {result.finalDamage.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">减伤比例</span>
-                <span className="font-medium text-green-600">
-                  {result.mitigationPercentage.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Applied Statuses */}
-            {result.appliedStatuses && result.appliedStatuses.length > 0 && (
-              <div className="mt-4">
-                <div className="text-sm font-medium mb-2">已应用状态</div>
-                <div className="space-y-1">
-                  {result.appliedStatuses.map((status, index) => {
-                    const statusMeta = getStatusById(status.statusId)
-                    if (!statusMeta) return null
-
-                    // 根据伤害类型显示对应的减伤值
-                    let displayValue = ''
-                    const damageType = event.damageType || 'physical'
-
-                    if (statusMeta.type === 'multiplier') {
-                      // 百分比减伤
-                      let multiplier = 1.0
-                      if (damageType === 'physical') {
-                        multiplier = statusMeta.performance.physics
-                      } else if (damageType === 'magical') {
-                        multiplier = statusMeta.performance.magic
-                      } else {
-                        multiplier = statusMeta.performance.darkness
-                      }
-                      const reduction = ((1 - multiplier) * 100).toFixed(1)
-                      displayValue = `${reduction}%`
-                    } else if (statusMeta.type === 'absorbed') {
-                      // 盾值
-                      const remaining = status.remainingBarrier || 0
-                      displayValue = `盾: ${remaining.toLocaleString()}`
-                    }
-
-                    return (
-                      <div
-                        key={`${status.statusId}-${index}`}
-                        className="text-xs p-2 bg-muted rounded flex justify-between items-center gap-2"
-                      >
-                        <span className="truncate">{statusMeta.name}</span>
-                        <span className="text-muted-foreground whitespace-nowrap text-right">
-                          {displayValue}
-                        </span>
-                      </div>
-                    )
-                  })}
+          {/* Mitigation Result (仅编辑模式) */}
+          {!timeline.isReplayMode && (
+            <div className="pt-4 border-t">
+              <h3 className="font-medium mb-2">预估减伤效果</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">原始伤害</span>
+                  <span className="font-medium">{result.originalDamage.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">最终伤害</span>
+                  <span className="font-medium text-primary">
+                    {result.finalDamage.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">减伤比例</span>
+                  <span className="font-medium text-green-600">
+                    {result.mitigationPercentage.toFixed(1)}%
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Applied Statuses */}
+              {result.appliedStatuses && result.appliedStatuses.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-sm font-medium mb-2">已应用状态</div>
+                  <div className="space-y-1">
+                    {result.appliedStatuses.map((status, index) => {
+                      const statusMeta = getStatusById(status.statusId)
+                      if (!statusMeta) return null
+
+                      // 根据伤害类型显示对应的减伤值
+                      let displayValue = ''
+                      const damageType = event.damageType || 'physical'
+
+                      if (statusMeta.type === 'multiplier') {
+                        // 百分比减伤
+                        let multiplier = 1.0
+                        if (damageType === 'physical') {
+                          multiplier = statusMeta.performance.physics
+                        } else if (damageType === 'magical') {
+                          multiplier = statusMeta.performance.magic
+                        } else {
+                          multiplier = statusMeta.performance.darkness
+                        }
+                        const reduction = ((1 - multiplier) * 100).toFixed(1)
+                        displayValue = `${reduction}%`
+                      } else if (statusMeta.type === 'absorbed') {
+                        // 盾值
+                        const remaining = status.remainingBarrier || 0
+                        displayValue = `盾: ${remaining.toLocaleString()}`
+                      }
+
+                      return (
+                        <div
+                          key={`${status.statusId}-${index}`}
+                          className="text-xs p-2 bg-muted rounded flex justify-between items-center gap-2"
+                        >
+                          <span className="truncate">{statusMeta.name}</span>
+                          <span className="text-muted-foreground whitespace-nowrap text-right">
+                            {displayValue}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Player Damage Details (回放模式) */}
+          {timeline.isReplayMode && event.playerDamageDetails && (
+            <div className="pt-4 border-t">
+              <PlayerDamageDetails
+                event={event}
+                partyState={getPartyStateAtTime(event.time) || result.updatedPartyState}
+                eventTime={event.time}
+              />
+            </div>
+          )}
         </div>
       </div>
     )
@@ -242,7 +257,7 @@ export default function PropertyPanel() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">使用时间</label>
-                <div className="text-sm">{(castEvent.timestamp / 1000).toFixed(1)}s</div>
+                <div className="text-sm">{castEvent.timestamp.toFixed(2)}s</div>
               </div>
 
               <div>

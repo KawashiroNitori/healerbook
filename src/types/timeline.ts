@@ -62,6 +62,24 @@ export interface Encounter {
 }
 
 /**
+ * 单个玩家的伤害详情
+ */
+export interface PlayerDamageDetail {
+  /** 玩家 ID */
+  playerId: number
+  /** 玩家职业 */
+  job: Job
+  /** 技能名称 */
+  skillName: string
+  /** 原始伤害 */
+  unmitigatedDamage: number
+  /** 护盾抵消量 */
+  absorbedDamage: number
+  /** 最终伤害 */
+  finalDamage: number
+}
+
+/**
  * 伤害事件
  */
 export interface DamageEvent {
@@ -71,7 +89,7 @@ export interface DamageEvent {
   name: string
   /** 相对于阶段开始的时间（秒） */
   time: number
-  /** 原始伤害 */
+  /** 原始伤害（非坦克玩家平均值，如果只有坦克则为所有玩家平均值） */
   damage: number
   /** 攻击类型 */
   type: 'aoe' | 'tankbuster' | 'raidwide'
@@ -79,6 +97,8 @@ export interface DamageEvent {
   damageType: 'physical' | 'magical' | 'special'
   /** 目标玩家 ID（可选，用于单体伤害） */
   targetPlayerId?: number
+  /** 每个玩家的伤害详情 */
+  playerDamageDetails?: PlayerDamageDetail[]
 }
 
 /**
@@ -123,7 +143,7 @@ export interface CastEvent {
   id: string
   /** 技能 ID */
   actionId: number
-  /** 使用时间（毫秒） */
+  /** 使用时间（秒） */
   timestamp: number
   /** 使用者玩家 ID */
   playerId: number
@@ -188,9 +208,9 @@ export interface TimelineSummary {
 export interface StatusEvent {
   /** 状态 ID */
   statusId: number
-  /** 开始时间（毫秒） */
+  /** 开始时间（秒） */
   startTime: number
-  /** 结束时间（毫秒） */
+  /** 结束时间（秒） */
   endTime: number
   /** 来源玩家 ID */
   sourcePlayerId?: number
@@ -198,6 +218,8 @@ export interface StatusEvent {
   targetPlayerId?: number
   /** 目标实例 */
   targetInstance?: number
+  /** 盾值（仅盾值类型状态，从 FFLogs absorb 字段获取） */
+  absorb?: number
 }
 
 /**

@@ -34,7 +34,7 @@ export default function CastEventIcon({
   onContextMenu,
   isReadOnly = false,
 }: CastEventIconProps) {
-  const x = (castEvent.timestamp / 1000) * zoomLevel // 转换为秒
+  const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
 
   return (
     <Group
