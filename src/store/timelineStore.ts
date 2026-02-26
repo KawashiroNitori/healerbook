@@ -156,6 +156,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       selectedCastEventId: null,
       currentTime: 0,
       isPlaying: false,
+      zoomLevel: 50,
     })
     // 初始化小队状态
     if (timeline?.composition) {

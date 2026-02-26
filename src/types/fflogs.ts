@@ -24,6 +24,8 @@ export interface FFLogsV1Report {
   friendlies?: FFLogsV1Actor[]
   /** 敌对单位 */
   enemies?: FFLogsV1Actor[]
+  /** 技能元数据（V2 API 提供） */
+  abilities?: FFLogsAbility[]
 }
 
 /**
@@ -112,6 +114,8 @@ export interface FFLogsReport {
   friendlies?: FFLogsV1Actor[]
   /** 敌对单位 */
   enemies?: FFLogsV1Actor[]
+  /** 技能元数据（V2 API 提供） */
+  abilities?: FFLogsAbility[]
 }
 
 /**
@@ -223,6 +227,16 @@ export interface FFLogsRanking {
   composition: FFLogsComposition
   /** 治疗合计伤害 */
   totalHealerDamage: number
+}
+
+/**
+ * FFLogs 技能元数据（来自 masterData.abilities）
+ */
+export interface FFLogsAbility {
+  gameID: number
+  name: string
+  type: string | number
+  icon?: string
 }
 
 /**

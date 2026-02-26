@@ -18,6 +18,8 @@ interface SkillTracksCanvasProps {
   maxTime: number
   selectedCastEventId: string | null
   draggingEventPosition: { eventId: string; x: number } | null
+  scrollLeft: number
+  scrollTop: number
   onSelectCastEvent: (id: string) => void
   onUpdateCastEvent: (id: string, x: number) => void
   onContextMenu: (castEventId: string) => void
@@ -35,6 +37,8 @@ export default function SkillTracksCanvas({
   maxTime,
   selectedCastEventId,
   draggingEventPosition,
+  scrollLeft,
+  scrollTop,
   onSelectCastEvent,
   onUpdateCastEvent,
   onContextMenu,
@@ -45,7 +49,7 @@ export default function SkillTracksCanvas({
 
   return (
     <>
-      <Layer>
+      <Layer x={-scrollLeft} y={-scrollTop}>
         {/* 技能轨道背景（可双击添加技能） */}
         {skillTracks.map((track, index) => (
           <Rect
@@ -64,7 +68,7 @@ export default function SkillTracksCanvas({
               const pointerPos = stage.getPointerPosition()
               if (!pointerPos) return
 
-              const time = Math.round((pointerPos.x / zoomLevel) * 10) / 10
+              const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
               onDoubleClickTrack(track, time)
             }}
           />
@@ -96,7 +100,7 @@ export default function SkillTracksCanvas({
       </Layer>
 
       {/* 技能使用事件层 */}
-      <Layer>
+      <Layer x={-scrollLeft} y={-scrollTop}>
         {/* 伤害事件时刻的红色虚线 */}
         {timeline.damageEvents.map((event) => {
           const x =

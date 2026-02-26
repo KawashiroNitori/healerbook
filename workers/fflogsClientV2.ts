@@ -3,7 +3,7 @@
  * 真正的 API 调用逻辑，运行在 Worker 环境中
  */
 
-import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType } from '../src/types/fflogs'
+import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType, FFLogsAbility } from '../src/types/fflogs'
 
 export interface FFLogsV2Config {
   clientId: string
@@ -180,6 +180,12 @@ export class FFLogsClientV2 {
         type: actor.subType || actor.type,
         server: actor.server,
       })),
+      abilities: report.masterData.abilities.map((ability: any) => ({
+        gameID: ability.gameID,
+        name: ability.name,
+        type: ability.type,
+        icon: ability.icon,
+      })) as FFLogsAbility[],
     }
   }
 
@@ -204,8 +210,6 @@ export class FFLogsClientV2 {
         reportData {
           report(code: $code) {
             events(
-              useActorIDs: false
-              useAbilityIDs: false
               startTime: $startTime
               endTime: $endTime
               dataType: $dataType

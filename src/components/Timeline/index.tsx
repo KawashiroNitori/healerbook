@@ -26,8 +26,6 @@ interface TimelineCanvasProps {
 export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const stageRef = useRef<any>(null)
   const fixedStageRef = useRef<any>(null)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const fixedScrollContainerRef = useRef<HTMLDivElement>(null)
   const labelColumnContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedZoom = useRef(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -36,6 +34,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     eventId: string
     x: number
   } | null>(null)
+  // 虚拟滚动状态
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const [scrollTop, setScrollTop] = useState(0)
+  // 拖动状态
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
 
   const {
     timeline,
@@ -81,55 +85,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const otherAction = actions.find((a) => a.id === other.actionId)
       if (!otherAction) return false
 
-      const otherTimeSeconds = other.timestamp // timestamp 已经是秒
+      const otherTimeSeconds = other.timestamp
       const otherEndTime = otherTimeSeconds + otherAction.cooldown
 
       return newTime < otherEndTime && otherTimeSeconds < currentEndTime
     })
   }
 
-  // 同步左侧标签列和右侧时间轴的垂直滚动
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current
-    const labelColumnContent = labelColumnContainerRef.current
-
-    if (!scrollContainer || !labelColumnContent) return
-
-    const handleScroll = () => {
-      const scrollTop = scrollContainer.scrollTop
-      labelColumnContent.style.transform = `translateY(-${scrollTop}px)`
-    }
-
-    scrollContainer.addEventListener('scroll', handleScroll)
-
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  // 同步顶部固定区域和底部技能区域的水平滚动
-  useEffect(() => {
-    const fixedScrollContainer = fixedScrollContainerRef.current
-    const scrollContainer = scrollContainerRef.current
-
-    if (!fixedScrollContainer || !scrollContainer) return
-
-    const handleFixedScroll = () => {
-      scrollContainer.scrollLeft = fixedScrollContainer.scrollLeft
-    }
-
-    const handleScrollContainerScroll = () => {
-      fixedScrollContainer.scrollLeft = scrollContainer.scrollLeft
-    }
-
-    fixedScrollContainer.addEventListener('scroll', handleFixedScroll)
-    scrollContainer.addEventListener('scroll', handleScrollContainerScroll)
-
-    return () => {
-      fixedScrollContainer.removeEventListener('scroll', handleFixedScroll)
-      scrollContainer.removeEventListener('scroll', handleScrollContainerScroll)
-    }
-  }, [])
+  // 同步左侧标签列的垂直滚动（用 clampedScrollTop，在渲染阶段计算后通过 ref 同步）
 
   // 初始化缩放级别
   useEffect(() => {
@@ -157,50 +120,37 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedEventId, selectedCastEventId, removeDamageEvent, removeCastEvent, isReadOnly])
 
-  // 处理顶部固定区域的 Stage 拖动
+  // 处理顶部固定区域的 Stage 事件
   useEffect(() => {
     const stage = fixedStageRef.current
-    const scrollContainer = fixedScrollContainerRef.current
-    if (!stage || !scrollContainer) return
-
-    let isDragging = false
-    let startX = 0
+    if (!stage) return
 
     const handleStageMouseDown = (e: any) => {
       const target = e.target
-
-      // 只读模式下，允许在任何地方拖动时间轴
       if (!isReadOnly) {
         let node = target
         while (node && node !== stage) {
-          if (node.attrs?.draggable) {
-            return
-          }
+          if (node.attrs?.draggable) return
           node = node.parent
         }
       }
-
       const clickedOnBackground = target === stage || target.getClassName() === 'Rect'
-
       if (clickedOnBackground || isReadOnly) {
-        isDragging = true
-        startX = e.evt.clientX + (scrollContainer?.scrollLeft || 0)
-        scrollContainer.style.cursor = 'grabbing'
+        isDraggingRef.current = true
+        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft, scrollTop }
+        stage.container().style.cursor = 'grabbing'
       }
     }
 
     const handleStageMouseMove = (e: any) => {
-      if (!isDragging || !scrollContainer) return
-
-      const deltaX = startX - e.evt.clientX
-      scrollContainer.scrollLeft = deltaX
+      if (!isDraggingRef.current) return
+      const deltaX = dragStartRef.current.x - e.evt.clientX
+      setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
     }
 
     const handleStageMouseUp = () => {
-      isDragging = false
-      if (scrollContainer) {
-        scrollContainer.style.cursor = 'grab'
-      }
+      isDraggingRef.current = false
+      stage.container().style.cursor = 'grab'
     }
 
     stage.on('mousedown', handleStageMouseDown)
@@ -214,72 +164,55 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.off('mouseup', handleStageMouseUp)
       stage.off('mouseleave', handleStageMouseUp)
     }
-  }, [timeline, isReadOnly])
+  }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
-  // 处理 Stage 拖动
+  // 处理技能轨道 Stage 事件
   useEffect(() => {
     const stage = stageRef.current
-    const scrollContainer = scrollContainerRef.current
-    if (!stage || !scrollContainer) return
-
-    let isDragging = false
-    let startX = 0
-    let startY = 0
+    if (!stage) return
 
     const handleStageMouseDown = (e: any) => {
       const target = e.target
-
-      // 只读模式下，允许在任何地方拖动时间轴
       if (!isReadOnly) {
         let node = target
         while (node && node !== stage) {
-          if (node.attrs?.draggable) {
-            return
-          }
+          if (node.attrs?.draggable) return
           node = node.parent
         }
       }
-
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
-
       if (clickedOnBackground || isReadOnly) {
-        isDragging = true
-        startX = e.evt.clientX + (scrollContainer?.scrollLeft || 0)
-        startY = e.evt.clientY + (scrollContainer?.scrollTop || 0)
-        scrollContainer.style.cursor = 'grabbing'
+        isDraggingRef.current = true
+        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft, scrollTop }
+        stage.container().style.cursor = 'grabbing'
       }
     }
 
     const handleStageMouseMove = (e: any) => {
-      if (!isDragging || !scrollContainer) return
-
-      const deltaX = startX - e.evt.clientX
-      const deltaY = startY - e.evt.clientY
-      scrollContainer.scrollLeft = deltaX
-      scrollContainer.scrollTop = deltaY
+      if (!isDraggingRef.current) return
+      const deltaX = dragStartRef.current.x - e.evt.clientX
+      const deltaY = dragStartRef.current.y - e.evt.clientY
+      setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
+      setScrollTop(Math.max(0, dragStartRef.current.scrollTop + deltaY))
     }
 
     const handleStageMouseUp = () => {
-      isDragging = false
-      if (scrollContainer) {
-        scrollContainer.style.cursor = 'grab'
-      }
+      isDraggingRef.current = false
+      stage.container().style.cursor = 'grab'
     }
 
     const handleNativeWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         e.stopPropagation()
-
         const { setZoomLevel } = useTimelineStore.getState()
         const currentZoom = useTimelineStore.getState().zoomLevel
         const delta = e.deltaY > 0 ? -5 : 5
         const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
-
         setZoomLevel(newZoomLevel)
       } else {
         e.preventDefault()
-        scrollContainer.scrollLeft += e.deltaY
+        setScrollLeft((prev) => Math.max(0, prev + e.deltaY))
       }
     }
 
@@ -287,17 +220,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     stage.on('mousemove', handleStageMouseMove)
     stage.on('mouseup', handleStageMouseUp)
     stage.on('mouseleave', handleStageMouseUp)
-
-    scrollContainer.addEventListener('wheel', handleNativeWheel, { passive: false })
+    stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
 
     return () => {
       stage.off('mousedown', handleStageMouseDown)
       stage.off('mousemove', handleStageMouseMove)
       stage.off('mouseup', handleStageMouseUp)
       stage.off('mouseleave', handleStageMouseUp)
-      scrollContainer.removeEventListener('wheel', handleNativeWheel)
+      stage.container().removeEventListener('wheel', handleNativeWheel)
     }
-  }, [timeline, isReadOnly])
+  }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
   // 处理双击轨道添加技能
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
@@ -313,7 +245,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const castEvent: CastEvent = {
       id: `cast-${Date.now()}`,
       actionId: track.actionId,
-      timestamp: time, // timestamp 已经是秒
+      timestamp: time,
       playerId: track.playerId,
       job: track.job,
     }
@@ -334,7 +266,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (isReadOnly) return
     const newTime = Math.max(0, Math.round((x / zoomLevel) * 10) / 10)
     const { updateCastEvent } = useTimelineStore.getState()
-    updateCastEvent(castEventId, { timestamp: newTime }) // timestamp 已经是秒
+    updateCastEvent(castEventId, { timestamp: newTime })
   }
 
   if (!timeline) {
@@ -369,19 +301,24 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   })
 
   // 计算时间轴总长度
-  // 找到最后一个事件或技能使用的时间
   const lastEventTime = Math.max(
     0,
     ...timeline.damageEvents.map((e) => e.time),
-    ...timeline.castEvents.map((ce) => ce.timestamp) // timestamp 已经是秒
+    ...timeline.castEvents.map((ce) => ce.timestamp)
   )
 
-  // 如果有事件，则为最后事件时间 + 60 秒；否则至少 300 秒
   const maxTime = Math.max(300, lastEventTime + 60)
-
   const timelineWidth = maxTime * zoomLevel
   const fixedAreaHeight = timeRulerHeight + eventTrackHeight
   const skillTracksHeight = skillTracks.length * skillTrackHeight
+
+  // 视口宽度（Stage 实际宽度）
+  const viewportWidth = Math.max(width - labelColumnWidth, 1)
+  // 限制 scrollLeft 不超出范围
+  const maxScrollLeft = Math.max(0, timelineWidth - viewportWidth)
+  const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
+  const maxScrollTop = Math.max(0, skillTracksHeight - (height - fixedAreaHeight))
+  const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
 
   return (
     <div className="relative flex flex-col" style={{ width, height }}>
@@ -408,18 +345,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         </div>
 
         {/* 右侧固定 Stage 区域 */}
-        <div
-          ref={fixedScrollContainerRef}
-          className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-hide"
-          style={{ cursor: 'grab' }}
-        >
+        <div className="flex-1 overflow-hidden" style={{ cursor: 'grab' }}>
           <Stage
-            width={Math.max(width - labelColumnWidth, timelineWidth)}
+            width={viewportWidth}
             height={fixedAreaHeight}
             ref={fixedStageRef}
-            pixelRatio={window.devicePixelRatio || 2}
           >
-            <Layer>
+            <Layer x={-clampedScrollLeft}>
               <TimeRuler
                 maxTime={maxTime}
                 zoomLevel={zoomLevel}
@@ -455,22 +387,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           className="flex-shrink-0 border-r bg-background overflow-hidden"
           style={{ width: labelColumnWidth }}
         >
-          <div ref={labelColumnContainerRef} style={{ height: skillTracksHeight }}>
+          <div ref={labelColumnContainerRef} style={{ height: skillTracksHeight, transform: `translateY(-${clampedScrollTop}px)` }}>
             <SkillTrackLabels skillTracks={skillTracks} trackHeight={skillTrackHeight} />
           </div>
         </div>
 
         {/* 右侧技能轨道 Stage */}
         <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-auto scrollbar-custom"
+          className="flex-1 overflow-hidden"
           style={{ cursor: 'grab' }}
         >
           <Stage
-            width={Math.max(width - labelColumnWidth, timelineWidth)}
-            height={skillTracksHeight}
+            width={viewportWidth}
+            height={Math.max(height - fixedAreaHeight, 1)}
             ref={stageRef}
-            pixelRatio={window.devicePixelRatio || 2}
           >
             <SkillTracksCanvas
               timeline={timeline}
@@ -482,6 +412,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               maxTime={maxTime}
               selectedCastEventId={selectedCastEventId}
               draggingEventPosition={draggingEventPosition}
+              scrollLeft={clampedScrollLeft}
+              scrollTop={clampedScrollTop}
               onSelectCastEvent={selectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
               onContextMenu={(castEventId) => {

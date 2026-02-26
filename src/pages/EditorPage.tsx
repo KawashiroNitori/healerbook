@@ -11,6 +11,7 @@ import EditorToolbar from '@/components/EditorToolbar'
 import ActionPanel from '@/components/SkillPanel'
 import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { toast } from 'sonner'
 
 export default function EditorPage() {
@@ -95,10 +96,12 @@ export default function EditorPage() {
         <div className="flex-1 overflow-hidden">
           <div ref={canvasContainerRef} className="h-full">
             {timeline ? (
-              <TimelineCanvas
-                width={canvasSize.width}
-                height={canvasSize.height}
-              />
+              <ErrorBoundary>
+                <TimelineCanvas
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                />
+              </ErrorBoundary>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-muted-foreground">加载中...</p>

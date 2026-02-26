@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 /**
  * FFLogs API 代理 Worker
  *

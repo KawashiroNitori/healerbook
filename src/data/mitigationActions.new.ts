@@ -442,7 +442,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16889,
       name: '策动',
-      icon: '/i/002000/002864.png',
+      icon: '/i/003000/003040.png',
       uniqueGroup: [7405, 16889, 16012],
       jobs: ['MCH'],
       duration: 15,
@@ -454,7 +454,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16012,
       name: '防守之桑巴',
-      icon: '/i/002000/003002.png',
+      icon: '/i/003000/003469.png',
       uniqueGroup: [7405, 16889, 16012],
       jobs: ['DNC'],
       duration: 15,

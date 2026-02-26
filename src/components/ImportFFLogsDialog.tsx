@@ -24,7 +24,6 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingStep, setLoadingStep] = useState('')
-  const [progress, setProgress] = useState(0)
   const [error, setError] = useState('')
   const [parsedInfo, setParsedInfo] = useState<{
     reportCode: string | null
@@ -130,16 +129,11 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
         damageEvents: [],
       }
 
-      // 解析阵容
-      const composition = parseComposition(report, fightId)
-      newTimeline.composition = composition
-
       // 计算战斗时长（秒）
       const duration = Math.floor((fight.endTime - fight.startTime) / 1000)
 
       // 获取伤害事件（自动分页）
       setLoadingStep('正在获取战斗事件...')
-      setProgress(0)
 
       try {
         const eventsData = await client.getAllEvents(
@@ -148,32 +142,43 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
             start: fight.startTime,
             end: fight.endTime,
             lang: report.lang,
-          },
-          (progressInfo) => {
-            setProgress(progressInfo.percentage)
-            setLoadingStep('正在获取战斗事件')
           }
         )
 
-        setLoadingStep(`已获取 ${eventsData.totalPages} 页数据，正在解析...`)
-        setProgress(100)
+        setLoadingStep(`正在解析数据...`)
 
         // 构建玩家 ID 映射
-        const playerMap = new Map<number, any>()
+        const playerMap = new Map<number, { id: number; name: string; type: string }>()
         report.friendlies?.forEach((player) => {
-          playerMap.set(player.id, player)
+          playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
         })
 
+        // 构建技能元数据映射（V2 API 提供）
+        const abilityMap = new Map<number, { gameID: number; name: string; type: string | number }>()
+        report.abilities?.forEach((ability) => {
+          abilityMap.set(ability.gameID, ability)
+        })
+
+        // 从事件中提取实际参与战斗的玩家 ID
+        const participantIds = new Set<number>()
+        for (const event of eventsData.events || []) {
+          if (event.sourceID && playerMap.has(event.sourceID)) participantIds.add(event.sourceID)
+          if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
+        }
+
+        // 重新解析阵容（用参与者过滤）
+        const composition = parseComposition(report, fightId!, participantIds)
+        newTimeline.composition = composition
+
         // 解析伤害事件
-        const damageEvents = parseDamageEvents(eventsData.events || [], fight.startTime, playerMap)
+        const damageEvents = parseDamageEvents(eventsData.events || [], fight.startTime, playerMap, abilityMap)
         newTimeline.damageEvents = damageEvents
 
         // 解析技能使用事件
         const castEvents = parseCastEventsFromFFLogs(
           eventsData.events || [],
           fight.startTime,
-          playerMap,
-          damageEvents
+          playerMap
         )
 
         // 解析状态事件
@@ -279,22 +284,10 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
 
             {/* 加载状态 */}
             {isLoading && (
-              <div className="space-y-3 p-3 bg-muted rounded-md">
+              <div className="p-3 bg-muted rounded-md">
                 <div className="flex items-center gap-3">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">{loadingStep}</span>
-                </div>
-                {/* 进度条 - 始终显示 */}
-                <div className="space-y-1">
-                  <div className="w-full bg-muted-foreground/20 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-primary h-full transition-all duration-500 ease-out"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-muted-foreground text-right">
-                    {progress}%
-                  </div>
                 </div>
               </div>
             )}

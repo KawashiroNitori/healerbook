@@ -50,6 +50,7 @@ function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogs
     })),
     friendlies: v1Report.friendlies,
     enemies: v1Report.enemies,
+    abilities: v1Report.abilities,
   }
 }
 
@@ -93,13 +94,11 @@ export class FFLogsClient {
       start: number
       end: number
       lang?: string
-    },
-    onProgress?: (progress: { current: number; total: number; percentage: number }) => void
+    }
   ) {
     const allEvents: any[] = []
     let currentStart = params.start
     const { end, lang } = params
-    const totalRange = end - params.start
 
     // 最多请求 100 页，防止无限循环
     const MAX_PAGES = 100
@@ -114,28 +113,14 @@ export class FFLogsClient {
         lang,
       })
 
-      // 收集事件
       if (response.events && response.events.length > 0) {
         allEvents.push(...response.events)
       }
 
-      // 检查是否有下一页
       if (response.nextPageTimestamp && response.nextPageTimestamp < end) {
         currentStart = response.nextPageTimestamp
       } else {
-        // 没有更多数据
         currentStart = end
-      }
-
-      // 报告进度
-      if (onProgress) {
-        const processedRange = currentStart - params.start
-        const percentage = Math.min(Math.round((processedRange / totalRange) * 100), 100)
-        onProgress({
-          current: processedRange,
-          total: totalRange,
-          percentage,
-        })
       }
     }
 
