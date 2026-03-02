@@ -43,7 +43,7 @@ describe('executors', () => {
         actionId: 7382,
         useTime: 5,
         partyState: mockPartyState,
-        targetPlayerId: 1,
+        sourcePlayerId: 1,
       }
 
       const newState = executor(ctx)
@@ -93,7 +93,7 @@ describe('executors', () => {
         actionId: 185,
         useTime: 15,
         partyState: mockPartyState,
-        targetPlayerId: 2,
+        sourcePlayerId: 2,
       }
 
       const newState = executor(ctx)

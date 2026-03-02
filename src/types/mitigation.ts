@@ -53,8 +53,8 @@ export interface ActionExecutionContext {
   useTime: number
   /** 当前小队状态 */
   partyState: PartyState
-  /** 目标玩家 ID（对应 FFLogsActor.id，可选） */
-  targetPlayerId?: number
+  /** 使用技能的玩家 ID（对应 FFLogsActor.id） */
+  sourcePlayerId: number
 }
 
 /**

@@ -242,7 +242,7 @@ export interface FFLogsAbility {
 /**
  * FFLogs 事件数据类型
  */
-export type FFLogsEventDataType = 'Buffs' | 'Debuffs' | 'Casts' | 'DamageTaken'
+export type FFLogsEventDataType = 'Buffs' | 'Debuffs' | 'Casts' | 'DamageTaken' | 'Healing'
 
 /**
  * FFLogs 事件响应

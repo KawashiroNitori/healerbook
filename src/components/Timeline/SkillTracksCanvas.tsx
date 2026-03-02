@@ -311,6 +311,8 @@ export default function SkillTracksCanvas({
               trackY={trackY}
               leftBoundary={leftBoundary}
               rightBoundary={rightBoundary}
+              scrollLeft={scrollLeft}
+              scrollTop={scrollTop}
               onSelect={() => onSelectCastEvent(castEvent.id)}
               onDragEnd={(x) => onUpdateCastEvent(castEvent.id, x)}
               onContextMenu={(e) => {

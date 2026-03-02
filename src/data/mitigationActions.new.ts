@@ -156,7 +156,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createShieldExecutor(297, 30, false, 0.125),
     },
 
-    // 展开战术 - 复制目标的鼓舞盾到所有成员
+    // 展开战术 - 复制目标的鼓舞盾到所有成员（模拟为群体单盾）
     {
       id: 3585,
       name: '展开战术',
@@ -168,43 +168,21 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       duration: 0,
       cooldown: 90,
-      executor: (ctx: ActionExecutionContext) => {
-        const targetPlayer = ctx.partyState.players.find(
-          (p) => p.id === ctx.targetPlayerId
-        )
-        if (!targetPlayer) {
-          return ctx.partyState
-        }
-
-        // 查找目标身上的鼓舞状态（只检查 297）
-        const shieldStatus = targetPlayer.statuses.find((s) => s.statusId === 297)
-
-        if (!shieldStatus) {
-          // 目标没有鼓舞盾，无法展开
-          return ctx.partyState
-        }
-
-        // 为所有队员复制该盾值状态
-        const newStatuses: MitigationStatus[] = ctx.partyState.players.map((player) => ({
-          instanceId: generateId(),
-          statusId: shieldStatus.statusId,
-          startTime: ctx.useTime,
-          endTime: ctx.useTime + 30,
-          remainingBarrier: shieldStatus.remainingBarrier,
-          sourceActionId: ctx.actionId,
-          sourcePlayerId: player.id,
-        }))
-
-        return {
-          ...ctx.partyState,
-          players: ctx.partyState.players.map((p, i) => ({
-            ...p,
-            statuses: [...p.statuses, newStatuses[i]],
-          })),
-        }
-      },
+      executor: createShieldExecutor(297, 30),
     },
 
+    // 秘策
+    {
+      id: 16542,
+      name: '秘策',
+      icon: '/i/002000/002822.png',
+      uniqueGroup: [16542],
+      jobs: ['SCH'],
+      duration: 15,
+      cooldown: 60,
+      executor: createFriendlyBuffExecutor(1896, 15, false),
+    },
+    
     // 气宇轩昂之策 - 检测秘策状态附加额外盾值
     {
       id: 37013,
@@ -219,7 +197,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 2.5,
       executor: (ctx: ActionExecutionContext) => {
         const caster = ctx.partyState.players.find(
-          (p) => p.id === ctx.targetPlayerId
+          (p) => p.id === ctx.sourcePlayerId
         )
         const hasRecitation = caster?.statuses.some((s) => s.statusId === 1896) // 秘策
 
@@ -255,7 +233,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const updatedPlayers = ctx.partyState.players.map((p) => {
           const playerStatuses = newStatuses.filter((s) => s.sourcePlayerId === p.id)
           const filteredStatuses =
-            hasRecitation && p.id === ctx.targetPlayerId
+            hasRecitation && p.id === ctx.sourcePlayerId
               ? p.statuses.filter((s) => s.statusId !== 1896) // 移除秘策
               : p.statuses
 

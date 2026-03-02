@@ -29,7 +29,7 @@ export function useDamageCalculationV2(timeline: Timeline | null): Map<string, C
     // 按顺序计算每个事件的结果
     for (const event of sortedEvents) {
       // 获取事件发生时的小队状态
-      const partyState = getPartyStateAtTime(event.time)
+      const partyState = getPartyStateAtTime(event.time, event.packetId)
       if (!partyState) {
         // 如果没有状态，返回原始伤害
         results.set(event.id, {

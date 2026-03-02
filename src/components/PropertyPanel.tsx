@@ -194,8 +194,7 @@ export default function PropertyPanel() {
             <div className="pt-4 border-t">
               <PlayerDamageDetails
                 event={event}
-                partyState={getPartyStateAtTime(event.time) || result.updatedPartyState}
-                eventTime={event.time}
+                partyState={getPartyStateAtTime(event.time, event.packetId) || result.updatedPartyState}
               />
             </div>
           )}

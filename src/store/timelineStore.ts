@@ -20,10 +20,8 @@ const AUTO_SAVE_DELAY = 2000
 function buildPartyStateFromStatusEvents(
   initialState: PartyState,
   statusEvents: StatusEvent[],
-  time: number
+  packetId: number
 ): PartyState {
-  // time 和 statusEvents 都是秒
-
   // 初始化状态
   const currentState: PartyState = {
     players: initialState.players.map((p) => ({
@@ -33,13 +31,11 @@ function buildPartyStateFromStatusEvents(
     enemy: {
       statuses: [],
     },
-    timestamp: time,
+    timestamp: 0,
   }
 
-  // 过滤出在当前时间有效的状态事件
-  const activeStatusEvents = statusEvents.filter(
-    (event) => event.startTime <= time && event.endTime > time
-  )
+  // 过滤出属于该伤害包的状态事件
+  const activeStatusEvents = statusEvents.filter((event) => event.packetId === packetId)
 
   // 将状态事件转换为 MitigationStatus 并分配到玩家/敌人
   for (const event of activeStatusEvents) {
@@ -96,11 +92,11 @@ interface TimelineState {
   /** 初始化小队状态 */
   initializePartyState: (composition: Composition) => void
   /** 执行技能并更新状态 */
-  executeAction: (actionId: number, time: number, targetPlayerId?: number) => void
+  executeAction: (actionId: number, time: number, sourcePlayerId: number) => void
   /** 更新小队状态 */
   updatePartyState: (partyState: PartyState) => void
   /** 获取指定时间的小队状态 */
-  getPartyStateAtTime: (time: number) => PartyState | null
+  getPartyStateAtTime: (time: number, packetId?: number) => PartyState | null
   /** 清理过期状态 */
   cleanupExpiredStatuses: (currentTime: number) => void
   /** 选择伤害事件 */
@@ -181,7 +177,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ partyState })
   },
 
-  executeAction: (actionId, time, targetPlayerId) => {
+  executeAction: (actionId, time, sourcePlayerId) => {
     const state = get()
     if (!state.partyState) return
 
@@ -197,7 +193,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       actionId,
       useTime: time,
       partyState: state.partyState,
-      targetPlayerId,
+      sourcePlayerId,
     }
 
     // 执行技能并更新状态
@@ -209,16 +205,16 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ partyState })
   },
 
-  getPartyStateAtTime: (time) => {
+  getPartyStateAtTime: (time, packetId) => {
     const state = get()
     if (!state.timeline || !state.partyState) return null
 
-    // 回放模式：使用状态事件
-    if (state.timeline.isReplayMode && state.timeline.statusEvents) {
+    // 回放模式：使用状态事件，通过 packetId 匹配
+    if (state.timeline.isReplayMode && state.timeline.statusEvents && packetId != null) {
       return buildPartyStateFromStatusEvents(
         state.partyState,
         state.timeline.statusEvents,
-        time
+        packetId
       )
     }
 
@@ -249,7 +245,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         actionId: castEvent.actionId,
         useTime: castEvent.timestamp,
         partyState: currentState,
-        targetPlayerId: castEvent.targetPlayerId,
+        sourcePlayerId: castEvent.playerId,
       }
 
       currentState = action.executor(context)

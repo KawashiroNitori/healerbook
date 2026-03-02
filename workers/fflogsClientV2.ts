@@ -191,18 +191,18 @@ export class FFLogsClientV2 {
 
   /**
    * 获取战斗事件
-   * 并行获取多种类型的完整事件：Buffs, Debuffs, Casts, DamageTaken
+   * 并行获取多种类型的完整事件：Buffs, Debuffs, Casts, DamageTaken, Healing
    * 自动处理每种类型的分页
    */
   async getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse> {
     const { reportCode, start, end } = params
 
     // 为每种类型单独查询，并自动处理分页
-    const dataTypes: Array<'Buffs' | 'Debuffs' | 'Casts' | 'DamageTaken'> = [
-      'Buffs',
-      'Debuffs',
+    const dataTypes: Array<string> = [
       'Casts',
       'DamageTaken',
+      'Healing',
+      'CombatantInfo',
     ]
 
     const query = `
@@ -213,6 +213,7 @@ export class FFLogsClientV2 {
               startTime: $startTime
               endTime: $endTime
               dataType: $dataType
+              includeResources: true
               limit: $limit
             ) {
               data

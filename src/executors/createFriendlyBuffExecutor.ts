@@ -21,7 +21,7 @@ export function createFriendlyBuffExecutor(
   return (ctx) => {
     const targets = isPartyWide
       ? ctx.partyState.players
-      : ctx.partyState.players.filter((p) => p.id === ctx.targetPlayerId)
+      : ctx.partyState.players.filter((p) => p.id === ctx.sourcePlayerId)
 
     const newStatuses: MitigationStatus[] = targets.map((player) => ({
       instanceId: generateId(),

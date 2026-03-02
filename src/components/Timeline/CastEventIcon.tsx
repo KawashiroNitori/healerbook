@@ -15,6 +15,8 @@ interface CastEventIconProps {
   trackY: number
   leftBoundary: number
   rightBoundary: number
+  scrollLeft: number
+  scrollTop: number
   onSelect: () => void
   onDragEnd: (x: number) => void
   onContextMenu: (e: any) => void
@@ -29,6 +31,8 @@ export default function CastEventIcon({
   trackY,
   leftBoundary,
   rightBoundary,
+  scrollLeft,
+  scrollTop,
   onSelect,
   onDragEnd,
   onContextMenu,
@@ -42,12 +46,13 @@ export default function CastEventIcon({
       y={trackY}
       draggable={!isReadOnly}
       dragBoundFunc={(pos) => {
-        const minX = leftBoundary * zoomLevel
-        const maxX = rightBoundary === Infinity ? pos.x : rightBoundary * zoomLevel
+        // pos 是 Stage 坐标，边界是 Layer 坐标，需要转换
+        const minX = leftBoundary * zoomLevel - scrollLeft
+        const maxX = rightBoundary === Infinity ? pos.x : rightBoundary * zoomLevel - scrollLeft
 
         return {
           x: Math.max(minX, Math.min(maxX, pos.x)),
-          y: trackY,
+          y: trackY - scrollTop,
         }
       }}
       onClick={onSelect}

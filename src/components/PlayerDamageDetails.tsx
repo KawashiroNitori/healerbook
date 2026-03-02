@@ -13,13 +13,11 @@ import JobIcon from './JobIcon'
 interface PlayerDamageDetailsProps {
   event: DamageEvent
   partyState: PartyState
-  eventTime: number
 }
 
 export default function PlayerDamageDetails({
   event,
   partyState,
-  eventTime,
 }: PlayerDamageDetailsProps) {
   if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
     return (
@@ -44,11 +42,8 @@ export default function PlayerDamageDetails({
         // 查找对应的玩家状态
         const playerState = partyState.players.find((p) => p.id === detail.playerId)
 
-        // 获取该玩家在事件时间点的生效状态
-        // eventTime 是秒，MitigationStatus 的 startTime/endTime 也是秒
-        const activeStatuses = playerState?.statuses.filter(
-          (status) => status.startTime <= eventTime && status.endTime >= eventTime
-        ) || []
+        // partyState 已通过 packetId 过滤，直接取该玩家的所有状态
+        const activeStatuses = playerState?.statuses || []
 
         return (
           <div

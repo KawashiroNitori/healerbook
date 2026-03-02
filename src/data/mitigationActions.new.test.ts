@@ -128,7 +128,7 @@ describe('mitigationActions.new', () => {
         actionId: 185,
         useTime: 60,
         partyState: mockPartyState,
-        targetPlayerId: 2,
+        sourcePlayerId: 2,
       }
 
       const newState = action.executor(ctx)
@@ -140,44 +140,19 @@ describe('mitigationActions.new', () => {
   })
 
   describe('自定义 Executor', () => {
-    it('展开战术应该复制目标的鼓舞盾', () => {
-      // 先给目标添加鼓舞盾
-      const partyWithShield: PartyState = {
-        ...mockPartyState,
-        players: mockPartyState.players.map((p) =>
-          p.id === 2
-            ? {
-                ...p,
-                statuses: [
-                  {
-                    instanceId: 'test-shield',
-                    statusId: 297,
-                    startTime: 0,
-                    endTime: 30,
-                    remainingBarrier: 5000,
-                    sourceActionId: 185,
-                    sourcePlayerId: 2,
-                  },
-                ],
-              }
-            : p
-        ),
-      }
-
+    it('展开战术应该为所有玩家添加鼓舞盾', () => {
       const action = MITIGATION_DATA.actions.find((a) => a.id === 3585)!
       const ctx: ActionExecutionContext = {
         actionId: 3585,
         useTime: 10,
-        partyState: partyWithShield,
-        targetPlayerId: 2,
+        partyState: mockPartyState,
+        sourcePlayerId: 2,
       }
 
       const newState = action.executor(ctx)
 
-      // 所有玩家都应该有鼓舞盾
       expect(newState.players.every((p) => p.statuses.length > 0)).toBe(true)
       expect(newState.players[0].statuses[0].statusId).toBe(297)
-      expect(newState.players[0].statuses[0].remainingBarrier).toBe(5000)
     })
 
     it('气宇轩昂之策应该检测秘策状态', () => {
@@ -208,7 +183,7 @@ describe('mitigationActions.new', () => {
         actionId: 37013,
         useTime: 5,
         partyState: partyWithRecitation,
-        targetPlayerId: 3,
+        sourcePlayerId: 3,
       }
 
       const newState = action.executor(ctx)

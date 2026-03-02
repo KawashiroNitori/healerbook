@@ -36,32 +36,9 @@ export default function DamageEventCard({
   const x = event.time * zoomLevel
   const y = yOffset + trackHeight / 2
 
-  // 在回放模式下（有 playerDamageDetails），使用实际数据
-  let originalDamage = event.damage
-  let finalDamage = result.finalDamage
-  let mitigationPercent = result.mitigationPercentage.toFixed(1)
-
-  if (event.playerDamageDetails && event.playerDamageDetails.length > 0) {
-    // 计算平均原始伤害和平均最终伤害
-    const totalUnmitigated = event.playerDamageDetails.reduce(
-      (sum, detail) => sum + detail.unmitigatedDamage,
-      0
-    )
-    const totalFinal = event.playerDamageDetails.reduce(
-      (sum, detail) => sum + detail.finalDamage,
-      0
-    )
-    const count = event.playerDamageDetails.length
-
-    originalDamage = Math.floor(totalUnmitigated / count)
-    finalDamage = Math.floor(totalFinal / count)
-
-    // 重新计算减伤比例
-    if (originalDamage > 0) {
-      const actualMitigation = ((originalDamage - finalDamage) / originalDamage) * 100
-      mitigationPercent = actualMitigation.toFixed(1)
-    }
-  }
+  const originalDamage = event.damage
+  const finalDamage = result.finalDamage
+  const mitigationPercent = result.mitigationPercentage.toFixed(1)
 
   // 伤害类型颜色映射
   const damageTypeColorMap: Record<string, string> = {

@@ -99,6 +99,8 @@ export interface DamageEvent {
   targetPlayerId?: number
   /** 每个玩家的伤害详情 */
   playerDamageDetails?: PlayerDamageDetail[]
+  /** 伤害包 ID（回放模式，用于关联状态快照） */
+  packetId?: number
 }
 
 /**
@@ -220,6 +222,8 @@ export interface StatusEvent {
   targetInstance?: number
   /** 盾值（仅盾值类型状态，从 FFLogs absorb 字段获取） */
   absorb?: number
+  /** 伤害包 ID（回放模式，用于关联同一次技能对不同玩家的伤害） */
+  packetId?: number
 }
 
 /**

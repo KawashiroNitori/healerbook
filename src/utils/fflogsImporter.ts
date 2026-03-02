@@ -5,6 +5,7 @@
 import type { FFLogsReport, FFLogsAbility } from '@/types/fflogs'
 import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions.new'
+import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 
 const actionChinese: Record<string, string> = actionChineseRaw
@@ -151,7 +152,7 @@ export function parseDamageEvents(
   const damageEvents: DamageEvent[] = []
   let index = 0
 
-  for (const [, data] of packetMap) {
+  for (const [packetId, data] of packetMap) {
     let totalUnmitigatedDamage = 0
     for (const pd of data.playerDamages.values()) {
       totalUnmitigatedDamage += pd.unmitigatedDamage
@@ -206,6 +207,7 @@ export function parseDamageEvents(
       type: detectDamageType(data.playerDamages.size),
       damageType: detectDamageTypeFromAbility(data.abilityType),
       playerDamageDetails,
+      packetId: packetId,
     })
   }
 
@@ -288,50 +290,61 @@ function detectDamageTypeFromAbility(abilityType: string | number): 'physical' |
 }
 
 /**
- * 解析状态附加/移除事件
+ * 从 damage 事件的 buffs 字段与 absorbed 事件解析状态快照（回放模式）
  *
- * V2 事件字段：abilityGameID（带 1e6 偏移），duration（毫秒），sourceID，targetID
+ * 不依赖 applybuff/removebuff 事件流，而是直接从每个 damage 事件的 buffs 字段
+ * 读取该时刻目标身上的状态列表，并通过四元组匹配 absorbed 事件获取盾值消耗量。
+ *
+ * 匹配规则：
+ *   damage  事件四元组：(timestamp, targetID, buffID,        abilityGameID)
+ *   absorbed 事件四元组：(timestamp, targetID, abilityGameID, extraAbilityGameID)
+ *
+ * buffs 字段格式：`"1002609.1002345."` — 以 `.` 分隔的 buff ID 列表（带 1e6 偏移）
  */
 export function parseStatusEvents(
   events: any[],
   fightStartTime: number
 ): StatusEvent[] {
-  const statusEvents: StatusEvent[] = []
-
-  const applyEventsMap = new Map<string, any[]>()
-
+  // 构建 absorbed 查找表：key -> absorbed amount
+  const absorbedMap = new Map<string, number>()
   for (const event of events) {
-    if (
-      event.type !== 'applybuff' &&
-      event.type !== 'applydebuff'
-    ) continue
-
-    // abilityGameID 带 1e6 偏移
-    const statusId = Math.max(0, (event.abilityGameID ?? 0) - 1e6)
-    if (!statusId) continue
-
-    const key = `${statusId}-${event.targetID || 0}-${event.targetInstance || 0}`
-    if (!applyEventsMap.has(key)) applyEventsMap.set(key, [])
-    applyEventsMap.get(key)!.push(event)
+    if (event.type !== 'absorbed') continue
+    const key = `${event.timestamp}-${event.targetID}-${event.abilityGameID}-${event.extraAbilityGameID}`
+    absorbedMap.set(key, event.amount)
   }
 
-  for (const applyEvents of applyEventsMap.values()) {
-    for (const applyEvent of applyEvents) {
-      const statusId = Math.max(0, (applyEvent.abilityGameID ?? 0) - 1e6)
-      const startTime = (applyEvent.timestamp - fightStartTime) / 1000
-      // V2 提供 duration 字段（毫秒）
-      const endTime = applyEvent.duration != null
-        ? startTime + applyEvent.duration / 1000
-        : startTime + 30
+  const statusEvents: StatusEvent[] = []
+
+  for (const event of events) {
+    if (event.type !== 'damage') continue
+    if (!event.buffs) continue
+
+    const { timestamp, targetID, abilityGameID: damageAbilityId, packetID } = event
+    const eventTime = (timestamp - fightStartTime) / 1000
+
+    // 解析 buffs 字符串，过滤空字符串后转为数字
+    const buffIds: number[] = (event.buffs as string)
+      .split('.')
+      .filter(Boolean)
+      .map(Number)
+
+    for (const buffId of buffIds) {
+      // 归一化 statusId（去除 1e6 偏移）
+      const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
+
+      // 只保留我们关心的状态（在 statusRegistry 中有元数据的）
+      if (!getStatusById(statusId)) continue
+
+      const absorbKey = `${timestamp}-${targetID}-${buffId}-${damageAbilityId}`
+      const absorb = absorbedMap.get(absorbKey)
 
       statusEvents.push({
         statusId,
-        startTime,
-        endTime,
-        sourcePlayerId: applyEvent.sourceID,
-        targetPlayerId: applyEvent.targetID,
-        targetInstance: applyEvent.targetInstance,
-        absorb: applyEvent.absorb,
+        startTime: eventTime,
+        endTime: eventTime,
+        targetPlayerId: targetID,
+        absorb,
+        packetId: packetID,
       })
     }
   }
