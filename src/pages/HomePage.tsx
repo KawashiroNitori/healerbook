@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import TimelineCard from '@/components/TimelineCard'
 import CreateTimelineDialog from '@/components/CreateTimelineDialog'
 import ImportFFLogsDialog from '@/components/ImportFFLogsDialog'
+import Top100Section from '@/components/Top100Section'
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -24,14 +25,14 @@ export default function HomePage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [timelineToDelete, setTimelineToDelete] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadTimelines()
-  }, [])
-
   const loadTimelines = () => {
     const data = getAllTimelineMetadata()
     setTimelines(data.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))
   }
+
+  useEffect(() => {
+    loadTimelines()
+  }, [])
 
   const handleCreateNew = () => {
     setShowCreateDialog(true)
@@ -89,7 +90,7 @@ export default function HomePage() {
         </div>
 
         {/* Recent Timelines */}
-        <section>
+        <section className="mb-12">
           <h2 className="text-xl font-semibold mb-4">最近的时间轴</h2>
           {timelines.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -112,6 +113,9 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        {/* TOP100 参考方案 */}
+        <Top100Section />
       </main>
 
       {/* Dialogs */}

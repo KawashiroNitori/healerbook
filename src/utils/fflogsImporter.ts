@@ -7,35 +7,12 @@ import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/ty
 import { MITIGATION_DATA } from '@/data/mitigationActions.new'
 import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
+import { JOB_MAP } from '@/data/jobMap'
 
 const actionChinese: Record<string, string> = actionChineseRaw
 
 function getActionChinese(actionId: number): string | undefined {
   return actionChinese[actionId.toString()]
-}
-
-const JOB_MAP: Record<string, Job> = {
-  Paladin: 'PLD',
-  Warrior: 'WAR',
-  DarkKnight: 'DRK',
-  Gunbreaker: 'GNB',
-  WhiteMage: 'WHM',
-  Scholar: 'SCH',
-  Astrologian: 'AST',
-  Sage: 'SGE',
-  Monk: 'MNK',
-  Dragoon: 'DRG',
-  Ninja: 'NIN',
-  Samurai: 'SAM',
-  Reaper: 'RPR',
-  Viper: 'VPR',
-  Bard: 'BRD',
-  Machinist: 'MCH',
-  Dancer: 'DNC',
-  BlackMage: 'BLM',
-  Summoner: 'SMN',
-  RedMage: 'RDM',
-  Pictomancer: 'PCT',
 }
 
 /**

@@ -16,12 +16,14 @@ interface ImportFFLogsDialogProps {
   open: boolean
   onClose: () => void
   onImported: () => void
+  /** 预填的 FFLogs URL（来自 TOP100 等外部来源） */
+  initialUrl?: string
 }
 
-export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialogProps) {
+export default function ImportFFLogsDialog({ open, onClose, initialUrl }: ImportFFLogsDialogProps) {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState(initialUrl ?? '')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingStep, setLoadingStep] = useState('')
   const [error, setError] = useState('')
@@ -34,6 +36,9 @@ export default function ImportFFLogsDialog({ open, onClose }: ImportFFLogsDialog
   // 自动聚焦输入框并检测剪贴板
   useEffect(() => {
     inputRef.current?.focus()
+
+    // 如果已有预填 URL，则跳过剪贴板检测
+    if (initialUrl) return
 
     // 尝试读取剪贴板
     const readClipboard = async () => {

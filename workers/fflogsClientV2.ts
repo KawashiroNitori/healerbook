@@ -4,6 +4,7 @@
  */
 
 import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType, FFLogsAbility } from '../src/types/fflogs'
+import { buildComposition, buildMitigationKey } from './rosterUtils'
 
 export interface FFLogsV2Config {
   clientId: string
@@ -26,6 +27,42 @@ export interface GetEventsParams {
   end: number
   lang?: string
   dataType?: FFLogsEventDataType[]
+}
+
+/**
+ * 排行榜单条目
+ */
+export interface RankingEntry {
+  rank: number
+  characterName: string
+  jobClass: string
+  characterNameTwo: string
+  jobClassTwo: string
+  /** 合计 DPS（healercombineddps） */
+  amount: number
+  /** 战斗时长（毫秒） */
+  duration: number
+  reportCode: string
+  fightID: number
+  startTime: number
+  serverName: string
+  serverRegion: string
+  serverNameTwo: string
+  /** 按标准职业顺序排列的完整阵容职业代码列表 */
+  composition: string[]
+  /** 阵容内所有减伤技能 ID 升序排列，用 - 连接（隐藏字段，用于分组/筛选） */
+  mitigationKey: string
+}
+
+/**
+ * 遭遇战排行榜查询结果
+ */
+export interface EncounterRankingsResult {
+  encounterName: string
+  page: number
+  hasMorePages: boolean
+  count: number
+  entries: RankingEntry[]
 }
 
 /**
@@ -72,9 +109,15 @@ export class FFLogsClientV2 {
 
     const data = await response.json()
 
+    // 验证响应格式
+    const accessToken = data.access_token as string | undefined
+    if (!accessToken) {
+      throw new Error('FFLogs OAuth: missing access_token in response')
+    }
+
     // 缓存 token
-    cachedToken = data.access_token
-    tokenExpiresAt = now + data.expires_in * 1000
+    cachedToken = accessToken
+    tokenExpiresAt = now + (data.expires_in as number) * 1000
 
     return cachedToken
   }
@@ -186,6 +229,90 @@ export class FFLogsClientV2 {
         type: ability.type,
         icon: ability.icon,
       })) as FFLogsAbility[],
+    }
+  }
+
+  /**
+   * 获取遭遇战治疗角色排行（TOP100）
+   *
+   * 使用 HPS（每秒治疗量）指标，自然筛选出治疗职业排名
+   * 每页最多 100 条记录
+   */
+  async getEncounterRankings(params: {
+    encounterId: number
+    difficulty: number
+    page?: number
+  }): Promise<EncounterRankingsResult> {
+    const { encounterId, page = 1 } = params
+
+    const query = `
+      query GetEncounterRankings($encounterId: Int!, $page: Int) {
+        worldData {
+          encounter(id: $encounterId) {
+            name
+            characterRankings(
+              includeOtherPlayers: true
+              metric: healercombinedrdps
+              page: $page
+            )
+          }
+        }
+      }
+    `
+
+    const data = await this.query(query, { encounterId, page })
+    const encounter = data.worldData.encounter
+    const rankings = encounter.characterRankings as {
+      page: number
+      hasMorePages: boolean
+      count: number
+      rankings: Array<{
+        name: string
+        spec: string
+        nameTwo: string
+        specTwo: string
+        amount: number
+        duration: number
+        report: { code: string; fightID: number; startTime: number }
+        server?: { name: string; region?: string }
+        serverTwo?: { name: string }
+        allCharacters?: Array<{ name: string; spec: string }>
+      }>
+    }
+
+    const entries: RankingEntry[] = []
+    if (rankings?.rankings) {
+      for (let i = 0; i < rankings.rankings.length; i++) {
+        const r = rankings.rankings[i]
+        entries.push({
+          rank: (page - 1) * 100 + i + 1,
+          characterName: r.name || '',
+          jobClass: r.spec || '',
+          characterNameTwo: r.nameTwo || '',
+          jobClassTwo: r.specTwo || '',
+          amount: r.amount || 0,
+          duration: r.duration || 0,
+          reportCode: r.report?.code || '',
+          fightID: r.report?.fightID || 0,
+          startTime: r.report?.startTime || 0,
+          serverName: r.server?.name || '',
+          serverRegion: r.server?.region || '',
+          // serverTwo 缺失时，说明两个玩家在同一服务器
+          serverNameTwo: r.serverTwo?.name || r.server?.name || '',
+          composition: buildComposition((r.allCharacters ?? []).map((c) => c.spec)),
+          mitigationKey: buildMitigationKey(
+            buildComposition((r.allCharacters ?? []).map((c) => c.spec))
+          ),
+        })
+      }
+    }
+
+    return {
+      encounterName: encounter.name || '',
+      page: rankings?.page ?? page,
+      hasMorePages: rankings?.hasMorePages ?? false,
+      count: rankings?.count ?? entries.length,
+      entries,
     }
   }
 
