@@ -4,7 +4,7 @@
  */
 
 import { useMemo } from 'react'
-import { MitigationCalculatorV2, type CalculationResult } from '@/utils/mitigationCalculator.v2'
+import { MitigationCalculator, type CalculationResult } from '@/utils/mitigationCalculator'
 import type { Timeline } from '@/types/timeline'
 import { useTimelineStore } from '@/store/timelineStore'
 
@@ -21,7 +21,7 @@ export function useDamageCalculationV2(timeline: Timeline | null): Map<string, C
     if (!timeline) return results
 
     // 创建计算器实例
-    const calculator = new MitigationCalculatorV2()
+    const calculator = new MitigationCalculator()
 
     // 按时间排序伤害事件
     const sortedEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)

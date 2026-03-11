@@ -2,6 +2,7 @@
  * 技能轨道 Canvas 区域组件
  */
 
+import type { ReactElement } from 'react'
 import { Group, Layer, Line, Rect, Text } from 'react-konva'
 import CastEventIcon from './CastEventIcon'
 import type { SkillTrack } from './SkillTrackLabels'
@@ -142,7 +143,7 @@ export default function SkillTracksCanvas({
 
           const trackY = trackIndex * trackHeight + trackHeight / 2
 
-          const idleWarnings: JSX.Element[] = []
+          const idleWarnings: ReactElement[] = []
 
           // 检查第一个技能与战斗开始时间的空转
           const firstCastEvent = trackCastEvents[0]

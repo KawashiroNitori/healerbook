@@ -1,13 +1,11 @@
 /**
- * 减伤计算引擎
+ * 减伤计算引擎（基于状态）
  * 实现核心减伤计算逻辑
  */
 
-import type {
-  MitigationEffect,
-  MitigationAction,
-} from '@/types/mitigation'
-import type { MitigationAssignment } from '@/types/timeline'
+import type { PartyState } from '@/types/partyState'
+import type { MitigationStatus } from '@/types/status'
+import { getStatusById } from '@/utils/statusRegistry'
 
 /**
  * 伤害类型
@@ -24,269 +22,207 @@ export interface CalculationResult {
   finalDamage: number
   /** 减伤百分比 */
   mitigationPercentage: number
-  /** 应用的减伤效果 */
-  appliedEffects: MitigationEffect[]
-}
-
-/**
- * CD 验证结果
- */
-export interface CooldownValidationResult {
-  /** 是否有效 */
-  valid: boolean
-  /** 错误列表 */
-  errors: CooldownError[]
-}
-
-/**
- * CD 错误
- */
-export interface CooldownError {
-  /** 技能 ID */
-  actionId: number
-  /** 技能名称 */
-  actionName: string
-  /** 冲突的分配 ID 列表 */
-  conflictingAssignments: string[]
-  /** 错误消息 */
-  message: string
+  /** 应用的状态列表 */
+  appliedStatuses: MitigationStatus[]
+  /** 更新后的小队状态（盾值消耗后） */
+  updatedPartyState: PartyState
 }
 
 /**
  * 减伤计算器
  */
 export class MitigationCalculator {
-  /** 盾值状态跟踪（assignmentId -> 剩余盾值） */
-  private barrierState: Map<string, number> = new Map()
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  constructor(_actions: MitigationAction[]) {
-    // actions 参数保留用于未来扩展
-  }
-
-  /**
-   * 重置盾值状态
-   */
-  resetBarrierState() {
-    this.barrierState.clear()
-  }
-
   /**
    * 计算减伤后的最终伤害
    * 公式: 最终伤害 = 原始伤害 × (1-减伤1%) × (1-减伤2%) × ... - 盾值
    *
    * @param originalDamage 原始伤害
-   * @param effects 减伤效果列表
+   * @param partyState 小队状态
+   * @param time 当前时间（秒）
    * @param damageType 伤害类型（物理/魔法/特殊）
+   * @param targetPlayerId 目标玩家 ID（可选，用于单体伤害）
+   * @returns 计算结果
    */
   calculate(
     originalDamage: number,
-    effects: MitigationEffect[],
-    damageType: DamageType = 'physical'
+    partyState: PartyState,
+    time: number,
+    damageType: DamageType = 'physical',
+    targetPlayerId?: number
   ): CalculationResult {
-    let damage = originalDamage
-    const appliedEffects: MitigationEffect[] = []
-    const addedEffectIds = new Set<string>() // 跟踪已添加的效果
+    // 获取生效的状态
+    const friendlyStatuses = this.getActiveStatuses(partyState.players, time, targetPlayerId)
+    const enemyStatuses = this.getActiveStatuses([{ statuses: partyState.enemy.statuses }], time)
 
-    // 1. 应用所有百分比减伤（乘算）
-    // 注意：百分比减伤对特殊类型伤害无效
-    if (damageType !== 'special') {
-      const percentageEffects = effects.filter(
-        e => e.physicReduce > 0 || e.magicReduce > 0
-      )
+    // 1. 计算百分比减伤
+    let multiplier = 1.0
+    const appliedStatuses: MitigationStatus[] = []
 
-      for (const effect of percentageEffects) {
-        // 根据伤害类型选择对应的减伤值
-        const reduceValue = damageType === 'physical' ? effect.physicReduce : effect.magicReduce
+    for (const status of [...friendlyStatuses, ...enemyStatuses]) {
+      const meta = getStatusById(status.statusId)
+      if (!meta) continue
 
-        if (reduceValue > 0) {
-          damage *= 1 - reduceValue / 100
-
-          // 标记为已添加
-          if (effect.assignmentId) {
-            addedEffectIds.add(effect.assignmentId)
-          }
-          appliedEffects.push(effect)
-        }
+      if (meta.type === 'multiplier') {
+        // 根据伤害类型获取减伤倍率
+        const damageMultiplier = this.getDamageMultiplier(meta.performance, damageType)
+        multiplier *= damageMultiplier
+        appliedStatuses.push(status)
       }
     }
 
-    // 2. 应用盾值减伤（减算）
-    // 盾值对所有类型伤害都有效
-    const barrierEffects = effects.filter(e => e.barrier > 0)
+    let damage = originalDamage * multiplier
 
-    let remainingDamage = damage
-    for (const effect of barrierEffects) {
-      if (remainingDamage <= 0) break
+    // 2. 计算盾值减伤（需要修改状态）
+    // 先收集所有生效的盾值状态（去重）
+    const shieldStatuses: Array<{ playerId: number; status: MitigationStatus }> = []
+    const seenShieldStatusIds = new Set<number>()
 
-      // 获取或初始化盾值剩余量
-      const assignmentId = effect.assignmentId
-      if (!assignmentId) {
-        // 如果没有 assignmentId，使用原始盾值（向后兼容）
-        const barrierToUse = Math.min(effect.barrier, remainingDamage)
-        remainingDamage -= barrierToUse
-        appliedEffects.push(effect)
+    for (const player of partyState.players) {
+      // 如果指定了目标玩家，只处理该玩家
+      if (targetPlayerId !== undefined && player.id !== targetPlayerId) {
         continue
       }
 
-      // 从状态中获取剩余盾值，如果不存在则初始化
-      if (!this.barrierState.has(assignmentId)) {
-        this.barrierState.set(assignmentId, effect.barrier)
-      }
+      for (const status of player.statuses) {
+        const meta = getStatusById(status.statusId)
+        if (!meta || meta.type !== 'absorbed') continue
+        if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
 
-      const remainingBarrier = this.barrierState.get(assignmentId)!
+        // 检查状态是否在生效时间内
+        if (time < status.startTime || time > status.endTime) continue
 
-      if (remainingBarrier > 0) {
-        // 计算本次消耗的盾值
-        const barrierToConsume = Math.min(remainingBarrier, remainingDamage)
-
-        // 更新剩余盾值，确保不会变成负数
-        const newBarrierValue = Math.max(0, remainingBarrier - barrierToConsume)
-        this.barrierState.set(assignmentId, newBarrierValue)
-
-        remainingDamage -= barrierToConsume
-
-        // 如果这个效果已经在百分比减伤阶段添加过了，更新它的盾值信息
-        if (assignmentId && addedEffectIds.has(assignmentId)) {
-          const existingEffect = appliedEffects.find(e => e.assignmentId === assignmentId)
-          if (existingEffect) {
-            existingEffect.remainingBarrierBefore = remainingBarrier
-            existingEffect.remainingBarrierAfter = Math.max(0, remainingBarrier - barrierToConsume)
-          }
-        } else {
-          // 否则添加新的效果
-          appliedEffects.push({
-            ...effect,
-            remainingBarrierBefore: remainingBarrier,
-            remainingBarrierAfter: Math.max(0, remainingBarrier - barrierToConsume)
-          })
+        // 对于 AOE 伤害（没有指定目标玩家），同一个状态 ID 只收集一次
+        if (targetPlayerId === undefined && seenShieldStatusIds.has(status.statusId)) {
+          continue
         }
+
+        shieldStatuses.push({ playerId: player.id, status })
+        seenShieldStatusIds.add(status.statusId)
       }
     }
 
-    damage = Math.max(0, remainingDamage)
+    // 消耗盾值并记录更新
+    const statusUpdates = new Map<string, number>() // instanceId -> remainingBarrier
 
-    const finalDamage = Math.round(damage)
-    const mitigationPercentage =
-      originalDamage > 0 ? ((originalDamage - finalDamage) / originalDamage) * 100 : 0
+    for (const { status } of shieldStatuses) {
+      if (damage <= 0) break
 
-    return {
-      originalDamage,
-      finalDamage,
-      mitigationPercentage,
-      appliedEffects,
-    }
-  }
+      const absorbed = Math.min(damage, status.remainingBarrier!)
+      damage -= absorbed
 
-  /**
-   * 获取指定时间点生效的减伤效果
-   */
-  getActiveEffects(
-    time: number,
-    assignments: MitigationAssignment[],
-    actions: MitigationAction[]
-  ): MitigationEffect[] {
-    const effects: MitigationEffect[] = []
-
-    for (const assignment of assignments) {
-      const action = actions.find(s => s.id === assignment.actionId)
-      if (!action) continue
-
-      const startTime = assignment.time
-      const endTime = startTime + action.duration
-
-      // 检查时间点是否在技能持续时间内
-      if (time >= startTime && time <= endTime) {
-        // 获取当前的剩余盾值（如果有的话）
-        const currentBarrier = this.barrierState.has(assignment.id)
-          ? this.barrierState.get(assignment.id)!
-          : 0 // 旧系统不再使用 barrier 字段
-
-        effects.push({
-          id: action.id,
-          physicReduce: 0, // 旧系统不再使用
-          magicReduce: 0, // 旧系统不再使用
-          barrier: 0, // 旧系统不再使用
-          remainingBarrierBefore: Math.max(0, currentBarrier),
-          startTime,
-          endTime,
-          actionId: action.id,
-          job: assignment.job,
-          assignmentId: assignment.id,
-        })
-      }
+      appliedStatuses.push(status)
+      statusUpdates.set(status.instanceId, status.remainingBarrier! - absorbed)
     }
 
-    // 处理互斥组：同组技能只保留最后生效的
-    return this.filterUniqueGroupEffects(effects, actions)
-  }
+    // 应用盾值更新到玩家状态
+    const updatedPlayers = partyState.players.map((player) => {
+      const updatedStatuses = player.statuses.map((status) => {
+        const newBarrier = statusUpdates.get(status.instanceId)
+        if (newBarrier !== undefined) {
+          return {
+            ...status,
+            remainingBarrier: newBarrier,
+          }
+        }
+        return status
+      })
 
-  /**
-   * 过滤互斥组效果
-   * 同一互斥组中，只保留最后生效的效果
-   */
-  private filterUniqueGroupEffects(
-    effects: MitigationEffect[],
-    actions: MitigationAction[]
-  ): MitigationEffect[] {
-    // 如果没有效果，直接返回
-    if (effects.length === 0) {
-      return effects
-    }
-
-    // 构建互斥关系映射：技能 ID -> 与其互斥的技能 ID 集合
-    const mutuallyExclusiveMap = new Map<number, Set<number>>()
-    actions.forEach(action => {
-      if (action.uniqueGroup && action.uniqueGroup.length > 0) {
-        mutuallyExclusiveMap.set(action.id, new Set(action.uniqueGroup))
+      return {
+        ...player,
+        statuses: updatedStatuses,
       }
     })
 
-    // 如果没有互斥关系，直接返回
-    if (mutuallyExclusiveMap.size === 0) {
-      return effects
+    const mitigationPercentage = ((originalDamage - damage) / originalDamage) * 100
+
+    return {
+      originalDamage,
+      finalDamage: Math.max(0, Math.round(damage)),
+      mitigationPercentage: Math.round(mitigationPercentage * 10) / 10,
+      appliedStatuses,
+      updatedPartyState: {
+        ...partyState,
+        players: updatedPlayers,
+      },
     }
+  }
 
-    // 按开始时间排序（从早到晚）
-    const sortedEffects = [...effects].sort((a, b) => a.startTime - b.startTime)
+  /**
+   * 获取指定时间点生效的状态
+   * @param entities 实体列表（玩家或敌方）
+   * @param time 当前时间（秒）
+   * @param targetPlayerId 目标玩家 ID（可选）
+   * @returns 生效的状态列表
+   */
+  private getActiveStatuses(
+    entities: Array<{ statuses: MitigationStatus[] }>,
+    time: number,
+    targetPlayerId?: number
+  ): MitigationStatus[] {
+    const activeStatuses: MitigationStatus[] = []
+    const seenStatusIds = new Set<number>() // 用于 AOE 伤害时去重
 
-    // 过滤互斥效果：对于每个效果，检查是否有更晚生效的互斥技能
-    const filteredEffects: MitigationEffect[] = []
-
-    for (const effect of sortedEffects) {
-      const mutuallyExclusiveIds = mutuallyExclusiveMap.get(effect.actionId)
-
-      // 如果该技能没有互斥关系，直接保留
-      if (!mutuallyExclusiveIds) {
-        filteredEffects.push(effect)
+    for (const entity of entities) {
+      // 如果指定了目标玩家，只处理该玩家的状态
+      if (targetPlayerId !== undefined && 'id' in entity && entity.id !== targetPlayerId) {
         continue
       }
 
-      // 检查是否有更晚生效的互斥技能
-      const hasLaterMutuallyExclusive = sortedEffects.some(otherEffect => {
-        // 必须是不同的效果
-        if (otherEffect.assignmentId === effect.assignmentId) return false
+      for (const status of entity.statuses) {
+        // 检查状态是否在生效时间内
+        if (time >= status.startTime && time <= status.endTime) {
+          // 对于 AOE 伤害（没有指定目标玩家），同一个状态 ID 只收集一次
+          if (targetPlayerId === undefined && seenStatusIds.has(status.statusId)) {
+            continue
+          }
 
-        // 必须是互斥的技能
-        if (!mutuallyExclusiveIds.has(otherEffect.actionId)) return false
-
-        // 必须更晚生效
-        return otherEffect.startTime > effect.startTime
-      })
-
-      // 如果没有更晚的互斥技能，保留该效果
-      if (!hasLaterMutuallyExclusive) {
-        filteredEffects.push(effect)
+          activeStatuses.push(status)
+          seenStatusIds.add(status.statusId)
+        }
       }
     }
 
-    return filteredEffects
+    return activeStatuses
+  }
+
+  /**
+   * 根据伤害类型获取减伤倍率
+   * @param performance 状态性能数据
+   * @param damageType 伤害类型
+   * @returns 减伤倍率（0-1）
+   */
+  private getDamageMultiplier(
+    performance: { physics: number; magic: number; darkness: number },
+    damageType: DamageType
+  ): number {
+    switch (damageType) {
+      case 'physical':
+        return performance.physics
+      case 'magical':
+        return performance.magic
+      case 'special':
+        return performance.darkness
+      default:
+        return 1.0
+    }
+  }
+
+  /**
+   * 获取指定时间点所有生效的状态（用于 UI 显示）
+   * @param partyState 小队状态
+   * @param time 当前时间（秒）
+   * @returns 生效的状态列表（包含友方和敌方）
+   */
+  getActiveStatusesAtTime(partyState: PartyState, time: number): MitigationStatus[] {
+    const friendlyStatuses = this.getActiveStatuses(partyState.players, time)
+    const enemyStatuses = this.getActiveStatuses([{ statuses: partyState.enemy.statuses }], time)
+    return [...friendlyStatuses, ...enemyStatuses]
   }
 }
 
 /**
  * 创建减伤计算器实例
  */
-export function createMitigationCalculator(actions: MitigationAction[]): MitigationCalculator {
-  return new MitigationCalculator(actions)
+export function createMitigationCalculator(): MitigationCalculator {
+  return new MitigationCalculator()
 }

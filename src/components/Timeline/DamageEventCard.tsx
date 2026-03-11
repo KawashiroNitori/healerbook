@@ -4,7 +4,7 @@
 
 import { Group, Rect, Text } from 'react-konva'
 import type { DamageEvent } from '@/types/timeline'
-import type { CalculationResult } from '@/utils/mitigationCalculator.v2'
+import type { CalculationResult } from '@/utils/mitigationCalculator'
 
 interface DamageEventCardProps {
   event: DamageEvent

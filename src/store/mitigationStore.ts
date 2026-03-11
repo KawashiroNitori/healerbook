@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import type { MitigationAction } from '@/types/mitigation'
-import { MITIGATION_DATA } from '@/data/mitigationActions.new'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 import type { Job } from '@/types/timeline'
 
 interface MitigationState {

@@ -5,7 +5,7 @@
 import { Rect } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
 import type { DamageEvent } from '@/types/timeline'
-import type { CalculationResult } from '@/utils/mitigationCalculator.v2'
+import type { CalculationResult } from '@/utils/mitigationCalculator'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]

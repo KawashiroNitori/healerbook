@@ -9,6 +9,7 @@ import { buildComposition, buildMitigationKey } from './rosterUtils'
 export interface FFLogsV2Config {
   clientId: string
   clientSecret: string
+  kv?: KVNamespace
 }
 
 /**
@@ -66,31 +67,46 @@ export interface EncounterRankingsResult {
 }
 
 /**
- * OAuth Token 缓存
+ * OAuth Token 缓存（内存，Worker 重启后失效）
  */
 let cachedToken: string | null = null
 let tokenExpiresAt: number = 0
 
+const KV_TOKEN_KEY = 'fflogs:oauth_token'
+
 export class FFLogsClientV2 {
   private clientId: string
   private clientSecret: string
+  private kv?: KVNamespace
 
   constructor(config: FFLogsV2Config) {
     this.clientId = config.clientId
     this.clientSecret = config.clientSecret
+    this.kv = config.kv
   }
 
   /**
-   * 获取 Access Token
+   * 获取 Access Token（优先从 KV 读取，其次内存缓存）
    */
   private async getAccessToken(): Promise<string> {
-    // 检查缓存的 token 是否有效（提前 5 分钟刷新）
     const now = Date.now()
+
+    // 1. 检查内存缓存
     if (cachedToken && tokenExpiresAt > now + 5 * 60 * 1000) {
       return cachedToken
     }
 
-    // 使用 Client Credentials Flow 获取新 token
+    // 2. 检查 KV 缓存
+    if (this.kv) {
+      const kvData = await this.kv.get(KV_TOKEN_KEY, 'json') as { token: string; expiresAt: number } | null
+      if (kvData && kvData.expiresAt > now + 5 * 60 * 1000) {
+        cachedToken = kvData.token
+        tokenExpiresAt = kvData.expiresAt
+        return cachedToken
+      }
+    }
+
+    // 3. 获取新 token
     const tokenUrl = 'https://www.fflogs.com/oauth/token'
     const credentials = btoa(`${this.clientId}:${this.clientSecret}`)
 
@@ -109,15 +125,24 @@ export class FFLogsClientV2 {
 
     const data = await response.json()
 
-    // 验证响应格式
     const accessToken = data.access_token as string | undefined
     if (!accessToken) {
       throw new Error('FFLogs OAuth: missing access_token in response')
     }
 
-    // 缓存 token
+    const expiresAt = now + (data.expires_in as number) * 1000
+
+    // 更新内存缓存
     cachedToken = accessToken
-    tokenExpiresAt = now + (data.expires_in as number) * 1000
+    tokenExpiresAt = expiresAt
+
+    // 写入 KV（TTL 略短于 token 有效期）
+    if (this.kv) {
+      const ttl = Math.floor((data.expires_in as number) - 5 * 60)
+      await this.kv.put(KV_TOKEN_KEY, JSON.stringify({ token: accessToken, expiresAt }), {
+        expirationTtl: ttl > 0 ? ttl : 3600,
+      })
+    }
 
     return cachedToken
   }

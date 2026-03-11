@@ -4,15 +4,28 @@
 
 import type { FFLogsReport, FFLogsAbility } from '@/types/fflogs'
 import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
-import { MITIGATION_DATA } from '@/data/mitigationActions.new'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
-import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import { JOB_MAP } from '@/data/jobMap'
 
-const actionChinese: Record<string, string> = actionChineseRaw
+let actionChineseCache: Record<string, string> | null = null
 
-function getActionChinese(actionId: number): string | undefined {
-  return actionChinese[actionId.toString()]
+async function loadActionChinese(): Promise<Record<string, string>> {
+  if (!actionChineseCache) {
+    const mod = await import('@ff14-overlay/resources/generated/actionChinese.json')
+    actionChineseCache = mod.default as Record<string, string>
+  }
+  return actionChineseCache
+}
+
+export async function parseDamageEventsAsync(
+  events: any[],
+  fightStartTime: number,
+  playerMap: Map<number, { id: number; name: string; type: string }>,
+  abilityMap?: Map<number, FFLogsAbility>
+): Promise<DamageEvent[]> {
+  const actionChinese = await loadActionChinese()
+  return parseDamageEvents(events, fightStartTime, playerMap, abilityMap, actionChinese)
 }
 
 /**
@@ -22,7 +35,7 @@ function getActionChinese(actionId: number): string | undefined {
  */
 export function parseComposition(
   report: FFLogsReport,
-  fightId: number,
+  _fightId: number,
   participantIds?: Set<number>
 ): Composition {
   const composition: Composition = { players: [] }
@@ -36,14 +49,6 @@ export function parseComposition(
   }
 
   return composition
-}
-
-function getJobRole(job: Job): 'tank' | 'healer' | 'dps' {
-  const tanks: Job[] = ['PLD', 'WAR', 'DRK', 'GNB']
-  const healers: Job[] = ['WHM', 'SCH', 'AST', 'SGE']
-  if (tanks.includes(job)) return 'tank'
-  if (healers.includes(job)) return 'healer'
-  return 'dps'
 }
 
 /**
@@ -293,23 +298,43 @@ export function parseStatusEvents(
   const statusEvents: StatusEvent[] = []
 
   for (const event of events) {
+    // 支持 applybuff/applydebuff 事件流模式
+    if (event.type === 'applybuff' || event.type === 'applydebuff') {
+      if (!event.abilityGameID) continue
+
+      const rawId: number = event.abilityGameID
+      const statusId = rawId > 1_000_000 ? rawId - 1_000_000 : rawId
+      const startTime = (event.timestamp - fightStartTime) / 1000
+      const duration = event.duration != null ? event.duration / 1000 : 30
+      const endTime = startTime + duration
+
+      statusEvents.push({
+        statusId,
+        startTime,
+        endTime,
+        sourcePlayerId: event.sourceID,
+        targetPlayerId: event.targetID,
+        targetInstance: event.targetInstance,
+        absorb: event.absorb,
+      })
+      continue
+    }
+
+    // 回放模式：从 damage 事件的 buffs 字段解析
     if (event.type !== 'damage') continue
     if (!event.buffs) continue
 
     const { timestamp, targetID, abilityGameID: damageAbilityId, packetID } = event
     const eventTime = (timestamp - fightStartTime) / 1000
 
-    // 解析 buffs 字符串，过滤空字符串后转为数字
     const buffIds: number[] = (event.buffs as string)
       .split('.')
       .filter(Boolean)
       .map(Number)
 
     for (const buffId of buffIds) {
-      // 归一化 statusId（去除 1e6 偏移）
       const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
 
-      // 只保留我们关心的状态（在 statusRegistry 中有元数据的）
       if (!getStatusById(statusId)) continue
 
       const absorbKey = `${timestamp}-${targetID}-${buffId}-${damageAbilityId}`

@@ -12,6 +12,26 @@ export default defineConfig({
       configPath: './wrangler.toml',
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'konva': ['konva', 'react-konva'],
+          'radix': [
+            '@radix-ui/react-alert-dialog',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-scroll-area',
+            '@radix-ui/react-select',
+            '@radix-ui/react-slot',
+            '@radix-ui/react-switch',
+          ],
+          'query': ['@tanstack/react-query'],
+          'graphql': ['graphql', 'graphql-request'],
+          'router': ['react-router-dom'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: [
       // ff14-overlay-vue 内部的 @/ 别名（更具体的路径优先匹配）

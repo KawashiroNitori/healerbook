@@ -11,15 +11,12 @@
  * 5. Cron 定时同步 TOP100 数据到 KV
  */
 
-import { FFLogsClientV1, type GetReportParams, type GetEventsParams } from './fflogsClientV1'
-import { FFLogsClientV2 } from './fflogsClientV2'
+import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
 import { syncAllTop100, getTop100KVKey, type Top100Data } from './top100Sync'
 import { ALL_ENCOUNTERS } from '../src/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '../src/types/fflogs'
 
 export interface Env {
-  // FFLogs v1 API Key
-  FFLOGS_API_KEY?: string
   // FFLogs v2 OAuth Client ID
   FFLOGS_CLIENT_ID?: string
   // FFLogs v2 OAuth Client Secret
@@ -27,11 +24,6 @@ export interface Env {
   // KV 命名空间（对应 wrangler.toml 中 binding = "healerbook"）
   healerbook: KVNamespace
 }
-
-const CACHE_TTL = 3600 // 1 小时缓存
-
-// API 版本选择（硬编码常量）
-const USE_API_VERSION: 'v1' | 'v2' = 'v2' // 修改此常量来切换 API 版本
 
 /**
  * 统一的 FFLogs 客户端接口
@@ -42,36 +34,16 @@ export interface IFFLogsClient {
 }
 
 /**
- * 创建 FFLogs 客户端实例
- * 根据 USE_API_VERSION 常量选择 v1 或 v2 客户端
+ * 创建 FFLogs V2 客户端
  */
-function createClient(env: Env): IFFLogsClient {
-  if (USE_API_VERSION === 'v2') {
-    if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET) {
-      throw new Error('FFLogs v2 credentials not configured')
-    }
-    return new FFLogsClientV2({
-      clientId: env.FFLOGS_CLIENT_ID,
-      clientSecret: env.FFLOGS_CLIENT_SECRET,
-    })
-  } else {
-    if (!env.FFLOGS_API_KEY) {
-      throw new Error('FFLogs v1 API key not configured')
-    }
-    return new FFLogsClientV1({ apiKey: env.FFLOGS_API_KEY })
-  }
-}
-
-/**
- * 创建 FFLogs V2 客户端（用于 TOP100 同步，仅支持 v2）
- */
-function createV2Client(env: Env): FFLogsClientV2 {
+function createClient(env: Env): FFLogsClientV2 {
   if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET) {
     throw new Error('FFLogs v2 credentials not configured')
   }
   return new FFLogsClientV2({
     clientId: env.FFLOGS_CLIENT_ID,
     clientSecret: env.FFLOGS_CLIENT_SECRET,
+    kv: env.healerbook,
   })
 }
 
@@ -128,7 +100,7 @@ async function runTop100Sync(env: Env): Promise<void> {
   console.log('[TOP100 Sync] 开始同步...')
 
   try {
-    const client = createV2Client(env)
+    const client = createClient(env)
     const result = await syncAllTop100(client, env.healerbook)
     console.log(
       `[TOP100 Sync] 完成: 成功=${result.success}, 失败=${result.failed}`,
@@ -201,23 +173,10 @@ async function handleReport(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: 'Missing report code' }, 400)
   }
 
-  // 检查缓存
-  const cacheKey = `report:${USE_API_VERSION}:${reportCode}`
-  const cached = await env.healerbook.get(cacheKey, 'json')
-  if (cached) {
-    return jsonResponse(cached, 200, { 'X-Cache': 'HIT', 'X-API-Version': USE_API_VERSION })
-  }
-
   try {
     const client = createClient(env)
     const data = await client.getReport({ reportCode })
-
-    // 存入缓存
-    await env.healerbook.put(cacheKey, JSON.stringify(data), {
-      expirationTtl: CACHE_TTL,
-    })
-
-    return jsonResponse(data, 200, { 'X-Cache': 'MISS', 'X-API-Version': USE_API_VERSION })
+    return jsonResponse(data, 200)
   } catch (error) {
     return jsonResponse(
       { error: error instanceof Error ? error.message : 'Unknown error' },
@@ -247,13 +206,6 @@ async function handleEvents(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: 'Missing start or end parameter' }, 400)
   }
 
-  // 检查缓存
-  const cacheKey = `events:${USE_API_VERSION}:${reportCode}:${params.toString()}`
-  const cached = await env.healerbook.get(cacheKey, 'json')
-  if (cached) {
-    return jsonResponse(cached, 200, { 'X-Cache': 'HIT', 'X-API-Version': USE_API_VERSION })
-  }
-
   try {
     const client = createClient(env)
     const data = await client.getEvents({
@@ -262,13 +214,7 @@ async function handleEvents(request: Request, env: Env): Promise<Response> {
       end: parseFloat(end),
       lang,
     })
-
-    // 存入缓存
-    await env.healerbook.put(cacheKey, JSON.stringify(data), {
-      expirationTtl: CACHE_TTL,
-    })
-
-    return jsonResponse(data, 200, { 'X-Cache': 'MISS', 'X-API-Version': USE_API_VERSION })
+    return jsonResponse(data, 200)
   } catch (error) {
     return jsonResponse(
       { error: error instanceof Error ? error.message : 'Unknown error' },

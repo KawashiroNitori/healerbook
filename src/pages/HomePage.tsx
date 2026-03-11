@@ -2,7 +2,7 @@
  * 主页
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Upload, FileText } from 'lucide-react'
 import {
@@ -13,9 +13,10 @@ import {
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
 import TimelineCard from '@/components/TimelineCard'
-import CreateTimelineDialog from '@/components/CreateTimelineDialog'
-import ImportFFLogsDialog from '@/components/ImportFFLogsDialog'
-import Top100Section from '@/components/Top100Section'
+
+const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
+const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
+const Top100Section = lazy(() => import('@/components/Top100Section'))
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -115,24 +116,28 @@ export default function HomePage() {
         </section>
 
         {/* TOP100 参考方案 */}
-        <Top100Section />
+        <Suspense fallback={null}>
+          <Top100Section />
+        </Suspense>
       </main>
 
       {/* Dialogs */}
-      {showCreateDialog && (
-        <CreateTimelineDialog
-          open={showCreateDialog}
-          onClose={() => setShowCreateDialog(false)}
-          onCreated={loadTimelines}
-        />
-      )}
-      {showImportDialog && (
-        <ImportFFLogsDialog
-          open={showImportDialog}
-          onClose={() => setShowImportDialog(false)}
-          onImported={loadTimelines}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showCreateDialog && (
+          <CreateTimelineDialog
+            open={showCreateDialog}
+            onClose={() => setShowCreateDialog(false)}
+            onCreated={loadTimelines}
+          />
+        )}
+        {showImportDialog && (
+          <ImportFFLogsDialog
+            open={showImportDialog}
+            onClose={() => setShowImportDialog(false)}
+            onImported={loadTimelines}
+          />
+        )}
+      </Suspense>
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

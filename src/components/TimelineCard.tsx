@@ -3,7 +3,6 @@
  */
 
 import { Trash2 } from 'lucide-react'
-import { format } from 'date-fns'
 import type { TimelineMetadata } from '@/utils/timelineStorage'
 
 interface TimelineCardProps {
@@ -31,7 +30,7 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
         副本: {timeline.encounterId}
       </p>
       <p className="text-xs text-muted-foreground">
-        更新于 {format(new Date(timeline.updatedAt), 'yyyy-MM-dd HH:mm')}
+      更新于 {new Date(timeline.updatedAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
       </p>
     </div>
   )

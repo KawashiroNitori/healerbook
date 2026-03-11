@@ -31,7 +31,7 @@ export default function JobIcon({
   size = 'md'
 }: JobIconProps) {
   const iconClass = getJobIconClass(job)
-  const role = getJobRole(job)
+  const role = getJobRole(job) ?? 'melee'
 
   const sizeClasses = {
     sm: 'text-sm w-4 h-4',

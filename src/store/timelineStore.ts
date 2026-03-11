@@ -8,7 +8,7 @@ import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus } from '@/types/status'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { saveTimeline } from '@/utils/timelineStorage'
-import { MITIGATION_DATA } from '@/data/mitigationActions.new'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 
 // 自动保存延迟时间 (毫秒)
@@ -20,7 +20,8 @@ const AUTO_SAVE_DELAY = 2000
 function buildPartyStateFromStatusEvents(
   initialState: PartyState,
   statusEvents: StatusEvent[],
-  packetId: number
+  packetId?: number,
+  time?: number
 ): PartyState {
   // 初始化状态
   const currentState: PartyState = {
@@ -31,11 +32,13 @@ function buildPartyStateFromStatusEvents(
     enemy: {
       statuses: [],
     },
-    timestamp: 0,
+    timestamp: time ?? 0,
   }
 
-  // 过滤出属于该伤害包的状态事件
-  const activeStatusEvents = statusEvents.filter((event) => event.packetId === packetId)
+  // 过滤状态事件：按 packetId 或按时间范围
+  const activeStatusEvents = packetId != null
+    ? statusEvents.filter((event) => event.packetId === packetId)
+    : statusEvents.filter((event) => time != null && event.startTime <= time && event.endTime >= time)
 
   // 将状态事件转换为 MitigationStatus 并分配到玩家/敌人
   for (const event of activeStatusEvents) {
@@ -209,12 +212,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const state = get()
     if (!state.timeline || !state.partyState) return null
 
-    // 回放模式：使用状态事件，通过 packetId 匹配
-    if (state.timeline.isReplayMode && state.timeline.statusEvents && packetId != null) {
+    // 回放模式：使用状态事件，通过 packetId 或时间匹配
+    if (state.timeline.isReplayMode && state.timeline.statusEvents) {
       return buildPartyStateFromStatusEvents(
         state.partyState,
         state.timeline.statusEvents,
-        packetId
+        packetId,
+        time
       )
     }
 

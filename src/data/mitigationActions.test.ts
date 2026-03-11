@@ -3,11 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { MITIGATION_DATA } from './mitigationActions.new'
+import { MITIGATION_DATA } from './mitigationActions'
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
 
-describe('mitigationActions.new', () => {
+describe('mitigationActions', () => {
   const mockPartyState: PartyState = {
     players: [
       { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },

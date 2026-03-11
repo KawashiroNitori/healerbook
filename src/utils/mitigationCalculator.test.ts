@@ -1,822 +1,557 @@
 /**
- * 减伤计算器单元测试
+ * 减伤计算器测试（基于状态）
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
-import type { MitigationEffect, MitigationAction } from '@/types/mitigation'
-import type { MitigationAssignment } from '@/types/timeline'
-import type { CooldownValidationResult, CooldownError, CalculationResult, DamageType } from './mitigationCalculator'
-
-/**
- * 测试辅助函数：验证技能使用是否违反 CD 限制
- */
-function validateCooldown(
-  calculator: MitigationCalculator,
-  assignments: MitigationAssignment[],
-  actions: MitigationAction[]
-): CooldownValidationResult {
-  const errors: CooldownError[] = []
-
-  // 按技能分组
-  const assignmentsByAction = new Map<number, MitigationAssignment[]>()
-  for (const assignment of assignments) {
-    const list = assignmentsByAction.get(assignment.actionId) || []
-    list.push(assignment)
-    assignmentsByAction.set(assignment.actionId, list)
-  }
-
-  // 检查每个技能的 CD
-  for (const [actionId, actionAssignments] of assignmentsByAction) {
-    const action = actions.find(s => s.id === actionId)
-    if (!action) continue
-
-    // 按时间排序
-    const sorted = [...actionAssignments].sort((a, b) => a.time - b.time)
-
-    // 检查相邻使用之间的时间间隔
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = sorted[i - 1]
-      const curr = sorted[i]
-      const timeDiff = curr.time - prev.time
-
-      if (timeDiff < action.cooldown) {
-        errors.push({
-          actionId: action.id,
-          actionName: action.name,
-          conflictingAssignments: [prev.id, curr.id],
-          message: `${action.name} CD 冲突: ${prev.time}s 和 ${curr.time}s 之间只有 ${timeDiff}s，需要 ${action.cooldown}s CD`,
-        })
-      }
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  }
-}
-
-/**
- * 测试辅助函数：计算多个时间点的伤害
- */
-function calculateMultiple(
-  calculator: MitigationCalculator,
-  damageEvents: Array<{ time: number; damage: number; damageType?: DamageType }>,
-  assignments: MitigationAssignment[],
-  actions: MitigationAction[]
-): Array<CalculationResult & { time: number }> {
-  return damageEvents.map(event => {
-    const effects = calculator.getActiveEffects(event.time, assignments, actions)
-    const result = calculator.calculate(event.damage, effects, event.damageType || 'physical')
-    return {
-      ...result,
-      time: event.time,
-    }
-  })
-}
-
-/**
- * 测试辅助函数：检查技能是否可以在指定时间使用
- */
-function canUseActionAt(
-  calculator: MitigationCalculator,
-  actionId: number,
-  time: number,
-  assignments: MitigationAssignment[],
-  actions: MitigationAction[]
-): { canUse: boolean; reason?: string } {
-  const action = actions.find(s => s.id === actionId)
-  if (!action) {
-    return { canUse: false, reason: '技能不存在' }
-  }
-
-  // 查找该技能的所有使用记录
-  const actionAssignments = assignments
-    .filter(a => a.actionId === actionId)
-    .sort((a, b) => a.time - b.time)
-
-  // 检查是否有 CD 冲突
-  for (const assignment of actionAssignments) {
-    const timeDiff = Math.abs(time - assignment.time)
-    if (timeDiff < action.cooldown && timeDiff > 0) {
-      return {
-        canUse: false,
-        reason: `CD 未就绪，需要等待 ${action.cooldown - timeDiff}s`,
-      }
-    }
-  }
-
-  return { canUse: true }
-}
-
-/**
- * 测试辅助函数：获取技能下次可用时间
- */
-function getNextAvailableTime(
-  calculator: MitigationCalculator,
-  actionId: number,
-  currentTime: number,
-  assignments: MitigationAssignment[],
-  actions: MitigationAction[]
-): number {
-  const action = actions.find(s => s.id === actionId)
-  if (!action) return currentTime
-
-  // 查找该技能在当前时间之前的最后一次使用
-  const lastUse = assignments
-    .filter(a => a.actionId === actionId && a.time <= currentTime)
-    .sort((a, b) => b.time - a.time)[0]
-
-  if (!lastUse) {
-    return currentTime // 从未使用过，立即可用
-  }
-
-  const nextAvailable = lastUse.time + action.cooldown
-  return Math.max(currentTime, nextAvailable)
-}
-
+import type { PartyState } from '@/types/partyState'
 
 describe('MitigationCalculator', () => {
-  const mockActions: MitigationAction[] = []
-  const calculator = new MitigationCalculator(mockActions)
+  let calculator: MitigationCalculator
+  let basePartyState: PartyState
 
-  describe('calculate', () => {
-    it('应该正确计算单个百分比减伤', () => {
-      const effects: MitigationEffect[] = [
+  beforeEach(() => {
+    calculator = new MitigationCalculator()
+    basePartyState = {
+      players: [
         {
-          physicReduce: 10,
-          magicReduce: 10,
-          barrier: 0,
-          startTime: 0,
-          endTime: 20,
-          actionId: 1001,
-          job: 'WHM',
+          id: 1,
+          job: 'PLD',
+          currentHP: 50000,
+          maxHP: 100000,
+          statuses: [],
         },
-      ]
+        {
+          id: 2,
+          job: 'WHM',
+          currentHP: 40000,
+          maxHP: 80000,
+          statuses: [],
+        },
+      ],
+      enemy: {
+        statuses: [],
+      },
+      timestamp: 0,
+    }
+  })
 
-      const result = calculator.calculate(10000, effects, 'physical')
+  describe('百分比减伤计算', () => {
+    it('应该正确计算节制的 10% 减伤', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[1], // WHM
+            statuses: [
+              {
+                instanceId: 'test-temperance',
+                statusId: 1873, // 节制 (10% 减伤)
+                startTime: 0,
+                endTime: 25,
+                sourceActionId: 16536,
+                sourcePlayerId: 2,
+              },
+            ],
+          },
+        ],
+      }
 
-      expect(result.originalDamage).toBe(10000)
-      expect(result.finalDamage).toBe(9000) // 10000 * (1 - 0.1) = 9000
+      const result = calculator.calculate(100000, partyState, 10, 'magical')
+
+      expect(result.originalDamage).toBe(100000)
+      expect(result.finalDamage).toBe(90000) // 100000 * 0.9 = 90000
       expect(result.mitigationPercentage).toBe(10)
-      expect(result.appliedEffects).toHaveLength(1)
+      expect(result.appliedStatuses).toHaveLength(1)
     })
 
-    it('应该正确计算多个百分比减伤（乘算）', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 10,
-          magicReduce: 10,
-          barrier: 0,
-          startTime: 0,
-          endTime: 20,
-          actionId: 1001,
-          job: 'WHM',
-        },
-        {
-          physicReduce: 5,
-          magicReduce: 5,
-          barrier: 0,
-          startTime: 0,
-          endTime: 20,
-          actionId: 2001,
-          job: 'SCH',
-        },
-      ]
+    it('应该正确计算单个友方减伤', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191, // 铁壁 (20% 减伤)
+                startTime: 0,
+                endTime: 20,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-      const result = calculator.calculate(10000, effects, 'physical')
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      // 10000 * (1 - 0.1) * (1 - 0.05) = 8550
-      expect(result.finalDamage).toBe(8550)
-      expect(result.mitigationPercentage).toBeCloseTo(14.5)
-    })
-
-    it('应该正确计算盾值减伤', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 1000,
-          startTime: 0,
-          endTime: 30,
-          actionId: 2001,
-          job: 'SCH',
-        },
-      ]
-
-      const result = calculator.calculate(10000, effects, 'physical')
-
-      expect(result.finalDamage).toBe(9000) // 10000 - 1000 = 9000
-      expect(result.mitigationPercentage).toBe(10)
-    })
-
-    it('应该正确计算百分比减伤和盾值减伤的组合', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 10,
-          magicReduce: 10,
-          barrier: 0,
-          startTime: 0,
-          endTime: 20,
-          actionId: 1001,
-          job: 'WHM',
-        },
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 1000,
-          startTime: 0,
-          endTime: 30,
-          actionId: 2001,
-          job: 'SCH',
-        },
-      ]
-
-      const result = calculator.calculate(10000, effects, 'physical')
-
-      // 10000 * (1 - 0.1) - 1000 = 8000
+      // 10000 * 0.8 = 8000
       expect(result.finalDamage).toBe(8000)
       expect(result.mitigationPercentage).toBe(20)
+      expect(result.appliedStatuses).toHaveLength(1)
     })
 
-    it('盾值超过伤害时，最终伤害应为 0', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 15000,
-          startTime: 0,
-          endTime: 30,
-          actionId: 2001,
-          job: 'SCH',
-        },
-      ]
+    it('应该正确计算多个友方减伤（乘算）', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191, // 铁壁 (20% 减伤)
+                startTime: 0,
+                endTime: 20,
+              },
+              {
+                instanceId: 'test-2',
+                statusId: 1873, // 节制 (10% 减伤)
+                startTime: 0,
+                endTime: 25,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-      const result = calculator.calculate(10000, effects, 'physical')
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      expect(result.finalDamage).toBe(0)
-      expect(result.mitigationPercentage).toBe(100)
+      // 10000 * 0.8 * 0.9 = 7200
+      expect(result.finalDamage).toBe(7200)
+      expect(result.mitigationPercentage).toBe(28)
+      expect(result.appliedStatuses).toHaveLength(2)
     })
 
-    it('特殊类型伤害不受百分比减伤影响', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 10,
-          magicReduce: 10,
-          barrier: 0,
-          startTime: 0,
-          endTime: 20,
-          actionId: 1001,
-          job: 'WHM',
+    it('应该正确计算敌方 Debuff', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        enemy: {
+          statuses: [
+            {
+              instanceId: 'test-1',
+              statusId: 1193, // 雪仇 (10% 减伤)
+              startTime: 0,
+              endTime: 15,
+            },
+          ],
         },
-      ]
+      }
 
-      const result = calculator.calculate(10000, effects, 'special')
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      // 特殊伤害不受百分比减伤影响
-      expect(result.finalDamage).toBe(10000)
-      expect(result.mitigationPercentage).toBe(0)
-    })
-
-    it('特殊类型伤害受盾值减伤影响', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 1000,
-          startTime: 0,
-          endTime: 30,
-          actionId: 2001,
-          job: 'SCH',
-        },
-      ]
-
-      const result = calculator.calculate(10000, effects, 'special')
-
-      // 盾值对特殊伤害有效
+      // 10000 * 0.9 = 9000
       expect(result.finalDamage).toBe(9000)
       expect(result.mitigationPercentage).toBe(10)
+      expect(result.appliedStatuses).toHaveLength(1)
     })
 
-    it('物理和魔法减伤应该分别计算', () => {
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 10,
-          magicReduce: 5,
-          barrier: 0,
-          startTime: 0,
-          endTime: 20,
-          actionId: 1001,
-          job: 'WHM',
+    it('应该正确计算友方减伤 + 敌方 Debuff', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191, // 铁壁 (20% 减伤)
+                startTime: 0,
+                endTime: 20,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+        enemy: {
+          statuses: [
+            {
+              instanceId: 'test-2',
+              statusId: 1193, // 雪仇 (10% 减伤)
+              startTime: 0,
+              endTime: 15,
+            },
+          ],
         },
-      ]
+      }
 
-      const physicalResult = calculator.calculate(10000, effects, 'physical')
-      const magicalResult = calculator.calculate(10000, effects, 'magical')
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      expect(physicalResult.finalDamage).toBe(9000) // 10000 * (1 - 0.1)
-      expect(magicalResult.finalDamage).toBe(9500) // 10000 * (1 - 0.05)
-    })
-  })
-
-  describe('getActiveEffects', () => {
-    const actions: MitigationAction[] = [
-      {
-        id: 1001,
-        name: '节制',
-        icon: '/icon.png',
-        iconHD: '/icon_hd.png',
-        jobs: ['WHM'],
-        physicReduce: 10,
-        magicReduce: 10,
-        barrier: 0,
-        duration: 20,
-        cooldown: 120,
-      },
-      {
-        id: 2001,
-        name: '鼓舞',
-        icon: '/icon.png',
-        iconHD: '/icon_hd.png',
-        jobs: ['SCH'],
-        physicReduce: 0,
-        magicReduce: 0,
-        barrier: 500,
-        duration: 30,
-        cooldown: 2.5,
-      },
-    ]
-
-    const assignments: MitigationAssignment[] = [
-      {
-        id: 'assign1',
-        actionId: 1001,
-        damageEventId: 'event1',
-        time: 10,
-        job: 'WHM',
-        playerId: 1,
-      },
-      {
-        id: 'assign2',
-        actionId: 2001,
-        damageEventId: 'event1',
-        time: 15,
-        job: 'SCH',
-        playerId: 2,
-      },
-    ]
-
-    it('应该返回指定时间点生效的技能', () => {
-      // 时间点 20: action1 (10-30) 生效, action2 (15-45) 生效
-      const effects = calculator.getActiveEffects(20, assignments, actions)
-
-      expect(effects).toHaveLength(2)
-      expect(effects[0].actionId).toBe(1001)
-      expect(effects[1].actionId).toBe(2001)
-    })
-
-    it('技能未生效时应返回空数组', () => {
-      // 时间点 5: 所有技能都未生效
-      const effects = calculator.getActiveEffects(5, assignments, actions)
-
-      expect(effects).toHaveLength(0)
-    })
-
-    it('技能过期后不应返回', () => {
-      // 时间点 50: 所有技能都已过期
-      const effects = calculator.getActiveEffects(50, assignments, actions)
-
-      expect(effects).toHaveLength(0)
-    })
-
-    it('技能在伤害事件之前使用时应该生效', () => {
-      // 技能在时间 5 使用，持续 20 秒 (5-25)
-      // 伤害事件在时间 15 发生
-      // 技能应该对伤害事件生效
-      const earlyAssignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 5,
-          job: 'WHM',
-          playerId: 1,
-        },
-      ]
-
-      const effects = calculator.getActiveEffects(15, earlyAssignments, actions)
-
-      expect(effects).toHaveLength(1)
-      expect(effects[0].actionId).toBe(1001)
-      expect(effects[0].startTime).toBe(5)
-      expect(effects[0].endTime).toBe(25)
+      // 10000 * 0.8 * 0.9 = 7200
+      expect(result.finalDamage).toBe(7200)
+      expect(result.mitigationPercentage).toBe(28)
+      expect(result.appliedStatuses).toHaveLength(2)
     })
   })
 
-  describe('validateCooldown', () => {
-    const actions: MitigationAction[] = [
-      {
-        id: 1001,
-        name: '节制',
-        icon: '/icon.png',
-        iconHD: '/icon_hd.png',
-        jobs: ['WHM'],
-        physicReduce: 10,
-        magicReduce: 10,
-        barrier: 0,
-        duration: 20,
-        cooldown: 120,
-      },
-    ]
+  describe('盾值减伤计算', () => {
+    it('应该正确消耗盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 297, // 鼓舞盾
+                startTime: 0,
+                endTime: 30,
+                remainingBarrier: 5000,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-    it('CD 充足时应验证通过', () => {
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 0,
-          job: 'WHM',
-        },
-        {
-          id: 'assign2',
-          actionId: 1001,
-          damageEventId: 'event2',
-          time: 130,
-          job: 'WHM',
-        },
-      ]
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      const result = validateCooldown(calculator, assignments, actions)
+      // 10000 - 5000 = 5000
+      expect(result.finalDamage).toBe(5000)
+      expect(result.mitigationPercentage).toBe(50)
+      expect(result.appliedStatuses).toHaveLength(1)
 
-      expect(result.valid).toBe(true)
-      expect(result.errors).toHaveLength(0)
+      // 检查盾值是否被消耗
+      const updatedPlayer = result.updatedPartyState.players[0]
+      expect(updatedPlayer.statuses[0].remainingBarrier).toBe(0)
     })
 
-    it('CD 不足时应验证失败', () => {
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 0,
-          job: 'WHM',
-        },
-        {
-          id: 'assign2',
-          actionId: 1001,
-          damageEventId: 'event2',
-          time: 60,
-          job: 'WHM',
-        },
-      ]
+    it('应该正确处理盾值不足的情况', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 297, // 鼓舞盾
+                startTime: 0,
+                endTime: 30,
+                remainingBarrier: 3000,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-      const result = validateCooldown(calculator, assignments, actions)
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      expect(result.valid).toBe(false)
-      expect(result.errors).toHaveLength(1)
-      expect(result.errors[0].actionId).toBe(1001)
-    })
-  })
+      // 10000 - 3000 = 7000
+      expect(result.finalDamage).toBe(7000)
+      expect(result.mitigationPercentage).toBe(30)
 
-  describe('canUseActionAt', () => {
-    const actions: MitigationAction[] = [
-      {
-        id: 1001,
-        name: '节制',
-        icon: '/icon.png',
-        iconHD: '/icon_hd.png',
-        jobs: ['WHM'],
-        physicReduce: 10,
-        magicReduce: 10,
-        barrier: 0,
-        duration: 20,
-        cooldown: 120,
-      },
-    ]
-
-    it('首次使用时应该可用', () => {
-      const assignments: MitigationAssignment[] = []
-
-      const result = canUseActionAt(calculator, 1001, 10, assignments, actions)
-
-      expect(result.canUse).toBe(true)
+      // 盾值应该耗尽
+      const updatedPlayer = result.updatedPartyState.players[0]
+      expect(updatedPlayer.statuses[0].remainingBarrier).toBe(0)
     })
 
-    it('CD 就绪后应该可用', () => {
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 0,
-          job: 'WHM',
-        },
-      ]
+    it('应该正确计算百分比减伤 + 盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191, // 铁壁 (20% 减伤)
+                startTime: 0,
+                endTime: 20,
+              },
+              {
+                instanceId: 'test-2',
+                statusId: 297, // 鼓舞盾
+                startTime: 0,
+                endTime: 30,
+                remainingBarrier: 2000,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-      const result = canUseActionAt(calculator, 1001, 130, assignments, actions)
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      expect(result.canUse).toBe(true)
+      // 10000 * 0.8 - 2000 = 6000
+      expect(result.finalDamage).toBe(6000)
+      expect(result.mitigationPercentage).toBe(40)
+      expect(result.appliedStatuses).toHaveLength(2)
     })
 
-    it('CD 未就绪时不应该可用', () => {
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 0,
-          job: 'WHM',
-        },
-      ]
+    it('应该正确处理多个盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 297, // 鼓舞盾
+                startTime: 0,
+                endTime: 30,
+                remainingBarrier: 3000,
+              },
+              {
+                instanceId: 'test-2',
+                statusId: 2613, // 泛输血盾
+                startTime: 0,
+                endTime: 15,
+                remainingBarrier: 4000,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-      const result = canUseActionAt(calculator, 1001, 60, assignments, actions)
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      expect(result.canUse).toBe(false)
-      expect(result.reason).toContain('CD 未就绪')
-    })
-  })
+      // 10000 - 3000 - 4000 = 3000
+      expect(result.finalDamage).toBe(3000)
+      expect(result.mitigationPercentage).toBe(70)
 
-  describe('getNextAvailableTime', () => {
-    const actions: MitigationAction[] = [
-      {
-        id: 1001,
-        name: '节制',
-        icon: '/icon.png',
-        iconHD: '/icon_hd.png',
-        jobs: ['WHM'],
-        physicReduce: 10,
-        magicReduce: 10,
-        barrier: 0,
-        duration: 20,
-        cooldown: 120,
-      },
-    ]
-
-    it('首次使用时应返回当前时间', () => {
-      const assignments: MitigationAssignment[] = []
-
-      const nextTime = getNextAvailableTime(calculator, 1001, 10, assignments, actions)
-
-      expect(nextTime).toBe(10)
-    })
-
-    it('应该返回 CD 结束后的时间', () => {
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 0,
-          job: 'WHM',
-        },
-      ]
-
-      const nextTime = getNextAvailableTime(calculator, 1001, 50, assignments, actions)
-
-      expect(nextTime).toBe(120) // 0 + 120
-    })
-
-    it('CD 已就绪时应返回当前时间', () => {
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 1001,
-          damageEventId: 'event1',
-          time: 0,
-          job: 'WHM',
-        },
-      ]
-
-      const nextTime = getNextAvailableTime(calculator, 1001, 130, assignments, actions)
-
-      expect(nextTime).toBe(130)
+      // 两个盾值都应该耗尽
+      const updatedPlayer = result.updatedPartyState.players[0]
+      expect(updatedPlayer.statuses[0].remainingBarrier).toBe(0)
+      expect(updatedPlayer.statuses[1].remainingBarrier).toBe(0)
     })
   })
 
-  describe('盾值消耗', () => {
-    const actions: MitigationAction[] = [
-      {
-        id: 2001,
-        name: '野战治疗阵',
-        icon: '/icon.png',
-        jobs: ['SCH'],
-        physicReduce: 0,
-        magicReduce: 0,
-        barrier: 5000,
-        duration: 15,
-        cooldown: 120,
-      },
-    ]
+  describe('时间范围检查', () => {
+    it('应该忽略未生效的状态', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191, // 铁壁
+                startTime: 20, // 未来才生效
+                endTime: 40,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-    it('盾值应该在第一次伤害后被消耗', () => {
-      const calculator = new MitigationCalculator(actions)
-      calculator.resetBarrierState()
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 5000,
-          startTime: 0,
-          endTime: 15,
-          actionId: 2001,
-          job: 'SCH',
-          assignmentId: 'assign1',
-        },
-      ]
-
-      // 第一次伤害：3000
-      const result1 = calculator.calculate(3000, effects, 'physical')
-      expect(result1.finalDamage).toBe(0) // 3000 - 5000 = 0
-      expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(2000) // 5000 - 3000 = 2000
-
-      // 第二次伤害：3000（使用相同的 effects）
-      const result2 = calculator.calculate(3000, effects, 'physical')
-      expect(result2.finalDamage).toBe(1000) // 3000 - 2000 = 1000
-      expect(result2.appliedEffects[0].remainingBarrierAfter).toBe(0) // 2000 - 2000 = 0
+      // 没有减伤
+      expect(result.finalDamage).toBe(10000)
+      expect(result.mitigationPercentage).toBe(0)
+      expect(result.appliedStatuses).toHaveLength(0)
     })
 
-    it('盾值耗尽后不应再减伤', () => {
-      const calculator = new MitigationCalculator(actions)
-      calculator.resetBarrierState()
+    it('应该忽略已过期的状态', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191, // 铁壁
+                startTime: 0,
+                endTime: 20, // 已过期
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+      }
 
-      const effects: MitigationEffect[] = [
-        {
-          physicReduce: 0,
-          magicReduce: 0,
-          barrier: 5000,
-          startTime: 0,
-          endTime: 15,
-          actionId: 2001,
-          job: 'SCH',
-          assignmentId: 'assign1',
-        },
-      ]
+      const result = calculator.calculate(10000, partyState, 30, 'physical', 1)
 
-      // 第一次伤害：6000（耗尽盾值）
-      const result1 = calculator.calculate(6000, effects, 'physical')
-      expect(result1.finalDamage).toBe(1000) // 6000 - 5000 = 1000
-      expect(result1.appliedEffects[0].remainingBarrierAfter).toBe(0)
-
-      // 第二次伤害：3000（盾值已耗尽）
-      const result2 = calculator.calculate(3000, effects, 'physical')
-      expect(result2.finalDamage).toBe(3000) // 无盾值，全额伤害
+      // 没有减伤
+      expect(result.finalDamage).toBe(10000)
+      expect(result.mitigationPercentage).toBe(0)
+      expect(result.appliedStatuses).toHaveLength(0)
     })
   })
 
-  describe('互斥技能测试', () => {
-    const actions: MitigationAction[] = [
-      {
-        id: 7405,
-        name: '行吟',
-        icon: '/icon.png',
-        jobs: ['BRD'],
-        uniqueGroup: [16889, 16012], // 与策动、防守之桑巴互斥
-        physicReduce: 15,
-        magicReduce: 15,
-        barrier: 0,
-        duration: 15,
-        cooldown: 90,
-      },
-      {
-        id: 16889,
-        name: '策动',
-        icon: '/icon.png',
-        jobs: ['MCH'],
-        uniqueGroup: [7405, 16012], // 与行吟、防守之桑巴互斥
-        physicReduce: 15,
-        magicReduce: 15,
-        barrier: 0,
-        duration: 15,
-        cooldown: 90,
-      },
-      {
-        id: 16012,
-        name: '防守之桑巴',
-        icon: '/icon.png',
-        jobs: ['DNC'],
-        uniqueGroup: [7405, 16889], // 与行吟、策动互斥
-        physicReduce: 15,
-        magicReduce: 15,
-        barrier: 0,
-        duration: 15,
-        cooldown: 90,
-      },
-    ]
-
-    it('后生效的互斥技能应覆盖先生效的', () => {
-      const calculator = new MitigationCalculator(actions)
-
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 7405, // 行吟，10秒生效
-          damageEventId: 'event1',
-          time: 10,
-          job: 'BRD',
+  describe('伤害类型', () => {
+    it('应该正确处理物理伤害', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        enemy: {
+          statuses: [
+            {
+              instanceId: 'test-1',
+              statusId: 1195, // 牵制 (物理 10%, 魔法 5%)
+              startTime: 0,
+              endTime: 15,
+            },
+          ],
         },
-        {
-          id: 'assign2',
-          actionId: 16889, // 策动，15秒生效（更晚）
-          damageEventId: 'event1',
-          time: 15,
-          job: 'MCH',
-        },
-      ]
+      }
 
-      // 在 20 秒时，两个技能都在持续时间内（行吟 10-25s，策动 15-30s）
-      // 但策动更晚生效，应该覆盖行吟
-      const effects = calculator.getActiveEffects(20, assignments, actions)
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      expect(effects.length).toBe(1)
-      expect(effects[0].actionId).toBe(16889) // 只保留策动
+      // 10000 * 0.9 = 9000 (物理减伤 10%)
+      expect(result.finalDamage).toBe(9000)
     })
 
-    it('不互斥的技能应该同时生效', () => {
-      const calculator = new MitigationCalculator(actions)
-
-      const nonMutualActions: MitigationAction[] = [
-        ...actions,
-        {
-          id: 16160,
-          name: '光之心',
-          icon: '/icon.png',
-          jobs: ['GNB'],
-          // 没有 uniqueGroup，不与任何技能互斥
-          physicReduce: 5,
-          magicReduce: 10,
-          barrier: 0,
-          duration: 15,
-          cooldown: 90,
+    it('应该正确处理魔法伤害', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        enemy: {
+          statuses: [
+            {
+              instanceId: 'test-1',
+              statusId: 1195, // 牵制 (物理 10%, 魔法 5%)
+              startTime: 0,
+              endTime: 15,
+            },
+          ],
         },
-      ]
+      }
 
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 7405, // 行吟
-          damageEventId: 'event1',
-          time: 10,
-          job: 'BRD',
+      const result = calculator.calculate(10000, partyState, 10, 'magical', 1)
+
+      // 10000 * 0.95 = 9500 (魔法减伤 5%)
+      expect(result.finalDamage).toBe(9500)
+    })
+  })
+
+  describe('getActiveStatusesAtTime', () => {
+    it('应该返回指定时间点所有生效的状态', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'test-1',
+                statusId: 1191,
+                startTime: 0,
+                endTime: 20,
+              },
+              {
+                instanceId: 'test-2',
+                statusId: 1873,
+                startTime: 25, // 未生效
+                endTime: 50,
+              },
+            ],
+          },
+          basePartyState.players[1],
+        ],
+        enemy: {
+          statuses: [
+            {
+              instanceId: 'test-3',
+              statusId: 1193,
+              startTime: 0,
+              endTime: 15,
+            },
+          ],
         },
-        {
-          id: 'assign2',
-          actionId: 16160, // 光之心（不互斥）
-          damageEventId: 'event1',
-          time: 12,
-          job: 'GNB',
-        },
-      ]
+      }
 
-      const effects = calculator.getActiveEffects(15, assignments, nonMutualActions)
+      const activeStatuses = calculator.getActiveStatusesAtTime(partyState, 10)
 
-      expect(effects.length).toBe(2) // 两个技能都生效
-      expect(effects.map(e => e.actionId).sort()).toEqual([7405, 16160].sort())
+      expect(activeStatuses).toHaveLength(2) // 铁壁 + 雪仇
+      expect(activeStatuses.map((s) => s.statusId)).toContain(1191)
+      expect(activeStatuses.map((s) => s.statusId)).toContain(1193)
+    })
+  })
+
+  describe('AOE 伤害盾值去重', () => {
+    it('AOE 伤害时相同盾值状态不应该被重复计算', () => {
+      // 两个玩家都有相同的泛输血盾
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'shield-1',
+                statusId: 2613, // 泛输血盾
+                startTime: 0,
+                endTime: 15,
+                remainingBarrier: 5000,
+              },
+            ],
+          },
+          {
+            ...basePartyState.players[1],
+            statuses: [
+              {
+                instanceId: 'shield-2',
+                statusId: 2613, // 泛输血盾（相同状态 ID）
+                startTime: 0,
+                endTime: 15,
+                remainingBarrier: 5000,
+              },
+            ],
+          },
+        ],
+      }
+
+      // AOE 伤害（没有指定 targetPlayerId）
+      const result = calculator.calculate(10000, partyState, 10, 'physical')
+
+      // 应该只消耗一次盾值：10000 - 5000 = 5000
+      expect(result.finalDamage).toBe(5000)
+      expect(result.mitigationPercentage).toBe(50)
+      // 只应用一个盾值状态
+      expect(result.appliedStatuses.filter((s) => s.statusId === 2613)).toHaveLength(1)
     })
 
-    it('同一技能的多次使用应该互斥', () => {
-      const calculator = new MitigationCalculator(actions)
+    it('单体伤害时应该消耗目标玩家的盾值', () => {
+      // 两个玩家都有相同的泛输血盾
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          {
+            ...basePartyState.players[0],
+            statuses: [
+              {
+                instanceId: 'shield-1',
+                statusId: 2613, // 泛输血盾
+                startTime: 0,
+                endTime: 15,
+                remainingBarrier: 5000,
+              },
+            ],
+          },
+          {
+            ...basePartyState.players[1],
+            statuses: [
+              {
+                instanceId: 'shield-2',
+                statusId: 2613, // 泛输血盾（相同状态 ID）
+                startTime: 0,
+                endTime: 15,
+                remainingBarrier: 5000,
+              },
+            ],
+          },
+        ],
+      }
 
-      const sameActionTwice: MitigationAction[] = [
-        {
-          id: 24310,
-          name: '整体论',
-          icon: '/icon.png',
-          jobs: ['SGE'],
-          uniqueGroup: [24310], // 与自己互斥
-          physicReduce: 10,
-          magicReduce: 10,
-          barrier: 17300,
-          duration: 20,
-          cooldown: 120,
-        },
-      ]
+      // 单体伤害（指定 targetPlayerId = 1）
+      const result = calculator.calculate(10000, partyState, 10, 'physical', 1)
 
-      const assignments: MitigationAssignment[] = [
-        {
-          id: 'assign1',
-          actionId: 24310, // 整体论1，5秒生效
-          damageEventId: 'event1',
-          time: 5,
-          job: 'SGE',
-        },
-        {
-          id: 'assign2',
-          actionId: 24310, // 整体论2，8秒生效（更晚）
-          damageEventId: 'event1',
-          time: 8,
-          job: 'SGE',
-        },
-      ]
-
-      // 在 9 秒时，两个整体论都在持续时间内（5-25s 和 8-28s）
-      // 但整体论2更晚生效，应该覆盖整体论1
-      const effects = calculator.getActiveEffects(9, assignments, sameActionTwice)
-
-      expect(effects.length).toBe(1)
-      expect(effects[0].assignmentId).toBe('assign2') // 只保留整体论2
+      // 应该消耗目标玩家的盾值：10000 - 5000 = 5000
+      expect(result.finalDamage).toBe(5000)
+      expect(result.mitigationPercentage).toBe(50)
+      // 只应用目标玩家的盾值状态
+      expect(result.appliedStatuses.filter((s) => s.statusId === 2613)).toHaveLength(1)
+      expect(result.appliedStatuses[0].instanceId).toBe('shield-1')
     })
   })
 })
