@@ -6,6 +6,26 @@ compatibility_flags = ["nodejs_compat_v2"]
 [triggers]
 crons = ["0 */12 * * *"]
 
+[[queues.producers]]
+queue = "top100-sync-queue"
+binding = "TOP100_SYNC_QUEUE"
+
+[[queues.producers]]
+queue = "statistics-extract-queue"
+binding = "STATISTICS_EXTRACT_QUEUE"
+
+[[queues.consumers]]
+queue = "top100-sync-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
+[[queues.consumers]]
+queue = "statistics-extract-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
 [assets]
 directory = "dist/client"
 not_found_handling = "single-page-application"

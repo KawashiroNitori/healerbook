@@ -12,8 +12,8 @@
  */
 
 import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
-import { syncAllTop100, getTop100KVKey, getStatisticsKVKey, type Top100Data, type EncounterStatistics } from './top100Sync'
-import { ALL_ENCOUNTERS } from '../src/data/raidEncounters'
+import { syncEncounter, extractFightStatistics, getTop100KVKey, getStatisticsKVKey, type Top100Data, type EncounterStatistics } from './top100Sync'
+import { ALL_ENCOUNTERS, type RaidEncounter } from '../src/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '../src/types/fflogs'
 
 export interface Env {
@@ -25,6 +25,9 @@ export interface Env {
   SYNC_AUTH_TOKEN?: string
   // KV 命名空间（对应 wrangler.toml 中 binding = "healerbook"）
   healerbook: KVNamespace
+  // Queue 绑定
+  TOP100_SYNC_QUEUE: Queue
+  STATISTICS_EXTRACT_QUEUE: Queue
 }
 
 /**
@@ -89,29 +92,81 @@ export default {
   },
 
   /**
-   * Cron 定时任务：同步 TOP100 数据
+   * Cron 定时任务：将所有遭遇战推送到队列
    * 触发频率见 wrangler.toml [triggers.crons]
    */
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runTop100Sync(env))
+    ctx.waitUntil(enqueueAllEncounters(env))
+  },
+
+  /**
+   * Queue 消费者：处理队列消息
+   */
+  async queue(batch: MessageBatch, env: Env): Promise<void> {
+    const client = createClient(env)
+
+    for (const message of batch.messages) {
+      try {
+        const body = message.body as any
+
+        switch (body.type) {
+          case 'sync-encounter': {
+            // TOP100 同步任务
+            const encounter = ALL_ENCOUNTERS.find((e) => e.id === body.encounterId)
+            if (!encounter) {
+              console.error(`[Queue] 未找到遭遇战: ${body.encounterId}`)
+              message.ack()
+              continue
+            }
+            await syncEncounter(encounter, client, env.healerbook, env.STATISTICS_EXTRACT_QUEUE)
+            break
+          }
+
+          case 'extract-statistics': {
+            // 统计数据提取任务
+            await extractFightStatistics(
+              body.encounterId,
+              body.reportCode,
+              body.fightID,
+              client,
+              env.healerbook
+            )
+            break
+          }
+
+          default:
+            console.error(`[Queue] 未知的消息类型: ${body.type}`)
+            message.ack()
+            continue
+        }
+
+        message.ack()
+      } catch (err) {
+        console.error(`[Queue] 处理失败:`, err)
+        message.retry()
+      }
+    }
   },
 }
 
 /**
- * 执行 TOP100 同步
+ * 将所有遭遇战推送到队列
  */
-async function runTop100Sync(env: Env): Promise<void> {
-  console.log('[TOP100 Sync] 开始同步...')
+async function enqueueAllEncounters(env: Env): Promise<void> {
+  console.log('[TOP100 Sync] 开始推送任务到队列...')
 
   try {
-    const client = createClient(env)
-    const result = await syncAllTop100(client, env.healerbook)
-    console.log(
-      `[TOP100 Sync] 完成: 成功=${result.success}, 失败=${result.failed}`,
-      result.errors.length > 0 ? `错误: ${result.errors.join('; ')}` : ''
-    )
+    const messages = ALL_ENCOUNTERS.map((encounter) => ({
+      body: {
+        type: 'sync-encounter',
+        encounterId: encounter.id,
+      },
+    }))
+
+    await env.TOP100_SYNC_QUEUE.sendBatch(messages)
+    console.log(`[TOP100 Sync] 已推送 ${messages.length} 个任务到队列`)
   } catch (err) {
-    console.error('[TOP100 Sync] 同步失败:', err)
+    console.error('[TOP100 Sync] 推送任务失败:', err)
   }
 }
 
@@ -213,10 +268,9 @@ async function handleManualSync(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: 'Unauthorized' }, 401)
   }
 
-  // 异步执行同步，立即返回响应
-  const client = createClient(env)
-  const result = await syncAllTop100(client, env.healerbook)
-  return jsonResponse({ message: '同步完成', ...result })
+  // 推送所有任务到队列
+  await enqueueAllEncounters(env)
+  return jsonResponse({ message: '已推送所有同步任务到队列', count: ALL_ENCOUNTERS.length })
 }
 
 /**
