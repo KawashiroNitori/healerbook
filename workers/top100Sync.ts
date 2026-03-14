@@ -193,8 +193,8 @@ async function extractStatistics(
       // 获取战斗事件
       const eventsResponse = await client.getEvents({
         reportCode: entry.reportCode,
-        start: fight.startTime,
-        end: fight.endTime,
+        start: fight.start_time,
+        end: fight.end_time,
       })
 
       // 提取各类数据
@@ -351,8 +351,8 @@ export async function extractFightStatistics(
     // 获取战斗事件
     const eventsResponse = await client.getEvents({
       reportCode,
-      start: fight.startTime,
-      end: fight.endTime,
+      start: fight.start_time,
+      end: fight.end_time,
     })
 
     // 提取各类数据
