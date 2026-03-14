@@ -12,7 +12,7 @@
  */
 
 import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
-import { syncAllTop100, getTop100KVKey, type Top100Data } from './top100Sync'
+import { syncAllTop100, getTop100KVKey, getStatisticsKVKey, type Top100Data, type EncounterStatistics } from './top100Sync'
 import { ALL_ENCOUNTERS } from '../src/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '../src/types/fflogs'
 
@@ -74,6 +74,8 @@ export default {
         return await handleManualSync(request, env)
       } else if (path.startsWith('/api/top100/')) {
         return await handleTop100Encounter(request, env)
+      } else if (path.startsWith('/api/statistics/')) {
+        return await handleStatistics(request, env)
       } else {
         return jsonResponse({ error: 'Not Found' }, 404)
       }
@@ -147,6 +149,28 @@ async function handleTop100Encounter(request: Request, env: Env): Promise<Respon
 
   if (!data) {
     return jsonResponse({ error: 'Data not available yet. Sync may be pending.' }, 404)
+  }
+
+  return jsonResponse(data)
+}
+
+/**
+ * 获取单个遭遇战的统计数据
+ * GET /api/statistics/:encounterId
+ */
+async function handleStatistics(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url)
+  const encounterIdStr = url.pathname.replace('/api/statistics/', '')
+  const encounterId = parseInt(encounterIdStr, 10)
+
+  if (isNaN(encounterId)) {
+    return jsonResponse({ error: 'Invalid encounter ID' }, 400)
+  }
+
+  const data = await env.healerbook.get(getStatisticsKVKey(encounterId), 'json')
+
+  if (!data) {
+    return jsonResponse({ error: 'Statistics not available yet. Sync may be pending.' }, 404)
   }
 
   return jsonResponse(data)

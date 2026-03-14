@@ -59,3 +59,20 @@ export function hasStatus(statusId: number): boolean {
   initializeStatusRegistry()
   return statusMap.has(statusId)
 }
+
+/**
+ * 获取所有盾值状态（type: 'absorbed'）
+ * @returns 盾值状态列表
+ */
+export function getAllShieldStatuses(): MitigationStatusMetadata[] {
+  initializeStatusRegistry()
+  return Array.from(statusMap.values()).filter((status) => status.type === 'absorbed')
+}
+
+/**
+ * 获取所有盾值状态的 ID 列表
+ * @returns 盾值状态 ID 数组
+ */
+export function getAllShieldStatusIds(): number[] {
+  return getAllShieldStatuses().map((status) => status.id)
+}
