@@ -22,7 +22,7 @@ import {
 import AddEventDialog from './AddEventDialog'
 
 export default function EditorToolbar() {
-  const { zoomLevel, setZoomLevel, timeline, exitReplayMode } = useTimelineStore()
+  const { zoomLevel, timeline, exitReplayMode, zoomWithScrollPreservation } = useTimelineStore()
   const { toggleReadOnly } = useUIStore()
   const [showAddEventDialog, setShowAddEventDialog] = useState(false)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
@@ -36,11 +36,11 @@ export default function EditorToolbar() {
   }
 
   const handleZoomIn = () => {
-    setZoomLevel(zoomLevel + 10)
+    zoomWithScrollPreservation(10)
   }
 
   const handleZoomOut = () => {
-    setZoomLevel(zoomLevel - 10)
+    zoomWithScrollPreservation(-10)
   }
 
   return (

@@ -166,8 +166,8 @@ function EncounterTable({
                         <td className="px-3 py-2 align-middle">
                           {entry.composition.length > 0 ? (
                             <div className="flex gap-0.5">
-                              {entry.composition.map((job) => (
-                                <JobIcon key={job} job={job as Job} size="sm" />
+                              {entry.composition.map((job, index) => (
+                                <JobIcon key={`${job}-${index}`} job={job as Job} size="sm" />
                               ))}
                             </div>
                           ) : (

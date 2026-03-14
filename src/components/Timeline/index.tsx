@@ -16,6 +16,7 @@ import TimeRuler from './TimeRuler'
 import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
 import SkillTracksCanvas from './SkillTracksCanvas'
+import TimelineMinimap from './TimelineMinimap'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent } from '@/types/timeline'
 import type { KonvaMouseEvent, KonvaNode } from '@/types/konva'
@@ -30,6 +31,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const fixedStageRef = useRef<Konva.Stage | null>(null)
   const labelColumnContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedZoom = useRef(false)
+  const scrollLeftRef = useRef(0)
+  const scrollTopRef = useRef(0)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [castEventToDelete, setCastEventToDelete] = useState<string | null>(null)
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
@@ -50,12 +53,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     zoomLevel,
     selectedEventId,
     selectedCastEventId,
+    pendingScrollProgress,
     selectEvent,
     selectCastEvent,
     addCastEvent,
     removeDamageEvent,
     removeCastEvent,
     setZoomLevel,
+    setPendingScrollProgress,
+    updateScrollState,
+    zoomWithScrollPreservation,
   } = useTimelineStore()
   const { actions } = useMitigationStore()
   const isReadOnly = useEditorReadOnly()
@@ -144,11 +151,31 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const maxScrollTop = layoutData ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight)) : 0
   const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
 
+  // 当 zoomLevel 变化时，根据保存的滚动进度还原位置
+  useEffect(() => {
+    if (pendingScrollProgress !== null && layoutData) {
+      const newMaxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
+      const newScrollLeft = pendingScrollProgress * newMaxScroll
+
+      setScrollLeft(newScrollLeft)
+      setPendingScrollProgress(null)
+    }
+  }, [zoomLevel, layoutData, viewportWidth, pendingScrollProgress, setPendingScrollProgress])
+
+  // 同步滚动状态到 store（用于工具栏缩放）
+  useEffect(() => {
+    if (layoutData) {
+      updateScrollState(scrollLeft, layoutData.timelineWidth, viewportWidth)
+    }
+  }, [scrollLeft, layoutData?.timelineWidth, viewportWidth])
+
   // 同步 ref（用于事件处理器闭包）
   useEffect(() => {
     maxScrollLeftRef.current = maxScrollLeft
     clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
-  }, [maxScrollLeft, clampedScrollLeft, clampedScrollTop])
+    scrollLeftRef.current = scrollLeft
+    scrollTopRef.current = scrollTop
+  }, [maxScrollLeft, clampedScrollLeft, clampedScrollTop, scrollLeft, scrollTop])
 
   // 检查技能是否与同轨道的其他技能重叠
   const checkOverlap = (
@@ -243,11 +270,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         e.stopPropagation()
-        const { setZoomLevel } = useTimelineStore.getState()
-        const currentZoom = useTimelineStore.getState().zoomLevel
+
         const delta = e.deltaY > 0 ? -5 : 5
-        const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
-        setZoomLevel(newZoomLevel)
+        zoomWithScrollPreservation(delta)
       } else {
         e.preventDefault()
         setScrollLeft((prev) => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
@@ -308,11 +333,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         e.stopPropagation()
-        const { setZoomLevel } = useTimelineStore.getState()
-        const currentZoom = useTimelineStore.getState().zoomLevel
+
         const delta = e.deltaY > 0 ? -5 : 5
-        const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
-        setZoomLevel(newZoomLevel)
+        zoomWithScrollPreservation(delta)
       } else {
         e.preventDefault()
         setScrollLeft((prev) => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
@@ -499,6 +522,19 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           </Stage>
         </div>
       </div>
+
+      {/* 缩略图导航 */}
+      <TimelineMinimap
+        width={width}
+        height={80}
+        scrollLeft={clampedScrollLeft}
+        viewportWidth={viewportWidth}
+        totalWidth={timelineWidth}
+        zoomLevel={zoomLevel}
+        onScroll={(newScrollLeft) => {
+          setScrollLeft(newScrollLeft)
+        }}
+      />
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

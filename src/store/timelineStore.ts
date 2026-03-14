@@ -86,6 +86,14 @@ interface TimelineState {
   isPlaying: boolean
   /** 缩放级别 (像素/秒) */
   zoomLevel: number
+  /** 待恢复的滚动进度 (0-1) */
+  pendingScrollProgress: number | null
+  /** 当前滚动位置（用于缩放时计算进度） */
+  currentScrollLeft: number
+  /** 当前时间轴宽度（用于缩放时计算进度） */
+  currentTimelineWidth: number
+  /** 当前视口宽度（用于缩放时计算进度） */
+  currentViewportWidth: number
   /** 自动保存定时器 */
   autoSaveTimer: number | null
 
@@ -112,6 +120,12 @@ interface TimelineState {
   togglePlay: () => void
   /** 设置缩放级别 */
   setZoomLevel: (level: number) => void
+  /** 设置待恢复的滚动进度 */
+  setPendingScrollProgress: (progress: number | null) => void
+  /** 更新滚动状态（用于缩放计算） */
+  updateScrollState: (scrollLeft: number, timelineWidth: number, viewportWidth: number) => void
+  /** 带滚动进度保持的缩放 */
+  zoomWithScrollPreservation: (delta: number) => void
   /** 更新阵容 */
   updateComposition: (composition: Composition) => void
   /** 添加伤害事件 */
@@ -142,6 +156,10 @@ const initialState = {
   currentTime: 0,
   isPlaying: false,
   zoomLevel: 50, // 50 像素/秒
+  pendingScrollProgress: null,
+  currentScrollLeft: 0,
+  currentTimelineWidth: 0,
+  currentViewportWidth: 0,
   autoSaveTimer: null,
 }
 
@@ -316,6 +334,34 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({
       zoomLevel: Math.max(10, Math.min(200, level)),
     }),
+
+  setPendingScrollProgress: (progress) =>
+    set({
+      pendingScrollProgress: progress,
+    }),
+
+  updateScrollState: (scrollLeft, timelineWidth, viewportWidth) =>
+    set({
+      currentScrollLeft: scrollLeft,
+      currentTimelineWidth: timelineWidth,
+      currentViewportWidth: viewportWidth,
+    }),
+
+  zoomWithScrollPreservation: (delta) => {
+    const state = get()
+    const currentZoom = state.zoomLevel
+    const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
+
+    // 计算当前滚动进度（0-1 之间的百分比）
+    const currentMaxScroll = Math.max(0, state.currentTimelineWidth - state.currentViewportWidth)
+    const scrollProgress = currentMaxScroll > 0 ? state.currentScrollLeft / currentMaxScroll : 0
+
+    // 保存滚动进度
+    set({ pendingScrollProgress: scrollProgress })
+
+    // 更新缩放级别
+    set({ zoomLevel: newZoomLevel })
+  },
 
   updateComposition: (composition) => {
     set((state) => {
