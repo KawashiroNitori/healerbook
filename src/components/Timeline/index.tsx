@@ -47,6 +47,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const maxScrollLeftRef = useRef(0)
   const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
+  // 记录是否点击了背景（用于区分点击和拖动）
+  const clickedBackgroundRef = useRef(false)
+  const hasMovedRef = useRef(false)
   // 双指缩放状态
   const isPinchingRef = useRef(false)
   const lastPinchDistanceRef = useRef<number | null>(null)
@@ -296,11 +299,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
       if (clickedOnBackground || isReadOnly) {
-        // 点击空白处取消选中
-        if (clickedOnBackground) {
-          selectEvent(null)
-          selectCastEvent(null)
-        }
+        clickedBackgroundRef.current = clickedOnBackground
+        hasMovedRef.current = false
         isDraggingRef.current = true
         const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
@@ -335,13 +335,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
 
       if (!isDraggingRef.current) return
+      hasMovedRef.current = true
       const { clientX } = getClientPosition(evt)
       const deltaX = dragStartRef.current.x - clientX
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
     }
 
     const handleStagePointerUp = () => {
+      // 只有在点击背景且没有拖动时才取消选中
+      if (clickedBackgroundRef.current && !hasMovedRef.current) {
+        selectEvent(null)
+        selectCastEvent(null)
+      }
       isDraggingRef.current = false
+      clickedBackgroundRef.current = false
+      hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
       stage.container().style.cursor = 'grab'
@@ -432,11 +440,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
       if (clickedOnBackground || isReadOnly) {
-        // 点击空白处取消选中
-        if (clickedOnBackground) {
-          selectEvent(null)
-          selectCastEvent(null)
-        }
+        clickedBackgroundRef.current = clickedOnBackground
+        hasMovedRef.current = false
         isDraggingRef.current = true
         const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
@@ -471,6 +476,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
 
       if (!isDraggingRef.current) return
+      hasMovedRef.current = true
       const { clientX, clientY } = getClientPosition(evt)
       const deltaX = dragStartRef.current.x - clientX
       const deltaY = dragStartRef.current.y - clientY
@@ -479,7 +485,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
 
     const handleStagePointerUp = () => {
+      // 只有在点击背景且没有拖动时才取消选中
+      if (clickedBackgroundRef.current && !hasMovedRef.current) {
+        selectEvent(null)
+        selectCastEvent(null)
+      }
       isDraggingRef.current = false
+      clickedBackgroundRef.current = false
+      hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
       stage.container().style.cursor = 'grab'

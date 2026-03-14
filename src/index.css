@@ -81,6 +81,11 @@
   html {
     overflow-y: scroll;
   }
+
+  /* 编辑器页面：隐藏主滚动条 */
+  html:has(.editor-page) {
+    overflow: hidden;
+  }
 }
 
 /* 自定义滚动条样式 */

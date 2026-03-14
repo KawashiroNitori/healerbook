@@ -36,7 +36,7 @@ export default function PropertyPanel() {
     if (!result) return null
 
     return (
-      <div className="hidden md:block w-80 border-l bg-background flex flex-col h-full">
+      <div className="w-80 border-l bg-background hidden md:flex flex-col h-full">
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold">伤害事件</h2>
