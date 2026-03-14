@@ -29,7 +29,7 @@ export default function PropertyPanel() {
 
   if (!timeline) {
     return (
-      <div className="w-80 border-l bg-background p-4">
+      <div className="hidden md:block w-80 border-l bg-background p-4">
         <p className="text-sm text-muted-foreground">未加载时间轴</p>
       </div>
     )
@@ -45,7 +45,7 @@ export default function PropertyPanel() {
     if (!result) return null
 
     return (
-      <div className="w-80 border-l bg-background flex flex-col h-full">
+      <div className="hidden md:block w-80 border-l bg-background flex flex-col h-full">
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold">伤害事件</h2>
@@ -211,7 +211,7 @@ export default function PropertyPanel() {
     const action = actions.find((s) => s.id === castEvent.actionId)
 
     return (
-      <div className="w-80 border-l bg-background flex flex-col h-full">
+      <div className="hidden md:block w-80 border-l bg-background flex flex-col h-full">
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold">技能使用</h2>
@@ -278,7 +278,7 @@ export default function PropertyPanel() {
 
   // 默认显示
   return (
-    <div className="w-80 border-l bg-background p-4">
+    <div className="hidden md:block w-80 border-l bg-background p-4">
       <p className="text-sm text-muted-foreground">选择事件或技能查看属性</p>
     </div>
   )

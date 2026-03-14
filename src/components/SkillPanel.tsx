@@ -24,7 +24,7 @@ export default function ActionPanel() {
 
   if (!timeline) {
     return (
-      <div className="w-64 border-r bg-background flex items-center justify-center">
+      <div className="hidden md:block w-64 border-r bg-background flex items-center justify-center">
         <p className="text-sm text-muted-foreground">未加载时间轴</p>
       </div>
     )
@@ -52,7 +52,7 @@ export default function ActionPanel() {
   }
 
   return (
-    <div className="w-64 border-r bg-background flex flex-col h-full">
+    <div className="hidden md:block w-64 border-r bg-background flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b space-y-2">
         <div className="flex items-center justify-between">

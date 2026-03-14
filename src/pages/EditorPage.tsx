@@ -41,29 +41,47 @@ export default function EditorPage() {
 
   // 监听容器尺寸变化
   useEffect(() => {
+    let resizeTimeout: number | null = null
+
     const updateSize = () => {
       if (canvasContainerRef.current) {
-        setCanvasSize({
-          width: canvasContainerRef.current.clientWidth,
-          height: canvasContainerRef.current.clientHeight,
+        const newWidth = canvasContainerRef.current.clientWidth
+        const newHeight = canvasContainerRef.current.clientHeight
+
+        // 只在尺寸真��变化时更新，避免无限循环
+        setCanvasSize((prev) => {
+          if (prev.width === newWidth && prev.height === newHeight) {
+            return prev
+          }
+          return { width: newWidth, height: newHeight }
         })
       }
+    }
+
+    const debouncedUpdateSize = () => {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout)
+      }
+      resizeTimeout = window.setTimeout(updateSize, 100)
     }
 
     // 初始化尺寸
     updateSize()
 
     // 监听窗口大小变化
-    window.addEventListener('resize', updateSize)
+    window.addEventListener('resize', debouncedUpdateSize)
 
     // 使用 ResizeObserver 监听容器大小变化
-    const resizeObserver = new ResizeObserver(updateSize)
+    const resizeObserver = new ResizeObserver(debouncedUpdateSize)
     if (canvasContainerRef.current) {
       resizeObserver.observe(canvasContainerRef.current)
     }
 
     return () => {
-      window.removeEventListener('resize', updateSize)
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout)
+      }
+      window.removeEventListener('resize', debouncedUpdateSize)
       resizeObserver.disconnect()
     }
   }, [])

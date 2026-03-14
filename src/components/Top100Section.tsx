@@ -125,7 +125,7 @@ function CompositionFilter({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              选择职业后，只显示包含这些职业减伤技能的方案
+              选择你小队的阵容
             </p>
             <div className="flex items-center gap-2">
               {selectedJobs.length > 0 && (
@@ -375,7 +375,7 @@ export default function Top100Section() {
         <div>
           <h2 className="text-xl font-semibold">TOP100 参考方案</h2>
           <p className="text-sm text-muted-foreground">
-            来自 FFLogs 的治疗合计 DPS 前 100 战斗记录，每日自动更新
+            来自 FFLogs 的治疗合计 DPS 前 100 战斗记录
           </p>
         </div>
         <div className="flex items-center gap-2">

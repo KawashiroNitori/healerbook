@@ -169,7 +169,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (layoutData) {
       updateScrollState(scrollLeft, layoutData.timelineWidth, viewportWidth)
     }
-  }, [scrollLeft, layoutData, viewportWidth, updateScrollState])
+    // updateScrollState 来自 Zustand store，引用稳定
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollLeft, layoutData?.timelineWidth, viewportWidth])
 
   // 同步 ref（用于事件处理器闭包）
   useEffect(() => {

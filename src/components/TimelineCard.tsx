@@ -3,7 +3,9 @@
  */
 
 import { Trash2 } from 'lucide-react'
-import type { TimelineMetadata } from '@/utils/timelineStorage'
+import JobIcon from './JobIcon'
+import { getTimeline, type TimelineMetadata } from '@/utils/timelineStorage'
+import { sortJobsByOrder } from '@/data/jobs'
 
 interface TimelineCardProps {
   timeline: TimelineMetadata
@@ -12,6 +14,15 @@ interface TimelineCardProps {
 }
 
 export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCardProps) {
+  // 读取完整时间轴以获取阵容信息
+  const fullTimeline = getTimeline(timeline.id)
+  const composition = fullTimeline?.composition
+
+  // 按职业顺序排序
+  const sortedJobs = composition?.players
+    ? sortJobsByOrder(composition.players.map(p => p.job))
+    : []
+
   return (
     <div
       className="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer group"
@@ -26,9 +37,20 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
-      <p className="text-sm text-muted-foreground mb-2">
-        副本: {timeline.encounterId}
-      </p>
+
+      {/* 职业阵容 */}
+      {sortedJobs.length > 0 ? (
+        <div className="flex items-center gap-1 mb-2">
+          {sortedJobs.map((job, index) => (
+            <JobIcon key={`${job}-${index}`} job={job} size="sm" />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground mb-2">
+          无阵容信息
+        </p>
+      )}
+
       <p className="text-xs text-muted-foreground">
       更新于 {new Date(timeline.updatedAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
       </p>
