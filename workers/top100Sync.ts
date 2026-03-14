@@ -61,7 +61,6 @@ export interface StatisticsTask {
   encounterId: number
   encounterName: string
   totalFights: number
-  completedFights: number
   fights: Array<{ reportCode: string; fightID: number }>
   createdAt: string
 }
@@ -266,7 +265,7 @@ export async function syncEncounter(
   kv: KVNamespace,
   statisticsQueue?: Queue
 ): Promise<void> {
-  console.log(`[TOP100] ��步遭遇战: ${encounter.shortName} (id=${encounter.id})`)
+  console.log(`[TOP100] 同步遭遇战: ${encounter.shortName} (id=${encounter.id})`)
 
   // 获取排行榜数据
   const result = await client.getEncounterRankings({
@@ -296,12 +295,11 @@ export async function syncEncounter(
       .sort(() => Math.random() - 0.5)
       .slice(0, Math.min(10, result.entries.length))
 
-    // 创建���计任务状态
+    // 创建数据统计任务状态
     const task: StatisticsTask = {
       encounterId: encounter.id,
       encounterName,
       totalFights: sampledEntries.length,
-      completedFights: 0,
       fights: sampledEntries.map((e) => ({ reportCode: e.reportCode, fightID: e.fightID })),
       createdAt: now,
     }
@@ -493,7 +491,7 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
     damageByAbility: avgDamageByAbility,
     maxHPByJob: avgMaxHPByJob,
     shieldByAbility: avgShieldByAbility,
-    sampleSize: task.completedFights,
+    sampleSize: task.totalFights,
     updatedAt: new Date().toISOString(),
   }
 
@@ -513,7 +511,7 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
     ),
   ])
 
-  console.log(`[Statistics] 汇总完成: encounter ${task.encounterId}, 采样 ${task.completedFights} 场战斗`)
+  console.log(`[Statistics] 汇总完成: encounter ${task.encounterId}, 采样 ${task.totalFights} 场战斗`)
 }
 
 /**
