@@ -76,16 +76,6 @@
   body {
     @apply bg-background text-foreground;
   }
-
-  /* 首页：始终显示滚动条 */
-  html {
-    overflow-y: scroll;
-  }
-
-  /* 编辑器页面：隐藏滚动条 */
-  html:has(.editor-page) {
-    overflow: hidden;
-  }
 }
 
 /* 自定义滚动条样式 */
