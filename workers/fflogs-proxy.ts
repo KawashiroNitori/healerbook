@@ -21,6 +21,8 @@ export interface Env {
   FFLOGS_CLIENT_ID?: string
   // FFLogs v2 OAuth Client Secret
   FFLOGS_CLIENT_SECRET?: string
+  // 手动同步接口的鉴权密钥
+  SYNC_AUTH_TOKEN?: string
   // KV 命名空间（对应 wrangler.toml 中 binding = "healerbook"）
   healerbook: KVNamespace
 }
@@ -69,7 +71,7 @@ export default {
         return await handleTop100All(env)
       } else if (path === '/api/top100/sync' && request.method === 'POST') {
         // 手动触发同步（仅用于测试/管理）—— 必须在 startsWith 之前检查
-        return await handleManualSync(env)
+        return await handleManualSync(request, env)
       } else if (path.startsWith('/api/top100/')) {
         return await handleTop100Encounter(request, env)
       } else {
@@ -151,10 +153,42 @@ async function handleTop100Encounter(request: Request, env: Env): Promise<Respon
 }
 
 /**
+ * 验证请求的 Authorization header
+ * 期望格式: Authorization: Bearer <token>
+ */
+function verifyAuth(request: Request, env: Env): boolean {
+  const authHeader = request.headers.get('Authorization')
+
+  if (!authHeader) {
+    return false
+  }
+
+  const [scheme, token] = authHeader.split(' ')
+
+  if (scheme !== 'Bearer' || !token) {
+    return false
+  }
+
+  // 如果未配置 SYNC_AUTH_TOKEN，拒绝所有请求
+  if (!env.SYNC_AUTH_TOKEN) {
+    console.warn('[Auth] SYNC_AUTH_TOKEN not configured')
+    return false
+  }
+
+  return token === env.SYNC_AUTH_TOKEN
+}
+
+/**
  * 手动触发 TOP100 同步（POST /api/top100/sync）
  * 用于开发测试，生产中建议通过 Cron 触发
+ * 需要 Authorization: Bearer <token> 鉴权
  */
-async function handleManualSync(env: Env): Promise<Response> {
+async function handleManualSync(request: Request, env: Env): Promise<Response> {
+  // 验证鉴权
+  if (!verifyAuth(request, env)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401)
+  }
+
   // 异步执行同步，立即返回响应
   const client = createClient(env)
   const result = await syncAllTop100(client, env.healerbook)

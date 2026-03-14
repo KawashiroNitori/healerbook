@@ -7,3 +7,7 @@ FFLOGS_API_KEY=your_v1_api_key_here
 # v2 OAuth Credentials
 FFLOGS_CLIENT_ID=your_client_id_here
 FFLOGS_CLIENT_SECRET=your_client_secret_here
+
+# 手动同步接口鉴权令牌
+# 生成方式: openssl rand -hex 32
+SYNC_AUTH_TOKEN=your_secret_token_here

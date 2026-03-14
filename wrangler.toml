@@ -44,6 +44,9 @@ id = "4d48c91437374775b166165a05d56839"
 # v2 API (OAuth)
 # wrangler secret put FFLOGS_CLIENT_ID
 # wrangler secret put FFLOGS_CLIENT_SECRET
+#
+# 手动同步接口鉴权
+# wrangler secret put SYNC_AUTH_TOKEN
 
 [observability]
 enabled = false

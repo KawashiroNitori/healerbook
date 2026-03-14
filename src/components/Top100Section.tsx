@@ -127,7 +127,7 @@ function EncounterTable({
                       <th className="text-right px-3 py-2 w-10">#</th>
                       <th className="text-left px-3 py-2">治疗组合</th>
                       <th className="text-left px-3 py-2">阵容</th>
-                      <th className="text-right px-3 py-2">合计DPS</th>
+                      <th className="text-right px-3 py-2">合计 rDPS</th>
                       <th className="text-right px-3 py-2">
                         <Clock className="w-3 h-3 inline mr-1" />
                         时长
