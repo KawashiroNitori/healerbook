@@ -242,7 +242,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const stage = fixedStageRef.current
     if (!stage) return
 
-    const handleStageMouseDown = (e: KonvaMouseEvent) => {
+    const getClientPosition = (evt: MouseEvent | TouchEvent) => {
+      if ('touches' in evt && evt.touches.length > 0) {
+        return { clientX: evt.touches[0].clientX, clientY: evt.touches[0].clientY }
+      }
+      return { clientX: (evt as MouseEvent).clientX, clientY: (evt as MouseEvent).clientY }
+    }
+
+    const handleStagePointerDown = (e: KonvaMouseEvent) => {
       const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
@@ -254,18 +261,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
-        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
+        const { clientX, clientY } = getClientPosition(e.evt)
+        dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
       }
     }
 
-    const handleStageMouseMove = (e: KonvaMouseEvent) => {
+    const handleStagePointerMove = (e: KonvaMouseEvent) => {
       if (!isDraggingRef.current) return
-      const deltaX = dragStartRef.current.x - e.evt.clientX
+      const { clientX } = getClientPosition(e.evt)
+      const deltaX = dragStartRef.current.x - clientX
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
     }
 
-    const handleStageMouseUp = () => {
+    const handleStagePointerUp = () => {
       isDraggingRef.current = false
       stage.container().style.cursor = 'grab'
     }
@@ -283,17 +292,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
 
-    stage.on('mousedown', handleStageMouseDown)
-    stage.on('mousemove', handleStageMouseMove)
-    stage.on('mouseup', handleStageMouseUp)
-    stage.on('mouseleave', handleStageMouseUp)
+    stage.on('mousedown touchstart', handleStagePointerDown)
+    stage.on('mousemove touchmove', handleStagePointerMove)
+    stage.on('mouseup touchend', handleStagePointerUp)
+    stage.on('mouseleave', handleStagePointerUp)
     stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
 
     return () => {
-      stage.off('mousedown', handleStageMouseDown)
-      stage.off('mousemove', handleStageMouseMove)
-      stage.off('mouseup', handleStageMouseUp)
-      stage.off('mouseleave', handleStageMouseUp)
+      stage.off('mousedown touchstart', handleStagePointerDown)
+      stage.off('mousemove touchmove', handleStagePointerMove)
+      stage.off('mouseup touchend', handleStagePointerUp)
+      stage.off('mouseleave', handleStagePointerUp)
       stage.container().removeEventListener('wheel', handleNativeWheel)
     }
     // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
@@ -306,7 +315,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const stage = stageRef.current
     if (!stage) return
 
-    const handleStageMouseDown = (e: KonvaMouseEvent) => {
+    const getClientPosition = (evt: MouseEvent | TouchEvent) => {
+      if ('touches' in evt && evt.touches.length > 0) {
+        return { clientX: evt.touches[0].clientX, clientY: evt.touches[0].clientY }
+      }
+      return { clientX: (evt as MouseEvent).clientX, clientY: (evt as MouseEvent).clientY }
+    }
+
+    const handleStagePointerDown = (e: KonvaMouseEvent) => {
       const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
@@ -318,20 +334,22 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
-        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
+        const { clientX, clientY } = getClientPosition(e.evt)
+        dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
       }
     }
 
-    const handleStageMouseMove = (e: KonvaMouseEvent) => {
+    const handleStagePointerMove = (e: KonvaMouseEvent) => {
       if (!isDraggingRef.current) return
-      const deltaX = dragStartRef.current.x - e.evt.clientX
-      const deltaY = dragStartRef.current.y - e.evt.clientY
+      const { clientX, clientY } = getClientPosition(e.evt)
+      const deltaX = dragStartRef.current.x - clientX
+      const deltaY = dragStartRef.current.y - clientY
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
       setScrollTop(Math.max(0, dragStartRef.current.scrollTop + deltaY))
     }
 
-    const handleStageMouseUp = () => {
+    const handleStagePointerUp = () => {
       isDraggingRef.current = false
       stage.container().style.cursor = 'grab'
     }
@@ -349,17 +367,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
 
-    stage.on('mousedown', handleStageMouseDown)
-    stage.on('mousemove', handleStageMouseMove)
-    stage.on('mouseup', handleStageMouseUp)
-    stage.on('mouseleave', handleStageMouseUp)
+    stage.on('mousedown touchstart', handleStagePointerDown)
+    stage.on('mousemove touchmove', handleStagePointerMove)
+    stage.on('mouseup touchend', handleStagePointerUp)
+    stage.on('mouseleave', handleStagePointerUp)
     stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
 
     return () => {
-      stage.off('mousedown', handleStageMouseDown)
-      stage.off('mousemove', handleStageMouseMove)
-      stage.off('mouseup', handleStageMouseUp)
-      stage.off('mouseleave', handleStageMouseUp)
+      stage.off('mousedown touchstart', handleStagePointerDown)
+      stage.off('mousemove touchmove', handleStagePointerMove)
+      stage.off('mouseup touchend', handleStagePointerUp)
+      stage.off('mouseleave', handleStagePointerUp)
       stage.container().removeEventListener('wheel', handleNativeWheel)
     }
     // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖

@@ -73,6 +73,17 @@ export default function SkillTracksCanvas({
               const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
               onDoubleClickTrack(track, time)
             }}
+            onDblTap={(e) => {
+              if (isReadOnly) return
+              const stage = e.target.getStage()
+              if (!stage) return
+
+              const pointerPos = stage.getPointerPosition()
+              if (!pointerPos) return
+
+              const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
+              onDoubleClickTrack(track, time)
+            }}
           />
         ))}
 
