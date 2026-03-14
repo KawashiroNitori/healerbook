@@ -423,8 +423,8 @@ async function updateStatisticsTaskProgress(
     const existingLock = await kv.get(lockKey)
 
     if (!existingLock) {
-      // 尝试获取锁（设置 30 秒过期）
-      await kv.put(lockKey, Date.now().toString(), { expirationTtl: 30 })
+      // 尝试获取锁（设置 60 秒过期）
+      await kv.put(lockKey, Date.now().toString(), { expirationTtl: 60 })
 
       // 再次检查锁是否是我们设置的（简单的分布式锁）
       await new Promise((resolve) => setTimeout(resolve, 100))
