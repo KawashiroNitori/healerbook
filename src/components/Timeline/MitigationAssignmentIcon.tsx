@@ -6,6 +6,7 @@ import { Group, Rect, Text } from 'react-konva'
 import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import type { MitigationAssignment } from '@/types/timeline'
+import type { KonvaContextMenuEvent } from '@/types/konva'
 
 interface MitigationAssignmentIconProps {
   assignment: MitigationAssignment
@@ -17,7 +18,7 @@ interface MitigationAssignmentIconProps {
   rightBoundary: number
   onSelect: () => void
   onDragEnd: (x: number) => void
-  onContextMenu: (e: any) => void
+  onContextMenu: (e: KonvaContextMenuEvent) => void
   isReadOnly?: boolean
 }
 

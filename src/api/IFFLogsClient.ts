@@ -3,7 +3,7 @@
  * v1 和 v2 客户端都实现此接口，确保 API 一致性
  */
 
-import type { FFLogsReport } from '@/types/fflogs'
+import type { FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 
 /**
  * FFLogs 客户端接口
@@ -26,7 +26,7 @@ export interface IFFLogsClient {
     },
     onProgress?: (progress: { current: number; total: number; percentage: number }) => void
   ): Promise<{
-    events: any[]
+    events: FFLogsEvent[]
     totalPages: number
   }>
 }

@@ -152,10 +152,26 @@ export interface FFLogsEvent {
   targetID?: number
   /** 技能 ID */
   abilityGameID?: number
+  /** 额外技能 ID（用于盾值等） */
+  extraAbilityGameID?: number
   /** 伤害值 */
   amount?: number
   /** 是否暴击 */
   hitType?: number
+  /** 未减伤伤害 */
+  unmitigatedAmount?: number
+  /** 盾值吸收 */
+  absorbed?: number
+  /** 包 ID（用于聚合同一伤害） */
+  packetID?: number
+  /** 状态持续时间 */
+  duration?: number
+  /** 目标实例 */
+  targetInstance?: number
+  /** 盾值吸收量 */
+  absorb?: number
+  /** Buff 列表（字符串格式） */
+  buffs?: string
 }
 
 /**
@@ -257,7 +273,7 @@ export interface FFLogsEventsResponse {
 /**
  * FFLogs GraphQL 查询响应
  */
-export interface FFLogsGraphQLResponse<T = any> {
+export interface FFLogsGraphQLResponse<T = unknown> {
   /** 数据 */
   data?: T
   /** 错误 */

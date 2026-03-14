@@ -4,7 +4,7 @@
  * 只负责调用 Worker 的 HTTP 接口，不包含任何 FFLogs API 调用逻辑
  */
 
-import type { FFLogsV1Report, FFLogsReport } from '@/types/fflogs'
+import type { FFLogsV1Report, FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000
@@ -96,7 +96,7 @@ export class FFLogsClient {
       lang?: string
     }
   ) {
-    const allEvents: any[] = []
+    const allEvents: FFLogsEvent[] = []
     let currentStart = params.start
     const { end, lang } = params
 

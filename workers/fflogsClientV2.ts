@@ -3,7 +3,8 @@
  * 真正的 API 调用逻辑，运行在 Worker 环境中
  */
 
-import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType, FFLogsAbility } from '../src/types/fflogs'
+import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType, FFLogsAbility, FFLogsEvent } from '../src/types/fflogs'
+import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from './types/fflogs'
 import { buildComposition, buildMitigationKey } from './rosterUtils'
 
 export interface FFLogsV2Config {
@@ -150,7 +151,7 @@ export class FFLogsClientV2 {
   /**
    * 执行 GraphQL 查询
    */
-  private async query<T = any>(query: string, variables: Record<string, any> = {}): Promise<T> {
+  private async query<T = unknown>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
     const token = await this.getAccessToken()
     const graphqlUrl = 'https://cn.fflogs.com/api/v2/client'
 
@@ -174,7 +175,7 @@ export class FFLogsClientV2 {
 
     // 检查 GraphQL 错误
     if (result.errors && result.errors.length > 0) {
-      const errorMessage = result.errors.map((e: any) => e.message).join(', ')
+      const errorMessage = result.errors.map((e: { message: string }) => e.message).join(', ')
       throw new Error(errorMessage)
     }
 
@@ -232,7 +233,7 @@ export class FFLogsClientV2 {
       title: report.title,
       start: report.startTime,
       end: report.endTime,
-      fights: report.fights.map((fight: any) => ({
+      fights: report.fights.map((fight: FFLogsV2Fight) => ({
         id: fight.id,
         name: fight.name,
         difficulty: fight.difficulty,
@@ -241,14 +242,14 @@ export class FFLogsClientV2 {
         end_time: fight.endTime,
         boss: fight.encounterID,
       })),
-      friendlies: report.masterData.actors.map((actor: any) => ({
+      friendlies: report.masterData.actors.map((actor: FFLogsV2Actor) => ({
         id: actor.id,
         guid: actor.id,
         name: actor.name,
         type: actor.subType || actor.type,
         server: actor.server,
       })),
-      abilities: report.masterData.abilities.map((ability: any) => ({
+      abilities: report.masterData.abilities.map((ability: FFLogsV2Ability) => ({
         gameID: ability.gameID,
         name: ability.name,
         type: ability.type,
@@ -377,8 +378,8 @@ export class FFLogsClientV2 {
     `
 
     // 为每种类型获取所有分页数据的函数
-    const fetchAllEventsForType = async (dataType: string): Promise<any[]> => {
-      const events: any[] = []
+    const fetchAllEventsForType = async (dataType: string): Promise<FFLogsEvent[]> => {
+      const events: FFLogsEvent[] = []
       let currentStart = start
       let hasMore = true
 

@@ -4,6 +4,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { Stage, Layer } from 'react-konva'
+import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -17,6 +18,7 @@ import SkillTrackLabels from './SkillTrackLabels'
 import SkillTracksCanvas from './SkillTracksCanvas'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent } from '@/types/timeline'
+import type { KonvaMouseEvent, KonvaNode } from '@/types/konva'
 
 interface TimelineCanvasProps {
   width: number
@@ -24,8 +26,8 @@ interface TimelineCanvasProps {
 }
 
 export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
-  const stageRef = useRef<any>(null)
-  const fixedStageRef = useRef<any>(null)
+  const stageRef = useRef<Konva.Stage | null>(null)
+  const fixedStageRef = useRef<Konva.Stage | null>(null)
   const labelColumnContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedZoom = useRef(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -64,6 +66,89 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const timeRulerHeight = 30
   const skillTrackHeight = 40
   const labelColumnWidth = 150
+
+  // 计算布局数据
+  const layoutData = timeline ? (() => {
+    // 获取阵容和技能轨道信息
+    const composition = timeline.composition || { players: [] }
+
+    // 按职业顺序排序玩家
+    const sortedPlayers = [...composition.players].sort((a, b) => {
+      const jobOrder = sortJobsByOrder([a.job, b.job])
+      return jobOrder.indexOf(a.job) - jobOrder.indexOf(b.job)
+    })
+
+    const skillTracks: SkillTrack[] = []
+    sortedPlayers.forEach((player) => {
+      const jobActions = actions.filter((action) => action.jobs.includes(player.job))
+      jobActions.forEach((action) => {
+        skillTracks.push({
+          job: player.job,
+          playerId: player.id,
+          actionId: action.id,
+          actionName: action.name,
+          actionIcon: action.icon,
+        })
+      })
+    })
+
+    // 泳道算法：为每个伤害事件分配行
+    const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
+    const LANE_ROW_HEIGHT = 36 // 每行高度（px）
+    const damageEventRowMap = new Map<string, number>()
+    const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
+
+    const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+    for (const event of sortedDamageEvents) {
+      const laneIndex = laneEndTimes.findIndex((endTime) => endTime <= event.time)
+      if (laneIndex !== -1) {
+        damageEventRowMap.set(event.id, laneIndex)
+        laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
+      } else {
+        damageEventRowMap.set(event.id, laneEndTimes.length)
+        laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+      }
+    }
+    const laneCount = Math.max(1, laneEndTimes.length)
+    const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
+
+    // 计算时间轴总长度
+    const lastEventTime = Math.max(
+      0,
+      ...timeline.damageEvents.map((e) => e.time),
+      ...timeline.castEvents.map((ce) => ce.timestamp)
+    )
+
+    const maxTime = Math.max(300, lastEventTime + 60)
+    const timelineWidth = maxTime * zoomLevel
+    const fixedAreaHeight = timeRulerHeight + eventTrackHeight
+    const skillTracksHeight = skillTracks.length * skillTrackHeight
+
+    return {
+      skillTracks,
+      damageEventRowMap,
+      eventTrackHeight,
+      timelineWidth,
+      fixedAreaHeight,
+      skillTracksHeight,
+      laneCount,
+      LANE_ROW_HEIGHT,
+    }
+  })() : null
+
+  // 视口宽度（Stage 实际宽度）
+  const viewportWidth = Math.max(width - labelColumnWidth, 1)
+  // 限制 scrollLeft 不超出范围
+  const maxScrollLeft = layoutData ? Math.max(0, layoutData.timelineWidth - viewportWidth) : 0
+  const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
+  const maxScrollTop = layoutData ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight)) : 0
+  const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
+
+  // 同步 ref（用于事件处理器闭包）
+  useEffect(() => {
+    maxScrollLeftRef.current = maxScrollLeft
+    clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
+  }, [maxScrollLeft, clampedScrollLeft, clampedScrollTop])
 
   // 检查技能是否与同轨道的其他技能重叠
   const checkOverlap = (
@@ -126,16 +211,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const stage = fixedStageRef.current
     if (!stage) return
 
-    const handleStageMouseDown = (e: any) => {
-      const target = e.target
+    const handleStageMouseDown = (e: KonvaMouseEvent) => {
+      const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
         while (node && node !== stage) {
           if (node.attrs?.draggable) return
-          node = node.parent
+          node = node.parent as KonvaNode
         }
       }
-      const clickedOnBackground = target === stage || target.getClassName() === 'Rect'
+      const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
         dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
@@ -143,7 +228,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
 
-    const handleStageMouseMove = (e: any) => {
+    const handleStageMouseMove = (e: KonvaMouseEvent) => {
       if (!isDraggingRef.current) return
       const deltaX = dragStartRef.current.x - e.evt.clientX
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
@@ -189,13 +274,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const stage = stageRef.current
     if (!stage) return
 
-    const handleStageMouseDown = (e: any) => {
-      const target = e.target
+    const handleStageMouseDown = (e: KonvaMouseEvent) => {
+      const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
         while (node && node !== stage) {
           if (node.attrs?.draggable) return
-          node = node.parent
+          node = node.parent as KonvaNode
         }
       }
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
@@ -206,7 +291,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
 
-    const handleStageMouseMove = (e: any) => {
+    const handleStageMouseMove = (e: KonvaMouseEvent) => {
       if (!isDraggingRef.current) return
       const deltaX = dragStartRef.current.x - e.evt.clientX
       const deltaY = dragStartRef.current.y - e.evt.clientY
@@ -287,7 +372,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     updateCastEvent(castEventId, { timestamp: newTime })
   }
 
-  if (!timeline) {
+  if (!timeline || !layoutData) {
     return (
       <div className="flex items-center justify-center bg-muted/20" style={{ width, height }}>
         <p className="text-muted-foreground">未加载时间轴</p>
@@ -295,48 +380,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     )
   }
 
-  // 获取阵容和技能轨道信息
-  const composition = timeline.composition || { players: [] }
-
-  // 按职业顺序排序玩家
-  const sortedPlayers = [...composition.players].sort((a, b) => {
-    const jobOrder = sortJobsByOrder([a.job, b.job])
-    return jobOrder.indexOf(a.job) - jobOrder.indexOf(b.job)
-  })
-
-  const skillTracks: SkillTrack[] = []
-  sortedPlayers.forEach((player) => {
-    const jobActions = actions.filter((action) => action.jobs.includes(player.job))
-    jobActions.forEach((action) => {
-      skillTracks.push({
-        job: player.job,
-        playerId: player.id,
-        actionId: action.id,
-        actionName: action.name,
-        actionIcon: action.icon,
-      })
-    })
-  })
-
-  // 泳道算法：为每个伤害事件分配行
-  const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
-  const LANE_ROW_HEIGHT = 36 // 每行高度（px）
-  const damageEventRowMap = new Map<string, number>()
-  const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
-
-  const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
-  for (const event of sortedDamageEvents) {
-    const laneIndex = laneEndTimes.findIndex((endTime) => endTime <= event.time)
-    if (laneIndex !== -1) {
-      damageEventRowMap.set(event.id, laneIndex)
-      laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
-    } else {
-      damageEventRowMap.set(event.id, laneEndTimes.length)
-      laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
-    }
-  }
-  const laneCount = Math.max(1, laneEndTimes.length)
-  const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
+  const { skillTracks, damageEventRowMap, eventTrackHeight, timelineWidth, fixedAreaHeight, skillTracksHeight, LANE_ROW_HEIGHT } = layoutData
 
   // 计算时间轴总长度
   const lastEventTime = Math.max(
@@ -346,23 +390,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   )
 
   const maxTime = Math.max(300, lastEventTime + 60)
-  const timelineWidth = maxTime * zoomLevel
-  const fixedAreaHeight = timeRulerHeight + eventTrackHeight
-  const skillTracksHeight = skillTracks.length * skillTrackHeight
-
-  // 视口宽度（Stage 实际宽度）
-  const viewportWidth = Math.max(width - labelColumnWidth, 1)
-  // 限制 scrollLeft 不超出范围
-  const maxScrollLeft = Math.max(0, timelineWidth - viewportWidth)
-  const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
-  const maxScrollTop = Math.max(0, skillTracksHeight - (height - fixedAreaHeight))
-  const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
-
-  // 同步 ref（用于事件处理器闭包）
-  useEffect(() => {
-    maxScrollLeftRef.current = maxScrollLeft
-    clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
-  }, [maxScrollLeft, clampedScrollLeft, clampedScrollTop])
 
   return (
     <div className="relative flex flex-col" style={{ width, height }}>

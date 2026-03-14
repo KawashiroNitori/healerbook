@@ -9,7 +9,7 @@
  * 2. 在 GraphQL 请求中使用 Bearer token
  */
 
-import type { FFLogsReport } from '@/types/fflogs'
+import type { FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 import type { IFFLogsClient } from './IFFLogsClient'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
@@ -103,7 +103,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
   /**
    * 执行 GraphQL 查询
    */
-  private async query<T = any>(query: string, variables: Record<string, any> = {}): Promise<T> {
+  private async query<T = unknown>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
     // 获取 access token
     const token = await this.getAccessToken()
 
@@ -131,7 +131,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
 
       // 检查 GraphQL 错误
       if (result.errors && result.errors.length > 0) {
-        const errorMessage = result.errors.map((e: any) => e.message).join(', ')
+        const errorMessage = result.errors.map((e: { message: string }) => e.message).join(', ')
         throw new Error(errorMessage)
       }
 
@@ -276,7 +276,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
       reportData: {
         report: {
           events: {
-            data: any[]
+            data: FFLogsEvent[]
             nextPageTimestamp?: number
           }
         }
@@ -309,7 +309,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
     },
     onProgress?: (progress: { current: number; total: number; percentage: number }) => void
   ) {
-    const allEvents: any[] = []
+    const allEvents: FFLogsEvent[] = []
     let currentStart = params.start
     const { end, lang } = params
     const totalRange = end - params.start

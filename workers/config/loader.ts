@@ -102,11 +102,11 @@ export async function loadConfig(env: Env): Promise<AppConfig> {
 /**
  * 深度合并配置对象
  */
-function mergeConfig(target: any, source: any): void {
+function mergeConfig(target: Record<string, unknown>, source: Record<string, unknown>): void {
   for (const key in source) {
     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
       if (!target[key]) target[key] = {}
-      mergeConfig(target[key], source[key])
+      mergeConfig(target[key] as Record<string, unknown>, source[key] as Record<string, unknown>)
     } else {
       target[key] = source[key]
     }

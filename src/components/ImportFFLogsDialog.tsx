@@ -58,7 +58,7 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
     }
 
     readClipboard()
-  }, [])
+  }, [initialUrl])
 
   // 实时解析 URL
   useEffect(() => {

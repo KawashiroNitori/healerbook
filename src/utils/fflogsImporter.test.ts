@@ -10,7 +10,6 @@ import {
   parseDamageEvents,
 } from './fflogsImporter'
 import type { FFLogsAbility } from '@/types/fflogs'
-import type { DamageEvent } from '@/types/timeline'
 
 type V2Actor = { id: number; name: string; type: string }
 

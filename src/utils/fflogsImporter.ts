@@ -2,7 +2,7 @@
  * FFLogs 数据解析工具（V2 API）
  */
 
-import type { FFLogsReport, FFLogsAbility } from '@/types/fflogs'
+import type { FFLogsReport, FFLogsAbility, FFLogsEvent } from '@/types/fflogs'
 import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
@@ -49,7 +49,7 @@ export function parseComposition(
  * 4. 0.9 秒内的同名伤害事件合并
  */
 export function parseDamageEvents(
-  events: any[],
+  events: FFLogsEvent[],
   fightStartTime: number,
   playerMap: Map<number, { id: number; name: string; type: string }>,
   abilityMap?: Map<number, FFLogsAbility>
@@ -77,7 +77,7 @@ export function parseDamageEvents(
 
   for (const event of events) {
     if (event.type !== 'damage') continue
-    if (!playerMap.has(event.targetID)) continue
+    if (!event.targetID || !playerMap.has(event.targetID)) continue
 
     const packetID = event.packetID
     if (!packetID) continue
@@ -107,7 +107,7 @@ export function parseDamageEvents(
 
     const packet = packetMap.get(packetID)!
     const player = playerMap.get(targetId)
-    if (player) {
+    if (player && targetId !== undefined) {
       packet.playerDamages.set(targetId, {
         playerId: targetId,
         job: player.type,
@@ -271,13 +271,14 @@ function detectDamageTypeFromAbility(abilityType: string | number): 'physical' |
  * buffs 字段格式：`"1002609.1002345."` — 以 `.` 分隔的 buff ID 列表（带 1e6 偏移）
  */
 export function parseStatusEvents(
-  events: any[],
+  events: FFLogsEvent[],
   fightStartTime: number
 ): StatusEvent[] {
   // 构建 absorbed 查找表：key -> absorbed amount
   const absorbedMap = new Map<string, number>()
   for (const event of events) {
     if (event.type !== 'absorbed') continue
+    if (!event.amount) continue
     const key = `${event.timestamp}-${event.targetID}-${event.abilityGameID}-${event.extraAbilityGameID}`
     absorbedMap.set(key, event.amount)
   }
@@ -348,7 +349,7 @@ export function parseStatusEvents(
  * 通过 playerMap 判断是否为友方玩家施放
  */
 export function parseCastEventsFromFFLogs(
-  events: any[],
+  events: FFLogsEvent[],
   fightStartTime: number,
   playerMap: Map<number, { id: number; name: string; type: string }>
 ): CastEvent[] {
@@ -363,6 +364,7 @@ export function parseCastEventsFromFFLogs(
 
     if (!validActionIds.has(abilityGameID)) continue
 
+    if (!event.sourceID) continue
     const player = playerMap.get(event.sourceID)
     if (!player) continue
 

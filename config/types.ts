@@ -2,8 +2,6 @@
  * 应用配置类型定义
  */
 
-import type { Encounter } from '../types/timeline'
-
 /**
  * 应用配置
  */

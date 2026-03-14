@@ -6,6 +6,7 @@ import { Group, Rect, Text } from 'react-konva'
 import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
+import type { KonvaContextMenuEvent } from '@/types/konva'
 
 interface CastEventIconProps {
   castEvent: CastEvent
@@ -20,7 +21,7 @@ interface CastEventIconProps {
   scrollTop: number
   onSelect: () => void
   onDragEnd: (x: number) => void
-  onContextMenu: (e: any) => void
+  onContextMenu: (e: KonvaContextMenuEvent) => void
   isReadOnly?: boolean
 }
 

@@ -2,7 +2,7 @@
  * 主页
  */
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Upload, FileText } from 'lucide-react'
 import {
@@ -23,18 +23,18 @@ export default function HomePage() {
   const navigate = useNavigate()
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [timelines, setTimelines] = useState<TimelineMetadata[]>([])
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [timelineToDelete, setTimelineToDelete] = useState<string | null>(null)
+
+  const data = getAllTimelineMetadata()
+  const [timelines, setTimelines] = useState<TimelineMetadata[]>(
+    data.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  )
 
   const loadTimelines = () => {
     const data = getAllTimelineMetadata()
     setTimelines(data.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))
   }
-
-  useEffect(() => {
-    loadTimelines()
-  }, [])
 
   const handleCreateNew = () => {
     setShowCreateDialog(true)

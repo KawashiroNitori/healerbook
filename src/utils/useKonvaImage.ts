@@ -11,11 +11,13 @@ import { getIconUrl } from './iconUtils'
  * @returns 加载的图片元素或 null
  */
 export function useKonvaImage(iconPath: string): HTMLImageElement | null {
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const [image, setImage] = useState<HTMLImageElement | null>(() => {
+    if (!iconPath) return null
+    return null
+  })
 
   useEffect(() => {
     if (!iconPath) {
-      setImage(null)
       return
     }
 

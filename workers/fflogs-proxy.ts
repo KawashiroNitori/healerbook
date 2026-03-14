@@ -156,7 +156,7 @@ async function handleTop100Encounter(request: Request, env: Env): Promise<Respon
  */
 async function handleManualSync(env: Env): Promise<Response> {
   // 异步执行同步，立即返回响应
-  const client = createV2Client(env)
+  const client = createClient(env)
   const result = await syncAllTop100(client, env.healerbook)
   return jsonResponse({ message: '同步完成', ...result })
 }
