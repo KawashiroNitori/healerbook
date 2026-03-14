@@ -157,8 +157,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const newMaxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
       const newScrollLeft = pendingScrollProgress * newMaxScroll
 
-      setScrollLeft(newScrollLeft)
-      setPendingScrollProgress(null)
+      queueMicrotask(() => {
+        setScrollLeft(newScrollLeft)
+        setPendingScrollProgress(null)
+      })
     }
   }, [zoomLevel, layoutData, viewportWidth, pendingScrollProgress, setPendingScrollProgress])
 
@@ -167,7 +169,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (layoutData) {
       updateScrollState(scrollLeft, layoutData.timelineWidth, viewportWidth)
     }
-  }, [scrollLeft, layoutData?.timelineWidth, viewportWidth])
+  }, [scrollLeft, layoutData, viewportWidth, updateScrollState])
 
   // 同步 ref（用于事件处理器闭包）
   useEffect(() => {
@@ -292,6 +294,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.off('mouseleave', handleStageMouseUp)
       stage.container().removeEventListener('wheel', handleNativeWheel)
     }
+    // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
+    // 添加它会导致事件监听器频繁重新绑定，影响性能
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
   // 处理技能轨道 Stage 事件
@@ -355,6 +360,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.off('mouseleave', handleStageMouseUp)
       stage.container().removeEventListener('wheel', handleNativeWheel)
     }
+    // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
+    // 添加它会导致事件监听器频繁重新绑定，影响性能
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
   // 处理双击轨道添加技能

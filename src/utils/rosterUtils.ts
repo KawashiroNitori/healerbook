@@ -1,6 +1,6 @@
-import { JOB_MAP } from '../src/data/jobMap'
-import { sortJobsByOrder } from '../src/data/jobs'
-import type { Job } from '../src/types/timeline'
+import { JOB_MAP } from '../data/jobMap'
+import { sortJobsByOrder } from '../data/jobs'
+import type { Job } from '../types/timeline'
 
 // 与 src/data/mitigationActions.new.ts 保持一致
 const JOB_MITIGATION_IDS: Record<string, number[]> = {
@@ -27,13 +27,13 @@ export function buildComposition(specs: string[]): string[] {
   return sortJobsByOrder(jobs)
 }
 
-// 计算减伤技能组 key：阵容内所有技能 ID 去重后升序，用 - 连接
-export function buildMitigationKey(composition: string[]): string {
-  const allIds = new Set<number>()
+// 计算减伤技能组：阵容内所有技能 ID 升序排列（不去重）
+export function buildMitigationKey(composition: string[]): number[] {
+  const allIds: number[] = []
   for (const job of composition) {
     for (const id of JOB_MITIGATION_IDS[job] ?? []) {
-      allIds.add(id)
+      allIds.push(id)
     }
   }
-  return [...allIds].sort((a, b) => a - b).join('-')
+  return allIds.sort((a, b) => a - b)
 }

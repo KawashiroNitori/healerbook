@@ -2,7 +2,7 @@
  * fflogs-proxy Worker 鉴权测试
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 describe('手动同步接口鉴权', () => {
   // 模拟环境变量

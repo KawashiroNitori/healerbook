@@ -6,11 +6,14 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, RefreshCw, ChevronDown, ChevronRight, Server } from 'lucide-react'
+import { Clock, RefreshCw, ChevronDown, ChevronRight, Server, Filter, Eraser } from 'lucide-react'
 import { RAID_TIERS, type RaidEncounter } from '@/data/raidEncounters'
 import ImportFFLogsDialog from '@/components/ImportFFLogsDialog'
 import JobIcon from '@/components/JobIcon'
 import { JOB_MAP } from '@/data/jobMap'
+import { buildMitigationKey } from '@/utils/rosterUtils'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job } from '@/types/timeline'
 
 // ---- 类型定义 ----
@@ -30,7 +33,6 @@ interface RankingEntry {
   serverRegion: string
   serverNameTwo: string
   composition: string[]
-  mitigationKey: string
 }
 
 interface Top100Data {
@@ -67,23 +69,144 @@ function buildFFLogsUrl(reportCode: string, fightID: number): string {
   return `https://www.fflogs.com/reports/${reportCode}#fight=${fightID}`
 }
 
+// 检查 subset 是否是 superset 的子序列（两者都已排序）
+function isSubsequence(subset: number[], superset: number[]): boolean {
+  let i = 0
+  let j = 0
+  while (i < subset.length && j < superset.length) {
+    if (subset[i] === superset[j]) {
+      i++
+    }
+    j++
+  }
+  return i === subset.length
+}
+
 // ---- 子组件 ----
+
+function CompositionFilter({
+  selectedJobs,
+  onJobsChange,
+  open,
+  onClose,
+}: {
+  selectedJobs: Job[]
+  onJobsChange: (jobs: Job[]) => void
+  open: boolean
+  onClose: () => void
+}) {
+  const jobsByRole = {
+    坦克: ['PLD', 'WAR', 'DRK', 'GNB'] as Job[],
+    治疗: ['WHM', 'SCH', 'AST', 'SGE'] as Job[],
+    近战: ['MNK', 'DRG', 'NIN', 'SAM', 'RPR', 'VPR'] as Job[],
+    远敏: ['BRD', 'MCH', 'DNC'] as Job[],
+    法系: ['BLM', 'SMN', 'RDM', 'PCT'] as Job[],
+  }
+
+  const toggleJob = (job: Job) => {
+    if (selectedJobs.includes(job)) {
+      onJobsChange(selectedJobs.filter(j => j !== job))
+    } else {
+      // 限制最多选择 8 个职业
+      if (selectedJobs.length >= 8) {
+        return
+      }
+      onJobsChange([...selectedJobs, job])
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose}>
+      <ModalContent>
+        <ModalHeader>
+          <ModalTitle>阵容过滤</ModalTitle>
+        </ModalHeader>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              选择职业后，只显示包含这些职业减伤技能的方案
+            </p>
+            <div className="flex items-center gap-2">
+              {selectedJobs.length > 0 && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedJobs.length}/8
+                  </p>
+                  <button
+                    onClick={() => onJobsChange([])}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="清空"
+                  >
+                    <Eraser className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 按职业类型分组 */}
+          <div className="space-y-3">
+            {Object.entries(jobsByRole).map(([role, jobs]) => (
+              <div key={role}>
+                <h4 className="text-xs font-medium text-muted-foreground mb-2">{role}</h4>
+                <div className="flex flex-wrap gap-2">
+                  {jobs.map((job) => {
+                    const isSelected = selectedJobs.includes(job)
+                    const isDisabled = !isSelected && selectedJobs.length >= 8
+                    return (
+                      <button
+                        key={job}
+                        onClick={() => toggleJob(job)}
+                        disabled={isDisabled}
+                        className={`transition-all ${
+                          isSelected
+                            ? 'opacity-100 scale-100'
+                            : isDisabled
+                              ? 'opacity-20 cursor-not-allowed'
+                              : 'opacity-40 scale-95 hover:opacity-60'
+                        }`}
+                        title={job}
+                      >
+                        <JobIcon job={job} size="md" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </ModalContent>
+    </Modal>
+  )
+}
 
 function EncounterTable({
   encounter,
   data,
+  filterMitigationKey,
   onImport,
 }: {
   encounter: RaidEncounter
   data: Top100Data | null | undefined
+  filterMitigationKey: number[] | null
   onImport: (url: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
-  const hasData = data && data.entries.length > 0
-  const displayEntries = showAll ? (data?.entries ?? []) : (data?.entries ?? []).slice(0, 10)
-  const hasMore = (data?.entries.length ?? 0) > 10
+  // 应用过滤
+  const filteredEntries = data?.entries.filter((entry) => {
+    if (!filterMitigationKey || filterMitigationKey.length === 0) return true
+    // 根据 composition 计算 mitigationKey
+    const entryMitigationKey = buildMitigationKey(entry.composition)
+    return isSubsequence(filterMitigationKey, entryMitigationKey)
+  }) ?? []
+
+  const hasData = filteredEntries.length > 0
+  const displayEntries = showAll ? filteredEntries : filteredEntries.slice(0, 10)
+  const hasMore = filteredEntries.length > 10
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -95,18 +218,8 @@ function EncounterTable({
         <div className="flex items-center gap-3">
           <span className="font-mono font-bold text-sm">{encounter.shortName}</span>
           <span className="text-sm text-muted-foreground">{encounter.name}</span>
-          {hasData && (
-            <span className="text-xs text-muted-foreground">
-              {data.entries.length} 条记录
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
-          {hasData && (
-            <span className="text-xs">
-              {new Date(data.updatedAt).toLocaleDateString('zh-CN')} 更新
-            </span>
-          )}
           {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </div>
       </button>
@@ -116,7 +229,7 @@ function EncounterTable({
         <div>
           {!hasData ? (
             <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              暂无数据，Cron 任务尚未运行或该副本数据为空
+              暂无数据
             </div>
           ) : (
             <>
@@ -206,7 +319,7 @@ function EncounterTable({
                 >
                   {showAll
                     ? `收起（显示前 10 条）`
-                    : `展开全部 ${data.entries.length} 条`}
+                    : `展开全部 ${data?.entries.length ?? 0} 条`}
                 </button>
               )}
             </>
@@ -222,6 +335,27 @@ function EncounterTable({
 export default function Top100Section() {
   const [importUrl, setImportUrl] = useState<string | null>(null)
   const [activeTierIdx, setActiveTierIdx] = useState(RAID_TIERS.length - 1) // 默认最新赛季
+  const [showFilterDialog, setShowFilterDialog] = useState(false)
+
+  // 从 LocalStorage 读取已选职业
+  const [selectedJobs, setSelectedJobs] = useState<Job[]>(() => {
+    try {
+      const saved = localStorage.getItem('top100_filter_jobs')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // 保存到 LocalStorage
+  const handleJobsChange = (jobs: Job[]) => {
+    setSelectedJobs(jobs)
+    try {
+      localStorage.setItem('top100_filter_jobs', JSON.stringify(jobs))
+    } catch (error) {
+      console.error('Failed to save filter jobs to localStorage:', error)
+    }
+  }
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['top100'],
@@ -232,6 +366,9 @@ export default function Top100Section() {
 
   const activeTier = RAID_TIERS[activeTierIdx]
 
+  // 计算过滤用的 mitigationKey
+  const filterMitigationKey = selectedJobs.length > 0 ? buildMitigationKey(selectedJobs) : null
+
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
@@ -241,14 +378,41 @@ export default function Top100Section() {
             来自 FFLogs 的治疗合计 DPS 前 100 战斗记录，每日自动更新
           </p>
         </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-1.5 rounded border hover:bg-accent transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          刷新
-        </button>
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowFilterDialog(true)}
+                  className={`flex items-center gap-1.5 text-sm p-2 rounded transition-colors ${
+                    selectedJobs.length > 0
+                      ? 'text-primary bg-primary/10'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  {selectedJobs.length > 0 && (
+                    <span className="text-xs">({selectedJobs.length})</span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>阵容过滤</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  className="flex items-center justify-center text-sm text-muted-foreground hover:text-foreground p-2 rounded hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>刷新</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       {/* 赛季 Tab */}
@@ -276,8 +440,7 @@ export default function Top100Section() {
         </div>
       ) : isError ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
-          <p>加载失败，数据可能尚未同步</p>
-          <p className="text-xs mt-1">Cron 任务每日 02:00 UTC 自动运行</p>
+          <p>加载失败</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -286,11 +449,20 @@ export default function Top100Section() {
               key={encounter.id}
               encounter={encounter}
               data={data?.[encounter.id]}
+              filterMitigationKey={filterMitigationKey}
               onImport={setImportUrl}
             />
           ))}
         </div>
       )}
+
+      {/* 阵容过滤对话框 */}
+      <CompositionFilter
+        selectedJobs={selectedJobs}
+        onJobsChange={handleJobsChange}
+        open={showFilterDialog}
+        onClose={() => setShowFilterDialog(false)}
+      />
 
       {/* 导入对话框 */}
       {importUrl && (

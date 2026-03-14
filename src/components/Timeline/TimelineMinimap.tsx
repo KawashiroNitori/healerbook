@@ -229,6 +229,9 @@ export default function TimelineMinimap({
         window.removeEventListener('mouseup', handleMouseUp)
       }
     }
+    // handleMouseMove 在每次渲染时重新创建，但添加为依赖会导致监听器频繁重新绑定
+    // 当前实现通过 ref 访问最新状态，不需要重新绑定监听器
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDragging])
 
   if (!timeline) return null

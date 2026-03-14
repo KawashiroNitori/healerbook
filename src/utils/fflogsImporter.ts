@@ -88,6 +88,7 @@ export function parseDamageEvents(
     const abilityType = abilityMeta?.type ?? 0
 
     if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
+    if (abilityId === 16152) continue  // 超火流星
 
     const targetId = event.targetID
     const unmitigatedAmount = event.unmitigatedAmount || event.amount || 0

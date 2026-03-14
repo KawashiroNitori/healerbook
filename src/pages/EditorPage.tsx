@@ -69,7 +69,7 @@ export default function EditorPage() {
   }, [])
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="editor-page h-screen flex flex-col bg-background overflow-hidden">
       <title>{timeline?.name ? `${timeline.name} - ${APP_NAME}` : APP_NAME}</title>
       {/* Header */}
       <header className="border-b flex-shrink-0">

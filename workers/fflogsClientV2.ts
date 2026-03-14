@@ -5,7 +5,7 @@
 
 import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType, FFLogsAbility, FFLogsEvent } from '../src/types/fflogs'
 import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from './types/fflogs'
-import { buildComposition, buildMitigationKey } from './rosterUtils'
+import { buildComposition } from '../src/utils/rosterUtils'
 
 export interface FFLogsV2Config {
   clientId: string
@@ -52,8 +52,6 @@ export interface RankingEntry {
   serverNameTwo: string
   /** 按标准职业顺序排列的完整阵容职业代码列表 */
   composition: string[]
-  /** 阵容内所有减伤技能 ID 升序排列，用 - 连接（隐藏字段，用于分组/筛选） */
-  mitigationKey: string
 }
 
 /**
@@ -326,9 +324,6 @@ export class FFLogsClientV2 {
           // serverTwo 缺失时，说明两个玩家在同一服务器
           serverNameTwo: r.serverTwo?.name || r.server?.name || '',
           composition: buildComposition((r.allCharacters ?? []).map((c) => c.spec)),
-          mitigationKey: buildMitigationKey(
-            buildComposition((r.allCharacters ?? []).map((c) => c.spec))
-          ),
         })
       }
     }
