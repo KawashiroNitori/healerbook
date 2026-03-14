@@ -215,12 +215,14 @@ export default function PropertyPanel() {
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold">技能使用</h2>
-          <button
-            onClick={() => removeCastEvent(castEvent.id)}
-            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => removeCastEvent(castEvent.id)}
+              className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Properties */}

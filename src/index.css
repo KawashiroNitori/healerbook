@@ -76,6 +76,11 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 首页：始终显示滚动条 */
+  html {
+    overflow-y: scroll;
+  }
 }
 
 /* 自定义滚动条样式 */
