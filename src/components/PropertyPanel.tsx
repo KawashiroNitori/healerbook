@@ -27,12 +27,11 @@ export default function PropertyPanel() {
   // 使用新的伤害计算 Hook（基于状态）
   const eventResults = useDamageCalculationV2(timeline)
 
-  if (!timeline) {
-    return (
-      <div className="hidden md:block w-80 border-l bg-background p-4">
-        <p className="text-sm text-muted-foreground">未加载时间轴</p>
-      </div>
-    )
+  // 只有在选中伤害事件或技能使用事件时才显示面板
+  const shouldShowPanel = selectedEventId || selectedCastEventId
+
+  if (!timeline || !shouldShowPanel) {
+    return null
   }
 
   // 显示伤害事件属性
@@ -278,10 +277,6 @@ export default function PropertyPanel() {
     )
   }
 
-  // 默认显示
-  return (
-    <div className="hidden md:block w-80 border-l bg-background p-4">
-      <p className="text-sm text-muted-foreground">选择事件或技能查看属性</p>
-    </div>
-  )
+  // 没有选中任何内容时不显示面板
+  return null
 }
