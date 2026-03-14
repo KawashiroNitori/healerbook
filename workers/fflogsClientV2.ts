@@ -59,8 +59,6 @@ export interface RankingEntry {
  */
 export interface EncounterRankingsResult {
   encounterName: string
-  page: number
-  hasMorePages: boolean
   count: number
   entries: RankingEntry[]
 }
@@ -149,9 +147,9 @@ export class FFLogsClientV2 {
   /**
    * 执行 GraphQL 查询
    */
-  private async query<T = unknown>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  private async query<T = unknown>(query: string, variables: Record<string, unknown> = {}, region: string = 'cn'): Promise<T> {
     const token = await this.getAccessToken()
-    const graphqlUrl = 'https://cn.fflogs.com/api/v2/client'
+    const graphqlUrl = `https://${region}.fflogs.com/api/v2/client`
 
     const response = await fetch(graphqlUrl, {
       method: 'POST',
@@ -259,37 +257,38 @@ export class FFLogsClientV2 {
   /**
    * 获取遭遇战治疗角色排行（TOP100）
    *
-   * 使用 HPS（每秒治疗量）指标，自然筛选出治疗职业排名
-   * 每页最多 100 条记录
+   * 同时获取国际区和国区数据，合并后按 DPS 降序排序
    */
   async getEncounterRankings(params: {
     encounterId: number
-    difficulty: number
-    page?: number
   }): Promise<EncounterRankingsResult> {
-    const { encounterId, page = 1 } = params
+    const { encounterId } = params
 
     const query = `
-      query GetEncounterRankings($encounterId: Int!, $page: Int) {
+      query GetEncounterRankings($encounterId: Int!) {
         worldData {
           encounter(id: $encounterId) {
             name
             characterRankings(
               includeOtherPlayers: true
               metric: healercombinedrdps
-              page: $page
             )
           }
         }
       }
     `
 
-    const data = await this.query(query, { encounterId, page })
-    const encounter = data.worldData.encounter
-    const rankings = encounter.characterRankings as {
-      page: number
-      hasMorePages: boolean
-      count: number
+    // 并行获取国际区和国区数据
+    const [wwwData, cnData] = await Promise.all([
+      this.query(query, { encounterId }, 'www'),
+      this.query(query, { encounterId }, 'cn'),
+    ])
+
+    const wwwEncounter = wwwData.worldData.encounter
+    const cnEncounter = cnData.worldData.encounter
+    const encounterName = wwwEncounter?.name || cnEncounter?.name || ''
+
+    const wwwRankings = wwwEncounter?.characterRankings as {
       rankings: Array<{
         name: string
         spec: string
@@ -302,14 +301,35 @@ export class FFLogsClientV2 {
         serverTwo?: { name: string }
         allCharacters?: Array<{ name: string; spec: string }>
       }>
-    }
+    } | undefined
 
-    const entries: RankingEntry[] = []
-    if (rankings?.rankings) {
-      for (let i = 0; i < rankings.rankings.length; i++) {
-        const r = rankings.rankings[i]
-        entries.push({
-          rank: (page - 1) * 100 + i + 1,
+    const cnRankings = cnEncounter?.characterRankings as {
+      rankings: Array<{
+        name: string
+        spec: string
+        nameTwo: string
+        specTwo: string
+        amount: number
+        duration: number
+        report: { code: string; fightID: number; startTime: number }
+        server?: { name: string; region?: string }
+        serverTwo?: { name: string }
+        allCharacters?: Array<{ name: string; spec: string }>
+      }>
+    } | undefined
+
+    // 合并两个区域的数据
+    const allRankings = [
+      ...(wwwRankings?.rankings || []),
+      ...(cnRankings?.rankings || []),
+    ]
+
+    // 转换为 RankingEntry 并过滤掉阵容为空的队伍
+    const entries: RankingEntry[] = allRankings
+      .map((r) => {
+        const composition = buildComposition((r.allCharacters ?? []).map((c) => c.spec))
+        return {
+          rank: 0, // 稍后重新分配排名
           characterName: r.name || '',
           jobClass: r.spec || '',
           characterNameTwo: r.nameTwo || '',
@@ -321,18 +341,21 @@ export class FFLogsClientV2 {
           startTime: r.report?.startTime || 0,
           serverName: r.server?.name || '',
           serverRegion: r.server?.region || '',
-          // serverTwo 缺失时，说明两个玩家在同一服务器
           serverNameTwo: r.serverTwo?.name || r.server?.name || '',
-          composition: buildComposition((r.allCharacters ?? []).map((c) => c.spec)),
-        })
-      }
-    }
+          composition,
+        }
+      })
+      .filter((entry) => entry.composition.length > 0) // 过滤掉阵容为空的队伍
+      .sort((a, b) => b.amount - a.amount) // 按 DPS 降序排序
+
+    // 重新分配排名
+    entries.forEach((entry, index) => {
+      entry.rank = index + 1
+    })
 
     return {
-      encounterName: encounter.name || '',
-      page: rankings?.page ?? page,
-      hasMorePages: rankings?.hasMorePages ?? false,
-      count: rankings?.count ?? entries.length,
+      encounterName,
+      count: entries.length,
       entries,
     }
   }
