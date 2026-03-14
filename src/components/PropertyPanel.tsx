@@ -4,10 +4,8 @@
 
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationV2 } from '@/hooks/useDamageCalculationV2'
-import { useMitigationStore } from '@/store/mitigationStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
-import { getIconUrl } from '@/utils/iconUtils'
 import { Trash2 } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
 
@@ -15,29 +13,23 @@ export default function PropertyPanel() {
   const {
     timeline,
     selectedEventId,
-    selectedCastEventId,
     updateDamageEvent,
     removeDamageEvent,
-    removeCastEvent,
     getPartyStateAtTime,
   } = useTimelineStore()
-  const { actions } = useMitigationStore()
   const isReadOnly = useEditorReadOnly()
 
   // 使用新的伤害计算 Hook（基于状态）
   const eventResults = useDamageCalculationV2(timeline)
 
-  // 只有在选中伤害事件或技能使用事件时才显示面板
-  const shouldShowPanel = selectedEventId || selectedCastEventId
-
-  if (!timeline || !shouldShowPanel) {
+  // 只有在选中伤害事件时才显示面板（不响应技能选中）
+  if (!timeline || !selectedEventId) {
     return null
   }
 
   // 显示伤害事件属性
-  if (selectedEventId) {
-    const event = timeline.damageEvents.find((e) => e.id === selectedEventId)
-    if (!event) return null
+  const event = timeline.damageEvents.find((e) => e.id === selectedEventId)
+  if (!event) return null
 
     // 使用预先计算的结果
     const result = eventResults.get(event.id)
@@ -200,83 +192,4 @@ export default function PropertyPanel() {
         </div>
       </div>
     )
-  }
-
-  // 显示技能使用事件属性
-  if (selectedCastEventId) {
-    const castEvent = timeline.castEvents.find((ce) => ce.id === selectedCastEventId)
-    if (!castEvent) return null
-
-    const action = actions.find((s) => s.id === castEvent.actionId)
-
-    return (
-      <div className="hidden md:block w-80 border-l bg-background flex flex-col h-full">
-        {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">技能使用</h2>
-          {!isReadOnly && (
-            <button
-              onClick={() => removeCastEvent(castEvent.id)}
-              className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Properties */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-custom">
-          {action && (
-            <>
-              <div>
-                <label className="block text-sm font-medium mb-1">技能</label>
-                <div className="p-3 border rounded-md">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-muted">
-                      <img
-                        src={getIconUrl(action.icon)}
-                        alt={action.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <div className="font-medium">{action.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{action.jobs.join(', ')}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">职业</label>
-                <div className="text-sm">{castEvent.job}</div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">使用时间</label>
-                <div className="text-sm">{castEvent.timestamp.toFixed(2)}s</div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">效果</label>
-                <div className="text-sm space-y-1">
-                  <div>持续时间: {action.duration}s</div>
-                  <div>冷却时间: {action.cooldown}s</div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    具体减伤效果由附加的状态决定
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // 没有选中任何内容时不显示面板
-  return null
 }

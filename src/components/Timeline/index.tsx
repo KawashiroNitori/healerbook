@@ -296,6 +296,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
       if (clickedOnBackground || isReadOnly) {
+        // 点击空白处取消选中
+        if (clickedOnBackground) {
+          selectEvent(null)
+          selectCastEvent(null)
+        }
         isDraggingRef.current = true
         const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
@@ -427,6 +432,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
       if (clickedOnBackground || isReadOnly) {
+        // 点击空白处取消选中
+        if (clickedOnBackground) {
+          selectEvent(null)
+          selectCastEvent(null)
+        }
         isDraggingRef.current = true
         const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
