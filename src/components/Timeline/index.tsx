@@ -47,6 +47,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const maxScrollLeftRef = useRef(0)
   const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
+  // 双指缩放状态
+  const isPinchingRef = useRef(false)
+  const lastPinchDistanceRef = useRef<number | null>(null)
+  const pinchStartZoomRef = useRef<number>(50)
+  const pinchCenterXRef = useRef<number>(0) // 双指中心点的屏幕坐标
 
   const {
     timeline,
@@ -249,7 +254,38 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       return { clientX: (evt as MouseEvent).clientX, clientY: (evt as MouseEvent).clientY }
     }
 
+    const getTouchDistance = (evt: TouchEvent) => {
+      if (evt.touches.length < 2) return null
+      const touch1 = evt.touches[0]
+      const touch2 = evt.touches[1]
+      const dx = Math.abs(touch2.clientX - touch1.clientX)
+      return dx
+    }
+
+    const getTouchCenter = (evt: TouchEvent) => {
+      if (evt.touches.length < 2) return null
+      const touch1 = evt.touches[0]
+      const touch2 = evt.touches[1]
+      return (touch1.clientX + touch2.clientX) / 2
+    }
+
     const handleStagePointerDown = (e: KonvaMouseEvent) => {
+      const evt = e.evt
+
+      // 检测双指触摸
+      if ('touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
+        e.evt.preventDefault()
+        isPinchingRef.current = true
+        isDraggingRef.current = false
+        lastPinchDistanceRef.current = getTouchDistance(evt as unknown as TouchEvent)
+        pinchStartZoomRef.current = zoomLevel
+        const centerX = getTouchCenter(evt as unknown as TouchEvent)
+        if (centerX !== null) {
+          pinchCenterXRef.current = centerX
+        }
+        return
+      }
+
       const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
@@ -261,21 +297,48 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
-        const { clientX, clientY } = getClientPosition(e.evt)
+        const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
       }
     }
 
     const handleStagePointerMove = (e: KonvaMouseEvent) => {
+      const evt = e.evt
+
+      // 处理双指缩放
+      if (isPinchingRef.current && 'touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
+        e.evt.preventDefault()
+        const currentDistance = getTouchDistance(evt as unknown as TouchEvent)
+        if (currentDistance && lastPinchDistanceRef.current) {
+          const scale = currentDistance / lastPinchDistanceRef.current
+          const newZoomLevel = Math.max(10, Math.min(200, pinchStartZoomRef.current * scale))
+
+          // 计算缩放中心点在时间轴上的时间位置
+          const oldZoom = zoomLevel
+          const centerX = pinchCenterXRef.current
+          const timeAtCenter = (clampedScrollRef.current.scrollLeft + centerX) / oldZoom
+
+          // 更新缩放级别
+          setZoomLevel(newZoomLevel)
+
+          // 调整滚动位置，使缩放中心点保持在相同的屏幕位置
+          const newScrollLeft = timeAtCenter * newZoomLevel - centerX
+          setScrollLeft(Math.max(0, newScrollLeft))
+        }
+        return
+      }
+
       if (!isDraggingRef.current) return
-      const { clientX } = getClientPosition(e.evt)
+      const { clientX } = getClientPosition(evt)
       const deltaX = dragStartRef.current.x - clientX
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
     }
 
     const handleStagePointerUp = () => {
       isDraggingRef.current = false
+      isPinchingRef.current = false
+      lastPinchDistanceRef.current = null
       stage.container().style.cursor = 'grab'
     }
 
@@ -322,7 +385,38 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       return { clientX: (evt as MouseEvent).clientX, clientY: (evt as MouseEvent).clientY }
     }
 
+    const getTouchDistance = (evt: TouchEvent) => {
+      if (evt.touches.length < 2) return null
+      const touch1 = evt.touches[0]
+      const touch2 = evt.touches[1]
+      const dx = Math.abs(touch2.clientX - touch1.clientX)
+      return dx
+    }
+
+    const getTouchCenter = (evt: TouchEvent) => {
+      if (evt.touches.length < 2) return null
+      const touch1 = evt.touches[0]
+      const touch2 = evt.touches[1]
+      return (touch1.clientX + touch2.clientX) / 2
+    }
+
     const handleStagePointerDown = (e: KonvaMouseEvent) => {
+      const evt = e.evt
+
+      // 检测双指触摸
+      if ('touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
+        e.evt.preventDefault()
+        isPinchingRef.current = true
+        isDraggingRef.current = false
+        lastPinchDistanceRef.current = getTouchDistance(evt as unknown as TouchEvent)
+        pinchStartZoomRef.current = zoomLevel
+        const centerX = getTouchCenter(evt as unknown as TouchEvent)
+        if (centerX !== null) {
+          pinchCenterXRef.current = centerX
+        }
+        return
+      }
+
       const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
@@ -334,15 +428,40 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
-        const { clientX, clientY } = getClientPosition(e.evt)
+        const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
       }
     }
 
     const handleStagePointerMove = (e: KonvaMouseEvent) => {
+      const evt = e.evt
+
+      // 处理双指缩放
+      if (isPinchingRef.current && 'touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
+        e.evt.preventDefault()
+        const currentDistance = getTouchDistance(evt as unknown as TouchEvent)
+        if (currentDistance && lastPinchDistanceRef.current) {
+          const scale = currentDistance / lastPinchDistanceRef.current
+          const newZoomLevel = Math.max(10, Math.min(200, pinchStartZoomRef.current * scale))
+
+          // 计算缩放中心点在时间轴上的时间位置
+          const oldZoom = zoomLevel
+          const centerX = pinchCenterXRef.current
+          const timeAtCenter = (clampedScrollRef.current.scrollLeft + centerX) / oldZoom
+
+          // 更新缩放级别
+          setZoomLevel(newZoomLevel)
+
+          // 调整滚动位置，使缩放中心点保持在相同的屏幕位置
+          const newScrollLeft = timeAtCenter * newZoomLevel - centerX
+          setScrollLeft(Math.max(0, newScrollLeft))
+        }
+        return
+      }
+
       if (!isDraggingRef.current) return
-      const { clientX, clientY } = getClientPosition(e.evt)
+      const { clientX, clientY } = getClientPosition(evt)
       const deltaX = dragStartRef.current.x - clientX
       const deltaY = dragStartRef.current.y - clientY
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
@@ -351,6 +470,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
     const handleStagePointerUp = () => {
       isDraggingRef.current = false
+      isPinchingRef.current = false
+      lastPinchDistanceRef.current = null
       stage.container().style.cursor = 'grab'
     }
 
