@@ -74,7 +74,7 @@ export default function TimelineMinimap({
 
     // 计算最大时间
     const damageEventTimes = timeline.damageEvents.map((e) => e.time).filter((t) => !isNaN(t))
-    const castEventTimes = timeline.castEvents.map((e) => e.time).filter((t) => !isNaN(t))
+    const castEventTimes = timeline.castEvents.map((e) => e.timestamp).filter((t) => !isNaN(t))
     const allTimes = [...damageEventTimes, ...castEventTimes]
     const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 60
 

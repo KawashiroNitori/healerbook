@@ -22,7 +22,7 @@ import {
 import AddEventDialog from './AddEventDialog'
 
 export default function EditorToolbar() {
-  const { zoomLevel, timeline, exitReplayMode, zoomWithScrollPreservation } = useTimelineStore()
+  const { timeline, exitReplayMode, zoomWithScrollPreservation } = useTimelineStore()
   const { toggleReadOnly } = useUIStore()
   const [showAddEventDialog, setShowAddEventDialog] = useState(false)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
