@@ -60,7 +60,7 @@ function formatDuration(ms: number): string {
 }
 
 function formatAmount(amount: number): string {
-  return amount >= 1000 ? `${(amount / 1000).toFixed(1)}k` : amount.toFixed(0)
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 function buildFFLogsUrl(reportCode: string, fightID: number): string {

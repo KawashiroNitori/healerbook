@@ -40,6 +40,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 拖动状态
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
+  const maxScrollLeftRef = useRef(0)
+  const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
 
   const {
     timeline,
@@ -60,7 +62,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   // 布局常量
   const timeRulerHeight = 30
-  const eventTrackHeight = 100
   const skillTrackHeight = 40
   const labelColumnWidth = 150
 
@@ -137,7 +138,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const clickedOnBackground = target === stage || target.getClassName() === 'Rect'
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
-        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft, scrollTop }
+        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
       }
     }
@@ -153,16 +154,33 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.container().style.cursor = 'grab'
     }
 
+    const handleNativeWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        const { setZoomLevel } = useTimelineStore.getState()
+        const currentZoom = useTimelineStore.getState().zoomLevel
+        const delta = e.deltaY > 0 ? -5 : 5
+        const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
+        setZoomLevel(newZoomLevel)
+      } else {
+        e.preventDefault()
+        setScrollLeft((prev) => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
+      }
+    }
+
     stage.on('mousedown', handleStageMouseDown)
     stage.on('mousemove', handleStageMouseMove)
     stage.on('mouseup', handleStageMouseUp)
     stage.on('mouseleave', handleStageMouseUp)
+    stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
 
     return () => {
       stage.off('mousedown', handleStageMouseDown)
       stage.off('mousemove', handleStageMouseMove)
       stage.off('mouseup', handleStageMouseUp)
       stage.off('mouseleave', handleStageMouseUp)
+      stage.container().removeEventListener('wheel', handleNativeWheel)
     }
   }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
@@ -183,7 +201,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
       if (clickedOnBackground || isReadOnly) {
         isDraggingRef.current = true
-        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft, scrollTop }
+        dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
       }
     }
@@ -212,7 +230,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         setZoomLevel(newZoomLevel)
       } else {
         e.preventDefault()
-        setScrollLeft((prev) => Math.max(0, prev + e.deltaY))
+        setScrollLeft((prev) => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
       }
     }
 
@@ -300,6 +318,26 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     })
   })
 
+  // 泳道算法：为每个伤害事件分配行
+  const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
+  const LANE_ROW_HEIGHT = 36 // 每行高度（px）
+  const damageEventRowMap = new Map<string, number>()
+  const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
+
+  const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+  for (const event of sortedDamageEvents) {
+    const laneIndex = laneEndTimes.findIndex((endTime) => endTime <= event.time)
+    if (laneIndex !== -1) {
+      damageEventRowMap.set(event.id, laneIndex)
+      laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
+    } else {
+      damageEventRowMap.set(event.id, laneEndTimes.length)
+      laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+    }
+  }
+  const laneCount = Math.max(1, laneEndTimes.length)
+  const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
+
   // 计算时间轴总长度
   const lastEventTime = Math.max(
     0,
@@ -319,6 +357,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
   const maxScrollTop = Math.max(0, skillTracksHeight - (height - fixedAreaHeight))
   const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
+
+  // 同步 ref（用于事件处理器闭包）
+  useEffect(() => {
+    maxScrollLeftRef.current = maxScrollLeft
+    clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
+  }, [maxScrollLeft, clampedScrollLeft, clampedScrollTop])
 
   return (
     <div className="relative flex flex-col" style={{ width, height }}>
@@ -366,6 +410,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}
                 trackHeight={eventTrackHeight}
+                rowMap={damageEventRowMap}
+                rowHeight={LANE_ROW_HEIGHT}
                 yOffset={timeRulerHeight}
                 onSelectEvent={selectEvent}
                 onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}

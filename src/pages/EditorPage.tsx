@@ -13,6 +13,7 @@ import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { toast } from 'sonner'
+import { APP_NAME } from '@/lib/constants'
 
 export default function EditorPage() {
   const { timelineId } = useParams<{ timelineId: string }>()
@@ -68,6 +69,7 @@ export default function EditorPage() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
+      <title>{timeline?.name ? `${timeline.name} - ${APP_NAME}` : APP_NAME}</title>
       {/* Header */}
       <header className="border-b flex-shrink-0">
         <div className="px-4 py-3 flex items-center gap-4">

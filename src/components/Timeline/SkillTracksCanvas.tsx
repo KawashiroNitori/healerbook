@@ -302,6 +302,10 @@ export default function SkillTracksCanvas({
             .filter((other) => other.startTime >= castEventTimeSeconds + currentDuration)
             .reduce((min, other) => Math.min(min, other.startTime - currentDuration), Infinity)
 
+          const nextCastTime = sameTrackCastEvents
+            .filter((other) => other.startTime > castEventTimeSeconds)
+            .reduce((min, other) => Math.min(min, other.startTime), Infinity)
+
           return (
             <CastEventIcon
               key={castEvent.id}
@@ -312,6 +316,7 @@ export default function SkillTracksCanvas({
               trackY={trackY}
               leftBoundary={leftBoundary}
               rightBoundary={rightBoundary}
+              nextCastTime={nextCastTime}
               scrollLeft={scrollLeft}
               scrollTop={scrollTop}
               onSelect={() => onSelectCastEvent(castEvent.id)}

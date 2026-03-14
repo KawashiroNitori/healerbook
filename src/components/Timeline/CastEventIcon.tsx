@@ -15,6 +15,7 @@ interface CastEventIconProps {
   trackY: number
   leftBoundary: number
   rightBoundary: number
+  nextCastTime: number
   scrollLeft: number
   scrollTop: number
   onSelect: () => void
@@ -31,6 +32,7 @@ export default function CastEventIcon({
   trackY,
   leftBoundary,
   rightBoundary,
+  nextCastTime,
   scrollLeft,
   scrollTop,
   onSelect,
@@ -39,6 +41,9 @@ export default function CastEventIcon({
   isReadOnly = false,
 }: CastEventIconProps) {
   const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
+  const effectiveDuration = nextCastTime === Infinity
+    ? action.duration
+    : Math.min(action.duration, nextCastTime - castEvent.timestamp)
 
   return (
     <Group
@@ -67,7 +72,7 @@ export default function CastEventIcon({
         <Rect
           x={26}
           y={-15}
-          width={Math.max(0, action.duration * zoomLevel - 26)}
+          width={Math.max(0, effectiveDuration * zoomLevel - 26)}
           height={30}
           fill="#10b981"
           opacity={0.3}
@@ -79,7 +84,7 @@ export default function CastEventIcon({
       {/* 持续时间文本（在持续时间条末尾内侧） */}
       {action.duration >= 3 && (
         <Text
-          x={action.duration * zoomLevel - 22}
+          x={effectiveDuration * zoomLevel - 22}
           y={0}
           text={`${action.duration}s`}
           fontSize={10}
@@ -94,9 +99,9 @@ export default function CastEventIcon({
       {/* 冷却时间条（持续时间条右侧，蓝色，无圆角） */}
       {action.cooldown > 0 && (
         <Rect
-          x={action.duration * zoomLevel}
+          x={effectiveDuration * zoomLevel}
           y={-15}
-          width={Math.max(0, action.cooldown * zoomLevel - action.duration * zoomLevel)}
+          width={Math.max(0, action.cooldown * zoomLevel - effectiveDuration * zoomLevel)}
           height={30}
           fill="#3b82f6"
           opacity={0.2}

@@ -4,14 +4,13 @@
 
 import { Group, Rect, Text } from 'react-konva'
 import type { DamageEvent } from '@/types/timeline'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
 
 interface DamageEventCardProps {
   event: DamageEvent
-  result: CalculationResult
   isSelected: boolean
   zoomLevel: number
-  trackHeight: number
+  rowHeight: number
+  row: number
   yOffset: number
   onSelect: () => void
   onDragStart: () => void
@@ -22,10 +21,10 @@ interface DamageEventCardProps {
 
 export default function DamageEventCard({
   event,
-  result,
   isSelected,
   zoomLevel,
-  trackHeight,
+  rowHeight,
+  row,
   yOffset,
   onSelect,
   onDragStart,
@@ -34,17 +33,12 @@ export default function DamageEventCard({
   isReadOnly = false,
 }: DamageEventCardProps) {
   const x = event.time * zoomLevel
-  const y = yOffset + trackHeight / 2
+  const y = yOffset + row * rowHeight + rowHeight / 2
 
-  const originalDamage = event.damage
-  const finalDamage = result.finalDamage
-  const mitigationPercent = result.mitigationPercentage.toFixed(1)
-
-  // 伤害类型颜色映射
   const damageTypeColorMap: Record<string, string> = {
-    physical: '#ef4444', // 红色
-    magical: '#1e40af',  // 深蓝色
-    special: '#c026d3',  // 紫红色
+    physical: '#ef4444',
+    magical: '#1e40af',
+    special: '#c026d3',
   }
   const nameColor = damageTypeColorMap[event.damageType || 'physical'] || '#ef4444'
 
@@ -68,12 +62,12 @@ export default function DamageEventCard({
         onDragEnd(e.target.x())
       }}
     >
-      {/* 白色背景矩形 */}
+      {/* 背景矩形 */}
       <Rect
         x={0}
-        y={-40}
+        y={-15}
         width={150}
-        height={80}
+        height={30}
         fill="#ffffff"
         stroke={isSelected ? '#3b82f6' : '#d1d5db'}
         strokeWidth={isSelected ? 2 : 1}
@@ -82,55 +76,20 @@ export default function DamageEventCard({
         perfectDrawEnabled={false}
       />
 
-      {/* 伤害名称 */}
+      {/* 技能名称 */}
       <Text
         x={5}
-        y={-35}
+        y={-15}
         width={140}
+        height={30}
         text={event.name}
-        fontSize={14}
+        fontSize={13}
         fill={nameColor}
         fontStyle="bold"
         fontFamily="Arial, sans-serif"
         wrap="none"
         ellipsis={true}
-        perfectDrawEnabled={false}
-        listening={false}
-      />
-
-      {/* 原始伤害 */}
-      <Text
-        x={5}
-        y={-18}
-        text={`原始: ${originalDamage.toLocaleString()}`}
-        fontSize={12}
-        fill="#6b7280"
-        fontFamily="Arial, sans-serif"
-        perfectDrawEnabled={false}
-        listening={false}
-      />
-
-      {/* 最终伤害 */}
-      <Text
-        x={5}
-        y={0}
-        text={`最终: ${finalDamage.toLocaleString()}`}
-        fontSize={12}
-        fill="#10b981"
-        fontStyle="bold"
-        fontFamily="Arial, sans-serif"
-        perfectDrawEnabled={false}
-        listening={false}
-      />
-
-      {/* 减伤比例 */}
-      <Text
-        x={5}
-        y={18}
-        text={`减伤: ${mitigationPercent}%`}
-        fontSize={12}
-        fill="#ef4444"
-        fontFamily="Arial, sans-serif"
+        verticalAlign="middle"
         perfectDrawEnabled={false}
         listening={false}
       />

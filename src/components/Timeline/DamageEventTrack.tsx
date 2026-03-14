@@ -14,6 +14,8 @@ interface DamageEventTrackProps {
   zoomLevel: number
   timelineWidth: number
   trackHeight: number
+  rowMap: Map<string, number>
+  rowHeight: number
   yOffset: number
   onSelectEvent: (id: string) => void
   onDragStart: (eventId: string, x: number) => void
@@ -29,6 +31,8 @@ export default function DamageEventTrack({
   zoomLevel,
   timelineWidth,
   trackHeight,
+  rowMap,
+  rowHeight,
   yOffset,
   onSelectEvent,
   onDragStart,
@@ -58,10 +62,10 @@ export default function DamageEventTrack({
             <DamageEventCard
               key={event.id}
               event={event}
-              result={result}
               isSelected={selectedEventId === event.id}
               zoomLevel={zoomLevel}
-              trackHeight={trackHeight}
+              rowHeight={rowHeight}
+              row={rowMap.get(event.id) ?? 0}
               yOffset={yOffset}
               onSelect={() => onSelectEvent(event.id)}
               onDragStart={() => onDragStart(event.id, event.time * zoomLevel)}

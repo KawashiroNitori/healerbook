@@ -19,7 +19,7 @@
     /* Path Alias */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["./src/*", "./3rdparty/ff14-overlay-vue/src/*"],
       "@ff14-overlay/*": ["./3rdparty/ff14-overlay-vue/src/*"]
     },
 

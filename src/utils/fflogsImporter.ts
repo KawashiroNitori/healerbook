@@ -6,26 +6,13 @@ import type { FFLogsReport, FFLogsAbility } from '@/types/fflogs'
 import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
+import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import { JOB_MAP } from '@/data/jobMap'
 
-let actionChineseCache: Record<string, string> | null = null
+const actionChinese: Record<string, string> = actionChineseRaw
 
-async function loadActionChinese(): Promise<Record<string, string>> {
-  if (!actionChineseCache) {
-    const mod = await import('@ff14-overlay/resources/generated/actionChinese.json')
-    actionChineseCache = mod.default as Record<string, string>
-  }
-  return actionChineseCache
-}
-
-export async function parseDamageEventsAsync(
-  events: any[],
-  fightStartTime: number,
-  playerMap: Map<number, { id: number; name: string; type: string }>,
-  abilityMap?: Map<number, FFLogsAbility>
-): Promise<DamageEvent[]> {
-  const actionChinese = await loadActionChinese()
-  return parseDamageEvents(events, fightStartTime, playerMap, abilityMap, actionChinese)
+function getActionChinese(actionId: number): string | undefined {
+  return actionChinese[actionId.toString()]
 }
 
 /**

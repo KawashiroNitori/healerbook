@@ -12,6 +12,7 @@ import {
 } from '@/utils/timelineStorage'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
+import { APP_NAME } from '@/lib/constants'
 import TimelineCard from '@/components/TimelineCard'
 
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
@@ -50,10 +51,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <title>{APP_NAME}</title>
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">Healerbook</h1>
+          <h1 className="text-2xl font-bold">{APP_NAME}</h1>
           <p className="text-sm text-muted-foreground">FF14 减伤规划工具</p>
         </div>
       </header>
