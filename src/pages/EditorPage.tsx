@@ -12,13 +12,14 @@ import ActionPanel from '@/components/SkillPanel'
 import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import EditableTitle from '@/components/EditableTitle'
 import { toast } from 'sonner'
 import { APP_NAME } from '@/lib/constants'
 
 export default function EditorPage() {
   const { timelineId } = useParams<{ timelineId: string }>()
   const navigate = useNavigate()
-  const { timeline, setTimeline } = useTimelineStore()
+  const { timeline, setTimeline, updateTimelineName } = useTimelineStore()
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
@@ -80,7 +81,11 @@ export default function EditorPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-bold">{timeline?.name || '时间轴编辑器'}</h1>
+            <EditableTitle
+              value={timeline?.name || '时间轴编辑器'}
+              onChange={updateTimelineName}
+              className="text-lg font-bold"
+            />
             <p className="text-xs text-muted-foreground">ID: {timelineId}</p>
           </div>
         </div>

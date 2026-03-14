@@ -51,3 +51,14 @@ export const ALL_ENCOUNTERS: RaidEncounter[] = RAID_TIERS.flatMap((tier) => tier
 export function getEncounterById(id: number): RaidEncounter | undefined {
   return ALL_ENCOUNTERS.find((e) => e.id === id)
 }
+
+// 通过 ID 获取遭遇战及其所属的 RaidTier
+export function getEncounterWithTier(id: number): { encounter: RaidEncounter; tier: RaidTier } | undefined {
+  for (const tier of RAID_TIERS) {
+    const encounter = tier.encounters.find((e) => e.id === id)
+    if (encounter) {
+      return { encounter, tier }
+    }
+  }
+  return undefined
+}

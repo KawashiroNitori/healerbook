@@ -463,6 +463,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 rowMap={damageEventRowMap}
                 rowHeight={LANE_ROW_HEIGHT}
                 yOffset={timeRulerHeight}
+                maxTime={maxTime}
                 onSelectEvent={selectEvent}
                 onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}
                 onDragMove={(eventId, x) => {

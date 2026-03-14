@@ -5,6 +5,7 @@
 import type { ReactElement } from 'react'
 import { Group, Layer, Line, Rect, Text } from 'react-konva'
 import CastEventIcon from './CastEventIcon'
+import { DAMAGE_TIME_LINE_STYLE } from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -113,9 +114,7 @@ export default function SkillTracksCanvas({
             <Line
               key={`damage-line-${event.id}`}
               points={[x, 0, x, skillTracksHeight]}
-              stroke="#ef4444"
-              strokeWidth={2}
-              dash={[5, 5]}
+              {...DAMAGE_TIME_LINE_STYLE}
               shadowEnabled={false}
               perfectDrawEnabled={false}
               listening={false}

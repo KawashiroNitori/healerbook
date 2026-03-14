@@ -2,8 +2,9 @@
  * 伤害事件轨道组件
  */
 
-import { Rect } from 'react-konva'
+import { Rect, Line } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
+import { GRID_LINE_STYLE, DAMAGE_TIME_LINE_STYLE } from './constants'
 import type { DamageEvent } from '@/types/timeline'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
 
@@ -17,6 +18,7 @@ interface DamageEventTrackProps {
   rowMap: Map<string, number>
   rowHeight: number
   yOffset: number
+  maxTime: number
   onSelectEvent: (id: string) => void
   onDragStart: (eventId: string, x: number) => void
   onDragMove: (eventId: string, x: number) => void
@@ -34,16 +36,53 @@ export default function DamageEventTrack({
   rowMap,
   rowHeight,
   yOffset,
+  maxTime,
   onSelectEvent,
   onDragStart,
   onDragMove,
   onDragEnd,
   isReadOnly = false,
 }: DamageEventTrackProps) {
+  // 生成时间刻度网格线（每10秒一条，实线）
+  const gridLines = []
+  const gridInterval = 10 // 10秒间隔
+  for (let time = gridInterval; time <= maxTime; time += gridInterval) {
+    const x = time * zoomLevel
+    gridLines.push(
+      <Line
+        key={`grid-${time}`}
+        points={[x, yOffset, x, yOffset + trackHeight]}
+        {...GRID_LINE_STYLE}
+      />
+    )
+  }
+
+  // 生成伤害时间指示虚线（从卡片底部开始）
+  const CARD_HEIGHT = 28 // 卡片高度
+  const damageTimeLines = events.map((event) => {
+    const x = event.time * zoomLevel
+    const row = rowMap.get(event.id) ?? 0
+    const cardBottomY = yOffset + row * rowHeight + CARD_HEIGHT
+
+    return (
+      <Line
+        key={`damage-line-${event.id}`}
+        points={[x, cardBottomY, x, yOffset + trackHeight]}
+        {...DAMAGE_TIME_LINE_STYLE}
+      />
+    )
+  })
+
   return (
     <>
       {/* 伤害事件轨道背景 */}
       <Rect x={0} y={yOffset} width={timelineWidth} height={trackHeight} fill="#e5e7eb" />
+
+      {/* 时间刻度网格线 */}
+      {gridLines}
+
+      {/* 伤害时间指示虚线 */}
+      {damageTimeLines}
 
       {/* 伤害事件 */}
       {[...events]

@@ -126,6 +126,8 @@ interface TimelineState {
   updateScrollState: (scrollLeft: number, timelineWidth: number, viewportWidth: number) => void
   /** 带滚动进度保持的缩放 */
   zoomWithScrollPreservation: (delta: number) => void
+  /** 更新时间轴名称 */
+  updateTimelineName: (name: string) => void
   /** 更新阵容 */
   updateComposition: (composition: Composition) => void
   /** 添加伤害事件 */
@@ -143,7 +145,7 @@ interface TimelineState {
   /** 解除回放模式 */
   exitReplayMode: () => void
   /** 触发自动保存 */
-  triggerAutoSave: () => void
+  triggerAutoSave: (delay?: number) => void
   /** 重置状态 */
   reset: () => void
 }
@@ -363,6 +365,21 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ zoomLevel: newZoomLevel })
   },
 
+  updateTimelineName: (name) => {
+    set((state) => {
+      if (!state.timeline) return state
+
+      return {
+        timeline: {
+          ...state.timeline,
+          name,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    })
+    get().triggerAutoSave(0)
+  },
+
   updateComposition: (composition) => {
     set((state) => {
       if (!state.timeline) return state
@@ -482,12 +499,23 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     get().triggerAutoSave()
   },
 
-  triggerAutoSave: () => {
+  triggerAutoSave: (delay = AUTO_SAVE_DELAY) => {
     const state = get()
 
     // 清除之前的定时器
     if (state.autoSaveTimer) {
       clearTimeout(state.autoSaveTimer)
+    }
+
+    // 如果 delay 为 0，立即保存
+    if (delay === 0) {
+      const currentState = get()
+      if (currentState.timeline) {
+        saveTimeline(currentState.timeline)
+        console.log('立即保存完成')
+      }
+      set({ autoSaveTimer: null })
+      return
     }
 
     // 设置新的定时器
@@ -497,7 +525,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         saveTimeline(currentState.timeline)
         console.log('自动保存完成')
       }
-    }, AUTO_SAVE_DELAY)
+    }, delay)
 
     set({ autoSaveTimer: timer })
   },

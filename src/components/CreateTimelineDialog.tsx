@@ -7,6 +7,16 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { RAID_TIERS } from '@/data/raidEncounters'
 
 interface CreateTimelineDialogProps {
   open: boolean
@@ -17,7 +27,7 @@ interface CreateTimelineDialogProps {
 export default function CreateTimelineDialog({ open, onClose, onCreated }: CreateTimelineDialogProps) {
   const navigate = useNavigate()
   const [name, setName] = useState('')
-  const [encounterId, setEncounterId] = useState('p9s')
+  const [encounterId, setEncounterId] = useState(RAID_TIERS[0]?.encounters[0]?.id.toString() || '')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,30 +59,32 @@ export default function CreateTimelineDialog({ open, onClose, onCreated }: Creat
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如: P9S 减伤规划"
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
+              autoComplete="off"
+              data-1p-ignore
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">副本</label>
-            <select
-              value={encounterId}
-              onChange={(e) => setEncounterId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
-            >
-              <option value="p9s">P9S - Kokytos</option>
-              <option value="p10s">P10S - Pandæmonium</option>
-              <option value="p11s">P11S - Themis</option>
-              <option value="p12s_p1">P12S Phase 1 - Athena</option>
-              <option value="p12s_p2">P12S Phase 2 - Pallas Athena</option>
-              <option value="top">TOP - The Omega Protocol</option>
-              <option value="dsr">DSR - Dragonsong's Reprise</option>
-              <option value="tea">TEA - The Epic of Alexander</option>
-              <option value="uwu">UWU - The Weapon's Refrain</option>
-              <option value="ucob">UCOB - The Unending Coil of Bahamut</option>
-            </select>
+            <Select value={encounterId} onValueChange={setEncounterId}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择副本" />
+              </SelectTrigger>
+              <SelectContent>
+                {RAID_TIERS.map((tier) => (
+                  <SelectGroup key={tier.zone}>
+                    <SelectLabel>{tier.name} ({tier.patch})</SelectLabel>
+                    {tier.encounters.map((encounter) => (
+                      <SelectItem key={encounter.id} value={encounter.id.toString()}>
+                        {encounter.shortName} - {encounter.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <ModalFooter>

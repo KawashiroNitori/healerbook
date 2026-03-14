@@ -11,6 +11,7 @@ import { createFFLogsClient } from '@/api/fflogsClient'
 import { parseComposition, parseDamageEvents, parseCastEventsFromFFLogs, parseStatusEvents } from '@/utils/fflogsImporter'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
+import { getEncounterWithTier } from '@/data/raidEncounters'
 
 interface ImportFFLogsDialogProps {
   open: boolean
@@ -117,7 +118,15 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
       }
 
       // 创建时间轴名称
-      const timelineName = `${report.title || '未命名报告'} - ${fight.name || `战斗 ${fightId}`}`
+      // 优先从 raidEncounters.ts 查询副本名称
+      let timelineName = fight.name || `战斗 ${fightId}`
+
+      if (fight.encounterID) {
+        const result = getEncounterWithTier(fight.encounterID)
+        if (result) {
+          timelineName = `${result.tier.name} - ${result.encounter.name}`
+        }
+      }
 
       // 创建新时间轴
       const newTimeline = createNewTimeline(
