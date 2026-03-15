@@ -53,6 +53,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 记录是否点击了背景（用于区分点击和拖动）
   const clickedBackgroundRef = useRef(false)
   const hasMovedRef = useRef(false)
+  const panJustEndedRef = useRef(false) // 标记刚刚完成了平移操作，阻止后续 click 选中技能
   // 双指缩放状态
   const isPinchingRef = useRef(false)
   const lastPinchDistanceRef = useRef<number | null>(null)
@@ -307,23 +308,22 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         }
       }
       const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
-      if (clickedOnBackground || isReadOnly) {
-        clickedBackgroundRef.current = clickedOnBackground
-        hasMovedRef.current = false
-        isDraggingRef.current = true
-        const { clientX, clientY } = getClientPosition(evt)
-        dragStartRef.current = {
-          x: clientX,
-          y: clientY,
-          scrollLeft: clampedScrollRef.current.scrollLeft,
-          scrollTop: clampedScrollRef.current.scrollTop,
-        }
-        stage.container().style.cursor = 'grabbing'
-        // 点击背景时关闭悬浮窗
-        if (clickedOnBackground) {
-          const { clearTooltip } = useTooltipStore.getState()
-          clearTooltip()
-        }
+      // 走到这里说明没有找到可拖动节点（或只读模式），统一触发时间轴平移
+      clickedBackgroundRef.current = clickedOnBackground
+      hasMovedRef.current = false
+      isDraggingRef.current = true
+      const { clientX, clientY } = getClientPosition(evt)
+      dragStartRef.current = {
+        x: clientX,
+        y: clientY,
+        scrollLeft: clampedScrollRef.current.scrollLeft,
+        scrollTop: clampedScrollRef.current.scrollTop,
+      }
+      stage.container().style.cursor = 'grabbing'
+      // 点击背景时关闭悬浮窗
+      if (clickedOnBackground) {
+        const { clearTooltip } = useTooltipStore.getState()
+        clearTooltip()
       }
     }
 
@@ -372,6 +372,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       isDraggingRef.current = false
       clickedBackgroundRef.current = false
+      panJustEndedRef.current = hasMovedRef.current // 在重置前记录是否发生过移动
       hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
@@ -461,24 +462,23 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           node = node.parent as KonvaNode
         }
       }
+      // 走到这里说明没有找到可拖动节点（或只读模式），统一触发时间轴平移
       const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
-      if (clickedOnBackground || isReadOnly) {
-        clickedBackgroundRef.current = clickedOnBackground
-        hasMovedRef.current = false
-        isDraggingRef.current = true
-        const { clientX, clientY } = getClientPosition(evt)
-        dragStartRef.current = {
-          x: clientX,
-          y: clientY,
-          scrollLeft: clampedScrollRef.current.scrollLeft,
-          scrollTop: clampedScrollRef.current.scrollTop,
-        }
-        stage.container().style.cursor = 'grabbing'
-        // 点击背景时关闭悬浮窗
-        if (clickedOnBackground) {
-          const { clearTooltip } = useTooltipStore.getState()
-          clearTooltip()
-        }
+      clickedBackgroundRef.current = clickedOnBackground
+      hasMovedRef.current = false
+      isDraggingRef.current = true
+      const { clientX, clientY } = getClientPosition(evt)
+      dragStartRef.current = {
+        x: clientX,
+        y: clientY,
+        scrollLeft: clampedScrollRef.current.scrollLeft,
+        scrollTop: clampedScrollRef.current.scrollTop,
+      }
+      stage.container().style.cursor = 'grabbing'
+      // 点击背景时关闭悬浮窗
+      if (clickedOnBackground) {
+        const { clearTooltip } = useTooltipStore.getState()
+        clearTooltip()
       }
     }
 
@@ -529,6 +529,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       isDraggingRef.current = false
       clickedBackgroundRef.current = false
+      panJustEndedRef.current = hasMovedRef.current // 在重置前记录是否发生过移动
       hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
@@ -646,6 +647,24 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     updateCastEvent(castEventId, { timestamp: newTime })
   }
 
+  // 拖动结束时不应选中伤害事件，只有明确的点击才选中
+  const handleSelectEvent = (id: string) => {
+    if (panJustEndedRef.current) {
+      panJustEndedRef.current = false
+      return
+    }
+    selectEvent(id)
+  }
+
+  // 拖动结束时不应选中技能，只有明确的点击才选中
+  const handleSelectCastEvent = (id: string) => {
+    if (panJustEndedRef.current) {
+      panJustEndedRef.current = false
+      return
+    }
+    selectCastEvent(id)
+  }
+
   if (!timeline || !layoutData) {
     return (
       <div className="flex items-center justify-center bg-muted/20" style={{ width, height }}>
@@ -719,7 +738,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 rowHeight={LANE_ROW_HEIGHT}
                 yOffset={timeRulerHeight}
                 maxTime={maxTime}
-                onSelectEvent={selectEvent}
+                draggingEventPosition={draggingEventPosition}
+                onSelectEvent={handleSelectEvent}
                 onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}
                 onDragMove={(eventId, x) => {
                   setDraggingEventPosition({ eventId, x })
@@ -773,7 +793,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               draggingEventPosition={draggingEventPosition}
               scrollLeft={clampedScrollLeft}
               scrollTop={clampedScrollTop}
-              onSelectCastEvent={selectCastEvent}
+              onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
               onContextMenu={castEventId => {
                 setCastEventToDelete(castEventId)

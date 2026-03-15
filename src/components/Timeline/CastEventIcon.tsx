@@ -56,7 +56,7 @@ export default function CastEventIcon({
     <Group
       x={x}
       y={trackY}
-      draggable={!isReadOnly}
+      draggable={isSelected && !isReadOnly}
       dragBoundFunc={pos => {
         // pos 是 Stage 坐标，边界是 Layer 坐标，需要转换
         const minX = leftBoundary * zoomLevel - scrollLeft

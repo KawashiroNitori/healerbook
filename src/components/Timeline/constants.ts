@@ -9,10 +9,9 @@ export const GRID_LINE_STYLE = {
   dash: undefined, // 实线
 }
 
-// 伤害事件时间指示虚线样式
+// 伤害事件时间指示线样式
 export const DAMAGE_TIME_LINE_STYLE = {
   stroke: '#ef4444',
   strokeWidth: 1,
-  dash: [5, 5],
-  opacity: 0.5,
+  opacity: 0.2,
 }

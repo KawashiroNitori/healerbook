@@ -46,7 +46,7 @@ export default function DamageEventCard({
     <Group
       x={x}
       y={y}
-      draggable={!isReadOnly}
+      draggable={isSelected && !isReadOnly}
       dragBoundFunc={pos => ({
         x: Math.max(0, pos.x),
         y: y,

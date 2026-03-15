@@ -30,7 +30,8 @@
       "Bash(python -m json.tool:*)",
       "Bash(pnpm tsc:*)",
       "Bash(cut:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "WebFetch(domain:v2.xivapi.com)"
     ]
   }
 }

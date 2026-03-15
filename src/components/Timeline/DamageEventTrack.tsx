@@ -19,6 +19,7 @@ interface DamageEventTrackProps {
   rowHeight: number
   yOffset: number
   maxTime: number
+  draggingEventPosition: { eventId: string; x: number } | null
   onSelectEvent: (id: string) => void
   onDragStart: (eventId: string, x: number) => void
   onDragMove: (eventId: string, x: number) => void
@@ -37,6 +38,7 @@ export default function DamageEventTrack({
   rowHeight,
   yOffset,
   maxTime,
+  draggingEventPosition,
   onSelectEvent,
   onDragStart,
   onDragMove,
@@ -60,7 +62,10 @@ export default function DamageEventTrack({
   // 生成伤害时间指示虚线（从卡片底部开始）
   const CARD_HEIGHT = 28 // 卡片高度
   const damageTimeLines = events.map(event => {
-    const x = event.time * zoomLevel
+    const x =
+      draggingEventPosition?.eventId === event.id
+        ? draggingEventPosition.x
+        : event.time * zoomLevel
     const row = rowMap.get(event.id) ?? 0
     const cardBottomY = yOffset + row * rowHeight + CARD_HEIGHT
 
