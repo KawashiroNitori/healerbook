@@ -7,6 +7,7 @@ import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import type { MitigationAssignment } from '@/types/timeline'
 import type { KonvaContextMenuEvent } from '@/types/konva'
+import type { KonvaEventObject } from 'konva/lib/Node'
 
 interface MitigationAssignmentIconProps {
   assignment: MitigationAssignment
@@ -19,6 +20,8 @@ interface MitigationAssignmentIconProps {
   onSelect: () => void
   onDragEnd: (x: number) => void
   onContextMenu: (e: KonvaContextMenuEvent) => void
+  onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onUnhover: () => void
   isReadOnly?: boolean
 }
 
@@ -33,6 +36,8 @@ export default function MitigationAssignmentIcon({
   onSelect,
   onDragEnd,
   onContextMenu,
+  onHover,
+  onUnhover,
   isReadOnly = false,
 }: MitigationAssignmentIconProps) {
   const x = assignment.time * zoomLevel
@@ -57,6 +62,8 @@ export default function MitigationAssignmentIcon({
         onDragEnd(e.target.x())
       }}
       onContextMenu={onContextMenu}
+      onMouseEnter={(e) => onHover(action, e)}
+      onMouseLeave={onUnhover}
     >
       {/* 持续时间条（从图标内部开始，填充圆角缺口，绿色，无圆角） */}
       {action.duration > 0 && (

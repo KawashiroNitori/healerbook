@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useTooltipStore } from '@/store/tooltipStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import CompositionDialog from './CompositionDialog'
 import JobIcon from './JobIcon'
@@ -14,6 +15,7 @@ import { sortJobsByOrder, getJobName } from '@/data/jobs'
 export default function ActionPanel() {
   const { actions, loadActions } = useMitigationStore()
   const { timeline, updateComposition } = useTimelineStore()
+  const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
 
   useEffect(() => {
@@ -106,7 +108,10 @@ export default function ActionPanel() {
                       jobActions.map((action) => (
                         <div
                           key={action.id}
-                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors"
+                          className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                          onMouseEnter={(e) => showTooltip(action, e.currentTarget.getBoundingClientRect())}
+                          onMouseLeave={hideTooltip}
+                          onClick={(e) => toggleTooltip(action, e.currentTarget.getBoundingClientRect())}
                         >
                           {/* 技能图标 */}
                           <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted">

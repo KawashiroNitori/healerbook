@@ -9,6 +9,7 @@ import { DAMAGE_TIME_LINE_STYLE } from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
+import type { KonvaEventObject } from 'konva/lib/Node'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
@@ -26,6 +27,8 @@ interface SkillTracksCanvasProps {
   onUpdateCastEvent: (id: string, x: number) => void
   onContextMenu: (castEventId: string) => void
   onDoubleClickTrack: (track: SkillTrack, time: number) => void
+  onHoverAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
   isReadOnly?: boolean
 }
 
@@ -45,6 +48,8 @@ export default function SkillTracksCanvas({
   onUpdateCastEvent,
   onContextMenu,
   onDoubleClickTrack,
+  onHoverAction,
+  onClickAction,
   isReadOnly = false,
 }: SkillTracksCanvasProps) {
   const skillTracksHeight = skillTracks.length * trackHeight
@@ -336,6 +341,8 @@ export default function SkillTracksCanvas({
                 e.evt.preventDefault()
                 onContextMenu(castEvent.id)
               }}
+              onHover={onHoverAction}
+              onClickIcon={onClickAction}
               isReadOnly={isReadOnly}
             />
           )

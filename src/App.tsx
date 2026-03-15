@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
+import TooltipOverlay from '@/components/TooltipOverlay'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const EditorPage = lazy(() => import('./pages/EditorPage'))
@@ -19,6 +20,7 @@ function App() {
         </Routes>
       </Suspense>
       <Toaster />
+      <TooltipOverlay />
     </BrowserRouter>
     </QueryClientProvider>
   )

@@ -80,10 +80,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
 
     // 暗黑骑士 (DRK)
     {
-      id: 3638,
+      id: 16471,
       name: '暗黑布道',
       icon: '/i/003000/003087.png',
-      uniqueGroup: [3638],
+      uniqueGroup: [16471],
       jobs: ['DRK'],
       duration: 15,
       cooldown: 90,

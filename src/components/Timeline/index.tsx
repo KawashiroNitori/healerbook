@@ -7,6 +7,7 @@ import { Stage, Layer } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
+import { useTooltipStore } from '@/store/tooltipStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { sortJobsByOrder } from '@/data/jobs'
 import { useDamageCalculationV2 } from '@/hooks/useDamageCalculationV2'
@@ -19,7 +20,9 @@ import SkillTracksCanvas from './SkillTracksCanvas'
 import TimelineMinimap from './TimelineMinimap'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent } from '@/types/timeline'
+import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaMouseEvent, KonvaNode } from '@/types/konva'
+import type { KonvaEventObject } from 'konva/lib/Node'
 
 interface TimelineCanvasProps {
   width: number
@@ -73,6 +76,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     zoomWithScrollPreservation,
   } = useTimelineStore()
   const { actions } = useMitigationStore()
+  const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
 
   const eventResults = useDamageCalculationV2(timeline)
@@ -80,7 +84,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 布局常量
   const timeRulerHeight = 30
   const skillTrackHeight = 40
-  const labelColumnWidth = 150
+  const labelColumnWidth = 70
 
   // 计算布局数据
   const layoutData = timeline ? (() => {
@@ -305,6 +309,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
+        // 点击背景时关闭悬浮窗
+        if (clickedOnBackground) {
+          const { clearTooltip } = useTooltipStore.getState()
+          clearTooltip()
+        }
       }
     }
 
@@ -446,6 +455,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         const { clientX, clientY } = getClientPosition(evt)
         dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
         stage.container().style.cursor = 'grabbing'
+        // 点击背景时关闭悬浮窗
+        if (clickedOnBackground) {
+          const { clearTooltip } = useTooltipStore.getState()
+          clearTooltip()
+        }
       }
     }
 
@@ -529,6 +543,45 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
+  // 处理技能悬浮提示
+  const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
+    const stage = e.target.getStage()
+    if (!stage) return
+    const stageBounds = stage.container().getBoundingClientRect()
+    let node = e.target
+    while (node.getClassName() !== 'Group' && node.getParent()) {
+      node = node.getParent()!
+    }
+    const absPos = node.getAbsolutePosition()
+    const screenX = stageBounds.left + absPos.x
+    const screenY = stageBounds.top + absPos.y
+    const anchorRect = new DOMRect(screenX, screenY - 15, 30, 30)
+    showTooltip(action, anchorRect)
+  }
+
+  const handleClickAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
+    const stage = e.target.getStage()
+    if (!stage) return
+    const stageBounds = stage.container().getBoundingClientRect()
+    let node = e.target
+    while (node.getClassName() !== 'Group' && node.getParent()) {
+      node = node.getParent()!
+    }
+    const absPos = node.getAbsolutePosition()
+    const screenX = stageBounds.left + absPos.x
+    const screenY = stageBounds.top + absPos.y
+    const anchorRect = new DOMRect(screenX, screenY - 15, 30, 30)
+    toggleTooltip(action, anchorRect)
+  }
+
+  const handleHoverActionFromDom = (action: MitigationAction, anchorRect: DOMRect) => {
+    showTooltip(action, anchorRect)
+  }
+
+  const handleClickActionFromDom = (action: MitigationAction, anchorRect: DOMRect) => {
+    toggleTooltip(action, anchorRect)
+  }
+
   // 处理双击轨道添加技能
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
     if (!timeline || isReadOnly) return
@@ -597,16 +650,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         >
           <div
             style={{ height: timeRulerHeight }}
-            className="border-b bg-muted/30 flex items-center px-2"
+            className="border-b bg-muted/30 flex items-center justify-end px-2"
           >
             <span className="text-xs text-muted-foreground">时间</span>
           </div>
 
           <div
             style={{ height: eventTrackHeight }}
-            className="border-b bg-muted/50 flex items-center px-2"
+            className="border-b bg-muted/50 flex items-center justify-end px-2"
           >
-            <span className="text-xs text-muted-foreground">伤害事件</span>
+            <span className="text-xs text-muted-foreground">伤害</span>
           </div>
         </div>
 
@@ -657,7 +710,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           style={{ width: labelColumnWidth }}
         >
           <div ref={labelColumnContainerRef} style={{ height: skillTracksHeight, transform: `translateY(-${clampedScrollTop}px)` }}>
-            <SkillTrackLabels skillTracks={skillTracks} trackHeight={skillTrackHeight} />
+            <SkillTrackLabels
+              skillTracks={skillTracks}
+              trackHeight={skillTrackHeight}
+              actions={actions}
+              onHoverAction={handleHoverActionFromDom}
+              onClickAction={handleClickActionFromDom}
+              onUnhoverAction={hideTooltip}
+            />
           </div>
         </div>
 
@@ -690,6 +750,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 setDeleteConfirmOpen(true)
               }}
               onDoubleClickTrack={handleDoubleClickTrack}
+              onHoverAction={handleHoverAction}
+              onClickAction={handleClickAction}
               isReadOnly={isReadOnly}
             />
           </Stage>

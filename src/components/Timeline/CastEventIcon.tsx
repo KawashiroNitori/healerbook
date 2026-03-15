@@ -7,6 +7,7 @@ import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { KonvaContextMenuEvent } from '@/types/konva'
+import type { KonvaEventObject } from 'konva/lib/Node'
 
 interface CastEventIconProps {
   castEvent: CastEvent
@@ -22,6 +23,8 @@ interface CastEventIconProps {
   onSelect: () => void
   onDragEnd: (x: number) => void
   onContextMenu: (e: KonvaContextMenuEvent) => void
+  onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onClickIcon: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
   isReadOnly?: boolean
 }
 
@@ -39,6 +42,8 @@ export default function CastEventIcon({
   onSelect,
   onDragEnd,
   onContextMenu,
+  onHover,
+  onClickIcon,
   isReadOnly = false,
 }: CastEventIconProps) {
   const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
@@ -157,6 +162,17 @@ export default function CastEventIcon({
           />
         </>
       )}
+
+      {/* 图标区域鼠标响应层（仅图标范围触发悬浮提示） */}
+      <Rect
+        x={0}
+        y={-15}
+        width={30}
+        height={30}
+        fill="transparent"
+        onMouseEnter={(e) => onHover(action, e)}
+        onTap={(e) => onClickIcon(action, e)}
+      />
     </Group>
   )
 }
