@@ -24,7 +24,7 @@ interface CastEventIconProps {
   onDragEnd: (x: number) => void
   onContextMenu: (e: KonvaContextMenuEvent) => void
   onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
-  onClickIcon: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onClickIcon: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
   isReadOnly?: boolean
 }
 

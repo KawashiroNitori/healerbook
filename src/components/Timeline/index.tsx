@@ -548,7 +548,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const stage = e.target.getStage()
     if (!stage) return
     const stageBounds = stage.container().getBoundingClientRect()
-    let node = e.target
+    let node: Konva.Node = e.target
     while (node.getClassName() !== 'Group' && node.getParent()) {
       node = node.getParent()!
     }
@@ -559,11 +559,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     showTooltip(action, anchorRect)
   }
 
-  const handleClickAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
+  const handleClickAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage()
     if (!stage) return
     const stageBounds = stage.container().getBoundingClientRect()
-    let node = e.target
+    let node: Konva.Node = e.target
     while (node.getClassName() !== 'Group' && node.getParent()) {
       node = node.getParent()!
     }

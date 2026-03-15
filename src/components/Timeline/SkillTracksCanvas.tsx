@@ -28,7 +28,7 @@ interface SkillTracksCanvasProps {
   onContextMenu: (castEventId: string) => void
   onDoubleClickTrack: (track: SkillTrack, time: number) => void
   onHoverAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
-  onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
   isReadOnly?: boolean
 }
 
