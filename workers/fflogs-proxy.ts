@@ -12,9 +12,16 @@
  */
 
 import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
-import { syncEncounter, extractFightStatistics, getTop100KVKey, getStatisticsKVKey, type Top100Data, type EncounterStatistics } from './top100Sync'
-import { ALL_ENCOUNTERS, type RaidEncounter } from '../src/data/raidEncounters'
+import { syncEncounter, extractFightStatistics, getTop100KVKey, getStatisticsKVKey, type Top100Data } from './top100Sync'
+import { ALL_ENCOUNTERS } from '../src/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '../src/types/fflogs'
+
+interface QueueMessageBody {
+  type: string
+  encounterId?: number
+  reportCode?: string
+  fightID?: number
+}
 
 export interface Env {
   // FFLogs v2 OAuth Client ID
@@ -107,7 +114,7 @@ export default {
 
     for (const message of batch.messages) {
       try {
-        const body = message.body as any
+        const body = message.body as QueueMessageBody
 
         switch (body.type) {
           case 'sync-encounter': {

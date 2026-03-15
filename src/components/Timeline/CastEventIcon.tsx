@@ -47,16 +47,17 @@ export default function CastEventIcon({
   isReadOnly = false,
 }: CastEventIconProps) {
   const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
-  const effectiveDuration = nextCastTime === Infinity
-    ? action.duration
-    : Math.min(action.duration, nextCastTime - castEvent.timestamp)
+  const effectiveDuration =
+    nextCastTime === Infinity
+      ? action.duration
+      : Math.min(action.duration, nextCastTime - castEvent.timestamp)
 
   return (
     <Group
       x={x}
       y={trackY}
       draggable={!isReadOnly}
-      dragBoundFunc={(pos) => {
+      dragBoundFunc={pos => {
         // pos 是 Stage 坐标，边界是 Layer 坐标，需要转换
         const minX = leftBoundary * zoomLevel - scrollLeft
         const maxX = rightBoundary === Infinity ? pos.x : rightBoundary * zoomLevel - scrollLeft
@@ -68,7 +69,7 @@ export default function CastEventIcon({
       }}
       onClick={onSelect}
       onTap={onSelect}
-      onDragEnd={(e) => {
+      onDragEnd={e => {
         onDragEnd(e.target.x())
       }}
       onContextMenu={onContextMenu}
@@ -170,8 +171,8 @@ export default function CastEventIcon({
         width={30}
         height={30}
         fill="transparent"
-        onMouseEnter={(e) => onHover(action, e)}
-        onTap={(e) => onClickIcon(action, e)}
+        onMouseEnter={e => onHover(action, e)}
+        onTap={e => onClickIcon(action, e)}
       />
     </Group>
   )

@@ -19,7 +19,12 @@ interface ActionTooltipProps {
   onMouseLeave: () => void
 }
 
-export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMouseLeave }: ActionTooltipProps) {
+export default function ActionTooltip({
+  action,
+  anchorRect,
+  onMouseEnter,
+  onMouseLeave,
+}: ActionTooltipProps) {
   // 保留上一次非 null 的数据，用于退出动画期间继续渲染
   const [displayedData, setDisplayedData] = useState<{
     action: MitigationAction
@@ -33,11 +38,25 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
   const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const showTimeRef = useRef<number>(0)
 
-  useEffect(() => {
+  // 渲染期派生状态更新（React 推荐的 "adjusting state when props change" 模式）
+  // 当 action/anchorRect 改变时同步更新，避免在 effect 中调用 setState
+  const [prevAction, setPrevAction] = useState(action)
+  const [prevAnchorRect, setPrevAnchorRect] = useState(anchorRect)
+  if (action !== prevAction || anchorRect !== prevAnchorRect) {
+    setPrevAction(action)
+    setPrevAnchorRect(anchorRect)
     if (action !== null && anchorRect !== null) {
       setDisplayedData({ action, anchorRect })
       setIsVisible(true)
       setIsPositioned(false)
+    } else {
+      setIsVisible(false)
+    }
+  }
+
+  useEffect(() => {
+    if (action !== null && anchorRect !== null) {
+      // 记录显示时间，供 interval 判断宽限期
       showTimeRef.current = Date.now()
 
       // 启动鼠标位置检测
@@ -49,8 +68,9 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
         if (Date.now() - showTimeRef.current < 200) return
 
         // 获取鼠标位置
-        const mouseX = (window as any).lastMouseX ?? 0
-        const mouseY = (window as any).lastMouseY ?? 0
+        const win = window as Window & { lastMouseX?: number; lastMouseY?: number }
+        const mouseX = win.lastMouseX ?? 0
+        const mouseY = win.lastMouseY ?? 0
 
         // 检查鼠标是否在悬浮窗内或触发元素上
         const element = document.elementFromPoint(mouseX, mouseY)
@@ -80,7 +100,6 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
         }
       }, 500)
     } else {
-      setIsVisible(false)
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current)
         checkIntervalRef.current = null
@@ -98,8 +117,9 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
   // 全局鼠标位置追踪
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      (window as any).lastMouseX = e.clientX;
-      (window as any).lastMouseY = e.clientY
+      const win = window as Window & { lastMouseX?: number; lastMouseY?: number }
+      win.lastMouseX = e.clientX
+      win.lastMouseY = e.clientY
     }
     window.addEventListener('mousemove', handleMouseMove)
     return () => window.removeEventListener('mousemove', handleMouseMove)
@@ -114,7 +134,10 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
     retry: 2,
   })
 
-  const [position, setPosition] = useState<{ left: number; top: number }>({ left: -9999, top: -9999 })
+  const [position, setPosition] = useState<{ left: number; top: number }>({
+    left: -9999,
+    top: -9999,
+  })
 
   useLayoutEffect(() => {
     if (!tooltipRef.current || !displayedData) return
@@ -162,8 +185,8 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
     <div
       ref={tooltipRef}
       className={cn(
-        "fixed z-[9999] transition-opacity duration-150",
-        isVisible && isPositioned ? "opacity-100" : "opacity-0"
+        'fixed z-[9999] transition-opacity duration-150',
+        isVisible && isPositioned ? 'opacity-100' : 'opacity-0'
       )}
       style={{
         left: `${position.left}px`,
@@ -198,20 +221,28 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
 
               {/* 中间内容：技能名 / ActionCategory */}
               <div className="flex-1 flex flex-col gap-1 min-w-0">
-                <div className="text-base font-semibold truncate">{apiData.Name_chs || displayedAction.name}</div>
-                <div className="text-xs text-gray-400">{apiData.ActionCategory?.Name_chs || '能力'}</div>
+                <div className="text-base font-semibold truncate">
+                  {apiData.Name_chs || displayedAction.name}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {apiData.ActionCategory?.Name_chs || '能力'}
+                </div>
               </div>
 
               {/* 右侧：距离 / 范围（网格对齐） */}
               <div className="grid grid-cols-[auto_auto] gap-x-1 text-xs flex-shrink-0 self-start">
-                {apiData.Range > 0 && <>
-                  <span className="text-gray-400">距离</span>
-                  <span className="text-white text-right">{apiData.Range}米</span>
-                </>}
-                {apiData.EffectRange > 0 && <>
-                  <span className="text-gray-400">范围</span>
-                  <span className="text-white text-right">{apiData.EffectRange}米</span>
-                </>}
+                {apiData.Range > 0 && (
+                  <>
+                    <span className="text-gray-400">距离</span>
+                    <span className="text-white text-right">{apiData.Range}米</span>
+                  </>
+                )}
+                {apiData.EffectRange > 0 && (
+                  <>
+                    <span className="text-gray-400">范围</span>
+                    <span className="text-white text-right">{apiData.EffectRange}米</span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -219,20 +250,28 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
             <div className="flex text-right gap-3">
               <div className="flex-1">
                 <div className="text-[10px] text-gray-400">咏唱时间</div>
-                <div className="text-base text-white font-medium pr-1">{apiData.Cast100ms === 0 ? '即时' : `${apiData.Cast100ms / 10}s`}</div>
+                <div className="text-base text-white font-medium pr-1">
+                  {apiData.Cast100ms === 0 ? '即时' : `${apiData.Cast100ms / 10}s`}
+                </div>
                 <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
               </div>
               <div className="flex-1">
                 <div className="text-[10px] text-gray-400">复唱时间</div>
-                <div className="text-base text-white font-medium pr-1">{apiData.Recast100ms / 10}s</div>
+                <div className="text-base text-white font-medium pr-1">
+                  {apiData.Recast100ms / 10}s
+                </div>
                 <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
               </div>
               <div className="flex-1">
-                {(apiData.PrimaryCostType === 3 && apiData.PrimaryCostValue > 0) && <>
-                  <div className="text-[10px] text-gray-400">消耗魔力</div>
-                  <div className="text-base text-white font-medium pr-1">{apiData.PrimaryCostValue * 100}</div>
-                  <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
-                </>}
+                {apiData.PrimaryCostType === 3 && apiData.PrimaryCostValue > 0 && (
+                  <>
+                    <div className="text-[10px] text-gray-400">消耗魔力</div>
+                    <div className="text-base text-white font-medium pr-1">
+                      {apiData.PrimaryCostValue * 100}
+                    </div>
+                    <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
+                  </>
+                )}
               </div>
             </div>
 
@@ -255,7 +294,7 @@ export default function ActionTooltip({ action, anchorRect, onMouseEnter, onMous
                 <span className="text-white">{apiData.ClassJobLevel}级</span>
                 <span className="text-gray-400">适用职业</span>
                 <div className="flex flex-wrap gap-1">
-                  {displayedAction.jobs.map((job) => (
+                  {displayedAction.jobs.map(job => (
                     <JobIcon key={job} job={job} size="sm" />
                   ))}
                 </div>

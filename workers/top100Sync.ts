@@ -128,7 +128,7 @@ function extractMaxHPData(
   for (const event of events) {
     // absorbed 事件的 targetResources 包含 maxHitPoints 字段
     if (event.type === 'absorbed') {
-      const targetResources = (event as any).targetResources
+      const targetResources = (event as FFLogsEvent & { targetResources?: { maxHitPoints?: number } }).targetResources
       if (targetResources) {
         const maxHP = targetResources.maxHitPoints
         const targetID = event.targetID
@@ -164,95 +164,6 @@ function calculateAverages<T extends number | string>(
   }
 
   return averages as Record<T, number>
-}
-
-/**
- * 从战斗记录中提取统计数据
- */
-async function extractStatistics(
-  client: FFLogsClientV2,
-  entries: RankingEntry[],
-  sampleSize: number = 10
-): Promise<EncounterStatistics> {
-  // 随机抽取战斗
-  const sampledEntries = entries
-    .sort(() => Math.random() - 0.5)
-    .slice(0, Math.min(sampleSize, entries.length))
-
-  // 并行处理所有采样的战斗
-  const results = await Promise.allSettled(
-    sampledEntries.map(async (entry) => {
-      // 获取战斗报告
-      const report = await client.getReport({ reportCode: entry.reportCode })
-      const fight = report.fights.find((f) => f.id === entry.fightID)
-      if (!fight) {
-        throw new Error(`Fight ${entry.fightID} not found`)
-      }
-
-      // 获取战斗事件
-      const eventsResponse = await client.getEvents({
-        reportCode: entry.reportCode,
-        start: fight.start_time,
-        end: fight.end_time,
-      })
-
-      // 提取各类数据
-      return {
-        damageData: extractDamageData(eventsResponse.events),
-        shieldData: extractShieldData(eventsResponse.events),
-        maxHPData: extractMaxHPData(eventsResponse.events, report),
-      }
-    })
-  )
-
-  // 合并所有成功的结果
-  const allDamageData: Record<number, number[]> = {}
-  const allMaxHPData: Record<string, number[]> = {}
-  const allShieldData: Record<number, number[]> = {}
-
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      const { damageData, shieldData, maxHPData } = result.value
-
-      // 合并伤害数据
-      for (const [abilityId, damages] of Object.entries(damageData)) {
-        if (!allDamageData[Number(abilityId)]) {
-          allDamageData[Number(abilityId)] = []
-        }
-        allDamageData[Number(abilityId)].push(...damages)
-      }
-
-      // 合并盾值数据
-      for (const [abilityId, shields] of Object.entries(shieldData)) {
-        if (!allShieldData[Number(abilityId)]) {
-          allShieldData[Number(abilityId)] = []
-        }
-        allShieldData[Number(abilityId)].push(...shields)
-      }
-
-      // 合并最大生命值数据
-      for (const [job, hps] of Object.entries(maxHPData)) {
-        if (!allMaxHPData[job]) {
-          allMaxHPData[job] = []
-        }
-        allMaxHPData[job].push(...hps)
-      }
-    } else {
-      console.error(`[TOP100] 提取统计数据失败:`, result.reason)
-    }
-  }
-
-  // 计算平均值
-  const avgDamageByAbility = calculateAverages(allDamageData)
-  const avgShieldByAbility = calculateAverages(allShieldData)
-  const avgMaxHPByJob = calculateAverages(allMaxHPData)
-
-  return {
-    damageByAbility: avgDamageByAbility,
-    maxHPByJob: avgMaxHPByJob,
-    shieldByAbility: avgShieldByAbility,
-    sampleSize: results.filter((r) => r.status === 'fulfilled').length,
-  }
 }
 
 /**

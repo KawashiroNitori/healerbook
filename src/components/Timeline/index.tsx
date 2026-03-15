@@ -87,80 +87,84 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const labelColumnWidth = 70
 
   // 计算布局数据
-  const layoutData = timeline ? (() => {
-    // 获取阵容和技能轨道信息
-    const composition = timeline.composition || { players: [] }
+  const layoutData = timeline
+    ? (() => {
+        // 获取阵容和技能轨道信息
+        const composition = timeline.composition || { players: [] }
 
-    // 按职业顺序排序玩家
-    const sortedPlayers = [...composition.players].sort((a, b) => {
-      const jobOrder = sortJobsByOrder([a.job, b.job])
-      return jobOrder.indexOf(a.job) - jobOrder.indexOf(b.job)
-    })
-
-    const skillTracks: SkillTrack[] = []
-    sortedPlayers.forEach((player) => {
-      const jobActions = actions.filter((action) => action.jobs.includes(player.job))
-      jobActions.forEach((action) => {
-        skillTracks.push({
-          job: player.job,
-          playerId: player.id,
-          actionId: action.id,
-          actionName: action.name,
-          actionIcon: action.icon,
+        // 按职业顺序排序玩家
+        const sortedPlayers = [...composition.players].sort((a, b) => {
+          const jobOrder = sortJobsByOrder([a.job, b.job])
+          return jobOrder.indexOf(a.job) - jobOrder.indexOf(b.job)
         })
-      })
-    })
 
-    // 泳道算法：为每个伤害事件分配行
-    const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
-    const LANE_ROW_HEIGHT = 36 // 每行高度（px）
-    const damageEventRowMap = new Map<string, number>()
-    const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
+        const skillTracks: SkillTrack[] = []
+        sortedPlayers.forEach(player => {
+          const jobActions = actions.filter(action => action.jobs.includes(player.job))
+          jobActions.forEach(action => {
+            skillTracks.push({
+              job: player.job,
+              playerId: player.id,
+              actionId: action.id,
+              actionName: action.name,
+              actionIcon: action.icon,
+            })
+          })
+        })
 
-    const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
-    for (const event of sortedDamageEvents) {
-      const laneIndex = laneEndTimes.findIndex((endTime) => endTime <= event.time)
-      if (laneIndex !== -1) {
-        damageEventRowMap.set(event.id, laneIndex)
-        laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
-      } else {
-        damageEventRowMap.set(event.id, laneEndTimes.length)
-        laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
-      }
-    }
-    const laneCount = Math.max(1, laneEndTimes.length)
-    const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
+        // 泳道算法：为每个伤害事件分配行
+        const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
+        const LANE_ROW_HEIGHT = 36 // 每行高度（px）
+        const damageEventRowMap = new Map<string, number>()
+        const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
 
-    // 计算时间轴总长度
-    const lastEventTime = Math.max(
-      0,
-      ...timeline.damageEvents.map((e) => e.time),
-      ...timeline.castEvents.map((ce) => ce.timestamp)
-    )
+        const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+        for (const event of sortedDamageEvents) {
+          const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
+          if (laneIndex !== -1) {
+            damageEventRowMap.set(event.id, laneIndex)
+            laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
+          } else {
+            damageEventRowMap.set(event.id, laneEndTimes.length)
+            laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+          }
+        }
+        const laneCount = Math.max(1, laneEndTimes.length)
+        const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
 
-    const maxTime = Math.max(300, lastEventTime + 60)
-    const timelineWidth = maxTime * zoomLevel
-    const fixedAreaHeight = timeRulerHeight + eventTrackHeight
-    const skillTracksHeight = skillTracks.length * skillTrackHeight
+        // 计算时间轴总长度
+        const lastEventTime = Math.max(
+          0,
+          ...timeline.damageEvents.map(e => e.time),
+          ...timeline.castEvents.map(ce => ce.timestamp)
+        )
 
-    return {
-      skillTracks,
-      damageEventRowMap,
-      eventTrackHeight,
-      timelineWidth,
-      fixedAreaHeight,
-      skillTracksHeight,
-      laneCount,
-      LANE_ROW_HEIGHT,
-    }
-  })() : null
+        const maxTime = Math.max(300, lastEventTime + 60)
+        const timelineWidth = maxTime * zoomLevel
+        const fixedAreaHeight = timeRulerHeight + eventTrackHeight
+        const skillTracksHeight = skillTracks.length * skillTrackHeight
+
+        return {
+          skillTracks,
+          damageEventRowMap,
+          eventTrackHeight,
+          timelineWidth,
+          fixedAreaHeight,
+          skillTracksHeight,
+          laneCount,
+          LANE_ROW_HEIGHT,
+        }
+      })()
+    : null
 
   // 视口宽度（Stage 实际宽度）
   const viewportWidth = Math.max(width - labelColumnWidth, 1)
   // 限制 scrollLeft 不超出范围
   const maxScrollLeft = layoutData ? Math.max(0, layoutData.timelineWidth - viewportWidth) : 0
   const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
-  const maxScrollTop = layoutData ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight)) : 0
+  const maxScrollTop = layoutData
+    ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight))
+    : 0
   const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
 
   // 当 zoomLevel 变化时，根据保存的滚动进度还原位置
@@ -202,16 +206,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   ): boolean => {
     if (!timeline) return false
 
-    const currentAction = actions.find((a) => a.id === actionId)
+    const currentAction = actions.find(a => a.id === actionId)
     if (!currentAction) return false
 
     const currentEndTime = newTime + currentAction.cooldown
 
-    return timeline.castEvents.some((other) => {
+    return timeline.castEvents.some(other => {
       if (excludeCastEventId && other.id === excludeCastEventId) return false
       if (other.playerId !== playerId || other.actionId !== actionId) return false
 
-      const otherAction = actions.find((a) => a.id === other.actionId)
+      const otherAction = actions.find(a => a.id === other.actionId)
       if (!otherAction) return false
 
       const otherTimeSeconds = other.timestamp
@@ -307,7 +311,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         hasMovedRef.current = false
         isDraggingRef.current = true
         const { clientX, clientY } = getClientPosition(evt)
-        dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
+        dragStartRef.current = {
+          x: clientX,
+          y: clientY,
+          scrollLeft: clampedScrollRef.current.scrollLeft,
+          scrollTop: clampedScrollRef.current.scrollTop,
+        }
         stage.container().style.cursor = 'grabbing'
         // 点击背景时关闭悬浮窗
         if (clickedOnBackground) {
@@ -321,7 +330,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const evt = e.evt
 
       // 处理双指缩放
-      if (isPinchingRef.current && 'touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
+      if (
+        isPinchingRef.current &&
+        'touches' in evt &&
+        (evt as unknown as TouchEvent).touches.length === 2
+      ) {
         e.evt.preventDefault()
         const currentDistance = getTouchDistance(evt as unknown as TouchEvent)
         if (currentDistance && lastPinchDistanceRef.current) {
@@ -373,7 +386,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         zoomWithScrollPreservation(delta)
       } else {
         e.preventDefault()
-        setScrollLeft((prev) => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
+        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
       }
     }
 
@@ -453,7 +466,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         hasMovedRef.current = false
         isDraggingRef.current = true
         const { clientX, clientY } = getClientPosition(evt)
-        dragStartRef.current = { x: clientX, y: clientY, scrollLeft: clampedScrollRef.current.scrollLeft, scrollTop: clampedScrollRef.current.scrollTop }
+        dragStartRef.current = {
+          x: clientX,
+          y: clientY,
+          scrollLeft: clampedScrollRef.current.scrollLeft,
+          scrollTop: clampedScrollRef.current.scrollTop,
+        }
         stage.container().style.cursor = 'grabbing'
         // 点击背景时关闭悬浮窗
         if (clickedOnBackground) {
@@ -467,7 +485,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const evt = e.evt
 
       // 处理双指缩放
-      if (isPinchingRef.current && 'touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
+      if (
+        isPinchingRef.current &&
+        'touches' in evt &&
+        (evt as unknown as TouchEvent).touches.length === 2
+      ) {
         e.evt.preventDefault()
         const currentDistance = getTouchDistance(evt as unknown as TouchEvent)
         if (currentDistance && lastPinchDistanceRef.current) {
@@ -521,7 +543,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         zoomWithScrollPreservation(delta)
       } else {
         e.preventDefault()
-        setScrollLeft((prev) => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
+        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
       }
     }
 
@@ -559,7 +581,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     showTooltip(action, anchorRect)
   }
 
-  const handleClickAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+  const handleClickAction = (
+    action: MitigationAction,
+    e: KonvaEventObject<MouseEvent | TouchEvent>
+  ) => {
     const stage = e.target.getStage()
     if (!stage) return
     const stageBounds = stage.container().getBoundingClientRect()
@@ -628,13 +653,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     )
   }
 
-  const { skillTracks, damageEventRowMap, eventTrackHeight, timelineWidth, fixedAreaHeight, skillTracksHeight, LANE_ROW_HEIGHT } = layoutData
+  const {
+    skillTracks,
+    damageEventRowMap,
+    eventTrackHeight,
+    timelineWidth,
+    fixedAreaHeight,
+    skillTracksHeight,
+    LANE_ROW_HEIGHT,
+  } = layoutData
 
   // 计算时间轴总长度
   const lastEventTime = Math.max(
     0,
-    ...timeline.damageEvents.map((e) => e.time),
-    ...timeline.castEvents.map((ce) => ce.timestamp)
+    ...timeline.damageEvents.map(e => e.time),
+    ...timeline.castEvents.map(ce => ce.timestamp)
   )
 
   const maxTime = Math.max(300, lastEventTime + 60)
@@ -665,11 +698,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
         {/* 右侧固定 Stage 区域 */}
         <div className="flex-1 overflow-hidden" style={{ cursor: 'grab' }}>
-          <Stage
-            width={viewportWidth}
-            height={fixedAreaHeight}
-            ref={fixedStageRef}
-          >
+          <Stage width={viewportWidth} height={fixedAreaHeight} ref={fixedStageRef}>
             <Layer x={-clampedScrollLeft}>
               <TimeRuler
                 maxTime={maxTime}
@@ -709,7 +738,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           className="flex-shrink-0 border-r bg-background overflow-hidden"
           style={{ width: labelColumnWidth }}
         >
-          <div ref={labelColumnContainerRef} style={{ height: skillTracksHeight, transform: `translateY(-${clampedScrollTop}px)` }}>
+          <div
+            ref={labelColumnContainerRef}
+            style={{ height: skillTracksHeight, transform: `translateY(-${clampedScrollTop}px)` }}
+          >
             <SkillTrackLabels
               skillTracks={skillTracks}
               trackHeight={skillTrackHeight}
@@ -722,10 +754,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         </div>
 
         {/* 右侧技能轨道 Stage */}
-        <div
-          className="flex-1 overflow-hidden"
-          style={{ cursor: 'grab' }}
-        >
+        <div className="flex-1 overflow-hidden" style={{ cursor: 'grab' }}>
           <Stage
             width={viewportWidth}
             height={Math.max(height - fixedAreaHeight, 1)}
@@ -745,7 +774,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               scrollTop={clampedScrollTop}
               onSelectCastEvent={selectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
-              onContextMenu={(castEventId) => {
+              onContextMenu={castEventId => {
                 setCastEventToDelete(castEventId)
                 setDeleteConfirmOpen(true)
               }}
@@ -766,7 +795,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         viewportWidth={viewportWidth}
         totalWidth={timelineWidth}
         zoomLevel={zoomLevel}
-        onScroll={(newScrollLeft) => {
+        onScroll={newScrollLeft => {
           setScrollLeft(newScrollLeft)
         }}
       />

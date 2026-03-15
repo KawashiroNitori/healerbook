@@ -67,7 +67,7 @@ export default function SkillTracksCanvas({
             height={trackHeight}
             fill={index % 2 === 0 ? '#fafafa' : '#ffffff'}
             draggableBackground={true}
-            onDblClick={(e) => {
+            onDblClick={e => {
               if (isReadOnly) return
               const stage = e.target.getStage()
               if (!stage) return
@@ -78,7 +78,7 @@ export default function SkillTracksCanvas({
               const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
               onDoubleClickTrack(track, time)
             }}
-            onDblTap={(e) => {
+            onDblTap={e => {
               if (isReadOnly) return
               const stage = e.target.getStage()
               if (!stage) return
@@ -120,7 +120,7 @@ export default function SkillTracksCanvas({
       {/* 技能使用事件层 */}
       <Layer x={-scrollLeft} y={-scrollTop}>
         {/* 伤害事件时刻的红色虚线 */}
-        {timeline.damageEvents.map((event) => {
+        {timeline.damageEvents.map(event => {
           const x =
             draggingEventPosition?.eventId === event.id
               ? draggingEventPosition.x
@@ -143,14 +143,14 @@ export default function SkillTracksCanvas({
           // 获取该轨道的所有技能使用记录，按时间排序
           const trackCastEvents = timeline.castEvents
             .filter(
-              (castEvent) =>
+              castEvent =>
                 castEvent.playerId === track.playerId && castEvent.actionId === track.actionId
             )
             .sort((a, b) => a.timestamp - b.timestamp)
 
           if (trackCastEvents.length < 1) return null
 
-          const action = actions.find((a) => a.id === track.actionId)
+          const action = actions.find(a => a.id === track.actionId)
           if (!action) return null
 
           // 只对冷却时间 >= 40 秒的技能显示空转提示
@@ -274,9 +274,9 @@ export default function SkillTracksCanvas({
           return idleWarnings
         })}
 
-        {timeline.castEvents.map((castEvent) => {
+        {timeline.castEvents.map(castEvent => {
           const trackIndex = skillTracks.findIndex(
-            (t) => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
+            t => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
           )
 
           if (trackIndex === -1) return null
@@ -284,7 +284,7 @@ export default function SkillTracksCanvas({
           const trackY = trackIndex * trackHeight + trackHeight / 2
           const isSelected = castEvent.id === selectedCastEventId
 
-          const action = actions.find((a) => a.id === castEvent.actionId)
+          const action = actions.find(a => a.id === castEvent.actionId)
           if (!action) return null
 
           const castEventTimeSeconds = castEvent.timestamp // timestamp 已经是秒
@@ -292,13 +292,13 @@ export default function SkillTracksCanvas({
           // 计算拖动边界
           const sameTrackCastEvents = timeline.castEvents
             .filter(
-              (other) =>
+              other =>
                 other.id !== castEvent.id &&
                 other.playerId === castEvent.playerId &&
                 other.actionId === castEvent.actionId
             )
-            .map((other) => {
-              const otherAction = actions.find((a) => a.id === other.actionId)
+            .map(other => {
+              const otherAction = actions.find(a => a.id === other.actionId)
               const otherTimeSeconds = other.timestamp // timestamp 已经是秒
               return {
                 startTime: otherTimeSeconds,
@@ -310,15 +310,15 @@ export default function SkillTracksCanvas({
           const currentDuration = action.cooldown
 
           const leftBoundary = sameTrackCastEvents
-            .filter((other) => other.endTime <= castEventTimeSeconds)
+            .filter(other => other.endTime <= castEventTimeSeconds)
             .reduce((max, other) => Math.max(max, other.endTime), 0)
 
           const rightBoundary = sameTrackCastEvents
-            .filter((other) => other.startTime >= castEventTimeSeconds + currentDuration)
+            .filter(other => other.startTime >= castEventTimeSeconds + currentDuration)
             .reduce((min, other) => Math.min(min, other.startTime - currentDuration), Infinity)
 
           const nextCastTime = sameTrackCastEvents
-            .filter((other) => other.startTime > castEventTimeSeconds)
+            .filter(other => other.startTime > castEventTimeSeconds)
             .reduce((min, other) => Math.min(min, other.startTime), Infinity)
 
           return (
@@ -335,8 +335,8 @@ export default function SkillTracksCanvas({
               scrollLeft={scrollLeft}
               scrollTop={scrollTop}
               onSelect={() => onSelectCastEvent(castEvent.id)}
-              onDragEnd={(x) => onUpdateCastEvent(castEvent.id, x)}
-              onContextMenu={(e) => {
+              onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
+              onContextMenu={e => {
                 if (isReadOnly) return
                 e.evt.preventDefault()
                 onContextMenu(castEvent.id)
