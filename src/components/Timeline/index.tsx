@@ -85,6 +85,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const timeRulerHeight = 30
   const skillTrackHeight = 40
   const labelColumnWidth = 70
+  const minimapHeight = 80 + 16 + 1 // canvas(80) + p-2 padding(16) + border-t(1)
 
   // 计算布局数据
   const layoutData = timeline
@@ -163,7 +164,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const maxScrollLeft = layoutData ? Math.max(0, layoutData.timelineWidth - viewportWidth) : 0
   const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
   const maxScrollTop = layoutData
-    ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight))
+    ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight - minimapHeight))
     : 0
   const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
 
@@ -757,7 +758,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         <div className="flex-1 overflow-hidden" style={{ cursor: 'grab' }}>
           <Stage
             width={viewportWidth}
-            height={Math.max(height - fixedAreaHeight, 1)}
+            height={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
             ref={stageRef}
           >
             <SkillTracksCanvas

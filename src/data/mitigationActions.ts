@@ -16,16 +16,10 @@ import type { ActionExecutionContext } from '@/types/mitigation'
 import type { MitigationStatus } from '@/types/status'
 
 export interface MitigationDataSource {
-  version: string
-  lastUpdated: string
-  source: string
   actions: MitigationAction[]
 }
 
 export const MITIGATION_DATA: MitigationDataSource = {
-  version: '7.1',
-  lastUpdated: '2026-02-21',
-  source: 'CafeMaker API',
   actions: [
     // ==================== 坦克技能 ====================
 
@@ -33,10 +27,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7535,
       name: '雪仇',
-      description:
-        '使自身周围的敌人攻击伤害降低10%　<span style="color:#00cc22;">持续时间：</span> 15 秒',
       icon: '/i/000000/000806.png',
-      iconHD: '/i/000000/000806_hr1.png',
       uniqueGroup: [7535],
       jobs: ['WAR', 'PLD', 'DRK', 'GNB'],
       duration: 15,
@@ -94,7 +85,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16160,
       name: '光之心',
-      icon: '/i/002000/002583.png',
+      icon: '/i/003000/003424.png',
       uniqueGroup: [16160],
       jobs: ['GNB'],
       duration: 15,
@@ -108,10 +99,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16536,
       name: '节制',
-      description:
-        '一定时间内，自身发动治疗魔法的治疗量提高20%，自身与50米以内的队员受到的伤害减轻10%　<span style="color:#00cc22;">持续时间：</span>20秒 <span style="color:#00cc22;">追加效果：</span><span style="color:#ff7b1a;">神爱抚预备</span>　<span style="color:#00cc22;">持续时间：</span>30秒',
       icon: '/i/002000/002645.png',
-      iconHD: '/i/002000/002645_hr1.png',
       uniqueGroup: [16536],
       jobs: ['WHM'],
       duration: 25,
@@ -139,30 +127,11 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createShieldExecutor(3903, 10),
     },
 
-    // 学者 (SCH)
-    // 鼓舞激励之策 - 学者单体盾
-    {
-      id: 185,
-      name: '鼓舞激励之策',
-      description:
-        '恢复目标的体力　<span style="color:#00cc22;">恢复力：</span>300\n<span style="color:#00cc22;">追加效果：</span>为目标附加能够抵御一定伤害的防护罩<span style="color:#ff7b1a;">鼓舞</span>',
-      icon: '/i/002000/002801.png',
-      iconHD: '/i/002000/002801_hr1.png',
-      uniqueGroup: [185, 37013, 37034],
-      jobs: ['SCH'],
-      duration: 30,
-      cooldown: 2.5,
-      executor: createShieldExecutor(297, 30, false, 0.125),
-    },
-
     // 展开战术 - 复制目标的鼓舞盾到所有成员（模拟为群体单盾）
     {
       id: 3585,
       name: '展开战术',
-      description:
-        '将目标身上的<span style="color:#ff7b1a;">鼓舞</span>或<span style="color:#ff7b1a;">激励</span>效果扩散到自身及周围队员身上',
       icon: '/i/002000/002808.png',
-      iconHD: '/i/002000/002808_hr1.png',
       uniqueGroup: [3585],
       jobs: ['SCH'],
       duration: 0,
@@ -186,10 +155,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37013,
       name: '气宇轩昂之策',
-      description:
-        '恢复自身及周围队员的体力\n<span style="color:#00cc22;">追加效果：</span>附加能够抵御一定伤害的防护罩\n该防护罩能够抵消相当于治疗量180%的伤害',
       icon: '/i/002000/002880.png',
-      iconHD: '/i/002000/002880_hr1.png',
       uniqueGroup: [37013, 185, 37034],
       jobs: ['SCH'],
       duration: 30,
@@ -251,7 +217,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       id: 188,
       name: '野战治疗阵',
       icon: '/i/002000/002804.png',
-      iconHD: '/i/002000/002804_hr1.png',
       uniqueGroup: [188],
       jobs: ['SCH'],
       duration: 18,
@@ -296,10 +261,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3613,
       name: '命运之轮',
-      description:
-        '以自身为中心产生覆盖范围8米的命运之轮\n<span style="color:#00cc22;">持续时间：</span>18秒\n使用时自身及周围30米内的队员所受到的伤害减轻10%\n<span style="color:#00cc22;">持续时间：</span>5秒\n同时，范围内的自身及队员还会附加体力持续恢复的效果\n<span style="color:#00cc22;">恢复力：</span>100　<span style="color:#00cc22;">持续时间：</span>15秒\n在进入命运之轮范围后将持续获得以上效果\n效果时间内发动技能或进行移动、转身都会使命运之轮立即消失\n发动之后会停止自动攻击',
       icon: '/i/003000/003140.png',
-      iconHD: '/i/003000/003140_hr1.png',
       uniqueGroup: [3613],
       jobs: ['AST'],
       duration: 10,
@@ -310,10 +272,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37031,
       name: '太阳星座',
-      description:
-        '一定时间内，令自身和周围队员所受到的伤害减轻10%\n<span style="color:#00cc22;">持续时间：</span>15秒\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">太阳星座预备</span>状态中',
       icon: '/i/003000/003109.png',
-      iconHD: '/i/003000/003109_hr1.png',
       uniqueGroup: [37031],
       jobs: ['AST'],
       duration: 15,
@@ -326,10 +285,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24311,
       name: '泛输血',
-      description:
-        '为自身及周围队员附加能够抵消一定伤害量的防护罩\n该防护罩能够抵消相当于200恢复力的伤害量',
       icon: '/i/003000/003679.png',
-      iconHD: '/i/003000/003679_hr1.png',
       uniqueGroup: [24311],
       jobs: ['SGE'],
       duration: 15,
@@ -341,10 +297,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24310,
       name: '整体论',
-      description:
-        '恢复自身及周围队员的体力\n<span style="color:#00cc22;">追加效果：</span>自身及周围队员所受伤害减轻10%　<span style="color:#00cc22;">持续时间：</span>20秒',
       icon: '/i/003000/003678.png',
-      iconHD: '/i/003000/003678_hr1.png',
       uniqueGroup: [24310],
       jobs: ['SGE'],
       duration: 20,
@@ -361,7 +314,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       id: 24298,
       name: '坚角清汁',
       icon: '/i/003000/003666.png',
-      iconHD: '/i/003000/003666_hr1.png',
       uniqueGroup: [24298],
       jobs: ['SGE'],
       duration: 15,
@@ -372,10 +324,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37034,
       name: '均衡预后II',
-      description:
-        '恢复自身及周围队员的体力\n<span style="color:#00cc22;">恢复力：</span>100\n<span style="color:#00cc22;">追加效果：</span>为目标附加能够抵御一定伤害的防护罩\n该防护罩能够抵消相当于治疗量360%的伤害\n<span style="color:#00cc22;">持续时间：</span>30秒\n无法与均衡诊断及学者的鼓舞效果共存\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">均衡</span>状态中\n\n<span style="color:#ffff66;">※该技能无法设置到热键栏\n　满足发动条件后，预后变为均衡预后II</span>',
       icon: '/i/003000/003689.png',
-      iconHD: '/i/003000/003689_hr1.png',
       uniqueGroup: [37034, 185, 37013],
       jobs: ['SGE'],
       duration: 30,
@@ -388,10 +337,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7549,
       name: '牵制',
-      description:
-        '一定时间内，令目标物理攻击造成的伤害降低10%，魔法攻击造成的伤害降低5%\n<span style="color:#00cc22;">持续时间：</span> 15 秒',
       icon: '/i/000000/000828.png',
-      iconHD: '/i/000000/000828_hr1.png',
       uniqueGroup: [7549],
       jobs: ['MNK', 'DRG', 'NIN', 'SAM', 'RPR', 'VPR'],
       duration: 15,
@@ -405,16 +351,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7405,
       name: '行吟',
-      description:
-        '一定时间内，令自身和周围队员所受到的伤害减轻 15 %\n<span style="color:#00cc22;">持续时间：</span>15秒\n无法与机工士的策动、舞者的防守之桑巴效果共存',
       icon: '/i/002000/002612.png',
-      iconHD: '/i/002000/002612_hr1.png',
       uniqueGroup: [7405, 16889, 16012],
       jobs: ['BRD'],
       duration: 15,
       cooldown: 90,
       executor: createFriendlyBuffExecutor(1934, 15, true),
     },
+
     // 机工士 (MCH)
     {
       id: 16889,
@@ -425,6 +369,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 15,
       cooldown: 90,
       executor: createFriendlyBuffExecutor(1951, 15, true),
+    },
+    {
+      id: 2887,
+      name: '武装解除',
+      icon: '/i/003000/003011.png',
+      uniqueGroup: [2887],
+      jobs: ['MCH'],
+      duration: 10,
+      cooldown: 120,
+      executor: createEnemyDebuffExecutor(860, 10),
     },
 
     // 舞者 (DNC)
@@ -451,29 +405,11 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createEnemyDebuffExecutor(1203, 15),
     },
 
-    // 绘灵法师 (PCT)
-    {
-      id: 34686,
-      name: '油性坦培拉涂层',
-      description:
-        '解除自身附加的<span style="color:#ff7b1a;">坦培拉涂层</span>，为自身及周围队员附加能够抵消一定伤害量的防护罩\n该防护罩能够抵消相当于目标最大体力10%的伤害量\n<span style="color:#00cc22;">持续时间：</span>10秒\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">坦培拉涂层</span>状态中\n附加自身的防护罩因吸收到足够的伤害而消失时，坦培拉涂层的复唱时间缩短30秒',
-      icon: '/i/003000/003836.png',
-      iconHD: '/i/003000/003836_hr1.png',
-      uniqueGroup: [34686],
-      jobs: ['PCT'],
-      duration: 10,
-      cooldown: 1,
-      executor: createShieldExecutor(3687, 10),
-    },
-
     // 赤魔法师 (RDM)
     {
       id: 25857,
       name: '抗死',
-      description:
-        '一定时间内，令自身和周围队员所受到的魔法伤害减轻10%，并且所受的体力恢复效果提高5%\n<span style="color:#00cc22;">持续时间：</span>10秒',
       icon: '/i/003000/003237.png',
-      iconHD: '/i/003000/003237_hr1.png',
       uniqueGroup: [25857],
       jobs: ['RDM'],
       duration: 10,

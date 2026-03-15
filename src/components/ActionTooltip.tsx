@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getIconUrl } from '@/utils/iconUtils'
 import type { MitigationAction } from '@/types/mitigation'
-import { getActionById } from '@/api/cafeMakerClient'
+import { getActionById } from '@/api/xivapi'
 import JobIcon from './JobIcon'
 
 interface ActionTooltipProps {
@@ -214,7 +214,7 @@ export default function ActionTooltip({
               <div className="self-stretch aspect-square flex-shrink-0 min-w-[40px] min-h-[40px] rounded overflow-hidden bg-[#2a2a2a] border border-[#4a4a4a]">
                 <img
                   src={getIconUrl(apiData.Icon || displayedAction.icon)}
-                  alt={apiData.Name_chs || displayedAction.name}
+                  alt={apiData.Name || displayedAction.name}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -222,10 +222,10 @@ export default function ActionTooltip({
               {/* 中间内容：技能名 / ActionCategory */}
               <div className="flex-1 flex flex-col gap-1 min-w-0">
                 <div className="text-base font-semibold truncate">
-                  {apiData.Name_chs || displayedAction.name}
+                  {apiData.Name || displayedAction.name}
                 </div>
                 <div className="text-xs text-gray-400">
-                  {apiData.ActionCategory?.Name_chs || '能力'}
+                  {apiData.ActionCategory?.Name || '能力'}
                 </div>
               </div>
 
@@ -276,12 +276,12 @@ export default function ActionTooltip({
             </div>
 
             {/* 技能描述 */}
-            {apiData.Description_chs && (
+            {apiData.Description && (
               <div className="pt-2 border-t border-[#3a3a3a]">
                 <div
                   className="text-xs text-gray-300 leading-relaxed whitespace-pre-line"
                   dangerouslySetInnerHTML={{
-                    __html: apiData.Description_chs.replace(/\n/g, '<br/>'),
+                    __html: apiData.Description.replace(/\n/g, '<br/>'),
                   }}
                 />
               </div>
