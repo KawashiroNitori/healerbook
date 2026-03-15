@@ -24,11 +24,18 @@ interface SkillTrackLabelsProps {
   onUnhoverAction: () => void
 }
 
-export default function SkillTrackLabels({ skillTracks, trackHeight, actions, onHoverAction, onClickAction, onUnhoverAction }: SkillTrackLabelsProps) {
+export default function SkillTrackLabels({
+  skillTracks,
+  trackHeight,
+  actions,
+  onHoverAction,
+  onClickAction,
+  onUnhoverAction,
+}: SkillTrackLabelsProps) {
   return (
     <div>
       {skillTracks.map((track, index) => {
-        const action = actions.find((a) => a.id === track.actionId)
+        const action = actions.find(a => a.id === track.actionId)
         return (
           <div
             key={`label-${track.playerId}-${track.actionId}`}
@@ -46,14 +53,14 @@ export default function SkillTrackLabels({ skillTracks, trackHeight, actions, on
               src={getIconUrl(track.actionIcon)}
               alt={track.actionName}
               className="w-6 h-6 rounded cursor-pointer"
-              onError={(e) => {
+              onError={e => {
                 e.currentTarget.style.display = 'none'
               }}
-              onMouseEnter={(e) => {
+              onMouseEnter={e => {
                 if (action) onHoverAction(action, e.currentTarget.getBoundingClientRect())
               }}
               onMouseLeave={onUnhoverAction}
-              onClick={(e) => {
+              onClick={e => {
                 if (action) onClickAction(action, e.currentTarget.getBoundingClientRect())
               }}
             />

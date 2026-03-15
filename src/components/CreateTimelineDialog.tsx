@@ -24,7 +24,11 @@ interface CreateTimelineDialogProps {
   onCreated: () => void
 }
 
-export default function CreateTimelineDialog({ open, onClose, onCreated }: CreateTimelineDialogProps) {
+export default function CreateTimelineDialog({
+  open,
+  onClose,
+  onCreated,
+}: CreateTimelineDialogProps) {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [encounterId, setEncounterId] = useState(RAID_TIERS[0]?.encounters[0]?.id.toString() || '')
@@ -58,7 +62,7 @@ export default function CreateTimelineDialog({ open, onClose, onCreated }: Creat
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
               autoComplete="off"
@@ -73,10 +77,12 @@ export default function CreateTimelineDialog({ open, onClose, onCreated }: Creat
                 <SelectValue placeholder="选择副本" />
               </SelectTrigger>
               <SelectContent>
-                {RAID_TIERS.map((tier) => (
+                {RAID_TIERS.map(tier => (
                   <SelectGroup key={tier.zone}>
-                    <SelectLabel>{tier.name} ({tier.patch})</SelectLabel>
-                    {tier.encounters.map((encounter) => (
+                    <SelectLabel>
+                      {tier.name} ({tier.patch})
+                    </SelectLabel>
+                    {tier.encounters.map(encounter => (
                       <SelectItem key={encounter.id} value={encounter.id.toString()}>
                         {encounter.shortName} - {encounter.name}
                       </SelectItem>

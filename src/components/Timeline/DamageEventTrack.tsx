@@ -59,7 +59,7 @@ export default function DamageEventTrack({
 
   // 生成伤害时间指示虚线（从卡片底部开始）
   const CARD_HEIGHT = 28 // 卡片高度
-  const damageTimeLines = events.map((event) => {
+  const damageTimeLines = events.map(event => {
     const x = event.time * zoomLevel
     const row = rowMap.get(event.id) ?? 0
     const cardBottomY = yOffset + row * rowHeight + CARD_HEIGHT
@@ -93,7 +93,7 @@ export default function DamageEventTrack({
           // 其他事件按时间排序
           return a.time - b.time
         })
-        .map((event) => {
+        .map(event => {
           const result = eventResults.get(event.id)
           if (!result) return null
 
@@ -108,8 +108,8 @@ export default function DamageEventTrack({
               yOffset={yOffset}
               onSelect={() => onSelectEvent(event.id)}
               onDragStart={() => onDragStart(event.id, event.time * zoomLevel)}
-              onDragMove={(x) => onDragMove(event.id, x)}
-              onDragEnd={(x) => onDragEnd(event.id, x)}
+              onDragMove={x => onDragMove(event.id, x)}
+              onDragEnd={x => onDragEnd(event.id, x)}
               isReadOnly={isReadOnly}
             />
           )

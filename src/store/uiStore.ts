@@ -45,7 +45,7 @@ interface UIState {
   toggleReadOnly: () => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>(set => ({
   isSidebarOpen: true,
   isSkillPanelOpen: true,
   isPropertyPanelOpen: true,
@@ -57,23 +57,23 @@ export const useUIStore = create<UIState>((set) => ({
   isReadOnly: false,
 
   toggleSidebar: () =>
-    set((state) => ({
+    set(state => ({
       isSidebarOpen: !state.isSidebarOpen,
     })),
 
   toggleSkillPanel: () =>
-    set((state) => ({
+    set(state => ({
       isSkillPanelOpen: !state.isSkillPanelOpen,
       activePanel: !state.isSkillPanelOpen ? 'skills' : null,
     })),
 
   togglePropertyPanel: () =>
-    set((state) => ({
+    set(state => ({
       isPropertyPanelOpen: !state.isPropertyPanelOpen,
       activePanel: !state.isPropertyPanelOpen ? 'properties' : null,
     })),
 
-  setActivePanel: (panel) =>
+  setActivePanel: panel =>
     set({
       activePanel: panel,
       isSkillPanelOpen: panel === 'skills' ? true : false,
@@ -81,28 +81,27 @@ export const useUIStore = create<UIState>((set) => ({
     }),
 
   toggleGrid: () =>
-    set((state) => ({
+    set(state => ({
       showGrid: !state.showGrid,
     })),
 
   toggleTimeRuler: () =>
-    set((state) => ({
+    set(state => ({
       showTimeRuler: !state.showTimeRuler,
     })),
 
   toggleCooldownIndicators: () =>
-    set((state) => ({
+    set(state => ({
       showCooldownIndicators: !state.showCooldownIndicators,
     })),
 
-  setTheme: (theme) =>
+  setTheme: theme =>
     set({
       theme,
     }),
 
   toggleReadOnly: () =>
-    set((state) => ({
+    set(state => ({
       isReadOnly: !state.isReadOnly,
     })),
-
 }))

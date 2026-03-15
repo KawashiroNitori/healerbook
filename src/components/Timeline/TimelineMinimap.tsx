@@ -73,8 +73,8 @@ export default function TimelineMinimap({
     ctx.fillRect(0, 0, canvasWidth, height)
 
     // 计算最大时间
-    const damageEventTimes = timeline.damageEvents.map((e) => e.time).filter((t) => !isNaN(t))
-    const castEventTimes = timeline.castEvents.map((e) => e.timestamp).filter((t) => !isNaN(t))
+    const damageEventTimes = timeline.damageEvents.map(e => e.time).filter(t => !isNaN(t))
+    const castEventTimes = timeline.castEvents.map(e => e.timestamp).filter(t => !isNaN(t))
     const allTimes = [...damageEventTimes, ...castEventTimes]
     const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 60
 
@@ -86,7 +86,7 @@ export default function TimelineMinimap({
     ctx.strokeStyle = '#e4e4e7'
     ctx.lineWidth = 1
     for (let t = 0; t <= maxTime; t += tickInterval) {
-      const x = (t * zoomLevel) * minimapScale
+      const x = t * zoomLevel * minimapScale
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, height)
@@ -102,7 +102,7 @@ export default function TimelineMinimap({
       // 跳过 0 分钟的标签
       if (t === 0) continue
 
-      const x = (t * zoomLevel) * minimapScale
+      const x = t * zoomLevel * minimapScale
 
       const minutes = Math.floor(t / 60)
       const timeText = `${minutes}m`
@@ -133,13 +133,10 @@ export default function TimelineMinimap({
     const contentHeight = height - contentY
 
     // 计算最大伤害值用于归一化
-    const maxDamage = Math.max(
-      ...timeline.damageEvents.map((e) => e.damage),
-      1
-    )
+    const maxDamage = Math.max(...timeline.damageEvents.map(e => e.damage), 1)
 
-    timeline.damageEvents.forEach((event) => {
-      const x = (event.time * zoomLevel) * minimapScale
+    timeline.damageEvents.forEach(event => {
+      const x = event.time * zoomLevel * minimapScale
       const eventWidth = Math.max(3, 5 * minimapScale)
 
       // 根据伤害结果着色
@@ -209,7 +206,7 @@ export default function TimelineMinimap({
 
     // 将缩略图坐标转换为实际滚动位置
     // 让点击位置居中
-    const targetScrollLeft = (x / minimapScale) - (viewportWidth / 2)
+    const targetScrollLeft = x / minimapScale - viewportWidth / 2
     const clampedScrollLeft = Math.max(0, Math.min(targetScrollLeft, totalWidth - viewportWidth))
 
     onScroll(clampedScrollLeft)

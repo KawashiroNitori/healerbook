@@ -65,13 +65,16 @@ export function parseDamageEvents(
       abilityType: string | number
       firstTime: number
       sourceID: number
-      playerDamages: Map<number, {
-        playerId: number
-        job: string
-        unmitigatedDamage: number
-        absorbedDamage: number
-        finalDamage: number
-      }>
+      playerDamages: Map<
+        number,
+        {
+          playerId: number
+          job: string
+          unmitigatedDamage: number
+          absorbedDamage: number
+          finalDamage: number
+        }
+      >
     }
   >()
 
@@ -88,7 +91,7 @@ export function parseDamageEvents(
     const abilityType = abilityMeta?.type ?? 0
 
     if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
-    if (abilityId === 16152) continue  // 超火流星
+    if (abilityId === 16152) continue // 超火流星
 
     const targetId = event.targetID
     const unmitigatedAmount = event.unmitigatedAmount || event.amount || 0
@@ -157,7 +160,7 @@ export function parseDamageEvents(
       })
     }
 
-    const nonTankDamages = playerDamageDetails.filter((d) => !TANK_JOBS.includes(d.job))
+    const nonTankDamages = playerDamageDetails.filter(d => !TANK_JOBS.includes(d.job))
     let averageDamage: number
     if (nonTankDamages.length > 0) {
       averageDamage = Math.floor(
@@ -165,7 +168,8 @@ export function parseDamageEvents(
       )
     } else {
       averageDamage = Math.floor(
-        playerDamageDetails.reduce((acc, d) => acc + d.unmitigatedDamage, 0) / playerDamageDetails.length
+        playerDamageDetails.reduce((acc, d) => acc + d.unmitigatedDamage, 0) /
+          playerDamageDetails.length
       )
     }
 
@@ -210,14 +214,17 @@ function mergeMultipleDamageEvents(events: DamageEvent[]): DamageEvent {
   if (events.length === 1) return events[0]
 
   const TANK_JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB']
-  const playerDamageMap = new Map<number, {
-    playerId: number
-    job: Job
-    skillName: string
-    unmitigatedDamage: number
-    absorbedDamage: number
-    finalDamage: number
-  }>()
+  const playerDamageMap = new Map<
+    number,
+    {
+      playerId: number
+      job: Job
+      skillName: string
+      unmitigatedDamage: number
+      absorbedDamage: number
+      finalDamage: number
+    }
+  >()
 
   for (const event of events) {
     for (const detail of event.playerDamageDetails || []) {
@@ -233,7 +240,7 @@ function mergeMultipleDamageEvents(events: DamageEvent[]): DamageEvent {
   }
 
   const merged = Array.from(playerDamageMap.values())
-  const nonTank = merged.filter((d) => !TANK_JOBS.includes(d.job))
+  const nonTank = merged.filter(d => !TANK_JOBS.includes(d.job))
   const src = nonTank.length > 0 ? nonTank : merged
   const averageDamage = Math.floor(
     src.reduce((acc, d) => acc + d.unmitigatedDamage, 0) / src.length
@@ -252,7 +259,9 @@ function detectDamageType(hitCount: number): 'aoe' | 'tankbuster' | 'raidwide' {
  * 根据 ability.type 判断伤害类型
  * V2 API 返回字符串数字：'1024'=魔法，'128'=物理
  */
-function detectDamageTypeFromAbility(abilityType: string | number): 'physical' | 'magical' | 'special' {
+function detectDamageTypeFromAbility(
+  abilityType: string | number
+): 'physical' | 'magical' | 'special' {
   const t = Number(abilityType)
   if (t === 1024) return 'magical'
   if (t === 128) return 'physical'
@@ -271,10 +280,7 @@ function detectDamageTypeFromAbility(abilityType: string | number): 'physical' |
  *
  * buffs 字段格式：`"1002609.1002345."` — 以 `.` 分隔的 buff ID 列表（带 1e6 偏移）
  */
-export function parseStatusEvents(
-  events: FFLogsEvent[],
-  fightStartTime: number
-): StatusEvent[] {
+export function parseStatusEvents(events: FFLogsEvent[], fightStartTime: number): StatusEvent[] {
   // 构建 absorbed 查找表：key -> absorbed amount
   const absorbedMap = new Map<string, number>()
   for (const event of events) {
@@ -316,10 +322,7 @@ export function parseStatusEvents(
     const { timestamp, targetID, abilityGameID: damageAbilityId, packetID } = event
     const eventTime = (timestamp - fightStartTime) / 1000
 
-    const buffIds: number[] = (event.buffs as string)
-      .split('.')
-      .filter(Boolean)
-      .map(Number)
+    const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
 
     for (const buffId of buffIds) {
       const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
@@ -355,7 +358,7 @@ export function parseCastEventsFromFFLogs(
   playerMap: Map<number, { id: number; name: string; type: string }>
 ): CastEvent[] {
   const castEventsResult: CastEvent[] = []
-  const validActionIds = new Set(MITIGATION_DATA.actions.map((a) => a.id))
+  const validActionIds = new Set(MITIGATION_DATA.actions.map(a => a.id))
 
   for (const event of events) {
     if (event.type !== 'cast') continue

@@ -7,8 +7,8 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 
 export function useEditorReadOnly(): boolean {
-  const timeline = useTimelineStore((state) => state.timeline)
-  const userReadOnly = useUIStore((state) => state.isReadOnly)
+  const timeline = useTimelineStore(state => state.timeline)
+  const userReadOnly = useUIStore(state => state.isReadOnly)
 
   const isReplayMode = timeline?.isReplayMode || false
 

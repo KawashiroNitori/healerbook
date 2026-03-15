@@ -4,11 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { parseFFLogsUrl } from './fflogsParser'
-import {
-  parseCastEventsFromFFLogs,
-  parseStatusEvents,
-  parseDamageEvents,
-} from './fflogsImporter'
+import { parseCastEventsFromFFLogs, parseStatusEvents, parseDamageEvents } from './fflogsImporter'
 import type { FFLogsAbility } from '@/types/fflogs'
 
 type V2Actor = { id: number; name: string; type: string }
@@ -52,9 +48,7 @@ describe('parseFFLogsUrl', () => {
     })
 
     it('应该解析带其他查询参数的 URL', () => {
-      const result = parseFFLogsUrl(
-        'https://www.fflogs.com/reports/ABC123?translate=true&fight=3'
-      )
+      const result = parseFFLogsUrl('https://www.fflogs.com/reports/ABC123?translate=true&fight=3')
       expect(result).toEqual({
         reportCode: 'ABC123',
         fightId: 3,
@@ -317,7 +311,13 @@ describe('parseStatusEvents', () => {
 
   it('应该过滤掉没有 abilityGameID 的事件', () => {
     const events = [
-      { type: 'applybuff', sourceID: 1, targetID: 2, targetInstance: 1, timestamp: fightStartTime + 5000 },
+      {
+        type: 'applybuff',
+        sourceID: 1,
+        targetID: 2,
+        targetInstance: 1,
+        timestamp: fightStartTime + 5000,
+      },
     ]
 
     const result = parseStatusEvents(events, fightStartTime)
@@ -360,9 +360,39 @@ describe('parseDamageEvents', () => {
     const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
 
     const events = [
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 1, unmitigatedAmount: 10000, absorbed: 0, amount: 10000, timestamp: fightStartTime + 5000, sourceID: 999 },
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 2, unmitigatedAmount: 12000, absorbed: 0, amount: 12000, timestamp: fightStartTime + 5000, sourceID: 999 },
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 3, unmitigatedAmount: 11000, absorbed: 0, amount: 11000, timestamp: fightStartTime + 5000, sourceID: 999 },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 11000,
+        absorbed: 0,
+        amount: 11000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
@@ -382,9 +412,39 @@ describe('parseDamageEvents', () => {
     const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
 
     const events = [
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 1, unmitigatedAmount: 5000, absorbed: 0, amount: 5000, timestamp: fightStartTime + 5000, sourceID: 999 },
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 2, unmitigatedAmount: 10000, absorbed: 0, amount: 10000, timestamp: fightStartTime + 5000, sourceID: 999 },
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 3, unmitigatedAmount: 12000, absorbed: 0, amount: 12000, timestamp: fightStartTime + 5000, sourceID: 999 },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 5000,
+        absorbed: 0,
+        amount: 5000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
@@ -400,8 +460,28 @@ describe('parseDamageEvents', () => {
     const abilityMap = makeAbilityMap(999999, 'Tankbuster', 128)
 
     const events = [
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 1, unmitigatedAmount: 20000, absorbed: 0, amount: 20000, timestamp: fightStartTime + 5000, sourceID: 999 },
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 2, unmitigatedAmount: 18000, absorbed: 0, amount: 18000, timestamp: fightStartTime + 5000, sourceID: 999 },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 20000,
+        absorbed: 0,
+        amount: 20000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 18000,
+        absorbed: 0,
+        amount: 18000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
@@ -418,26 +498,54 @@ describe('parseDamageEvents', () => {
     const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
 
     const events = [
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 1, unmitigatedAmount: 10000, absorbed: 500, amount: 9500, timestamp: fightStartTime + 5000, sourceID: 999 },
-      { type: 'damage', packetID: 1, abilityGameID: 999999, targetID: 2, unmitigatedAmount: 12000, absorbed: 0, amount: 12000, timestamp: fightStartTime + 5000, sourceID: 999 },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 10000,
+        absorbed: 500,
+        amount: 9500,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
     expect(result).toHaveLength(1)
     expect(result[0].playerDamageDetails).toHaveLength(2)
-    const tankDetail = result[0].playerDamageDetails?.find((d) => d.playerId === 1)
+    const tankDetail = result[0].playerDamageDetails?.find(d => d.playerId === 1)
     expect(tankDetail?.absorbedDamage).toBe(500)
     expect(tankDetail?.finalDamage).toBe(9500)
   })
 
   it('应该过滤掉普通攻击', () => {
-    const playerMap = new Map<number, V2Actor>([
-      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
-    ])
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
     const abilityMap = makeAbilityMap(1, 'Attack', 128)
 
     const events = [
-      { type: 'damage', packetID: 1, abilityGameID: 1, targetID: 1, unmitigatedAmount: 10000, absorbed: 0, amount: 10000, timestamp: fightStartTime + 5000, sourceID: 999 },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 1,
+        targetID: 1,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
@@ -445,13 +553,21 @@ describe('parseDamageEvents', () => {
   })
 
   it('应该过滤掉低伤害技能', () => {
-    const playerMap = new Map<number, V2Actor>([
-      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
-    ])
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
     const abilityMap = makeAbilityMap(12345, 'Weak Attack', 1024)
 
     const events = [
-      { type: 'damage', packetID: 1, abilityGameID: 12345, targetID: 1, unmitigatedAmount: 5000, absorbed: 0, amount: 5000, timestamp: fightStartTime + 5000, sourceID: 999 },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 12345,
+        targetID: 1,
+        unmitigatedAmount: 5000,
+        absorbed: 0,
+        amount: 5000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)

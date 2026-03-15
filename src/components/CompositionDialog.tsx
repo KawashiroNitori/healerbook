@@ -19,13 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
 import type { Job, Composition } from '@/types/timeline'
-import {
-  JOB_ORDER,
-  getJobName,
-  ROLE_LABELS,
-  ROLE_ORDER,
-  groupJobsByRole,
-} from '@/data/jobs'
+import { JOB_ORDER, getJobName, ROLE_LABELS, ROLE_ORDER, groupJobsByRole } from '@/data/jobs'
 import JobIcon from './JobIcon'
 
 interface CompositionDialogProps {
@@ -90,12 +84,12 @@ export default function CompositionDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <Select value={selectedJob} onValueChange={(value) => setSelectedJob(value as Job)}>
+          <Select value={selectedJob} onValueChange={value => setSelectedJob(value as Job)}>
             <SelectTrigger>
               <SelectValue placeholder="选择职业" />
             </SelectTrigger>
             <SelectContent>
-              {ROLE_ORDER.map((role) => {
+              {ROLE_ORDER.map(role => {
                 const jobs = jobsByRole[role]
                 if (jobs.length === 0) return null
 
@@ -104,7 +98,7 @@ export default function CompositionDialog({
                     <SelectLabel className="text-xs text-muted-foreground font-normal">
                       {ROLE_LABELS[role]}
                     </SelectLabel>
-                    {jobs.map((job) => (
+                    {jobs.map(job => (
                       <SelectItem key={job} value={job}>
                         <div className="flex items-center gap-2">
                           <JobIcon job={job} size="sm" />

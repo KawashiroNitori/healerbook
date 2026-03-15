@@ -44,7 +44,7 @@ describe('mitigationActions', () => {
 
   describe('友方 Buff 技能', () => {
     it('节制应该为所有玩家添加状态', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 16536)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 16536)!
       const ctx: ActionExecutionContext = {
         actionId: 16536,
         useTime: 10,
@@ -60,7 +60,7 @@ describe('mitigationActions', () => {
     })
 
     it('行吟应该为所有玩家添加状态', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 7405)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 7405)!
       const ctx: ActionExecutionContext = {
         actionId: 7405,
         useTime: 20,
@@ -69,14 +69,14 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.players.every((p) => p.statuses.length === 1)).toBe(true)
+      expect(newState.players.every(p => p.statuses.length === 1)).toBe(true)
       expect(newState.players[0].statuses[0].statusId).toBe(1934)
     })
   })
 
   describe('敌方 Debuff 技能', () => {
     it('雪仇应该为敌方添加 Debuff', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 7535)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 7535)!
       const ctx: ActionExecutionContext = {
         actionId: 7535,
         useTime: 30,
@@ -92,7 +92,7 @@ describe('mitigationActions', () => {
     })
 
     it('牵制应该为敌方添加 Debuff', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 7549)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 7549)!
       const ctx: ActionExecutionContext = {
         actionId: 7549,
         useTime: 40,
@@ -108,7 +108,7 @@ describe('mitigationActions', () => {
 
   describe('盾值技能', () => {
     it('泛输血应该为所有玩家添加盾值', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 24311)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 24311)!
       const ctx: ActionExecutionContext = {
         actionId: 24311,
         useTime: 50,
@@ -123,7 +123,7 @@ describe('mitigationActions', () => {
     })
 
     it('鼓舞激励之策应该只为目标玩家添加盾值', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 185)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 185)!
       const ctx: ActionExecutionContext = {
         actionId: 185,
         useTime: 60,
@@ -141,7 +141,7 @@ describe('mitigationActions', () => {
 
   describe('自定义 Executor', () => {
     it('展开战术应该为所有玩家添加鼓舞盾', () => {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 3585)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 3585)!
       const ctx: ActionExecutionContext = {
         actionId: 3585,
         useTime: 10,
@@ -151,7 +151,7 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.players.every((p) => p.statuses.length > 0)).toBe(true)
+      expect(newState.players.every(p => p.statuses.length > 0)).toBe(true)
       expect(newState.players[0].statuses[0].statusId).toBe(297)
     })
 
@@ -159,7 +159,7 @@ describe('mitigationActions', () => {
       // 施法者有秘策状态
       const partyWithRecitation: PartyState = {
         ...mockPartyState,
-        players: mockPartyState.players.map((p) =>
+        players: mockPartyState.players.map(p =>
           p.id === 3
             ? {
                 ...p,
@@ -178,7 +178,7 @@ describe('mitigationActions', () => {
         ),
       }
 
-      const action = MITIGATION_DATA.actions.find((a) => a.id === 37013)!
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37013)!
       const ctx: ActionExecutionContext = {
         actionId: 37013,
         useTime: 5,
@@ -190,12 +190,12 @@ describe('mitigationActions', () => {
 
       // 所有玩家应该有 2 个盾（鼓舞 + 激励）
       expect(newState.players[0].statuses).toHaveLength(2)
-      expect(newState.players[0].statuses.some((s) => s.statusId === 297)).toBe(true)
-      expect(newState.players[0].statuses.some((s) => s.statusId === 1918)).toBe(true)
+      expect(newState.players[0].statuses.some(s => s.statusId === 297)).toBe(true)
+      expect(newState.players[0].statuses.some(s => s.statusId === 1918)).toBe(true)
 
       // 施法者的秘策应该被消耗
-      const caster = newState.players.find((p) => p.id === 3)!
-      expect(caster.statuses.some((s) => s.statusId === 1896)).toBe(false)
+      const caster = newState.players.find(p => p.id === 3)!
+      expect(caster.statuses.some(s => s.statusId === 1896)).toBe(false)
     })
   })
 })

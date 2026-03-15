@@ -46,13 +46,18 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground mb-2">
-          无阵容信息
-        </p>
+        <p className="text-sm text-muted-foreground mb-2">无阵容信息</p>
       )}
 
       <p className="text-xs text-muted-foreground">
-      更新于 {new Date(timeline.updatedAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        更新于{' '}
+        {new Date(timeline.updatedAt).toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
       </p>
     </div>
   )

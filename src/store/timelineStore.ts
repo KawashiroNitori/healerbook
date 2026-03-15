@@ -25,7 +25,7 @@ function buildPartyStateFromStatusEvents(
 ): PartyState {
   // 初始化状态
   const currentState: PartyState = {
-    players: initialState.players.map((p) => ({
+    players: initialState.players.map(p => ({
       ...p,
       statuses: [],
     })),
@@ -36,9 +36,12 @@ function buildPartyStateFromStatusEvents(
   }
 
   // 过滤状态事件：按 packetId 或按时间范围
-  const activeStatusEvents = packetId != null
-    ? statusEvents.filter((event) => event.packetId === packetId)
-    : statusEvents.filter((event) => time != null && event.startTime <= time && event.endTime >= time)
+  const activeStatusEvents =
+    packetId != null
+      ? statusEvents.filter(event => event.packetId === packetId)
+      : statusEvents.filter(
+          event => time != null && event.startTime <= time && event.endTime >= time
+        )
 
   // 将状态事件转换为 MitigationStatus 并分配到玩家/敌人
   for (const event of activeStatusEvents) {
@@ -57,7 +60,7 @@ function buildPartyStateFromStatusEvents(
 
     // 判断是友方还是敌方状态
     if (event.targetPlayerId) {
-      const player = currentState.players.find((p) => p.id === event.targetPlayerId)
+      const player = currentState.players.find(p => p.id === event.targetPlayerId)
       if (player) {
         player.statuses.push(status)
       }
@@ -69,7 +72,6 @@ function buildPartyStateFromStatusEvents(
 
   return currentState
 }
-
 
 interface TimelineState {
   /** 当前时间轴 */
@@ -168,7 +170,7 @@ const initialState = {
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   ...initialState,
 
-  setTimeline: (timeline) => {
+  setTimeline: timeline => {
     set({
       timeline,
       selectedEventId: null,
@@ -183,9 +185,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
   },
 
-  initializePartyState: (composition) => {
+  initializePartyState: composition => {
     const partyState: PartyState = {
-      players: composition.players.map((player) => ({
+      players: composition.players.map(player => ({
         id: player.id,
         job: player.job,
         currentHP: 100000, // 默认 HP
@@ -205,7 +207,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     if (!state.partyState) return
 
     // 查找技能
-    const action = MITIGATION_DATA.actions.find((a) => a.id === actionId)
+    const action = MITIGATION_DATA.actions.find(a => a.id === actionId)
     if (!action) {
       console.error(`技能 ${actionId} 不存在`)
       return
@@ -224,7 +226,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ partyState: newPartyState })
   },
 
-  updatePartyState: (partyState) => {
+  updatePartyState: partyState => {
     set({ partyState })
   },
 
@@ -245,7 +247,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     // 编辑模式：使用 executor 从 castEvents 生成状态
     // 从初始状态开始重放所有技能
     let currentState: PartyState = {
-      players: state.partyState.players.map((p) => ({
+      players: state.partyState.players.map(p => ({
         ...p,
         statuses: [],
       })),
@@ -257,12 +259,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     // 获取所有在指定时间之前使用的技能
     const castEvents = (state.timeline.castEvents || [])
-      .filter((ce) => ce.timestamp <= time)
+      .filter(ce => ce.timestamp <= time)
       .sort((a, b) => a.timestamp - b.timestamp)
 
     // 依次执行技能
     for (const castEvent of castEvents) {
-      const action = MITIGATION_DATA.actions.find((a) => a.id === castEvent.actionId)
+      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
       if (!action) continue
 
       const context: ActionExecutionContext = {
@@ -278,12 +280,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     // 过滤掉已过期的状态
     currentState = {
       ...currentState,
-      players: currentState.players.map((p) => ({
+      players: currentState.players.map(p => ({
         ...p,
-        statuses: p.statuses.filter((s) => s.endTime >= time),
+        statuses: p.statuses.filter(s => s.endTime >= time),
       })),
       enemy: {
-        statuses: currentState.enemy.statuses.filter((s) => s.endTime >= time),
+        statuses: currentState.enemy.statuses.filter(s => s.endTime >= time),
       },
       timestamp: time,
     }
@@ -291,18 +293,18 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     return currentState
   },
 
-  cleanupExpiredStatuses: (currentTime) => {
+  cleanupExpiredStatuses: currentTime => {
     const state = get()
     if (!state.partyState) return
 
     const newPartyState: PartyState = {
       ...state.partyState,
-      players: state.partyState.players.map((p) => ({
+      players: state.partyState.players.map(p => ({
         ...p,
-        statuses: p.statuses.filter((s) => s.endTime >= currentTime),
+        statuses: p.statuses.filter(s => s.endTime >= currentTime),
       })),
       enemy: {
-        statuses: state.partyState.enemy.statuses.filter((s) => s.endTime >= currentTime),
+        statuses: state.partyState.enemy.statuses.filter(s => s.endTime >= currentTime),
       },
       timestamp: currentTime,
     }
@@ -310,34 +312,34 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ partyState: newPartyState })
   },
 
-  selectEvent: (eventId) =>
+  selectEvent: eventId =>
     set({
       selectedEventId: eventId,
       selectedCastEventId: null,
     }),
 
-  selectCastEvent: (castEventId) =>
+  selectCastEvent: castEventId =>
     set({
       selectedCastEventId: castEventId,
       selectedEventId: null,
     }),
 
-  setCurrentTime: (time) =>
+  setCurrentTime: time =>
     set({
       currentTime: Math.max(0, time),
     }),
 
   togglePlay: () =>
-    set((state) => ({
+    set(state => ({
       isPlaying: !state.isPlaying,
     })),
 
-  setZoomLevel: (level) =>
+  setZoomLevel: level =>
     set({
       zoomLevel: Math.max(10, Math.min(200, level)),
     }),
 
-  setPendingScrollProgress: (progress) =>
+  setPendingScrollProgress: progress =>
     set({
       pendingScrollProgress: progress,
     }),
@@ -349,7 +351,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       currentViewportWidth: viewportWidth,
     }),
 
-  zoomWithScrollPreservation: (delta) => {
+  zoomWithScrollPreservation: delta => {
     const state = get()
     const currentZoom = state.zoomLevel
     const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
@@ -365,8 +367,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ zoomLevel: newZoomLevel })
   },
 
-  updateTimelineName: (name) => {
-    set((state) => {
+  updateTimelineName: name => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
@@ -380,15 +382,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     get().triggerAutoSave(0)
   },
 
-  updateComposition: (composition) => {
-    set((state) => {
+  updateComposition: composition => {
+    set(state => {
       if (!state.timeline) return state
 
       // 获取新阵容中的所有玩家 ID
-      const newPlayerIds = composition.players.map((p) => p.id)
+      const newPlayerIds = composition.players.map(p => p.id)
 
       // 过滤掉不在新阵容中的玩家的技能使用事件
-      const filteredCastEvents = state.timeline.castEvents.filter((castEvent) =>
+      const filteredCastEvents = state.timeline.castEvents.filter(castEvent =>
         newPlayerIds.includes(castEvent.playerId)
       )
 
@@ -406,8 +408,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     get().initializePartyState(composition)
   },
 
-  addDamageEvent: (event) => {
-    set((state) => {
+  addDamageEvent: event => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
@@ -421,13 +423,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   updateDamageEvent: (eventId, updates) => {
-    set((state) => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
         timeline: {
           ...state.timeline,
-          damageEvents: state.timeline.damageEvents.map((event) =>
+          damageEvents: state.timeline.damageEvents.map(event =>
             event.id === eventId ? { ...event, ...updates } : event
           ),
         },
@@ -436,14 +438,14 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     get().triggerAutoSave()
   },
 
-  removeDamageEvent: (eventId) => {
-    set((state) => {
+  removeDamageEvent: eventId => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
         timeline: {
           ...state.timeline,
-          damageEvents: state.timeline.damageEvents.filter((event) => event.id !== eventId),
+          damageEvents: state.timeline.damageEvents.filter(event => event.id !== eventId),
         },
         selectedEventId: state.selectedEventId === eventId ? null : state.selectedEventId,
       }
@@ -451,8 +453,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     get().triggerAutoSave()
   },
 
-  addCastEvent: (castEvent) => {
-    set((state) => {
+  addCastEvent: castEvent => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
@@ -466,13 +468,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   updateCastEvent: (castEventId, updates) => {
-    set((state) => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
         timeline: {
           ...state.timeline,
-          castEvents: state.timeline.castEvents.map((castEvent) =>
+          castEvents: state.timeline.castEvents.map(castEvent =>
             castEvent.id === castEventId ? { ...castEvent, ...updates } : castEvent
           ),
         },
@@ -481,16 +483,14 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     get().triggerAutoSave()
   },
 
-  removeCastEvent: (castEventId) => {
-    set((state) => {
+  removeCastEvent: castEventId => {
+    set(state => {
       if (!state.timeline) return state
 
       return {
         timeline: {
           ...state.timeline,
-          castEvents: state.timeline.castEvents.filter(
-            (castEvent) => castEvent.id !== castEventId
-          ),
+          castEvents: state.timeline.castEvents.filter(castEvent => castEvent.id !== castEventId),
         },
         selectedCastEventId:
           state.selectedCastEventId === castEventId ? null : state.selectedCastEventId,
@@ -531,7 +531,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   exitReplayMode: () => {
-    set((state) => {
+    set(state => {
       if (!state.timeline || !state.timeline.isReplayMode) return state
 
       return {

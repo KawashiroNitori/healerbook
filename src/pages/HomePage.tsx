@@ -102,12 +102,12 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {timelines.map((timeline) => (
+              {timelines.map(timeline => (
                 <TimelineCard
                   key={timeline.id}
                   timeline={timeline}
                   onClick={() => navigate(`/editor/${timeline.id}`)}
-                  onDelete={(e) => {
+                  onDelete={e => {
                     e.stopPropagation()
                     handleDeleteTimeline(timeline.id)
                   }}

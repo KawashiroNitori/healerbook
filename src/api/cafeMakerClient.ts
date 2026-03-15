@@ -73,13 +73,11 @@ export async function getActionById(actionId: number): Promise<CafeMakerAction |
  * @param actionIds 技能 ID 列表
  * @returns 技能数据映射
  */
-export async function getActionsByIds(
-  actionIds: number[]
-): Promise<Map<number, CafeMakerAction>> {
+export async function getActionsByIds(actionIds: number[]): Promise<Map<number, CafeMakerAction>> {
   const results = new Map<number, CafeMakerAction>()
 
   await Promise.all(
-    actionIds.map(async (id) => {
+    actionIds.map(async id => {
       const action = await getActionById(id)
       if (action) {
         results.set(id, action)

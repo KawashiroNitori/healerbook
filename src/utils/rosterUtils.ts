@@ -12,18 +12,24 @@ const JOB_MITIGATION_IDS: Record<string, number[]> = {
   SCH: [185, 3585, 16542, 37013, 188, 16538, 25868],
   AST: [16559, 3613, 37031],
   SGE: [24311, 24310, 24298, 37034],
-  MNK: [7549], DRG: [7549], NIN: [7549], SAM: [7549], RPR: [7549], VPR: [7549],
+  MNK: [7549],
+  DRG: [7549],
+  NIN: [7549],
+  SAM: [7549],
+  RPR: [7549],
+  VPR: [7549],
   BRD: [7405],
   MCH: [16889],
   DNC: [16012],
-  BLM: [7560], SMN: [7560],
+  BLM: [7560],
+  SMN: [7560],
   RDM: [7560, 25857],
   PCT: [7560, 34686],
 }
 
 // 将 allCharacters 的 spec 列表转为按标准职业顺序排列的职业代码列表
 export function buildComposition(specs: string[]): string[] {
-  const jobs = specs.map((spec) => JOB_MAP[spec] ?? spec) as Job[]
+  const jobs = specs.map(spec => JOB_MAP[spec] ?? spec) as Job[]
   return sortJobsByOrder(jobs)
 }
 

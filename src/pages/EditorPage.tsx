@@ -49,7 +49,7 @@ export default function EditorPage() {
         const newHeight = canvasContainerRef.current.clientHeight
 
         // 只在尺寸真��变化时更新，避免无限循环
-        setCanvasSize((prev) => {
+        setCanvasSize(prev => {
           if (prev.width === newWidth && prev.height === newHeight) {
             return prev
           }
@@ -122,10 +122,7 @@ export default function EditorPage() {
           <div ref={canvasContainerRef} className="h-full">
             {timeline ? (
               <ErrorBoundary>
-                <TimelineCanvas
-                  width={canvasSize.width}
-                  height={canvasSize.height}
-                />
+                <TimelineCanvas width={canvasSize.width} height={canvasSize.height} />
               </ErrorBoundary>
             ) : (
               <div className="flex items-center justify-center h-full">

@@ -15,16 +15,9 @@ interface PlayerDamageDetailsProps {
   partyState: PartyState
 }
 
-export default function PlayerDamageDetails({
-  event,
-  partyState,
-}: PlayerDamageDetailsProps) {
+export default function PlayerDamageDetails({ event, partyState }: PlayerDamageDetailsProps) {
   if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        没有玩家伤害详情数据
-      </div>
-    )
+    return <div className="text-sm text-muted-foreground">没有玩家伤害详情数据</div>
   }
 
   // 按照职业顺序排序玩家伤害详情
@@ -38,18 +31,15 @@ export default function PlayerDamageDetails({
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">玩家伤害详情</h3>
 
-      {sortedDetails.map((detail) => {
+      {sortedDetails.map(detail => {
         // 查找对应的玩家状态
-        const playerState = partyState.players.find((p) => p.id === detail.playerId)
+        const playerState = partyState.players.find(p => p.id === detail.playerId)
 
         // partyState 已通过 packetId 过滤，直接取该玩家的所有状态
         const activeStatuses = playerState?.statuses || []
 
         return (
-          <div
-            key={detail.playerId}
-            className="border rounded-lg p-3 space-y-2 bg-card"
-          >
+          <div key={detail.playerId} className="border rounded-lg p-3 space-y-2 bg-card">
             {/* 玩家信息 */}
             <div className="flex items-center gap-2">
               <JobIcon job={detail.job} size="sm" />
@@ -60,9 +50,7 @@ export default function PlayerDamageDetails({
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <div className="text-muted-foreground">原始伤害</div>
-                <div className="font-medium">
-                  {detail.unmitigatedDamage.toLocaleString()}
-                </div>
+                <div className="font-medium">{detail.unmitigatedDamage.toLocaleString()}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">盾值抵消</div>
@@ -84,8 +72,7 @@ export default function PlayerDamageDetails({
                 <span className="text-muted-foreground">减伤率: </span>
                 <span className="font-medium text-green-600">
                   {(
-                    ((detail.unmitigatedDamage - detail.finalDamage) /
-                      detail.unmitigatedDamage) *
+                    ((detail.unmitigatedDamage - detail.finalDamage) / detail.unmitigatedDamage) *
                     100
                   ).toFixed(1)}
                   %
@@ -98,7 +85,7 @@ export default function PlayerDamageDetails({
               <div className="space-y-1">
                 <div className="text-xs text-muted-foreground">生效状态:</div>
                 <div className="flex flex-wrap gap-1">
-                  {activeStatuses.map((status) => {
+                  {activeStatuses.map(status => {
                     const meta = getStatusById(status.statusId)
                     const iconUrl = getStatusIconUrl(status.statusId)
                     const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'

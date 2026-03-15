@@ -115,8 +115,8 @@ export class MitigationCalculator {
     }
 
     // 应用盾值更新到玩家状态
-    const updatedPlayers = partyState.players.map((player) => {
-      const updatedStatuses = player.statuses.map((status) => {
+    const updatedPlayers = partyState.players.map(player => {
+      const updatedStatuses = player.statuses.map(status => {
         const newBarrier = statusUpdates.get(status.instanceId)
         if (newBarrier !== undefined) {
           return {

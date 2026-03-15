@@ -124,15 +124,11 @@ function CompositionFilter({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              选择你小队的阵容
-            </p>
+            <p className="text-sm text-muted-foreground">选择你小队的阵容</p>
             <div className="flex items-center gap-2">
               {selectedJobs.length > 0 && (
                 <>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedJobs.length}/8
-                  </p>
+                  <p className="text-xs text-muted-foreground">{selectedJobs.length}/8</p>
                   <button
                     onClick={() => onJobsChange([])}
                     className="text-muted-foreground hover:text-foreground transition-colors"
@@ -151,7 +147,7 @@ function CompositionFilter({
               <div key={role}>
                 <h4 className="text-xs font-medium text-muted-foreground mb-2">{role}</h4>
                 <div className="flex flex-wrap gap-2">
-                  {jobs.map((job) => {
+                  {jobs.map(job => {
                     const isSelected = selectedJobs.includes(job)
                     const isDisabled = !isSelected && selectedJobs.length >= 8
                     return (
@@ -197,12 +193,13 @@ function EncounterTable({
   const [showAll, setShowAll] = useState(false)
 
   // 应用过滤
-  const filteredEntries = data?.entries.filter((entry) => {
-    if (!filterMitigationKey || filterMitigationKey.length === 0) return true
-    // 根据 composition 计算 mitigationKey
-    const entryMitigationKey = buildMitigationKey(entry.composition)
-    return isSubsequence(filterMitigationKey, entryMitigationKey)
-  }) ?? []
+  const filteredEntries =
+    data?.entries.filter(entry => {
+      if (!filterMitigationKey || filterMitigationKey.length === 0) return true
+      // 根据 composition 计算 mitigationKey
+      const entryMitigationKey = buildMitigationKey(entry.composition)
+      return isSubsequence(filterMitigationKey, entryMitigationKey)
+    }) ?? []
 
   const hasData = filteredEntries.length > 0
   const displayEntries = showAll ? filteredEntries : filteredEntries.slice(0, 10)
@@ -213,7 +210,7 @@ function EncounterTable({
       {/* 表头行（点击展开/收起） */}
       <button
         className="w-full flex items-center justify-between px-4 py-3 bg-muted/50 hover:bg-muted transition-colors text-left"
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => setIsOpen(v => !v)}
       >
         <div className="flex items-center gap-3">
           <span className="font-mono font-bold text-sm">{encounter.shortName}</span>
@@ -228,9 +225,7 @@ function EncounterTable({
       {isOpen && (
         <div>
           {!hasData ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              暂无数据
-            </div>
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">暂无数据</div>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -249,8 +244,11 @@ function EncounterTable({
                     </tr>
                   </thead>
                   <tbody>
-                    {displayEntries.map((entry) => (
-                      <tr key={`${entry.reportCode}-${entry.fightID}-${entry.rank}`} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                    {displayEntries.map(entry => (
+                      <tr
+                        key={`${entry.reportCode}-${entry.fightID}-${entry.rank}`}
+                        className="border-b last:border-0 hover:bg-muted/20 transition-colors"
+                      >
                         <td className="text-right px-3 py-2 text-muted-foreground font-mono text-xs align-middle">
                           {entry.rank}
                         </td>
@@ -261,7 +259,8 @@ function EncounterTable({
                               <span className="font-medium text-sm">{entry.characterName}</span>
                               {entry.serverName && (
                                 <span className="text-xs text-muted-foreground">
-                                  <Server className="w-3 h-3 inline mr-0.5" />{entry.serverName}
+                                  <Server className="w-3 h-3 inline mr-0.5" />
+                                  {entry.serverName}
                                 </span>
                               )}
                             </div>
@@ -270,7 +269,8 @@ function EncounterTable({
                               <span className="font-medium text-sm">{entry.characterNameTwo}</span>
                               {entry.serverNameTwo && (
                                 <span className="text-xs text-muted-foreground">
-                                  <Server className="w-3 h-3 inline mr-0.5" />{entry.serverNameTwo}
+                                  <Server className="w-3 h-3 inline mr-0.5" />
+                                  {entry.serverNameTwo}
                                 </span>
                               )}
                             </div>
@@ -288,7 +288,8 @@ function EncounterTable({
                           )}
                         </td>
                         <td className="text-right px-3 py-2 font-mono align-middle">
-                          {formatAmount(entry.amount)}                        </td>
+                          {formatAmount(entry.amount)}{' '}
+                        </td>
                         <td className="text-right px-3 py-2 font-mono text-muted-foreground align-middle">
                           {formatDuration(entry.duration)}
                         </td>
@@ -312,14 +313,12 @@ function EncounterTable({
               {hasMore && (
                 <button
                   className="w-full py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
-                  onClick={(e) => {
+                  onClick={e => {
                     e.stopPropagation()
-                    setShowAll((v) => !v)
+                    setShowAll(v => !v)
                   }}
                 >
-                  {showAll
-                    ? `收起（显示前 10 条）`
-                    : `展开全部 ${data?.entries.length ?? 0} 条`}
+                  {showAll ? `收起（显示前 10 条）` : `展开全部 ${data?.entries.length ?? 0} 条`}
                 </button>
               )}
             </>
@@ -444,7 +443,7 @@ export default function Top100Section() {
         </div>
       ) : (
         <div className="space-y-2">
-          {activeTier.encounters.map((encounter) => (
+          {activeTier.encounters.map(encounter => (
             <EncounterTable
               key={encounter.id}
               encounter={encounter}

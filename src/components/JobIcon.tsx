@@ -25,11 +25,7 @@ interface JobIconProps {
  * <JobIcon job="WHM" size="sm" className="opacity-60" />
  * ```
  */
-export default function JobIcon({
-  job,
-  className,
-  size = 'md'
-}: JobIconProps) {
+export default function JobIcon({ job, className, size = 'md' }: JobIconProps) {
   const iconClass = getJobIconClass(job)
   const role = getJobRole(job) ?? 'melee'
 
@@ -50,13 +46,7 @@ export default function JobIcon({
 
   return (
     <i
-      className={cn(
-        'job-icon',
-        iconClass,
-        sizeClasses[size],
-        roleColorClasses[role],
-        className
-      )}
+      className={cn('job-icon', iconClass, sizeClasses[size], roleColorClasses[role], className)}
       aria-label={job}
     />
   )

@@ -29,7 +29,7 @@ describe('statusRegistry', () => {
     it('应该返回所有友方状态', () => {
       const statuses = getAllFriendlyStatuses()
       expect(statuses.length).toBeGreaterThan(0)
-      expect(statuses.every((s) => s.isFriendly)).toBe(true)
+      expect(statuses.every(s => s.isFriendly)).toBe(true)
     })
   })
 
@@ -37,7 +37,7 @@ describe('statusRegistry', () => {
     it('应该返回所有敌方状态', () => {
       const statuses = getAllEnemyStatuses()
       expect(statuses.length).toBeGreaterThan(0)
-      expect(statuses.every((s) => !s.isFriendly)).toBe(true)
+      expect(statuses.every(s => !s.isFriendly)).toBe(true)
     })
   })
 

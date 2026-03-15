@@ -31,14 +31,7 @@ export default function SkillIcon({ iconPath, isSelected }: SkillIconProps) {
 
   return (
     <>
-      <KonvaImage
-        image={image}
-        x={0}
-        y={-15}
-        width={30}
-        height={30}
-        cornerRadius={4}
-      />
+      <KonvaImage image={image} x={0} y={-15} width={30} height={30} cornerRadius={4} />
       {isSelected && (
         <Rect
           x={0}

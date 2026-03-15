@@ -12,16 +12,16 @@ const queryClient = new QueryClient()
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <Suspense fallback={null}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/editor/:timelineId" element={<EditorPage />} />
-        </Routes>
-      </Suspense>
-      <Toaster />
-      <TooltipOverlay />
-    </BrowserRouter>
+      <BrowserRouter>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/editor/:timelineId" element={<EditorPage />} />
+          </Routes>
+        </Suspense>
+        <Toaster />
+        <TooltipOverlay />
+      </BrowserRouter>
     </QueryClientProvider>
   )
 }

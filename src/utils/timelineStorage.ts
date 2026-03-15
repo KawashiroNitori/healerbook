@@ -52,7 +52,7 @@ export function saveTimeline(timeline: Timeline): void {
 
     // 更新元数据列表
     const metadata = getAllTimelineMetadata()
-    const existingIndex = metadata.findIndex((m) => m.id === timeline.id)
+    const existingIndex = metadata.findIndex(m => m.id === timeline.id)
 
     const newMetadata: TimelineMetadata = {
       id: timeline.id,
@@ -85,7 +85,7 @@ export function deleteTimeline(id: string): void {
 
     // 更新元数据列表
     const metadata = getAllTimelineMetadata()
-    const filtered = metadata.filter((m) => m.id !== id)
+    const filtered = metadata.filter(m => m.id !== id)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
   } catch (error) {
     console.error('Failed to delete timeline:', error)

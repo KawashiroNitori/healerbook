@@ -196,7 +196,7 @@ describe('timelineStore - 状态管理', () => {
       const currentState = useTimelineStore.getState().partyState!
       const newPartyState = {
         ...currentState,
-        players: currentState.players.map((p) => ({
+        players: currentState.players.map(p => ({
           ...p,
           currentHP: 50000,
         })),

@@ -11,12 +11,7 @@ interface TimeRulerProps {
   height: number
 }
 
-export default function TimeRuler({
-  maxTime,
-  zoomLevel,
-  timelineWidth,
-  height,
-}: TimeRulerProps) {
+export default function TimeRuler({ maxTime, zoomLevel, timelineWidth, height }: TimeRulerProps) {
   return (
     <>
       {/* 时间标尺轨道背景 */}

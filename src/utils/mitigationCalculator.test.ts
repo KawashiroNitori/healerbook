@@ -463,8 +463,8 @@ describe('MitigationCalculator', () => {
       const activeStatuses = calculator.getActiveStatusesAtTime(partyState, 10)
 
       expect(activeStatuses).toHaveLength(2) // 铁壁 + 雪仇
-      expect(activeStatuses.map((s) => s.statusId)).toContain(1191)
-      expect(activeStatuses.map((s) => s.statusId)).toContain(1193)
+      expect(activeStatuses.map(s => s.statusId)).toContain(1191)
+      expect(activeStatuses.map(s => s.statusId)).toContain(1193)
     })
   })
 
@@ -508,7 +508,7 @@ describe('MitigationCalculator', () => {
       expect(result.finalDamage).toBe(5000)
       expect(result.mitigationPercentage).toBe(50)
       // 只应用一个盾值状态
-      expect(result.appliedStatuses.filter((s) => s.statusId === 2613)).toHaveLength(1)
+      expect(result.appliedStatuses.filter(s => s.statusId === 2613)).toHaveLength(1)
     })
 
     it('单体伤害时应该消耗目标玩家的盾值', () => {
@@ -550,7 +550,7 @@ describe('MitigationCalculator', () => {
       expect(result.finalDamage).toBe(5000)
       expect(result.mitigationPercentage).toBe(50)
       // 只应用目标玩家的盾值状态
-      expect(result.appliedStatuses.filter((s) => s.statusId === 2613)).toHaveLength(1)
+      expect(result.appliedStatuses.filter(s => s.statusId === 2613)).toHaveLength(1)
       expect(result.appliedStatuses[0].instanceId).toBe('shield-1')
     })
   })

@@ -8,7 +8,12 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
-import { parseComposition, parseDamageEvents, parseCastEventsFromFFLogs, parseStatusEvents } from '@/utils/fflogsImporter'
+import {
+  parseComposition,
+  parseDamageEvents,
+  parseCastEventsFromFFLogs,
+  parseStatusEvents,
+} from '@/utils/fflogsImporter'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
@@ -112,7 +117,7 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
       }
 
       // 查找指定的战斗
-      const fight = report.fights?.find((f) => f.id === fightId)
+      const fight = report.fights?.find(f => f.id === fightId)
       if (!fight) {
         throw new Error(`战斗 #${fightId} 不存在`)
       }
@@ -129,10 +134,7 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
       }
 
       // 创建新时间轴
-      const newTimeline = createNewTimeline(
-        fight.encounterID?.toString() || '0',
-        timelineName
-      )
+      const newTimeline = createNewTimeline(fight.encounterID?.toString() || '0', timelineName)
 
       // 更新战斗信息
       newTimeline.encounter = {
@@ -150,26 +152,26 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
       setLoadingStep('正在获取战斗事件...')
 
       try {
-        const eventsData = await client.getAllEvents(
-          parsed.reportCode,
-          {
-            start: fight.startTime,
-            end: fight.endTime,
-            lang: report.lang,
-          }
-        )
+        const eventsData = await client.getAllEvents(parsed.reportCode, {
+          start: fight.startTime,
+          end: fight.endTime,
+          lang: report.lang,
+        })
 
         setLoadingStep(`正在解析数据...`)
 
         // 构建玩家 ID 映射
         const playerMap = new Map<number, { id: number; name: string; type: string }>()
-        report.friendlies?.forEach((player) => {
+        report.friendlies?.forEach(player => {
           playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
         })
 
         // 构建技能元数据映射（V2 API 提供）
-        const abilityMap = new Map<number, { gameID: number; name: string; type: string | number }>()
-        report.abilities?.forEach((ability) => {
+        const abilityMap = new Map<
+          number,
+          { gameID: number; name: string; type: string | number }
+        >()
+        report.abilities?.forEach(ability => {
           abilityMap.set(ability.gameID, ability)
         })
 
@@ -185,7 +187,12 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
         newTimeline.composition = composition
 
         // 解析伤害事件
-        const damageEvents = parseDamageEvents(eventsData.events || [], fight.startTime, playerMap, abilityMap)
+        const damageEvents = parseDamageEvents(
+          eventsData.events || [],
+          fight.startTime,
+          playerMap,
+          abilityMap
+        )
         newTimeline.damageEvents = damageEvents
 
         // 解析技能使用事件
@@ -196,10 +203,7 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
         )
 
         // 解析状态事件
-        const statusEvents = parseStatusEvents(
-          eventsData.events || [],
-          fight.startTime
-        )
+        const statusEvents = parseStatusEvents(eventsData.events || [], fight.startTime)
 
         // 设置为回放模式
         newTimeline.isReplayMode = true
@@ -245,85 +249,79 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
         </ModalHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                FFLogs 战斗链接
-              </label>
-              <input
-                ref={inputRef}
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.fflogs.com/reports/ABC123#fight=5"
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                disabled={isLoading}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                在 FFLogs 选择具体战斗后，复制浏览器地址栏的完整链接
-              </p>
+          <div>
+            <label className="block text-sm font-medium mb-2">FFLogs 战斗链接</label>
+            <input
+              ref={inputRef}
+              type="text"
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="https://www.fflogs.com/reports/ABC123#fight=5"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              在 FFLogs 选择具体战斗后，复制浏览器地址栏的完整链接
+            </p>
 
-              {/* 实时解析结果 */}
-              {parsedInfo && (
-                <div className="mt-2 p-3 bg-muted rounded-md text-sm space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">报告:</span>
-                    <span className="font-mono">
-                      {parsedInfo.reportCode || '未识别'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">战斗:</span>
-                    <span className="font-mono">
-                      {parsedInfo.fightId !== null
-                        ? `#${parsedInfo.fightId}`
-                        : parsedInfo.isLastFight
-                          ? 'last'
-                          : '未识别'}
-                    </span>
-                  </div>
-                  {parsedInfo.fightId === null && !parsedInfo.isLastFight && (
-                    <p className="text-xs text-destructive mt-1">
-                      ⚠️ 链接中未包含战斗编号，请在 FFLogs 选择具体战斗后再复制链接
-                    </p>
-                  )}
+            {/* 实时解析结果 */}
+            {parsedInfo && (
+              <div className="mt-2 p-3 bg-muted rounded-md text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">报告:</span>
+                  <span className="font-mono">{parsedInfo.reportCode || '未识别'}</span>
                 </div>
-              )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">战斗:</span>
+                  <span className="font-mono">
+                    {parsedInfo.fightId !== null
+                      ? `#${parsedInfo.fightId}`
+                      : parsedInfo.isLastFight
+                        ? 'last'
+                        : '未识别'}
+                  </span>
+                </div>
+                {parsedInfo.fightId === null && !parsedInfo.isLastFight && (
+                  <p className="text-xs text-destructive mt-1">
+                    ⚠️ 链接中未包含战斗编号，请在 FFLogs 选择具体战斗后再复制链接
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
+          )}
+
+          {/* 加载状态 */}
+          {isLoading && (
+            <div className="p-3 bg-muted rounded-md">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">{loadingStep}</span>
+              </div>
             </div>
+          )}
 
-            {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-                {error}
-              </div>
-            )}
-
-            {/* 加载状态 */}
-            {isLoading && (
-              <div className="p-3 bg-muted rounded-md">
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">{loadingStep}</span>
-                </div>
-              </div>
-            )}
-
-            <ModalFooter>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border rounded-md hover:bg-accent"
-                disabled={isLoading}
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-                disabled={isLoading}
-              >
-                {isLoading ? '导入中...' : '导入'}
-              </button>
-            </ModalFooter>
-          </form>
+          <ModalFooter>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border rounded-md hover:bg-accent"
+              disabled={isLoading}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              disabled={isLoading}
+            >
+              {isLoading ? '导入中...' : '导入'}
+            </button>
+          </ModalFooter>
+        </form>
       </ModalContent>
     </Modal>
   )

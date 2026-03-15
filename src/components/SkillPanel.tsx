@@ -48,7 +48,7 @@ export default function ActionPanel() {
 
   const handleRemoveMember = (playerId: number) => {
     const newComposition = {
-      players: composition.players.filter((p) => p.id !== playerId),
+      players: composition.players.filter(p => p.id !== playerId),
     }
     updateComposition(newComposition)
   }
@@ -78,9 +78,9 @@ export default function ActionPanel() {
           </div>
         ) : (
           <div className="divide-y">
-            {sortedPlayers.map((player) => {
+            {sortedPlayers.map(player => {
               // 获取该职业的所有减伤技能
-              const jobActions = actions.filter((action) => action.jobs.includes(player.job))
+              const jobActions = actions.filter(action => action.jobs.includes(player.job))
 
               return (
                 <div key={`player-${player.id}`} className="p-3 relative">
@@ -105,13 +105,17 @@ export default function ActionPanel() {
                     {jobActions.length === 0 ? (
                       <p className="text-xs text-muted-foreground">无可用技能</p>
                     ) : (
-                      jobActions.map((action) => (
+                      jobActions.map(action => (
                         <div
                           key={action.id}
                           className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors cursor-pointer"
-                          onMouseEnter={(e) => showTooltip(action, e.currentTarget.getBoundingClientRect())}
+                          onMouseEnter={e =>
+                            showTooltip(action, e.currentTarget.getBoundingClientRect())
+                          }
                           onMouseLeave={hideTooltip}
-                          onClick={(e) => toggleTooltip(action, e.currentTarget.getBoundingClientRect())}
+                          onClick={e =>
+                            toggleTooltip(action, e.currentTarget.getBoundingClientRect())
+                          }
                         >
                           {/* 技能图标 */}
                           <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted">
@@ -119,7 +123,7 @@ export default function ActionPanel() {
                               src={getIconUrl(action.icon)}
                               alt={action.name}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
+                              onError={e => {
                                 e.currentTarget.style.display = 'none'
                               }}
                             />

@@ -13,7 +13,7 @@ import { useTimelineStore } from '@/store/timelineStore'
  * 使用 PartyState 和状态系统
  */
 export function useDamageCalculationV2(timeline: Timeline | null): Map<string, CalculationResult> {
-  const getPartyStateAtTime = useTimelineStore((state) => state.getPartyStateAtTime)
+  const getPartyStateAtTime = useTimelineStore(state => state.getPartyStateAtTime)
 
   return useMemo(() => {
     const results = new Map<string, CalculationResult>()

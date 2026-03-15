@@ -90,11 +90,7 @@ export default function EditorToolbar() {
           <Unlock className="w-4 h-4 text-muted-foreground" />
         )}
         <span className="text-sm text-muted-foreground">只读</span>
-        <Switch
-          checked={isReadOnly}
-          onCheckedChange={toggleReadOnly}
-          disabled={isReplayMode}
-        />
+        <Switch checked={isReadOnly} onCheckedChange={toggleReadOnly} disabled={isReplayMode} />
       </div>
 
       <div className="w-px h-6 bg-border" />
@@ -111,10 +107,7 @@ export default function EditorToolbar() {
 
       {/* Add Event Dialog */}
       {showAddEventDialog && (
-        <AddEventDialog
-          open={showAddEventDialog}
-          onClose={() => setShowAddEventDialog(false)}
-        />
+        <AddEventDialog open={showAddEventDialog} onClose={() => setShowAddEventDialog(false)} />
       )}
 
       {/* Exit Replay Mode Confirmation */}
@@ -122,9 +115,7 @@ export default function EditorToolbar() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>解除回放模式</AlertDialogTitle>
-            <AlertDialogDescription>
-              此操作不可撤销，是否继续？
-            </AlertDialogDescription>
+            <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>

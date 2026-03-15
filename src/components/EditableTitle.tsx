@@ -75,7 +75,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           ref={inputRef}
           type="text"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={e => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
           style={{ width: `${inputWidth}px` }}

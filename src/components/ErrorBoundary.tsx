@@ -24,10 +24,12 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback ?? (
-        <div className="flex items-center justify-center h-full text-destructive text-sm p-4">
-          渲染错误：{this.state.error?.message}（详情见控制台）
-        </div>
+      return (
+        this.props.fallback ?? (
+          <div className="flex items-center justify-center h-full text-destructive text-sm p-4">
+            渲染错误：{this.state.error?.message}（详情见控制台）
+          </div>
+        )
       )
     }
     return this.props.children

@@ -38,24 +38,24 @@ export const RAID_TIERS: RaidTier[] = [
     name: '光暗未来绝境战',
     zone: 65,
     patch: '7.1',
-    encounters: [
-      { id: 1079, name: '光暗未来绝境战', shortName: 'FRU'},
-    ],
+    encounters: [{ id: 1079, name: '光暗未来绝境战', shortName: 'FRU' }],
   },
 ]
 
 // 所有遭遇战的扁平列表
-export const ALL_ENCOUNTERS: RaidEncounter[] = RAID_TIERS.flatMap((tier) => tier.encounters)
+export const ALL_ENCOUNTERS: RaidEncounter[] = RAID_TIERS.flatMap(tier => tier.encounters)
 
 // 通过 ID 获取遭遇战信息
 export function getEncounterById(id: number): RaidEncounter | undefined {
-  return ALL_ENCOUNTERS.find((e) => e.id === id)
+  return ALL_ENCOUNTERS.find(e => e.id === id)
 }
 
 // 通过 ID 获取遭遇战及其所属的 RaidTier
-export function getEncounterWithTier(id: number): { encounter: RaidEncounter; tier: RaidTier } | undefined {
+export function getEncounterWithTier(
+  id: number
+): { encounter: RaidEncounter; tier: RaidTier } | undefined {
   for (const tier of RAID_TIERS) {
-    const encounter = tier.encounters.find((e) => e.id === id)
+    const encounter = tier.encounters.find(e => e.id === id)
     if (encounter) {
       return { encounter, tier }
     }

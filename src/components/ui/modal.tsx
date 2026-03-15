@@ -97,9 +97,5 @@ interface ModalFooterProps {
 }
 
 export function ModalFooter({ children, className }: ModalFooterProps) {
-  return (
-    <div className={cn('flex gap-2 justify-end pt-4', className)}>
-      {children}
-    </div>
-  )
+  return <div className={cn('flex gap-2 justify-end pt-4', className)}>{children}</div>
 }

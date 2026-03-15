@@ -39,7 +39,7 @@ function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogs
     lang: v1Report.lang,
     startTime: v1Report.start,
     endTime: v1Report.end,
-    fights: v1Report.fights.map((fight) => ({
+    fights: v1Report.fights.map(fight => ({
       id: fight.id,
       name: fight.name,
       difficulty: fight.difficulty,

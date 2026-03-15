@@ -56,7 +56,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               placeholder="例如: 全屏 AOE"
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
@@ -68,7 +68,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <input
               type="number"
               value={time}
-              onChange={(e) => setTime(parseFloat(e.target.value) || 0)}
+              onChange={e => setTime(parseFloat(e.target.value) || 0)}
               className="w-full px-3 py-2 border rounded-md"
               step="0.1"
               min="0"
@@ -80,7 +80,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <input
               type="number"
               value={damage}
-              onChange={(e) => setDamage(parseInt(e.target.value) || 0)}
+              onChange={e => setDamage(parseInt(e.target.value) || 0)}
               className="w-full px-3 py-2 border rounded-md"
               min="0"
             />
@@ -90,7 +90,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <label className="block text-sm font-medium mb-1">攻击类型</label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as 'aoe' | 'tankbuster' | 'raidwide')}
+              onChange={e => setType(e.target.value as 'aoe' | 'tankbuster' | 'raidwide')}
               className="w-full px-3 py-2 border rounded-md"
             >
               <option value="raidwide">全团伤害</option>
@@ -103,7 +103,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <label className="block text-sm font-medium mb-1">伤害类型</label>
             <select
               value={damageType}
-              onChange={(e) => setDamageType(e.target.value as 'physical' | 'magical' | 'special')}
+              onChange={e => setDamageType(e.target.value as 'physical' | 'magical' | 'special')}
               className="w-full px-3 py-2 border rounded-md"
             >
               <option value="physical">物理</option>

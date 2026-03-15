@@ -47,7 +47,7 @@ export default function MitigationAssignmentIcon({
       x={x}
       y={trackY}
       draggable={!isReadOnly}
-      dragBoundFunc={(pos) => {
+      dragBoundFunc={pos => {
         const minX = leftBoundary * zoomLevel
         const maxX = rightBoundary === Infinity ? pos.x : rightBoundary * zoomLevel
 
@@ -58,11 +58,11 @@ export default function MitigationAssignmentIcon({
       }}
       onClick={onSelect}
       onTap={onSelect}
-      onDragEnd={(e) => {
+      onDragEnd={e => {
         onDragEnd(e.target.x())
       }}
       onContextMenu={onContextMenu}
-      onMouseEnter={(e) => onHover(action, e)}
+      onMouseEnter={e => onHover(action, e)}
       onMouseLeave={onUnhover}
     >
       {/* 持续时间条（从图标内部开始，填充圆角缺口，绿色，无圆角） */}

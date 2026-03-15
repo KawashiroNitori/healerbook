@@ -15,8 +15,8 @@ interface StatusIndicatorProps {
 }
 
 export default function StatusIndicator({ time, className }: StatusIndicatorProps) {
-  const getPartyStateAtTime = useTimelineStore((state) => state.getPartyStateAtTime)
-  const timeline = useTimelineStore((state) => state.timeline)
+  const getPartyStateAtTime = useTimelineStore(state => state.getPartyStateAtTime)
+  const timeline = useTimelineStore(state => state.timeline)
 
   const activeStatuses = useMemo(() => {
     if (!timeline) return []
@@ -75,7 +75,7 @@ export default function StatusIndicator({ time, className }: StatusIndicatorProp
       <div className="space-y-2">
         <h3 className="text-sm font-medium">生效状态 ({activeStatuses.length})</h3>
         <div className="flex flex-wrap gap-2">
-          {activeStatuses.map((status) => (
+          {activeStatuses.map(status => (
             <Badge
               key={status.id}
               variant={status.type === 'friendly' ? 'default' : 'destructive'}

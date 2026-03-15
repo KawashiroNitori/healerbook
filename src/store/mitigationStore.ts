@@ -48,21 +48,21 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
     set({ actions })
   },
 
-  selectAction: (actionId) =>
+  selectAction: actionId =>
     set({
       selectedActionId: actionId,
     }),
 
-  setJobFilter: (jobs) =>
-    set((state) => ({
+  setJobFilter: jobs =>
+    set(state => ({
       filters: {
         ...state.filters,
         jobs,
       },
     })),
 
-  setPartyWideFilter: (isPartyWide) =>
-    set((state) => ({
+  setPartyWideFilter: isPartyWide =>
+    set(state => ({
       filters: {
         ...state.filters,
         isPartyWide,
@@ -75,9 +75,7 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
 
     // 职业过滤
     if (filters.jobs.length > 0) {
-      filtered = filtered.filter((action) =>
-        filters.jobs.some(job => action.jobs.includes(job))
-      )
+      filtered = filtered.filter(action => filters.jobs.some(job => action.jobs.includes(job)))
     }
 
     // 注意：isPartyWide 字段已被删除，此过滤器暂时禁用

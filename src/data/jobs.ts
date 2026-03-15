@@ -216,7 +216,7 @@ export const JOB_METADATA: Record<Job, JobMetadata> = {
  */
 export const JOB_ORDER: Job[] = (Object.values(JOB_METADATA) as JobMetadata[])
   .sort((a, b) => a.order - b.order)
-  .map((meta) => meta.code)
+  .map(meta => meta.code)
 
 /**
  * 按照标准职业顺序排序
@@ -276,7 +276,7 @@ export function groupJobsByRole(jobs: Job[]): Record<JobRole, Job[]> {
     caster: [],
   }
 
-  jobs.forEach((job) => {
+  jobs.forEach(job => {
     const role = getJobRole(job)
     if (role) {
       grouped[role].push(job)
@@ -290,21 +290,21 @@ export function groupJobsByRole(jobs: Job[]): Record<JobRole, Job[]> {
  * 获取所有坦克职业
  */
 export function getTankJobs(): Job[] {
-  return JOB_ORDER.filter((job) => getJobRole(job) === 'tank')
+  return JOB_ORDER.filter(job => getJobRole(job) === 'tank')
 }
 
 /**
  * 获取所有治疗职业
  */
 export function getHealerJobs(): Job[] {
-  return JOB_ORDER.filter((job) => getJobRole(job) === 'healer')
+  return JOB_ORDER.filter(job => getJobRole(job) === 'healer')
 }
 
 /**
  * 获取所有DPS职业
  */
 export function getDPSJobs(): Job[] {
-  return JOB_ORDER.filter((job) => {
+  return JOB_ORDER.filter(job => {
     const role = getJobRole(job)
     return role === 'melee' || role === 'ranged' || role === 'caster'
   })

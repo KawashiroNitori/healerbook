@@ -103,7 +103,10 @@ export class FFLogsClientV2 implements IFFLogsClient {
   /**
    * 执行 GraphQL 查询
    */
-  private async query<T = unknown>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  private async query<T = unknown>(
+    query: string,
+    variables: Record<string, unknown> = {}
+  ): Promise<T> {
     // 获取 access token
     const token = await this.getAccessToken()
 
@@ -213,7 +216,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
       title: report.title,
       startTime: report.startTime,
       endTime: report.endTime,
-      fights: report.fights.map((fight) => ({
+      fights: report.fights.map(fight => ({
         id: fight.id,
         name: fight.name,
         difficulty: fight.difficulty,
@@ -222,7 +225,7 @@ export class FFLogsClientV2 implements IFFLogsClient {
         endTime: fight.endTime,
         encounterID: fight.encounterID,
       })),
-      friendlies: report.masterData.actors.map((actor) => ({
+      friendlies: report.masterData.actors.map(actor => ({
         id: actor.id,
         guid: actor.id,
         name: actor.name,

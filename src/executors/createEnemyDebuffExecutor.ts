@@ -12,11 +12,8 @@ import { generateId } from './utils'
  * @param duration 持续时间（秒）
  * @returns 技能执行器
  */
-export function createEnemyDebuffExecutor(
-  statusId: number,
-  duration: number
-): ActionExecutor {
-  return (ctx) => {
+export function createEnemyDebuffExecutor(statusId: number, duration: number): ActionExecutor {
+  return ctx => {
     const newStatus: MitigationStatus = {
       instanceId: generateId(),
       statusId,

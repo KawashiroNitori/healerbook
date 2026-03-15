@@ -38,7 +38,7 @@ export function getStatusById(statusId: number): MitigationStatusMetadata | unde
  */
 export function getAllFriendlyStatuses(): MitigationStatusMetadata[] {
   initializeStatusRegistry()
-  return Array.from(statusMap.values()).filter((status) => status.isFriendly)
+  return Array.from(statusMap.values()).filter(status => status.isFriendly)
 }
 
 /**
@@ -47,7 +47,7 @@ export function getAllFriendlyStatuses(): MitigationStatusMetadata[] {
  */
 export function getAllEnemyStatuses(): MitigationStatusMetadata[] {
   initializeStatusRegistry()
-  return Array.from(statusMap.values()).filter((status) => !status.isFriendly)
+  return Array.from(statusMap.values()).filter(status => !status.isFriendly)
 }
 
 /**
@@ -66,7 +66,7 @@ export function hasStatus(statusId: number): boolean {
  */
 export function getAllShieldStatuses(): MitigationStatusMetadata[] {
   initializeStatusRegistry()
-  return Array.from(statusMap.values()).filter((status) => status.type === 'absorbed')
+  return Array.from(statusMap.values()).filter(status => status.type === 'absorbed')
 }
 
 /**
@@ -74,5 +74,5 @@ export function getAllShieldStatuses(): MitigationStatusMetadata[] {
  * @returns 盾值状态 ID 数组
  */
 export function getAllShieldStatusIds(): number[] {
-  return getAllShieldStatuses().map((status) => status.id)
+  return getAllShieldStatuses().map(status => status.id)
 }

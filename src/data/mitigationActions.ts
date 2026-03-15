@@ -102,7 +102,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createFriendlyBuffExecutor(1839, 15),
     },
 
-
     // ==================== 治疗职业技能 ====================
 
     // 白魔法师 (WHM)
@@ -162,8 +161,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '展开战术',
       description:
         '将目标身上的<span style="color:#ff7b1a;">鼓舞</span>或<span style="color:#ff7b1a;">激励</span>效果扩散到自身及周围队员身上',
-      icon: "/i/002000/002808.png",
-      iconHD: "/i/002000/002808_hr1.png",
+      icon: '/i/002000/002808.png',
+      iconHD: '/i/002000/002808_hr1.png',
       uniqueGroup: [3585],
       jobs: ['SCH'],
       duration: 0,
@@ -182,7 +181,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 60,
       executor: createFriendlyBuffExecutor(1896, 15, false),
     },
-    
+
     // 气宇轩昂之策 - 检测秘策状态附加额外盾值
     {
       id: 37013,
@@ -196,14 +195,12 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2.5,
       executor: (ctx: ActionExecutionContext) => {
-        const caster = ctx.partyState.players.find(
-          (p) => p.id === ctx.sourcePlayerId
-        )
-        const hasRecitation = caster?.statuses.some((s) => s.statusId === 1896) // 秘策
+        const caster = ctx.partyState.players.find(p => p.id === ctx.sourcePlayerId)
+        const hasRecitation = caster?.statuses.some(s => s.statusId === 1896) // 秘策
 
         const newStatuses: MitigationStatus[] = []
 
-        ctx.partyState.players.forEach((player) => {
+        ctx.partyState.players.forEach(player => {
           // 基础鼓舞盾
           newStatuses.push({
             instanceId: generateId(),
@@ -230,11 +227,11 @@ export const MITIGATION_DATA: MitigationDataSource = {
         })
 
         // 如果有秘策，消耗该状态
-        const updatedPlayers = ctx.partyState.players.map((p) => {
-          const playerStatuses = newStatuses.filter((s) => s.sourcePlayerId === p.id)
+        const updatedPlayers = ctx.partyState.players.map(p => {
+          const playerStatuses = newStatuses.filter(s => s.sourcePlayerId === p.id)
           const filteredStatuses =
             hasRecitation && p.id === ctx.sourcePlayerId
-              ? p.statuses.filter((s) => s.statusId !== 1896) // 移除秘策
+              ? p.statuses.filter(s => s.statusId !== 1896) // 移除秘策
               : p.statuses
 
           return {
@@ -299,7 +296,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3613,
       name: '命运之轮',
-      description: '以自身为中心产生覆盖范围8米的命运之轮\n<span style="color:#00cc22;">持续时间：</span>18秒\n使用时自身及周围30米内的队员所受到的伤害减轻10%\n<span style="color:#00cc22;">持续时间：</span>5秒\n同时，范围内的自身及队员还会附加体力持续恢复的效果\n<span style="color:#00cc22;">恢复力：</span>100　<span style="color:#00cc22;">持续时间：</span>15秒\n在进入命运之轮范围后将持续获得以上效果\n效果时间内发动技能或进行移动、转身都会使命运之轮立即消失\n发动之后会停止自动攻击',
+      description:
+        '以自身为中心产生覆盖范围8米的命运之轮\n<span style="color:#00cc22;">持续时间：</span>18秒\n使用时自身及周围30米内的队员所受到的伤害减轻10%\n<span style="color:#00cc22;">持续时间：</span>5秒\n同时，范围内的自身及队员还会附加体力持续恢复的效果\n<span style="color:#00cc22;">恢复力：</span>100　<span style="color:#00cc22;">持续时间：</span>15秒\n在进入命运之轮范围后将持续获得以上效果\n效果时间内发动技能或进行移动、转身都会使命运之轮立即消失\n发动之后会停止自动攻击',
       icon: '/i/003000/003140.png',
       iconHD: '/i/003000/003140_hr1.png',
       uniqueGroup: [3613],
@@ -312,7 +310,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37031,
       name: '太阳星座',
-      description: '一定时间内，令自身和周围队员所受到的伤害减轻10%\n<span style="color:#00cc22;">持续时间：</span>15秒\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">太阳星座预备</span>状态中',
+      description:
+        '一定时间内，令自身和周围队员所受到的伤害减轻10%\n<span style="color:#00cc22;">持续时间：</span>15秒\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">太阳星座预备</span>状态中',
       icon: '/i/003000/003109.png',
       iconHD: '/i/003000/003109_hr1.png',
       uniqueGroup: [37031],
@@ -373,7 +372,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37034,
       name: '均衡预后II',
-      description: '恢复自身及周围队员的体力\n<span style="color:#00cc22;">恢复力：</span>100\n<span style="color:#00cc22;">追加效果：</span>为目标附加能够抵御一定伤害的防护罩\n该防护罩能够抵消相当于治疗量360%的伤害\n<span style="color:#00cc22;">持续时间：</span>30秒\n无法与均衡诊断及学者的鼓舞效果共存\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">均衡</span>状态中\n\n<span style="color:#ffff66;">※该技能无法设置到热键栏\n　满足发动条件后，预后变为均衡预后II</span>',
+      description:
+        '恢复自身及周围队员的体力\n<span style="color:#00cc22;">恢复力：</span>100\n<span style="color:#00cc22;">追加效果：</span>为目标附加能够抵御一定伤害的防护罩\n该防护罩能够抵消相当于治疗量360%的伤害\n<span style="color:#00cc22;">持续时间：</span>30秒\n无法与均衡诊断及学者的鼓舞效果共存\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">均衡</span>状态中\n\n<span style="color:#ffff66;">※该技能无法设置到热键栏\n　满足发动条件后，预后变为均衡预后II</span>',
       icon: '/i/003000/003689.png',
       iconHD: '/i/003000/003689_hr1.png',
       uniqueGroup: [37034, 185, 37013],
@@ -398,7 +398,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       executor: createEnemyDebuffExecutor(1195, 15),
     },
-
 
     // ==================== 远程物理 DPS ====================
 
@@ -456,7 +455,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 34686,
       name: '油性坦培拉涂层',
-      description: '解除自身附加的<span style="color:#ff7b1a;">坦培拉涂层</span>，为自身及周围队员附加能够抵消一定伤害量的防护罩\n该防护罩能够抵消相当于目标最大体力10%的伤害量\n<span style="color:#00cc22;">持续时间：</span>10秒\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">坦培拉涂层</span>状态中\n附加自身的防护罩因吸收到足够的伤害而消失时，坦培拉涂层的复唱时间缩短30秒',
+      description:
+        '解除自身附加的<span style="color:#ff7b1a;">坦培拉涂层</span>，为自身及周围队员附加能够抵消一定伤害量的防护罩\n该防护罩能够抵消相当于目标最大体力10%的伤害量\n<span style="color:#00cc22;">持续时间：</span>10秒\n<span style="color:#00cc22;">发动条件：</span><span style="color:#ff7b1a;">坦培拉涂层</span>状态中\n附加自身的防护罩因吸收到足够的伤害而消失时，坦培拉涂层的复唱时间缩短30秒',
       icon: '/i/003000/003836.png',
       iconHD: '/i/003000/003836_hr1.png',
       uniqueGroup: [34686],
@@ -470,7 +470,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25857,
       name: '抗死',
-      description: '一定时间内，令自身和周围队员所受到的魔法伤害减轻10%，并且所受的体力恢复效果提高5%\n<span style="color:#00cc22;">持续时间：</span>10秒',
+      description:
+        '一定时间内，令自身和周围队员所受到的魔法伤害减轻10%，并且所受的体力恢复效果提高5%\n<span style="color:#00cc22;">持续时间：</span>10秒',
       icon: '/i/003000/003237.png',
       iconHD: '/i/003000/003237_hr1.png',
       uniqueGroup: [25857],

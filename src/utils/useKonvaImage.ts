@@ -50,7 +50,7 @@ export function useKonvaImage(iconPath: string): HTMLImageElement | null {
  * @returns 加载完成的图片 Map
  */
 export function preloadIcons(iconPaths: string[]): Promise<Map<string, HTMLImageElement>> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const imageMap = new Map<string, HTMLImageElement>()
     let loadedCount = 0
 
@@ -59,7 +59,7 @@ export function preloadIcons(iconPaths: string[]): Promise<Map<string, HTMLImage
       return
     }
 
-    iconPaths.forEach((path) => {
+    iconPaths.forEach(path => {
       const img = new window.Image()
       // 移除 crossOrigin 设置
 

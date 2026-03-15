@@ -47,18 +47,18 @@ export default function DamageEventCard({
       x={x}
       y={y}
       draggable={!isReadOnly}
-      dragBoundFunc={(pos) => ({
+      dragBoundFunc={pos => ({
         x: Math.max(0, pos.x),
         y: y,
       })}
       onClick={onSelect}
       onTap={onSelect}
       onDragStart={onDragStart}
-      onDragMove={(e) => {
+      onDragMove={e => {
         onDragMove(e.target.x())
         e.target.getStage()?.batchDraw()
       }}
-      onDragEnd={(e) => {
+      onDragEnd={e => {
         onDragEnd(e.target.x())
       }}
     >

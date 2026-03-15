@@ -18,12 +18,12 @@ export function createFriendlyBuffExecutor(
   duration: number,
   isPartyWide: boolean = true
 ): ActionExecutor {
-  return (ctx) => {
+  return ctx => {
     const targets = isPartyWide
       ? ctx.partyState.players
-      : ctx.partyState.players.filter((p) => p.id === ctx.sourcePlayerId)
+      : ctx.partyState.players.filter(p => p.id === ctx.sourcePlayerId)
 
-    const newStatuses: MitigationStatus[] = targets.map((player) => ({
+    const newStatuses: MitigationStatus[] = targets.map(player => ({
       instanceId: generateId(),
       statusId,
       startTime: ctx.useTime,
@@ -34,8 +34,8 @@ export function createFriendlyBuffExecutor(
 
     return {
       ...ctx.partyState,
-      players: ctx.partyState.players.map((p) => {
-        const playerStatuses = newStatuses.filter((s) => s.sourcePlayerId === p.id)
+      players: ctx.partyState.players.map(p => {
+        const playerStatuses = newStatuses.filter(s => s.sourcePlayerId === p.id)
         return playerStatuses.length > 0
           ? { ...p, statuses: [...p.statuses, ...playerStatuses] }
           : p
