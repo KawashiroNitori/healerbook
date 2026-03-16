@@ -5,7 +5,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useDamageCalculationV2 } from '@/hooks/useDamageCalculationV2'
+import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -38,7 +38,7 @@ export default function TimelineMinimap({
   const [isDragging, setIsDragging] = useState(false)
 
   const { timeline } = useTimelineStore()
-  const eventResults = useDamageCalculationV2(timeline)
+  const eventResults = useDamageCalculation(timeline)
 
   // 计算缩略图的缩放比例（减去内边距）
   const padding = 16 // p-2 = 8px * 2

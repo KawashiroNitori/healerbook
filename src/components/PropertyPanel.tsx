@@ -3,7 +3,7 @@
  */
 
 import { useTimelineStore } from '@/store/timelineStore'
-import { useDamageCalculationV2 } from '@/hooks/useDamageCalculationV2'
+import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
 import { Trash2 } from 'lucide-react'
@@ -15,7 +15,7 @@ export default function PropertyPanel() {
   const isReadOnly = useEditorReadOnly()
 
   // 使用新的伤害计算 Hook（基于状态）
-  const eventResults = useDamageCalculationV2(timeline)
+  const eventResults = useDamageCalculation(timeline)
 
   // 只有在选中伤害事件时才显示面板（不响应技能选中）
   if (!timeline || !selectedEventId) {

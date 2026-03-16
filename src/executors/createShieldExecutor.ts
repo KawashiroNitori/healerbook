@@ -25,15 +25,22 @@ export function createShieldExecutor(
       ? ctx.partyState.players
       : ctx.partyState.players.filter(p => p.id === ctx.sourcePlayerId)
 
-    const newStatuses: MitigationStatus[] = targets.map(player => ({
-      instanceId: generateId(),
-      statusId,
-      startTime: ctx.useTime,
-      endTime: ctx.useTime + duration,
-      sourceActionId: ctx.actionId,
-      sourcePlayerId: player.id,
-      remainingBarrier: player.maxHP * shieldMultiplier || 10000,
-    }))
+    const newStatuses: MitigationStatus[] = targets.map(player => {
+      // 优先使用统计数据里的盾值，其次用最大 HP 倍率，最后兜底 10000
+      const barrier =
+        ctx.statistics?.shieldByAbility[statusId] ??
+        (player.maxHP * shieldMultiplier || 10000)
+
+      return {
+        instanceId: generateId(),
+        statusId,
+        startTime: ctx.useTime,
+        endTime: ctx.useTime + duration,
+        sourceActionId: ctx.actionId,
+        sourcePlayerId: player.id,
+        remainingBarrier: barrier,
+      }
+    })
 
     return {
       ...ctx.partyState,

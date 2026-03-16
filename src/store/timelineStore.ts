@@ -6,7 +6,7 @@ import { create } from 'zustand'
 import type { Timeline, DamageEvent, CastEvent, StatusEvent, Composition } from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus } from '@/types/status'
-import type { ActionExecutionContext } from '@/types/mitigation'
+import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
 import { saveTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
@@ -78,6 +78,8 @@ interface TimelineState {
   timeline: Timeline | null
   /** 小队状态 */
   partyState: PartyState | null
+  /** 副本统计数据 */
+  statistics: EncounterStatistics | null
   /** 选中的伤害事件 ID */
   selectedEventId: string | null
   /** 选中的技能使用事件 ID */
@@ -104,6 +106,8 @@ interface TimelineState {
   setTimeline: (timeline: Timeline | null) => void
   /** 初始化小队状态 */
   initializePartyState: (composition: Composition) => void
+  /** 设置副本统计数据 */
+  setStatistics: (statistics: EncounterStatistics | null) => void
   /** 执行技能并更新状态 */
   executeAction: (actionId: number, time: number, sourcePlayerId: number) => void
   /** 更新小队状态 */
@@ -155,6 +159,7 @@ interface TimelineState {
 const initialState = {
   timeline: null,
   partyState: null,
+  statistics: null,
   selectedEventId: null,
   selectedCastEventId: null,
   currentTime: 0,
@@ -186,20 +191,33 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   initializePartyState: composition => {
+    const { statistics } = get()
     const partyState: PartyState = {
-      players: composition.players.map(player => ({
-        id: player.id,
-        job: player.job,
-        currentHP: 100000, // 默认 HP
-        maxHP: 100000,
-        statuses: [],
-      })),
+      players: composition.players.map(player => {
+        const maxHP = statistics?.maxHPByJob[player.job] ?? 100000
+        return {
+          id: player.id,
+          job: player.job,
+          currentHP: maxHP,
+          maxHP,
+          statuses: [],
+        }
+      }),
       enemy: {
         statuses: [],
       },
       timestamp: 0,
     }
     set({ partyState })
+  },
+
+  setStatistics: statistics => {
+    set({ statistics })
+    // 统计数据到位后用真实 HP 重新初始化小队状态
+    const { timeline } = get()
+    if (statistics && timeline?.composition) {
+      get().initializePartyState(timeline.composition)
+    }
   },
 
   executeAction: (actionId, time, sourcePlayerId) => {
@@ -219,6 +237,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       useTime: time,
       partyState: state.partyState,
       sourcePlayerId,
+      statistics: state.statistics ?? undefined,
     }
 
     // 执行技能并更新状态
@@ -272,6 +291,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         useTime: castEvent.timestamp,
         partyState: currentState,
         sourcePlayerId: castEvent.playerId,
+        statistics: state.statistics ?? undefined,
       }
 
       currentState = action.executor(context)

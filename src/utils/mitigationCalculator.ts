@@ -72,46 +72,42 @@ export class MitigationCalculator {
 
     let damage = originalDamage * multiplier
 
-    // 2. 计算盾值减伤（需要修改状态）
-    // 先收集所有生效的盾值状态（去重）
-    const shieldStatuses: Array<{ playerId: number; status: MitigationStatus }> = []
-    const seenShieldStatusIds = new Set<number>()
+    // 2. 计算盾值减伤
+    // 按玩家独立计算：AOE 时每个玩家的盾各自吸收自己承受的伤害
+    // 单体时只处理目标玩家
+    const statusUpdates = new Map<string, number>() // instanceId -> remainingBarrier
 
-    for (const player of partyState.players) {
-      // 如果指定了目标玩家，只处理该玩家
-      if (targetPlayerId !== undefined && player.id !== targetPlayerId) {
-        continue
-      }
+    const playersToProcess =
+      targetPlayerId !== undefined
+        ? partyState.players.filter(p => p.id === targetPlayerId)
+        : partyState.players
+
+    const perPlayerDamages: number[] = []
+
+    for (const player of playersToProcess) {
+      let playerDamage = damage // 每个玩家独立承受相同的减伤后伤害
 
       for (const status of player.statuses) {
         const meta = getStatusById(status.statusId)
         if (!meta || meta.type !== 'absorbed') continue
         if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
-
-        // 检查状态是否在生效时间内
         if (time < status.startTime || time > status.endTime) continue
 
-        // 对于 AOE 伤害（没有指定目标玩家），同一个状态 ID 只收集一次
-        if (targetPlayerId === undefined && seenShieldStatusIds.has(status.statusId)) {
-          continue
-        }
+        const absorbed = Math.min(playerDamage, status.remainingBarrier)
+        playerDamage -= absorbed
 
-        shieldStatuses.push({ playerId: player.id, status })
-        seenShieldStatusIds.add(status.statusId)
+        appliedStatuses.push(status)
+        statusUpdates.set(status.instanceId, status.remainingBarrier - absorbed)
+
+        if (playerDamage <= 0) break
       }
+
+      perPlayerDamages.push(playerDamage)
     }
 
-    // 消耗盾值并记录更新
-    const statusUpdates = new Map<string, number>() // instanceId -> remainingBarrier
-
-    for (const { status } of shieldStatuses) {
-      if (damage <= 0) break
-
-      const absorbed = Math.min(damage, status.remainingBarrier!)
-      damage -= absorbed
-
-      appliedStatuses.push(status)
-      statusUpdates.set(status.instanceId, status.remainingBarrier! - absorbed)
+    // 最终伤害取各玩家平均值（若无玩家可处理则保留减伤倍率后的值）
+    if (perPlayerDamages.length > 0) {
+      damage = perPlayerDamages.reduce((a, b) => a + b, 0) / perPlayerDamages.length
     }
 
     // 应用盾值更新到玩家状态
@@ -129,7 +125,7 @@ export class MitigationCalculator {
 
       return {
         ...player,
-        statuses: updatedStatuses,
+        statuses: updatedStatuses.filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0), // 移除盾值为0的状态
       }
     })
 

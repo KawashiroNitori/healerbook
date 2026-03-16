@@ -44,6 +44,24 @@ export type Job =
   | 'PCT' // 绘灵法师
 
 /**
+ * 副本统计数据
+ */
+export interface EncounterStatistics {
+  encounterId: number
+  encounterName: string
+  /** 每个伤害技能的平均伤害值 */
+  damageByAbility: Record<number, number>
+  /** 每个职业的平均最大生命值 */
+  maxHPByJob: Record<string, number>
+  /** 每个盾值技能的平均盾值（按 actionId 索引） */
+  shieldByAbility: Record<number, number>
+  /** 采样战斗数量 */
+  sampleSize: number
+  /** ISO 8601 时间戳 */
+  updatedAt: string
+}
+
+/**
  * 技能执行器上下文
  */
 export interface ActionExecutionContext {
@@ -55,6 +73,8 @@ export interface ActionExecutionContext {
   partyState: PartyState
   /** 使用技能的玩家 ID（对应 FFLogsActor.id） */
   sourcePlayerId: number
+  /** 副本统计数据（可选，用于盾值计算） */
+  statistics?: EncounterStatistics
 }
 
 /**

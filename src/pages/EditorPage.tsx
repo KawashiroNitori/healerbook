@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { getTimeline } from '@/utils/timelineStorage'
+import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import EditorToolbar from '@/components/EditorToolbar'
 import ActionPanel from '@/components/SkillPanel'
 import PropertyPanel from '@/components/PropertyPanel'
@@ -22,6 +23,8 @@ export default function EditorPage() {
   const { timeline, setTimeline, updateTimelineName } = useTimelineStore()
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
+
+  useEncounterStatistics(timeline?.encounter?.id)
 
   useEffect(() => {
     if (timelineId) {

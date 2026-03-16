@@ -18,8 +18,9 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
  * 维护递增的 PartyState，复杂度 O((N+M)log(N+M))，避免对每个伤害事件
  * 单独重放所有 castEvents（原来的 O(N×M)）。
  */
-export function useDamageCalculationV2(timeline: Timeline | null): Map<string, CalculationResult> {
+export function useDamageCalculation(timeline: Timeline | null): Map<string, CalculationResult> {
   const partyState = useTimelineStore(state => state.partyState)
+  const statistics = useTimelineStore(state => state.statistics)
 
   return useMemo(() => {
     const results = new Map<string, CalculationResult>()
@@ -38,9 +39,12 @@ export function useDamageCalculationV2(timeline: Timeline | null): Map<string, C
         (a, b) => a.timestamp - b.timestamp
       )
 
-      // 从空状态开始（不带已有状态，纯净重放）
+      // 预估模式使用单个代表玩家，避免 AOE 计算时产生重复状态
+      const representative = partyState.players[0]
+      if (!representative) return results
+
       let currentState: PartyState = {
-        players: partyState.players.map(p => ({ ...p, statuses: [] })),
+        players: [{ ...representative, statuses: [] }],
         enemy: { statuses: [] },
         timestamp: 0,
       }
@@ -56,39 +60,30 @@ export function useDamageCalculationV2(timeline: Timeline | null): Map<string, C
           const castEvent = sortedCastEvents[castIdx]
           const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
           if (action) {
-            const context: ActionExecutionContext = {
+            const ctx: ActionExecutionContext = {
               actionId: castEvent.actionId,
               useTime: castEvent.timestamp,
               partyState: currentState,
               sourcePlayerId: castEvent.playerId,
+              statistics: statistics ?? undefined,
             }
-            currentState = action.executor(context)
+            currentState = action.executor(ctx)
           }
           castIdx++
         }
 
-        // 过滤掉在此时刻已过期的状态，得到当前时刻的 PartyState
-        const stateAtTime: PartyState = {
-          ...currentState,
-          players: currentState.players.map(p => ({
-            ...p,
-            statuses: p.statuses.filter(s => s.endTime >= event.time),
-          })),
-          enemy: {
-            statuses: currentState.enemy.statuses.filter(s => s.endTime >= event.time),
-          },
-          timestamp: event.time,
-        }
-
         const result = calculator.calculate(
           event.damage,
-          stateAtTime,
+          currentState,
           event.time,
           event.damageType || 'physical',
           event.targetPlayerId
         )
 
         results.set(event.id, result)
+
+        // 用计算后的状态更新 currentState（包含盾值消耗）
+        currentState = result.updatedPartyState
       }
 
       return results
@@ -123,5 +118,5 @@ export function useDamageCalculationV2(timeline: Timeline | null): Map<string, C
     }
 
     return results
-  }, [timeline, partyState])
+  }, [timeline, partyState, statistics])
 }

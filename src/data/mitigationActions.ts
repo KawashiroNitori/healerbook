@@ -134,7 +134,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       icon: '/i/002000/002808.png',
       uniqueGroup: [3585],
       jobs: ['SCH'],
-      duration: 0,
+      duration: 30,
       cooldown: 90,
       executor: createShieldExecutor(297, 30),
     },
@@ -163,6 +163,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: (ctx: ActionExecutionContext) => {
         const caster = ctx.partyState.players.find(p => p.id === ctx.sourcePlayerId)
         const hasRecitation = caster?.statuses.some(s => s.statusId === 1896) // 秘策
+        const baseShieldId = 297 // 鼓舞
+        const criticalShieldId = 1918 // 激励
 
         const newStatuses: MitigationStatus[] = []
 
@@ -170,10 +172,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
           // 基础鼓舞盾
           newStatuses.push({
             instanceId: generateId(),
-            statusId: 297, // 鼓舞
+            statusId: baseShieldId, 
             startTime: ctx.useTime,
             endTime: ctx.useTime + 30,
-            remainingBarrier: player.maxHP * 0.18, // 治疗量的 180%，简化为 18% 最大 HP
+            remainingBarrier: ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000,
             sourceActionId: ctx.actionId,
             sourcePlayerId: player.id,
           })
@@ -182,10 +184,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
           if (hasRecitation) {
             newStatuses.push({
               instanceId: generateId(),
-              statusId: 1918, // 激励
+              statusId: criticalShieldId, 
               startTime: ctx.useTime,
               endTime: ctx.useTime + 30,
-              remainingBarrier: player.maxHP * 0.18, // 与鼓舞相同的盾值
+              remainingBarrier: ctx.statistics?.shieldByAbility[criticalShieldId] ?? 10000,
               sourceActionId: ctx.actionId,
               sourcePlayerId: player.id,
             })
