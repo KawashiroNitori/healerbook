@@ -1,18 +1,17 @@
 /**
- * 小队状态类型定义
+ * 小队状态类型定义（编辑模式专用）
  */
 
 import type { Job } from './mitigation'
 import type { MitigationStatus } from './status'
 
 /**
- * 小队状态
+ * 小队状态（编辑模式）
+ * 所有状态统一存放在 player.statuses 中，不再区分友方/敌方
  */
 export interface PartyState {
-  /** 玩家列表 */
-  players: PlayerState[]
-  /** 虚拟敌方 */
-  enemy: EnemyState
+  /** 单个代表玩家 */
+  player: PlayerState
   /** 当前时间戳（秒） */
   timestamp: number
 }
@@ -29,14 +28,6 @@ export interface PlayerState {
   currentHP: number
   /** 最大 HP */
   maxHP: number
-  /** 状态列表 */
-  statuses: MitigationStatus[]
-}
-
-/**
- * 敌方状态（虚拟敌方，用于存储目标减伤状态）
- */
-export interface EnemyState {
-  /** 目标减伤状态列表 */
+  /** 所有状态列表（包含友方 Buff 和原敌方 Debuff） */
   statuses: MitigationStatus[]
 }
