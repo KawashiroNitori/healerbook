@@ -165,7 +165,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const maxScrollLeft = layoutData ? Math.max(0, layoutData.timelineWidth - viewportWidth) : 0
   const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
   const maxScrollTop = layoutData
-    ? Math.max(0, layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight - minimapHeight))
+    ? Math.max(
+        0,
+        layoutData.skillTracksHeight - (height - layoutData.fixedAreaHeight - minimapHeight)
+      )
     : 0
   const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
 
@@ -388,7 +391,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         zoomWithScrollPreservation(delta)
       } else {
         e.preventDefault()
-        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
+        // 支持触摸板横向滚动（deltaX）和纵向滚轮转横向（deltaY）
+        const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY
+        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + scrollDelta)))
       }
     }
 
@@ -545,7 +550,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         zoomWithScrollPreservation(delta)
       } else {
         e.preventDefault()
-        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + e.deltaY)))
+        // 支持触摸板横向滚动（deltaX）和纵向滚轮转横向（deltaY）
+        const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY
+        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + scrollDelta)))
       }
     }
 
