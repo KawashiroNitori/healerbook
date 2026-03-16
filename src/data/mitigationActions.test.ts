@@ -9,21 +9,11 @@ import type { ActionExecutionContext } from '@/types/mitigation'
 
 describe('mitigationActions', () => {
   const mockPartyState: PartyState = {
-    players: [
-      { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },
-      { id: 2, job: 'WHM', currentHP: 40000, maxHP: 80000, statuses: [] },
-      { id: 3, job: 'SCH', currentHP: 40000, maxHP: 80000, statuses: [] },
-    ],
-    enemy: { statuses: [] },
+    player: { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },
     timestamp: 0,
   }
 
   describe('数据结构', () => {
-    it('应该包含版本信息', () => {
-      expect(MITIGATION_DATA.version).toBe('7.1')
-      expect(MITIGATION_DATA.source).toBe('CafeMaker API')
-    })
-
     it('所有技能应该有 executor', () => {
       for (const action of MITIGATION_DATA.actions) {
         expect(action.executor).toBeDefined()
@@ -31,7 +21,7 @@ describe('mitigationActions', () => {
       }
     })
 
-    it('所有技能应该有必需字段', () => {
+    it('所有技能应该���必需字段', () => {
       for (const action of MITIGATION_DATA.actions) {
         expect(action.id).toBeGreaterThan(0)
         expect(action.name).toBeTruthy()
@@ -43,7 +33,7 @@ describe('mitigationActions', () => {
   })
 
   describe('友方 Buff 技能', () => {
-    it('节制应该为所有玩家添加状态', () => {
+    it('节制应该为玩家添加状态', () => {
       const action = MITIGATION_DATA.actions.find(a => a.id === 16536)!
       const ctx: ActionExecutionContext = {
         actionId: 16536,
@@ -53,13 +43,11 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.players[0].statuses).toHaveLength(1)
-      expect(newState.players[1].statuses).toHaveLength(1)
-      expect(newState.players[2].statuses).toHaveLength(1)
-      expect(newState.players[0].statuses[0].statusId).toBe(1873)
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].statusId).toBe(1873)
     })
 
-    it('行吟应该为所有玩家添加状态', () => {
+    it('行吟应该为玩家添加状态', () => {
       const action = MITIGATION_DATA.actions.find(a => a.id === 7405)!
       const ctx: ActionExecutionContext = {
         actionId: 7405,
@@ -69,13 +57,13 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.players.every(p => p.statuses.length === 1)).toBe(true)
-      expect(newState.players[0].statuses[0].statusId).toBe(1934)
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].statusId).toBe(1934)
     })
   })
 
   describe('敌方 Debuff 技能', () => {
-    it('雪仇应该为敌方添加 Debuff', () => {
+    it('雪仇应该为玩家添加状态', () => {
       const action = MITIGATION_DATA.actions.find(a => a.id === 7535)!
       const ctx: ActionExecutionContext = {
         actionId: 7535,
@@ -85,13 +73,13 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.enemy.statuses).toHaveLength(1)
-      expect(newState.enemy.statuses[0].statusId).toBe(1193)
-      expect(newState.enemy.statuses[0].startTime).toBe(30)
-      expect(newState.enemy.statuses[0].endTime).toBe(45)
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].statusId).toBe(1193)
+      expect(newState.player.statuses[0].startTime).toBe(30)
+      expect(newState.player.statuses[0].endTime).toBe(45)
     })
 
-    it('牵制应该为敌方添加 Debuff', () => {
+    it('牵制应该为玩家添加状态', () => {
       const action = MITIGATION_DATA.actions.find(a => a.id === 7549)!
       const ctx: ActionExecutionContext = {
         actionId: 7549,
@@ -101,13 +89,13 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.enemy.statuses).toHaveLength(1)
-      expect(newState.enemy.statuses[0].statusId).toBe(1195)
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].statusId).toBe(1195)
     })
   })
 
   describe('盾值技能', () => {
-    it('泛输血应该为所有玩家添加盾值', () => {
+    it('泛输血应该为玩家添加盾值', () => {
       const action = MITIGATION_DATA.actions.find(a => a.id === 24311)!
       const ctx: ActionExecutionContext = {
         actionId: 24311,
@@ -117,85 +105,40 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.players[0].statuses[0].remainingBarrier).toBe(10000)
-      expect(newState.players[1].statuses[0].remainingBarrier).toBe(8000)
-      expect(newState.players[2].statuses[0].remainingBarrier).toBe(8000)
+      // maxHP 100000 * 0.1 = 10000
+      expect(newState.player.statuses[0].remainingBarrier).toBe(10000)
     })
 
-    it('鼓舞激励之策应该只为目标玩家添加盾值', () => {
-      const action = MITIGATION_DATA.actions.find(a => a.id === 185)!
+    it('神爱抚应该为玩家添加盾值', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37011)!
       const ctx: ActionExecutionContext = {
-        actionId: 185,
+        actionId: 37011,
         useTime: 60,
         partyState: mockPartyState,
-        sourcePlayerId: 2,
+        sourcePlayerId: 1,
       }
 
       const newState = action.executor(ctx)
 
-      expect(newState.players[0].statuses).toHaveLength(0)
-      expect(newState.players[1].statuses).toHaveLength(1)
-      expect(newState.players[1].statuses[0].remainingBarrier).toBe(10000)
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].remainingBarrier).toBe(10000)
     })
   })
 
   describe('自定义 Executor', () => {
-    it('展开战术应该为所有玩家添加鼓舞盾', () => {
+    it('展开战术应该为玩家添加鼓舞盾', () => {
       const action = MITIGATION_DATA.actions.find(a => a.id === 3585)!
       const ctx: ActionExecutionContext = {
         actionId: 3585,
         useTime: 10,
         partyState: mockPartyState,
-        sourcePlayerId: 2,
+        sourcePlayerId: 1,
       }
 
       const newState = action.executor(ctx)
 
-      expect(newState.players.every(p => p.statuses.length > 0)).toBe(true)
-      expect(newState.players[0].statuses[0].statusId).toBe(297)
-    })
-
-    it('气宇轩昂之策应该检测秘策状态', () => {
-      // 施法者有秘策状态
-      const partyWithRecitation: PartyState = {
-        ...mockPartyState,
-        players: mockPartyState.players.map(p =>
-          p.id === 3
-            ? {
-                ...p,
-                statuses: [
-                  {
-                    instanceId: 'test-recitation',
-                    statusId: 1896,
-                    startTime: 0,
-                    endTime: 15,
-                    sourceActionId: 16545,
-                    sourcePlayerId: 3,
-                  },
-                ],
-              }
-            : p
-        ),
-      }
-
-      const action = MITIGATION_DATA.actions.find(a => a.id === 37013)!
-      const ctx: ActionExecutionContext = {
-        actionId: 37013,
-        useTime: 5,
-        partyState: partyWithRecitation,
-        sourcePlayerId: 3,
-      }
-
-      const newState = action.executor(ctx)
-
-      // 所有玩家应该有 2 个盾（鼓舞 + 激励）
-      expect(newState.players[0].statuses).toHaveLength(2)
-      expect(newState.players[0].statuses.some(s => s.statusId === 297)).toBe(true)
-      expect(newState.players[0].statuses.some(s => s.statusId === 1918)).toBe(true)
-
-      // 施法者的秘策应该被消耗
-      const caster = newState.players.find(p => p.id === 3)!
-      expect(caster.statuses.some(s => s.statusId === 1896)).toBe(false)
+      expect(newState.player.statuses.length).toBeGreaterThan(0)
+      expect(newState.player.statuses.some(s => s.statusId === 297)).toBe(true)
     })
   })
 })

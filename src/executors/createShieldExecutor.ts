@@ -19,10 +19,9 @@ export function createShieldExecutor(
   shieldMultiplier: number = 0.1
 ): ActionExecutor {
   return ctx => {
-    // 优先使用统计数据里的盾值，其次用最大 HP 倍率，最后兜底 10000
+    // 优先使用统计数据里的盾值，其次用最大 HP 倍率
     const barrier =
-      ctx.statistics?.shieldByAbility[statusId] ??
-      (ctx.partyState.player.maxHP * shieldMultiplier || 10000)
+      ctx.statistics?.shieldByAbility[statusId] ?? ctx.partyState.player.maxHP * shieldMultiplier
 
     const newStatus: MitigationStatus = {
       instanceId: generateId(),
