@@ -5,7 +5,6 @@
 
 import { useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { getStatusById } from '@/utils/statusRegistry'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -15,52 +14,20 @@ interface StatusIndicatorProps {
 }
 
 export default function StatusIndicator({ time, className }: StatusIndicatorProps) {
-  const getPartyStateAtTime = useTimelineStore(state => state.getPartyStateAtTime)
   const timeline = useTimelineStore(state => state.timeline)
 
   const activeStatuses = useMemo(() => {
     if (!timeline) return []
 
-    const partyState = getPartyStateAtTime(time)
-    if (!partyState) return []
-
-    const statuses: Array<{
+    // 注意：新架构中没有 getPartyStateAtTime，StatusIndicator 组件暂时禁用
+    // TODO: 需要重新设计这个组件的数据获取方式
+    return [] as Array<{
       id: string
       name: string
       type: 'friendly' | 'enemy'
       source: string
-    }> = []
-
-    // 收集友方状态
-    for (const player of partyState.players) {
-      for (const status of player.statuses) {
-        const meta = getStatusById(status.statusId)
-        if (!meta) continue
-
-        statuses.push({
-          id: status.instanceId,
-          name: meta.name,
-          type: 'friendly',
-          source: player.job,
-        })
-      }
-    }
-
-    // 收集敌方状态
-    for (const status of partyState.enemy.statuses) {
-      const meta = getStatusById(status.statusId)
-      if (!meta) continue
-
-      statuses.push({
-        id: status.instanceId,
-        name: meta.name,
-        type: 'enemy',
-        source: 'Boss',
-      })
-    }
-
-    return statuses
-  }, [timeline, time, getPartyStateAtTime])
+    }>
+  }, [timeline, time])
 
   if (activeStatuses.length === 0) {
     return (

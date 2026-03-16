@@ -156,56 +156,54 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2.5,
       executor: (ctx: ActionExecutionContext) => {
-        const caster = ctx.partyState.players.find(p => p.id === ctx.sourcePlayerId)
+        const caster =
+          ctx.partyState.player.id === ctx.sourcePlayerId ? ctx.partyState.player : null
         const hasRecitation = caster?.statuses.some(s => s.statusId === 1896) // 秘策
         const baseShieldId = 297 // 鼓舞
         const criticalShieldId = 1918 // 激励
 
         const newStatuses: MitigationStatus[] = []
 
-        ctx.partyState.players.forEach(player => {
-          // 基础鼓舞盾
+        // 为单个玩家添加状态
+        const player = ctx.partyState.player
+        // 基础鼓舞盾
+        newStatuses.push({
+          instanceId: generateId(),
+          statusId: baseShieldId,
+          startTime: ctx.useTime,
+          endTime: ctx.useTime + 30,
+          remainingBarrier: ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000,
+          sourceActionId: ctx.actionId,
+          sourcePlayerId: player.id,
+        })
+
+        // 如果有秘策，额外附加激励盾
+        if (hasRecitation) {
           newStatuses.push({
             instanceId: generateId(),
-            statusId: baseShieldId,
+            statusId: criticalShieldId,
             startTime: ctx.useTime,
             endTime: ctx.useTime + 30,
-            remainingBarrier: ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000,
+            remainingBarrier: ctx.statistics?.shieldByAbility[criticalShieldId] ?? 10000,
             sourceActionId: ctx.actionId,
             sourcePlayerId: player.id,
           })
-
-          // 如果有秘策，额外附加激励盾
-          if (hasRecitation) {
-            newStatuses.push({
-              instanceId: generateId(),
-              statusId: criticalShieldId,
-              startTime: ctx.useTime,
-              endTime: ctx.useTime + 30,
-              remainingBarrier: ctx.statistics?.shieldByAbility[criticalShieldId] ?? 10000,
-              sourceActionId: ctx.actionId,
-              sourcePlayerId: player.id,
-            })
-          }
-        })
+        }
 
         // 如果有秘策，消耗该状态
-        const updatedPlayers = ctx.partyState.players.map(p => {
-          const playerStatuses = newStatuses.filter(s => s.sourcePlayerId === p.id)
-          const filteredStatuses =
-            hasRecitation && p.id === ctx.sourcePlayerId
-              ? p.statuses.filter(s => s.statusId !== 1896) // 移除秘策
-              : p.statuses
+        const filteredStatuses =
+          hasRecitation && player.id === ctx.sourcePlayerId
+            ? player.statuses.filter(s => s.statusId !== 1896) // 移除秘策
+            : player.statuses
 
-          return {
-            ...p,
-            statuses: [...filteredStatuses, ...playerStatuses],
-          }
-        })
+        const updatedPlayer = {
+          ...player,
+          statuses: [...filteredStatuses, ...newStatuses],
+        }
 
         return {
           ...ctx.partyState,
-          players: updatedPlayers,
+          player: updatedPlayer,
         }
       },
     },

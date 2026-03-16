@@ -10,8 +10,7 @@ import { Trash2 } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
 
 export default function PropertyPanel() {
-  const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent, getPartyStateAtTime } =
-    useTimelineStore()
+  const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent } = useTimelineStore()
   const isReadOnly = useEditorReadOnly()
 
   // 使用新的伤害计算 Hook（基于状态）
@@ -172,14 +171,9 @@ export default function PropertyPanel() {
         )}
 
         {/* Player Damage Details (回放模式) */}
-        {timeline.isReplayMode && event.playerDamageDetails && (
+        {timeline.isReplayMode && event.playerDamageDetails && result.updatedPartyState && (
           <div className="pt-4 border-t">
-            <PlayerDamageDetails
-              event={event}
-              partyState={
-                getPartyStateAtTime(event.time, event.packetId) || result.updatedPartyState
-              }
-            />
+            <PlayerDamageDetails event={event} partyState={result.updatedPartyState} />
           </div>
         )}
       </div>

@@ -32,8 +32,8 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
       <h3 className="text-sm font-semibold">玩家伤害详情</h3>
 
       {sortedDetails.map(detail => {
-        // 查找对应的玩家状态
-        const playerState = partyState.players.find(p => p.id === detail.playerId)
+        // 查找对应的玩家状态（新架构：partyState.player 是单个玩家）
+        const playerState = partyState.player.id === detail.playerId ? partyState.player : null
 
         // partyState 已通过 packetId 过滤，直接取该玩家的所有状态
         const activeStatuses = playerState?.statuses || []
