@@ -14,9 +14,8 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 /**
  * 计算时间轴上所有伤害事件的减伤结果
  *
- * 单次时间轴顺序扫描：将 castEvents 和 damageEvents 按时间合并处理，
- * 维护递增的 PartyState，复杂度 O((N+M)log(N+M))，避免对每个伤害事件
- * 单独重放所有 castEvents（原来的 O(N×M)）。
+ * 编辑模式：单次时间轴扫描，使用 calculate()
+ * 回放模式：直接从 StatusEvent[] 计算，使用 calculateFromSnapshot()
  */
 export function useDamageCalculation(timeline: Timeline | null): Map<string, CalculationResult> {
   const partyState = useTimelineStore(state => state.partyState)
@@ -25,34 +24,28 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
   return useMemo(() => {
     const results = new Map<string, CalculationResult>()
 
-    if (!timeline || !partyState) return results
+    if (!timeline) return results
 
-    // 编辑模式：单次扫描
+    const calculator = new MitigationCalculator()
+
+    // 编辑模式：使用 PartyState，单次时间轴扫描
     if (!timeline.isReplayMode) {
-      const calculator = new MitigationCalculator()
+      if (!partyState) return results
 
-      // 按时间排序伤害事件
       const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
-
-      // 按时间排序技能使用事件
       const sortedCastEvents = [...(timeline.castEvents || [])].sort(
         (a, b) => a.timestamp - b.timestamp
       )
 
-      // 预估模式使用单个代表玩家，避免 AOE 计算时产生重复状态
-      const representative = partyState.players[0]
-      if (!representative) return results
-
       let currentState: PartyState = {
-        players: [{ ...representative, statuses: [] }],
-        enemy: { statuses: [] },
+        player: { ...partyState.player, statuses: [] },
         timestamp: 0,
       }
 
       let castIdx = 0
 
       for (const event of sortedDamageEvents) {
-        // 将时间线上位于此伤害事件之前的所有技能全部应用
+        // 应用所有在此伤害事件之前的技能
         while (
           castIdx < sortedCastEvents.length &&
           sortedCastEvents[castIdx].timestamp <= event.time
@@ -76,44 +69,46 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
           event.damage,
           currentState,
           event.time,
-          event.damageType || 'physical',
-          event.targetPlayerId
+          event.damageType || 'physical'
         )
 
         results.set(event.id, result)
-
-        // 用计算后的状态更新 currentState（包含盾值消耗）
-        currentState = result.updatedPartyState
+        // updatedPartyState 一定存在（编辑模式下 calculate 总会返回它）
+        if (result.updatedPartyState) {
+          currentState = result.updatedPartyState
+        }
       }
 
       return results
     }
 
-    // 回放模式：保留原有逻辑（通过 store 获取）
-    const { getPartyStateAtTime } = useTimelineStore.getState()
-    const calculator = new MitigationCalculator()
-    const sortedEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+    // 回放模式：直接从 StatusEvent[] 计算，无需 PartyState
+    if (!timeline.statusEvents) return results
 
-    for (const event of sortedEvents) {
-      const state = getPartyStateAtTime(event.time, event.packetId)
-      if (!state) {
+    const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+
+    for (const event of sortedDamageEvents) {
+      if (!event.packetId) {
         results.set(event.id, {
           originalDamage: event.damage,
           finalDamage: event.damage,
           mitigationPercentage: 0,
           appliedStatuses: [],
-          updatedPartyState: state!,
         })
         continue
       }
 
-      const result = calculator.calculate(
+      // 取第一个受击玩家作为代表（非坦克优先，与 parseDamageEvents 逻辑一致）
+      const targetPlayerId = event.playerDamageDetails?.[0]?.playerId ?? 0
+
+      const result = calculator.calculateFromSnapshot(
         event.damage,
-        state,
-        event.time,
+        timeline.statusEvents,
+        event.packetId,
         event.damageType || 'physical',
-        event.targetPlayerId
+        targetPlayerId
       )
+
       results.set(event.id, result)
     }
 
