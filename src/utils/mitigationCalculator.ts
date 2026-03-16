@@ -228,14 +228,20 @@ export class MitigationCalculator {
     let damage = originalDamage * multiplier
 
     // 4. 计算盾值减伤
-    for (const status of statuses) {
-      const meta = getStatusById(status.statusId)
-      if (!meta || meta.type !== 'absorbed') continue
-      if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
+    // 从 statuses 中筛选盾值状态，并按开始时间排序
+    const shieldStatuses = statuses
+      .filter(s => {
+        const meta = getStatusById(s.statusId)
+        return meta?.type === 'absorbed' && s.remainingBarrier && s.remainingBarrier > 0
+      })
+      .sort((a, b) => a.startTime - b.startTime)
 
-      const absorbed = Math.min(damage, status.remainingBarrier)
+    for (const status of shieldStatuses) {
+      const absorbed = Math.min(damage, status.remainingBarrier!)
       damage -= absorbed
       appliedStatuses.push(status)
+
+      if (damage <= 0) break
     }
 
     // 回放模式不需要 updatedPartyState

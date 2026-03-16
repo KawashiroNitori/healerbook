@@ -565,4 +565,72 @@ describe('MitigationCalculator', () => {
       expect(result.updatedPartyState).toBeDefined()
     })
   })
+
+  describe('calculateFromSnapshot - 盾值消耗顺序', () => {
+    it('应该按 startTime 顺序消耗盾值（即使 statusEvents 顺序不同）', () => {
+      // 模拟 FFLogs 数据：statusEvents 顺序与 startTime 不一致
+      const statusEvents: StatusEvent[] = [
+        {
+          statusId: 1191, // 雪仇 20% 减伤
+          startTime: 0,
+          endTime: 20,
+          targetPlayerId: 1,
+          packetId: 100,
+        },
+        {
+          statusId: 297, // 鼓舞盾
+          startTime: 5, // 后施放
+          endTime: 35,
+          targetPlayerId: 1,
+          packetId: 100,
+          absorb: 2000,
+        },
+        {
+          statusId: 297, // 鼓舞盾
+          startTime: 2, // 先施放
+          endTime: 32,
+          targetPlayerId: 1,
+          packetId: 100,
+          absorb: 1000,
+        },
+      ]
+
+      const result = calculator.calculateFromSnapshot(10000, statusEvents, 100, 'physical', 1)
+
+      // 计算过程：
+      // 1. 百分比减伤：10000 * 0.8 = 8000
+      // 2. 盾值消耗（按 startTime 排序）：
+      //    - 先消耗 startTime=2 的盾：8000 - 1000 = 7000
+      //    - 再消耗 startTime=5 的盾：7000 - 2000 = 5000
+      expect(result.finalDamage).toBe(5000)
+      expect(result.appliedStatuses).toHaveLength(3) // 1 个减伤 + 2 个盾
+    })
+
+    it('应该在盾值完全吸收伤害后停止消耗', () => {
+      const statusEvents: StatusEvent[] = [
+        {
+          statusId: 297, // 鼓舞盾
+          startTime: 5,
+          endTime: 35,
+          targetPlayerId: 1,
+          packetId: 100,
+          absorb: 3000,
+        },
+        {
+          statusId: 297, // 鼓舞盾
+          startTime: 2,
+          endTime: 32,
+          targetPlayerId: 1,
+          packetId: 100,
+          absorb: 10000, // 足够吸收所有伤害
+        },
+      ]
+
+      const result = calculator.calculateFromSnapshot(5000, statusEvents, 100, 'physical', 1)
+
+      // startTime=2 的盾先消耗，完全吸收伤害
+      expect(result.finalDamage).toBe(0)
+      expect(result.appliedStatuses).toHaveLength(1) // 只消耗了第一个盾
+    })
+  })
 })
