@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
 import type { PartyState } from '@/types/partyState'
+import type { StatusEvent } from '@/types/timeline'
 
 describe('MitigationCalculator', () => {
   let calculator: MitigationCalculator
@@ -499,6 +500,35 @@ describe('MitigationCalculator', () => {
       expect(activeStatuses).toHaveLength(2)
       expect(activeStatuses.map(s => s.statusId)).toContain(1191)
       expect(activeStatuses.map(s => s.statusId)).toContain(1193)
+    })
+  })
+
+  describe('MitigationCalculator.calculateFromSnapshot', () => {
+    it('should calculate damage from status snapshot', () => {
+      const calculator = new MitigationCalculator()
+
+      const statusEvents: StatusEvent[] = [
+        {
+          statusId: 1193, // 雪仇 10% 减伤
+          startTime: 0,
+          endTime: 15,
+          targetPlayerId: 1,
+          packetId: 100,
+        },
+        {
+          statusId: 1174, // 干预 10% 减伤
+          startTime: 0,
+          endTime: 30,
+          targetPlayerId: 1,
+          packetId: 100,
+        },
+      ]
+
+      const result = calculator.calculateFromSnapshot(10000, statusEvents, 100, 'physical', 1)
+
+      expect(result.finalDamage).toBe(8100) // 10000 * 0.9 * 0.9
+      expect(result.appliedStatuses).toHaveLength(2)
+      expect(result.updatedPartyState).toBeUndefined()
     })
   })
 

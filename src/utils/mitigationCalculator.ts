@@ -5,6 +5,7 @@
 
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus } from '@/types/status'
+import type { StatusEvent } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 
 /**
@@ -175,6 +176,76 @@ export class MitigationCalculator {
    */
   getActiveStatusesAtTime(partyState: PartyState, time: number): MitigationStatus[] {
     return this.getActiveStatuses([{ statuses: partyState.player.statuses }], time)
+  }
+
+  /**
+   * 从状态快照计算减伤（回放模式专用）
+   * 直接使用 FFLogs 记录的状态快照，不需要 PartyState
+   */
+  calculateFromSnapshot(
+    originalDamage: number,
+    statusEvents: StatusEvent[],
+    packetId: number,
+    damageType: DamageType,
+    targetPlayerId: number
+  ): CalculationResult {
+    // 1. 过滤该 packetId、属于目标玩家或无目标的状态事件
+    const activeStatusEvents = statusEvents.filter(
+      event =>
+        event.packetId === packetId &&
+        (event.targetPlayerId === targetPlayerId || !event.targetPlayerId)
+    )
+
+    // 2. 转换为 MitigationStatus
+    const statuses: MitigationStatus[] = []
+    for (const event of activeStatusEvents) {
+      const statusMeta = getStatusById(event.statusId)
+      if (!statusMeta) continue
+
+      statuses.push({
+        instanceId: `${event.targetPlayerId}-${event.statusId}-${event.targetInstance || 0}`,
+        statusId: event.statusId,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        sourcePlayerId: event.sourcePlayerId,
+        remainingBarrier: statusMeta.type === 'absorbed' && event.absorb ? event.absorb : undefined,
+      })
+    }
+
+    // 3. 计算百分比减伤
+    let multiplier = 1.0
+    const appliedStatuses: MitigationStatus[] = []
+
+    for (const status of statuses) {
+      const meta = getStatusById(status.statusId)
+      if (!meta || meta.type !== 'multiplier') continue
+
+      const damageMultiplier = this.getDamageMultiplier(meta.performance, damageType)
+      multiplier *= damageMultiplier
+      appliedStatuses.push(status)
+    }
+
+    let damage = originalDamage * multiplier
+
+    // 4. 计算盾值减伤
+    for (const status of statuses) {
+      const meta = getStatusById(status.statusId)
+      if (!meta || meta.type !== 'absorbed') continue
+      if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
+
+      const absorbed = Math.min(damage, status.remainingBarrier)
+      damage -= absorbed
+      appliedStatuses.push(status)
+    }
+
+    // 回放模式不需要 updatedPartyState
+    return {
+      originalDamage,
+      finalDamage: Math.max(0, Math.round(damage)),
+      mitigationPercentage:
+        Math.round(((originalDamage - damage) / originalDamage) * 100 * 10) / 10,
+      appliedStatuses,
+    }
   }
 }
 
