@@ -315,7 +315,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SGE'],
       duration: 15,
       cooldown: 30,
-      executor: createFriendlyBuffExecutor(2618, 15, true),
+      executor: createFriendlyBuffExecutor(2618, 15),
     },
 
     {
@@ -353,7 +353,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['BRD'],
       duration: 15,
       cooldown: 90,
-      executor: createFriendlyBuffExecutor(1934, 15, true),
+      executor: createFriendlyBuffExecutor(1934, 15),
     },
 
     // 机工士 (MCH)
@@ -365,7 +365,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['MCH'],
       duration: 15,
       cooldown: 90,
-      executor: createFriendlyBuffExecutor(1951, 15, true),
+      executor: createFriendlyBuffExecutor(1951, 15),
     },
     {
       id: 2887,
@@ -387,7 +387,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['DNC'],
       duration: 15,
       cooldown: 90,
-      executor: createFriendlyBuffExecutor(1826, 15, true),
+      executor: createFriendlyBuffExecutor(1826, 15),
     },
 
     // ==================== 远程魔法 DPS ====================
