@@ -19,7 +19,10 @@
 - `src/types/partyState.ts` - 简化类型定义
 - `src/executors/createFriendlyBuffExecutor.ts` - 删除 `isPartyWide` 参数
 - `src/executors/createShieldExecutor.ts` - 删除 `isPartyWide` 参数
-- `src/executors/createEnemyDebuffExecutor.ts` - 修改为添加到全局状态
+- `src/data/mitigationActions.ts` - 将 `createEnemyDebuffExecutor` 替换为 `createFriendlyBuffExecutor`
+
+### 删除文件
+- `src/executors/createEnemyDebuffExecutor.ts` - 删除，统一使用 `createFriendlyBuffExecutor` 替代
 
 ### 测试文件
 - `src/executors/executors.test.ts` - 更新执行器测试
@@ -319,108 +322,72 @@ git commit -m "refactor: 简化盾值执行器，删除 isPartyWide 参数"
 
 ---
 
-### Task 4: 更新敌方 Debuff 执行器
+### Task 4: 删除敌方 Debuff 执行器，统一使用 Buff
 
 **Files:**
-- Modify: `src/executors/createEnemyDebuffExecutor.ts`
-- Test: `src/executors/executors.test.ts`
+- Delete: `src/executors/createEnemyDebuffExecutor.ts`
+- Modify: `src/executors/index.ts`
+- Modify: `src/data/mitigationActions.ts`
 
-- [ ] **Step 1: 编写失败的测试**
-
-在 `src/executors/executors.test.ts` 中添加:
-
-```typescript
-describe('createEnemyDebuffExecutor (simplified)', () => {
-  it('should add debuff to global statuses', () => {
-    const executor = createEnemyDebuffExecutor(1193, 15)
-
-    const ctx: ActionExecutionContext = {
-      actionId: 7535,
-      useTime: 10,
-      partyState: {
-        player: {
-          id: 1,
-          job: 'WAR',
-          currentHP: 50000,
-          maxHP: 50000,
-          statuses: [],
-        },
-        statuses: [],
-        timestamp: 10,
-      },
-      sourcePlayerId: 1,
-    }
-
-    const result = executor(ctx)
-
-    expect(result.statuses).toHaveLength(1)
-    expect(result.statuses[0].statusId).toBe(1193)
-    expect(result.statuses[0].startTime).toBe(10)
-    expect(result.statuses[0].endTime).toBe(25)
-  })
-})
-```
-
-- [ ] **Step 2: 运行测试验证失败**
+- [ ] **Step 1: 检查 createEnemyDebuffExecutor 的使用情况**
 
 ```bash
-pnpm test executors.test.ts -t "createEnemyDebuffExecutor (simplified)"
+grep -n "createEnemyDebuffExecutor" src/data/mitigationActions.ts
 ```
 
-Expected: FAIL
+Expected: 找到所有使用该执行器的技能（如雪仇）
 
-- [ ] **Step 3: 修改执行器实现**
+- [ ] **Step 2: 将所有 createEnemyDebuffExecutor 替换为 createFriendlyBuffExecutor**
 
-修改 `src/executors/createEnemyDebuffExecutor.ts`:
+在 `src/data/mitigationActions.ts` 中，将所有敌方 Debuff 改为友方 Buff:
 
 ```typescript
-/**
- * 敌方 Debuff 执行器工厂
- */
+// 之前
+{
+  id: 7535,
+  name: '雪仇',
+  executor: createEnemyDebuffExecutor(1193, 15),
+}
 
-import type { ActionExecutor } from '@/types/mitigation'
-import type { MitigationStatus } from '@/types/status'
-import { generateId } from './utils'
-
-/**
- * 创建敌方 Debuff 执行器
- * @param statusId 状态 ID
- * @param duration 持续时间（秒）
- * @returns 技能执行器
- */
-export function createEnemyDebuffExecutor(statusId: number, duration: number): ActionExecutor {
-  return ctx => {
-    const newStatus: MitigationStatus = {
-      instanceId: generateId(),
-      statusId,
-      startTime: ctx.useTime,
-      endTime: ctx.useTime + duration,
-      sourceActionId: ctx.actionId,
-    }
-
-    return {
-      ...ctx.partyState,
-      statuses: [...ctx.partyState.statuses, newStatus],
-    }
-  }
+// 之后
+{
+  id: 7535,
+  name: '雪仇',
+  executor: createFriendlyBuffExecutor(1193, 15),
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [ ] **Step 3: 删除 createEnemyDebuffExecutor 导入**
+
+在 `src/data/mitigationActions.ts` 中删除导入
+
+- [ ] **Step 4: 从 executors/index.ts 中删除导出**
+
+- [ ] **Step 5: 删除文件**
 
 ```bash
-pnpm test executors.test.ts -t "createEnemyDebuffExecutor (simplified)"
+rm src/executors/createEnemyDebuffExecutor.ts
 ```
 
-Expected: PASS
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: 运行类型检查**
 
 ```bash
-git add src/executors/createEnemyDebuffExecutor.ts src/executors/executors.test.ts
-git commit -m "refactor: 修改敌方 Debuff 执行器，添加到全局状态"
+pnpm exec tsc --noEmit
 ```
 
+- [ ] **Step 7: 运行测试**
+
+```bash
+pnpm test executors.test.ts
+pnpm test mitigationActions.test.ts
+```
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add -A
+git commit -m "refactor: 删除敌方 Debuff 执行器，统一使用友方 Buff"
+```
 ---
 
 ### Task 5: 更新技能数据中的执行器调用
