@@ -101,4 +101,32 @@ describe('executors', () => {
       expect(newState.player.statuses[0].remainingBarrier).toBe(10000) // 100000 * 0.1
     })
   })
+
+  describe('createShieldExecutor (simplified)', () => {
+    it('should add shield to player statuses', () => {
+      const executor = createShieldExecutor(1362, 30, 0.1)
+
+      const ctx: ActionExecutionContext = {
+        actionId: 3540,
+        useTime: 10,
+        partyState: {
+          player: {
+            id: 1,
+            job: 'PLD',
+            currentHP: 50000,
+            maxHP: 50000,
+            statuses: [],
+          },
+          timestamp: 10,
+        },
+        sourcePlayerId: 1,
+      }
+
+      const result = executor(ctx)
+
+      expect(result.player.statuses).toHaveLength(1)
+      expect(result.player.statuses[0].statusId).toBe(1362)
+      expect(result.player.statuses[0].remainingBarrier).toBe(5000)
+    })
+  })
 })
