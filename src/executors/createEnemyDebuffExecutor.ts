@@ -20,13 +20,14 @@ export function createEnemyDebuffExecutor(statusId: number, duration: number): A
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,
       sourceActionId: ctx.actionId,
+      sourcePlayerId: ctx.partyState.player.id,
     }
 
     return {
       ...ctx.partyState,
-      enemy: {
-        ...ctx.partyState.enemy,
-        statuses: [...ctx.partyState.enemy.statuses, newStatus],
+      player: {
+        ...ctx.partyState.player,
+        statuses: [...ctx.partyState.player.statuses, newStatus],
       },
     }
   }

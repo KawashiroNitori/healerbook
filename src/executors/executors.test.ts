@@ -11,50 +11,41 @@ import type { ActionExecutionContext } from '@/types/mitigation'
 
 describe('executors', () => {
   const mockPartyState: PartyState = {
-    players: [
-      { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },
-      { id: 2, job: 'WHM', currentHP: 40000, maxHP: 80000, statuses: [] },
-    ],
-    enemy: { statuses: [] },
+    player: { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },
     timestamp: 0,
   }
 
-  describe('createFriendlyBuffExecutor', () => {
-    it('应该为所有玩家添加状态（团队技能）', () => {
-      const executor = createFriendlyBuffExecutor(1191, 20, true) // 铁壁
-      const ctx: ActionExecutionContext = {
-        actionId: 7531,
-        useTime: 10,
-        partyState: mockPartyState,
-      }
+  describe('createFriendlyBuffExecutor (simplified)', () => {
+    it('should add buff to player statuses', () => {
+      const executor = createFriendlyBuffExecutor(1176, 5)
 
-      const newState = executor(ctx)
-
-      expect(newState.players[0].statuses).toHaveLength(1)
-      expect(newState.players[1].statuses).toHaveLength(1)
-      expect(newState.players[0].statuses[0].statusId).toBe(1191)
-      expect(newState.players[0].statuses[0].startTime).toBe(10)
-      expect(newState.players[0].statuses[0].endTime).toBe(30)
-    })
-
-    it('应该只为目标玩家添加状态（单体技能）', () => {
-      const executor = createFriendlyBuffExecutor(1174, 10, false) // 干预
       const ctx: ActionExecutionContext = {
         actionId: 7382,
-        useTime: 5,
-        partyState: mockPartyState,
+        useTime: 10,
+        partyState: {
+          player: {
+            id: 1,
+            job: 'PLD',
+            currentHP: 50000,
+            maxHP: 50000,
+            statuses: [],
+          },
+          timestamp: 10,
+        },
         sourcePlayerId: 1,
       }
 
-      const newState = executor(ctx)
+      const result = executor(ctx)
 
-      expect(newState.players[0].statuses).toHaveLength(1)
-      expect(newState.players[1].statuses).toHaveLength(0)
+      expect(result.player.statuses).toHaveLength(1)
+      expect(result.player.statuses[0].statusId).toBe(1176)
+      expect(result.player.statuses[0].startTime).toBe(10)
+      expect(result.player.statuses[0].endTime).toBe(15)
     })
   })
 
   describe('createEnemyDebuffExecutor', () => {
-    it('应该为敌方添加 Debuff 状态', () => {
+    it('should add debuff to player statuses', () => {
       const executor = createEnemyDebuffExecutor(1193, 15) // 雪仇
       const ctx: ActionExecutionContext = {
         actionId: 7535,
@@ -64,16 +55,16 @@ describe('executors', () => {
 
       const newState = executor(ctx)
 
-      expect(newState.enemy.statuses).toHaveLength(1)
-      expect(newState.enemy.statuses[0].statusId).toBe(1193)
-      expect(newState.enemy.statuses[0].startTime).toBe(20)
-      expect(newState.enemy.statuses[0].endTime).toBe(35)
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].statusId).toBe(1193)
+      expect(newState.player.statuses[0].startTime).toBe(20)
+      expect(newState.player.statuses[0].endTime).toBe(35)
     })
   })
 
   describe('createShieldExecutor', () => {
-    it('应该为所有玩家添加盾值状态（团队技能）', () => {
-      const executor = createShieldExecutor(2613, 15, true, 0.1) // 泛输血
+    it('should add shield to player statuses', () => {
+      const executor = createShieldExecutor(2613, 15, 0.1) // 泛输血
       const ctx: ActionExecutionContext = {
         actionId: 24311,
         useTime: 30,
@@ -82,25 +73,8 @@ describe('executors', () => {
 
       const newState = executor(ctx)
 
-      expect(newState.players[0].statuses).toHaveLength(1)
-      expect(newState.players[0].statuses[0].remainingBarrier).toBe(10000) // 100000 * 0.1
-      expect(newState.players[1].statuses[0].remainingBarrier).toBe(8000) // 80000 * 0.1
-    })
-
-    it('应该只为目标玩家添加盾值状态（单体技能）', () => {
-      const executor = createShieldExecutor(297, 30, false, 0.125) // 鼓舞
-      const ctx: ActionExecutionContext = {
-        actionId: 185,
-        useTime: 15,
-        partyState: mockPartyState,
-        sourcePlayerId: 2,
-      }
-
-      const newState = executor(ctx)
-
-      expect(newState.players[0].statuses).toHaveLength(0)
-      expect(newState.players[1].statuses).toHaveLength(1)
-      expect(newState.players[1].statuses[0].remainingBarrier).toBe(10000) // 80000 * 0.125
+      expect(newState.player.statuses).toHaveLength(1)
+      expect(newState.player.statuses[0].remainingBarrier).toBe(10000) // 100000 * 0.1
     })
   })
 })
