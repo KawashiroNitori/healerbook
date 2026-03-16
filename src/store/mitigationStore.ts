@@ -15,7 +15,6 @@ interface MitigationState {
   /** 技能过滤器 */
   filters: {
     jobs: Job[]
-    isPartyWide: boolean | null
   }
 
   // Actions
@@ -25,8 +24,6 @@ interface MitigationState {
   selectAction: (actionId: string | null) => void
   /** 设置职业过滤器 */
   setJobFilter: (jobs: Job[]) => void
-  /** 设置团队减伤过滤器 */
-  setPartyWideFilter: (isPartyWide: boolean | null) => void
   /** 获取过滤后的技能 */
   getFilteredActions: () => MitigationAction[]
   /** 重置过滤器 */
@@ -35,7 +32,6 @@ interface MitigationState {
 
 const initialFilters = {
   jobs: [] as Job[],
-  isPartyWide: null,
 }
 
 export const useMitigationStore = create<MitigationState>((set, get) => ({
@@ -61,27 +57,10 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
       },
     })),
 
-  setPartyWideFilter: isPartyWide =>
-    set(state => ({
-      filters: {
-        ...state.filters,
-        isPartyWide,
-      },
-    })),
-
   getFilteredActions: () => {
     const { actions, filters } = get()
-    let filtered = actions
-
-    // 职业过滤
-    if (filters.jobs.length > 0) {
-      filtered = filtered.filter(action => filters.jobs.some(job => action.jobs.includes(job)))
-    }
-
-    // 注意：isPartyWide 字段已被删除，此过滤器暂时禁用
-    // 如果需要团队减伤过滤，需要根据新的数据结构重新实现
-
-    return filtered
+    if (filters.jobs.length === 0) return actions
+    return actions.filter(action => filters.jobs.some(job => action.jobs.includes(job)))
   },
 
   resetFilters: () =>
