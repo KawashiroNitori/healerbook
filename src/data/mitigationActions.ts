@@ -6,12 +6,7 @@
  */
 
 import type { MitigationAction } from '@/types/mitigation'
-import {
-  createFriendlyBuffExecutor,
-  createEnemyDebuffExecutor,
-  createShieldExecutor,
-  generateId,
-} from '@/executors'
+import { createFriendlyBuffExecutor, createShieldExecutor, generateId } from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import type { MitigationStatus } from '@/types/status'
 
@@ -32,7 +27,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['WAR', 'PLD', 'DRK', 'GNB'],
       duration: 15,
       cooldown: 60,
-      executor: createEnemyDebuffExecutor(1193, 15),
+      executor: createFriendlyBuffExecutor(1193, 15),
     },
 
     // 骑士 (PLD)
@@ -148,7 +143,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       duration: 15,
       cooldown: 60,
-      executor: createFriendlyBuffExecutor(1896, 15, false),
+      executor: createFriendlyBuffExecutor(1896, 15),
     },
 
     // 气宇轩昂之策 - 检测秘策状态附加额外盾值
@@ -172,7 +167,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           // 基础鼓舞盾
           newStatuses.push({
             instanceId: generateId(),
-            statusId: baseShieldId, 
+            statusId: baseShieldId,
             startTime: ctx.useTime,
             endTime: ctx.useTime + 30,
             remainingBarrier: ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000,
@@ -184,7 +179,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           if (hasRecitation) {
             newStatuses.push({
               instanceId: generateId(),
-              statusId: criticalShieldId, 
+              statusId: criticalShieldId,
               startTime: ctx.useTime,
               endTime: ctx.useTime + 30,
               remainingBarrier: ctx.statistics?.shieldByAbility[criticalShieldId] ?? 10000,
@@ -344,7 +339,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['MNK', 'DRG', 'NIN', 'SAM', 'RPR', 'VPR'],
       duration: 15,
       cooldown: 90,
-      executor: createEnemyDebuffExecutor(1195, 15),
+      executor: createFriendlyBuffExecutor(1195, 15),
     },
 
     // ==================== 远程物理 DPS ====================
@@ -380,7 +375,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['MCH'],
       duration: 10,
       cooldown: 120,
-      executor: createEnemyDebuffExecutor(860, 10),
+      executor: createFriendlyBuffExecutor(860, 10),
     },
 
     // 舞者 (DNC)
@@ -404,7 +399,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['BLM', 'SMN', 'RDM', 'PCT'],
       duration: 15,
       cooldown: 90,
-      executor: createEnemyDebuffExecutor(1203, 15),
+      executor: createFriendlyBuffExecutor(1203, 15),
     },
 
     // 赤魔法师 (RDM)

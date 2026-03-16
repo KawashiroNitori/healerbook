@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from 'vitest'
 import { createFriendlyBuffExecutor } from './createFriendlyBuffExecutor'
-import { createEnemyDebuffExecutor } from './createEnemyDebuffExecutor'
 import { createShieldExecutor } from './createShieldExecutor'
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
@@ -68,9 +67,9 @@ describe('executors', () => {
     })
   })
 
-  describe('createEnemyDebuffExecutor', () => {
-    it('should add debuff to player statuses', () => {
-      const executor = createEnemyDebuffExecutor(1193, 15) // 雪仇
+  describe('createFriendlyBuffExecutor (enemy debuff replaced)', () => {
+    it('should add buff to player statuses', () => {
+      const executor = createFriendlyBuffExecutor(1193, 15) // 雪仇
       const ctx: ActionExecutionContext = {
         actionId: 7535,
         useTime: 20,

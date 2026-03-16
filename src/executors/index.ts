@@ -3,6 +3,5 @@
  */
 
 export { createFriendlyBuffExecutor } from './createFriendlyBuffExecutor'
-export { createEnemyDebuffExecutor } from './createEnemyDebuffExecutor'
 export { createShieldExecutor } from './createShieldExecutor'
 export { generateId } from './utils'
