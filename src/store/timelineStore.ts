@@ -3,75 +3,14 @@
  */
 
 import { create } from 'zustand'
-import type { Timeline, DamageEvent, CastEvent, StatusEvent, Composition } from '@/types/timeline'
+import type { Timeline, DamageEvent, CastEvent, Composition } from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
-import type { MitigationStatus } from '@/types/status'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
 import { saveTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getStatusById } from '@/utils/statusRegistry'
 
 // 自动保存延迟时间 (毫秒)
 const AUTO_SAVE_DELAY = 2000
-
-/**
- * 从状态事件构建小队状态（回放模式）
- */
-function buildPartyStateFromStatusEvents(
-  initialState: PartyState,
-  statusEvents: StatusEvent[],
-  packetId?: number,
-  time?: number
-): PartyState {
-  // 初始化状态
-  const currentState: PartyState = {
-    players: initialState.players.map(p => ({
-      ...p,
-      statuses: [],
-    })),
-    enemy: {
-      statuses: [],
-    },
-    timestamp: time ?? 0,
-  }
-
-  // 过滤状态事件：按 packetId 或按时间范围
-  const activeStatusEvents =
-    packetId != null
-      ? statusEvents.filter(event => event.packetId === packetId)
-      : statusEvents.filter(
-          event => time != null && event.startTime <= time && event.endTime >= time
-        )
-
-  // 将状态事件转换为 MitigationStatus 并分配到玩家/敌人
-  for (const event of activeStatusEvents) {
-    const statusMeta = getStatusById(event.statusId)
-    if (!statusMeta) continue
-
-    const status: MitigationStatus = {
-      instanceId: `${event.targetPlayerId}-${event.statusId}-${event.targetInstance || 0}`,
-      statusId: event.statusId,
-      startTime: event.startTime,
-      endTime: event.endTime,
-      sourcePlayerId: event.sourcePlayerId,
-      // 如果是盾值类型状态且有 absorb 字段，则初始化 remainingBarrier
-      remainingBarrier: statusMeta.type === 'absorbed' && event.absorb ? event.absorb : undefined,
-    }
-
-    // 判断是友方还是敌方状态
-    if (event.targetPlayerId) {
-      const player = currentState.players.find(p => p.id === event.targetPlayerId)
-      if (player) {
-        player.statuses.push(status)
-      }
-    } else {
-      // 敌方状态
-      currentState.enemy.statuses.push(status)
-    }
-  }
-
-  return currentState
-}
 
 interface TimelineState {
   /** 当前时间轴 */
@@ -112,8 +51,6 @@ interface TimelineState {
   executeAction: (actionId: number, time: number, sourcePlayerId: number) => void
   /** 更新小队状态 */
   updatePartyState: (partyState: PartyState) => void
-  /** 获取指定时间的小队状态 */
-  getPartyStateAtTime: (time: number, packetId?: number) => PartyState | null
   /** 清理过期状态 */
   cleanupExpiredStatuses: (currentTime: number) => void
   /** 选择伤害事件 */
@@ -192,22 +129,26 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   initializePartyState: composition => {
     const { statistics } = get()
+    if (!composition.players || composition.players.length === 0) {
+      set({ partyState: null })
+      return
+    }
+
+    // 使用第一个玩家作为代表
+    const representative = composition.players[0]
+    const maxHP = statistics?.maxHPByJob[representative.job] ?? 100000
+
     const partyState: PartyState = {
-      players: composition.players.map(player => {
-        const maxHP = statistics?.maxHPByJob[player.job] ?? 100000
-        return {
-          id: player.id,
-          job: player.job,
-          currentHP: maxHP,
-          maxHP,
-          statuses: [],
-        }
-      }),
-      enemy: {
+      player: {
+        id: representative.id,
+        job: representative.job,
+        currentHP: maxHP,
+        maxHP,
         statuses: [],
       },
       timestamp: 0,
     }
+
     set({ partyState })
   },
 
@@ -249,82 +190,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ partyState })
   },
 
-  getPartyStateAtTime: (time, packetId) => {
-    const state = get()
-    if (!state.timeline || !state.partyState) return null
-
-    // 回放模式：使用状态事件，通过 packetId 或时间匹配
-    if (state.timeline.isReplayMode && state.timeline.statusEvents) {
-      return buildPartyStateFromStatusEvents(
-        state.partyState,
-        state.timeline.statusEvents,
-        packetId,
-        time
-      )
-    }
-
-    // 编辑模式：使用 executor 从 castEvents 生成状态
-    // 从初始状态开始重放所有技能
-    let currentState: PartyState = {
-      players: state.partyState.players.map(p => ({
-        ...p,
-        statuses: [],
-      })),
-      enemy: {
-        statuses: [],
-      },
-      timestamp: time,
-    }
-
-    // 获取所有在指定时间之前使用的技能
-    const castEvents = (state.timeline.castEvents || [])
-      .filter(ce => ce.timestamp <= time)
-      .sort((a, b) => a.timestamp - b.timestamp)
-
-    // 依次执行技能
-    for (const castEvent of castEvents) {
-      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
-      if (!action) continue
-
-      const context: ActionExecutionContext = {
-        actionId: castEvent.actionId,
-        useTime: castEvent.timestamp,
-        partyState: currentState,
-        sourcePlayerId: castEvent.playerId,
-        statistics: state.statistics ?? undefined,
-      }
-
-      currentState = action.executor(context)
-    }
-
-    // 过滤掉已过期的状态
-    currentState = {
-      ...currentState,
-      players: currentState.players.map(p => ({
-        ...p,
-        statuses: p.statuses.filter(s => s.endTime >= time),
-      })),
-      enemy: {
-        statuses: currentState.enemy.statuses.filter(s => s.endTime >= time),
-      },
-      timestamp: time,
-    }
-
-    return currentState
-  },
-
   cleanupExpiredStatuses: currentTime => {
     const state = get()
     if (!state.partyState) return
 
     const newPartyState: PartyState = {
       ...state.partyState,
-      players: state.partyState.players.map(p => ({
-        ...p,
-        statuses: p.statuses.filter(s => s.endTime >= currentTime),
-      })),
-      enemy: {
-        statuses: state.partyState.enemy.statuses.filter(s => s.endTime >= currentTime),
+      player: {
+        ...state.partyState.player,
+        statuses: state.partyState.player.statuses.filter(s => s.endTime >= currentTime),
       },
       timestamp: currentTime,
     }
