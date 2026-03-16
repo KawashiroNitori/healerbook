@@ -24,8 +24,8 @@ export interface CalculationResult {
   mitigationPercentage: number
   /** 应用的状态列表 */
   appliedStatuses: MitigationStatus[]
-  /** 更新后的小队状态（盾值消耗后） */
-  updatedPartyState: PartyState
+  /** 更新后的小队状态（盾值消耗后，回放模式下为 undefined） */
+  updatedPartyState?: PartyState
 }
 
 /**
@@ -39,31 +39,27 @@ export class MitigationCalculator {
    * @param originalDamage 原始伤害
    * @param partyState 小队状态
    * @param time 当前时间（秒）
-   * @param damageType 伤害类型（物理/魔法/特殊）
-   * @param targetPlayerId 目标玩家 ID（可选，用于单体伤害）
+   * @param damageType 伤害类��（物理/魔法/特殊）
    * @returns 计算结果
    */
   calculate(
     originalDamage: number,
     partyState: PartyState,
     time: number,
-    damageType: DamageType = 'physical',
-    targetPlayerId?: number
+    damageType: DamageType = 'physical'
   ): CalculationResult {
-    // 获取生效的状态
-    const friendlyStatuses = this.getActiveStatuses(partyState.players, time, targetPlayerId)
-    const enemyStatuses = this.getActiveStatuses([{ statuses: partyState.enemy.statuses }], time)
+    // 1. 获取生效的玩家状态（包含友方 Buff 和敌方 Debuff）
+    const activeStatuses = this.getActiveStatuses([{ statuses: partyState.player.statuses }], time)
 
-    // 1. 计算百分比减伤
+    // 2. 计算百分比减伤
     let multiplier = 1.0
     const appliedStatuses: MitigationStatus[] = []
 
-    for (const status of [...friendlyStatuses, ...enemyStatuses]) {
+    for (const status of activeStatuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
 
       if (meta.type === 'multiplier') {
-        // 根据伤害类型获取减伤倍率
         const damageMultiplier = this.getDamageMultiplier(meta.performance, damageType)
         multiplier *= damageMultiplier
         appliedStatuses.push(status)
@@ -72,62 +68,40 @@ export class MitigationCalculator {
 
     let damage = originalDamage * multiplier
 
-    // 2. 计算盾值减伤
-    // 按玩家独立计算：AOE 时每个玩家的盾各自吸收自己承受的伤害
-    // 单体时只处理目标玩家
-    const statusUpdates = new Map<string, number>() // instanceId -> remainingBarrier
+    // 3. 计算盾值减伤
+    const statusUpdates = new Map<string, number>()
+    let playerDamage = damage
 
-    const playersToProcess =
-      targetPlayerId !== undefined
-        ? partyState.players.filter(p => p.id === targetPlayerId)
-        : partyState.players
+    for (const status of partyState.player.statuses) {
+      const meta = getStatusById(status.statusId)
+      if (!meta || meta.type !== 'absorbed') continue
+      if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
+      if (time < status.startTime || time > status.endTime) continue
 
-    const perPlayerDamages: number[] = []
+      const absorbed = Math.min(playerDamage, status.remainingBarrier)
+      playerDamage -= absorbed
+      appliedStatuses.push(status)
+      statusUpdates.set(status.instanceId, status.remainingBarrier - absorbed)
 
-    for (const player of playersToProcess) {
-      let playerDamage = damage // 每个玩家独立承受相同的减伤后伤害
-
-      for (const status of player.statuses) {
-        const meta = getStatusById(status.statusId)
-        if (!meta || meta.type !== 'absorbed') continue
-        if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
-        if (time < status.startTime || time > status.endTime) continue
-
-        const absorbed = Math.min(playerDamage, status.remainingBarrier)
-        playerDamage -= absorbed
-
-        appliedStatuses.push(status)
-        statusUpdates.set(status.instanceId, status.remainingBarrier - absorbed)
-
-        if (playerDamage <= 0) break
-      }
-
-      perPlayerDamages.push(playerDamage)
+      if (playerDamage <= 0) break
     }
 
-    // 最终伤害取各玩家平均值（若无玩家可处理则保留减伤倍率后的值）
-    if (perPlayerDamages.length > 0) {
-      damage = perPlayerDamages.reduce((a, b) => a + b, 0) / perPlayerDamages.length
+    damage = playerDamage
+
+    // 4. 更新盾值状态
+    const updatedPartyState: PartyState = {
+      ...partyState,
+      player: {
+        ...partyState.player,
+        statuses: partyState.player.statuses
+          .map(s =>
+            statusUpdates.has(s.instanceId)
+              ? { ...s, remainingBarrier: statusUpdates.get(s.instanceId) }
+              : s
+          )
+          .filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0),
+      },
     }
-
-    // 应用盾值更新到玩家状态
-    const updatedPlayers = partyState.players.map(player => {
-      const updatedStatuses = player.statuses.map(status => {
-        const newBarrier = statusUpdates.get(status.instanceId)
-        if (newBarrier !== undefined) {
-          return {
-            ...status,
-            remainingBarrier: newBarrier,
-          }
-        }
-        return status
-      })
-
-      return {
-        ...player,
-        statuses: updatedStatuses.filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0), // 移除盾值为0的状态
-      }
-    })
 
     const mitigationPercentage = ((originalDamage - damage) / originalDamage) * 100
 
@@ -136,44 +110,26 @@ export class MitigationCalculator {
       finalDamage: Math.max(0, Math.round(damage)),
       mitigationPercentage: Math.round(mitigationPercentage * 10) / 10,
       appliedStatuses,
-      updatedPartyState: {
-        ...partyState,
-        players: updatedPlayers,
-      },
+      updatedPartyState,
     }
   }
 
   /**
    * 获取指定时间点生效的状态
-   * @param entities 实体列表（玩家或敌方）
+   * @param entities 实体列表
    * @param time 当前时间（秒）
-   * @param targetPlayerId 目标玩家 ID（可选）
    * @returns 生效的状态列表
    */
   private getActiveStatuses(
     entities: Array<{ statuses: MitigationStatus[] }>,
-    time: number,
-    targetPlayerId?: number
+    time: number
   ): MitigationStatus[] {
     const activeStatuses: MitigationStatus[] = []
-    const seenStatusIds = new Set<number>() // 用于 AOE 伤害时去重
 
     for (const entity of entities) {
-      // 如果指定了目标玩家，只处理该玩家的状态
-      if (targetPlayerId !== undefined && 'id' in entity && entity.id !== targetPlayerId) {
-        continue
-      }
-
       for (const status of entity.statuses) {
-        // 检查状态是否在生效时间内
         if (time >= status.startTime && time <= status.endTime) {
-          // 对于 AOE 伤害（没有指定目标玩家），同一个状态 ID 只收集一次
-          if (targetPlayerId === undefined && seenStatusIds.has(status.statusId)) {
-            continue
-          }
-
           activeStatuses.push(status)
-          seenStatusIds.add(status.statusId)
         }
       }
     }
@@ -210,9 +166,7 @@ export class MitigationCalculator {
    * @returns 生效的状态列表（包含友方和敌方）
    */
   getActiveStatusesAtTime(partyState: PartyState, time: number): MitigationStatus[] {
-    const friendlyStatuses = this.getActiveStatuses(partyState.players, time)
-    const enemyStatuses = this.getActiveStatuses([{ statuses: partyState.enemy.statuses }], time)
-    return [...friendlyStatuses, ...enemyStatuses]
+    return this.getActiveStatuses([{ statuses: partyState.player.statuses }], time)
   }
 }
 
