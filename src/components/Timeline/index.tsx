@@ -54,6 +54,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const clickedBackgroundRef = useRef(false)
   const hasMovedRef = useRef(false)
   const panJustEndedRef = useRef(false) // 标记刚刚完成了平移操作，阻止后续 click 选中技能
+  const lastPanEndTimeRef = useRef(0) // 记录最后一次平移结束的时间戳，用于阻止 dblclick
   // 双指缩放状态
   const isPinchingRef = useRef(false)
   const lastPinchDistanceRef = useRef<number | null>(null)
@@ -375,6 +376,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       isDraggingRef.current = false
       clickedBackgroundRef.current = false
+      if (hasMovedRef.current) {
+        lastPanEndTimeRef.current = Date.now()
+      }
       panJustEndedRef.current = hasMovedRef.current // 在重置前记录是否发生过移动
       hasMovedRef.current = false
       isPinchingRef.current = false
@@ -534,6 +538,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       isDraggingRef.current = false
       clickedBackgroundRef.current = false
+      if (hasMovedRef.current) {
+        lastPanEndTimeRef.current = Date.now()
+      }
       panJustEndedRef.current = hasMovedRef.current // 在重置前记录是否发生过移动
       hasMovedRef.current = false
       isPinchingRef.current = false
@@ -619,6 +626,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 处理双击轨道添加技能
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
     if (!timeline || isReadOnly) return
+
+    // 如果刚刚完成了平移操作（300ms 内），阻止误触发
+    if (Date.now() - lastPanEndTimeRef.current < 300) return
 
     if (checkOverlap(time, track.playerId, track.actionId)) {
       toast.error('无法添加技能', {

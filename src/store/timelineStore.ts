@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import type { Timeline, DamageEvent, CastEvent, Composition } from '@/types/timeline'
-import type { PartyState } from '@/types/partyState'
+import type { PartyState, PlayerState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
 import { saveTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
@@ -134,18 +134,16 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       return
     }
 
-    // 使用第一个玩家作为代表
-    const representative = composition.players[0]
-    const maxHP = statistics?.maxHPByJob[representative.job] ?? 100000
+    // 将所有玩家转换为 PlayerState
+    const players: PlayerState[] = composition.players.map(p => ({
+      id: p.id,
+      job: p.job,
+      maxHP: statistics?.maxHPByJob[p.job] ?? 100000,
+    }))
 
     const partyState: PartyState = {
-      player: {
-        id: representative.id,
-        job: representative.job,
-        currentHP: maxHP,
-        maxHP,
-        statuses: [],
-      },
+      players,
+      statuses: [],
       timestamp: 0,
     }
 
@@ -196,10 +194,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     const newPartyState: PartyState = {
       ...state.partyState,
-      player: {
-        ...state.partyState.player,
-        statuses: state.partyState.player.statuses.filter(s => s.endTime >= currentTime),
-      },
+      statuses: state.partyState.statuses.filter(s => s.endTime >= currentTime),
       timestamp: currentTime,
     }
 

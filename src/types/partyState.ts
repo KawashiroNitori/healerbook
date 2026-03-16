@@ -7,11 +7,13 @@ import type { MitigationStatus } from './status'
 
 /**
  * 小队状态（编辑模式）
- * 所有状态统一存放在 player.statuses 中，不再区分友方/敌方
+ * 所有状态统一存放在 PartyState.statuses 中，不再区分友方/敌方
  */
 export interface PartyState {
-  /** 单个代表玩家 */
-  player: PlayerState
+  /** 玩家列表 */
+  players: PlayerState[]
+  /** 所有状态列表（包含友方 Buff 和原敌方 Debuff） */
+  statuses: MitigationStatus[]
   /** 当前时间戳（秒） */
   timestamp: number
 }
@@ -24,10 +26,6 @@ export interface PlayerState {
   id: number
   /** 职业 */
   job: Job
-  /** 当前 HP */
-  currentHP: number
   /** 最大 HP */
   maxHP: number
-  /** 所有状态列表（包含友方 Buff 和原敌方 Debuff） */
-  statuses: MitigationStatus[]
 }

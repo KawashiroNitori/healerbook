@@ -50,7 +50,7 @@ export class MitigationCalculator {
     damageType: DamageType = 'physical'
   ): CalculationResult {
     // 1. 获取生效的玩家状态（包含友方 Buff 和敌方 Debuff）
-    const activeStatuses = this.getActiveStatuses([{ statuses: partyState.player.statuses }], time)
+    const activeStatuses = this.getActiveStatuses([{ statuses: partyState.statuses }], time)
 
     // 2. 计算百分比减伤
     let multiplier = 1.0
@@ -67,10 +67,10 @@ export class MitigationCalculator {
       }
     }
 
-    let damage = originalDamage * multiplier
+    let damage = Math.round(originalDamage * multiplier)
 
     // 3. 计算盾值减伤
-    const statusUpdates = new Map<string, number>()
+    const statusUpdates = new Map<string, Partial<MitigationStatus>>()
     let playerDamage = damage
 
     // 从 activeStatuses 中筛选盾值状态，并按开始时间排序
@@ -90,7 +90,21 @@ export class MitigationCalculator {
         appliedStatuses.push(status)
       }
 
-      statusUpdates.set(status.instanceId, status.remainingBarrier! - absorbed)
+      const newRemainingBarrier = status.remainingBarrier! - absorbed
+
+      // 处理多层盾逻辑
+      if (newRemainingBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
+        // 盾值耗尽但还有层数，减少层数并重置盾值
+        statusUpdates.set(status.instanceId, {
+          remainingBarrier: status.initialBarrier,
+          stack: status.stack - 1,
+        })
+      } else {
+        // 普通情况：更新剩余盾值
+        statusUpdates.set(status.instanceId, {
+          remainingBarrier: newRemainingBarrier,
+        })
+      }
 
       if (playerDamage <= 0) break
     }
@@ -100,16 +114,15 @@ export class MitigationCalculator {
     // 4. 更新盾值状态
     const updatedPartyState: PartyState = {
       ...partyState,
-      player: {
-        ...partyState.player,
-        statuses: partyState.player.statuses
-          .map(s =>
-            statusUpdates.has(s.instanceId)
-              ? { ...s, remainingBarrier: statusUpdates.get(s.instanceId) }
-              : s
-          )
-          .filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0),
-      },
+      statuses: partyState.statuses
+        .map(s => {
+          if (statusUpdates.has(s.instanceId)) {
+            const updates = statusUpdates.get(s.instanceId)!
+            return { ...s, ...updates }
+          }
+          return s
+        })
+        .filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0),
     }
 
     const mitigationPercentage = ((originalDamage - damage) / originalDamage) * 100
@@ -175,7 +188,7 @@ export class MitigationCalculator {
    * @returns 生效的状态列表（包含友方和敌方）
    */
   getActiveStatusesAtTime(partyState: PartyState, time: number): MitigationStatus[] {
-    return this.getActiveStatuses([{ statuses: partyState.player.statuses }], time)
+    return this.getActiveStatuses([{ statuses: partyState.statuses }], time)
   }
 
   /**

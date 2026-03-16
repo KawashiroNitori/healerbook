@@ -99,8 +99,6 @@ export interface MitigationAction {
   iconHD?: string
   /** 可使用的职业列表 */
   jobs: Job[]
-  /** 互斥技能 ID 列表（与这些技能互斥，同时只能生效一个） */
-  uniqueGroup?: number[]
   /** 持续时间（秒） */
   duration: number
   /** 冷却时间（秒） */

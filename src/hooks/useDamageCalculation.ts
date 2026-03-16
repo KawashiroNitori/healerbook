@@ -38,7 +38,8 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       )
 
       let currentState: PartyState = {
-        player: { ...partyState.player, statuses: [] },
+        players: [...partyState.players],
+        statuses: [],
         timestamp: 0,
       }
 
@@ -53,6 +54,11 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
           const castEvent = sortedCastEvents[castIdx]
           const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
           if (action) {
+            // 传给 executor 前清理已过期的状态
+            currentState = {
+              ...currentState,
+              statuses: currentState.statuses.filter(s => s.endTime >= castEvent.timestamp),
+            }
             const ctx: ActionExecutionContext = {
               actionId: castEvent.actionId,
               useTime: castEvent.timestamp,
@@ -63,6 +69,12 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
             currentState = action.executor(ctx)
           }
           castIdx++
+        }
+
+        // 传给 calculate 前清理已过期的状态
+        currentState = {
+          ...currentState,
+          statuses: currentState.statuses.filter(s => s.endTime >= event.time),
         }
 
         const result = calculator.calculate(

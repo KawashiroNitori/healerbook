@@ -3,32 +3,28 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { createFriendlyBuffExecutor } from './createFriendlyBuffExecutor'
+import { createBuffExecutor } from './createBuffExecutor'
 import { createShieldExecutor } from './createShieldExecutor'
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
 
 describe('executors', () => {
   const mockPartyState: PartyState = {
-    player: { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },
+    players: [{ id: 1, job: 'PLD', maxHP: 100000 }],
+    statuses: [],
     timestamp: 0,
   }
 
-  describe('createFriendlyBuffExecutor (simplified)', () => {
+  describe('createBuffExecutor (simplified)', () => {
     it('should add buff to player statuses', () => {
-      const executor = createFriendlyBuffExecutor(1176, 5)
+      const executor = createBuffExecutor(1176, 5)
 
       const ctx: ActionExecutionContext = {
         actionId: 7382,
         useTime: 10,
         partyState: {
-          player: {
-            id: 1,
-            job: 'PLD',
-            currentHP: 50000,
-            maxHP: 50000,
-            statuses: [],
-          },
+          players: [{ id: 1, job: 'PLD', maxHP: 50000 }],
+          statuses: [],
           timestamp: 10,
         },
         sourcePlayerId: 1,
@@ -36,26 +32,21 @@ describe('executors', () => {
 
       const result = executor(ctx)
 
-      expect(result.player.statuses).toHaveLength(1)
-      expect(result.player.statuses[0].statusId).toBe(1176)
-      expect(result.player.statuses[0].startTime).toBe(10)
-      expect(result.player.statuses[0].endTime).toBe(15)
+      expect(result.statuses).toHaveLength(1)
+      expect(result.statuses[0].statusId).toBe(1176)
+      expect(result.statuses[0].startTime).toBe(10)
+      expect(result.statuses[0].endTime).toBe(15)
     })
 
     it('should use sourcePlayerId from context', () => {
-      const executor = createFriendlyBuffExecutor(1176, 5)
+      const executor = createBuffExecutor(1176, 5)
 
       const ctx: ActionExecutionContext = {
         actionId: 7382,
         useTime: 10,
         partyState: {
-          player: {
-            id: 1,
-            job: 'PLD',
-            currentHP: 50000,
-            maxHP: 50000,
-            statuses: [],
-          },
+          players: [{ id: 1, job: 'PLD', maxHP: 50000 }],
+          statuses: [],
           timestamp: 10,
         },
         sourcePlayerId: 999, // 不同于 player.id
@@ -63,13 +54,13 @@ describe('executors', () => {
 
       const result = executor(ctx)
 
-      expect(result.player.statuses[0].sourcePlayerId).toBe(999)
+      expect(result.statuses[0].sourcePlayerId).toBe(999)
     })
   })
 
-  describe('createFriendlyBuffExecutor (enemy debuff replaced)', () => {
+  describe('createBuffExecutor (enemy debuff replaced)', () => {
     it('should add buff to player statuses', () => {
-      const executor = createFriendlyBuffExecutor(1193, 15) // 雪仇
+      const executor = createBuffExecutor(1193, 15) // 雪仇
       const ctx: ActionExecutionContext = {
         actionId: 7535,
         useTime: 20,
@@ -78,16 +69,16 @@ describe('executors', () => {
 
       const newState = executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].statusId).toBe(1193)
-      expect(newState.player.statuses[0].startTime).toBe(20)
-      expect(newState.player.statuses[0].endTime).toBe(35)
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].statusId).toBe(1193)
+      expect(newState.statuses[0].startTime).toBe(20)
+      expect(newState.statuses[0].endTime).toBe(35)
     })
   })
 
   describe('createShieldExecutor', () => {
     it('should add shield to player statuses', () => {
-      const executor = createShieldExecutor(2613, 15, 0.1) // 泛输血
+      const executor = createShieldExecutor(2613, 15) // 泛输血
       const ctx: ActionExecutionContext = {
         actionId: 24311,
         useTime: 30,
@@ -96,26 +87,21 @@ describe('executors', () => {
 
       const newState = executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].remainingBarrier).toBe(10000) // 100000 * 0.1
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].remainingBarrier).toBe(10000) // 兜底值
     })
   })
 
   describe('createShieldExecutor (simplified)', () => {
     it('should add shield to player statuses', () => {
-      const executor = createShieldExecutor(1362, 30, 0.1)
+      const executor = createShieldExecutor(1362, 30)
 
       const ctx: ActionExecutionContext = {
         actionId: 3540,
         useTime: 10,
         partyState: {
-          player: {
-            id: 1,
-            job: 'PLD',
-            currentHP: 50000,
-            maxHP: 50000,
-            statuses: [],
-          },
+          players: [{ id: 1, job: 'PLD', maxHP: 50000 }],
+          statuses: [],
           timestamp: 10,
         },
         sourcePlayerId: 1,
@@ -123,9 +109,9 @@ describe('executors', () => {
 
       const result = executor(ctx)
 
-      expect(result.player.statuses).toHaveLength(1)
-      expect(result.player.statuses[0].statusId).toBe(1362)
-      expect(result.player.statuses[0].remainingBarrier).toBe(5000)
+      expect(result.statuses).toHaveLength(1)
+      expect(result.statuses[0].statusId).toBe(1362)
+      expect(result.statuses[0].remainingBarrier).toBe(10000) // 兜底值
     })
   })
 })

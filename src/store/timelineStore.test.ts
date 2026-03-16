@@ -45,9 +45,12 @@ describe('timelineStore - 状态管理', () => {
       // 重新获取状态
       const partyState = useTimelineStore.getState().partyState
       expect(partyState).toBeDefined()
-      expect(partyState?.player.id).toBe(1)
-      expect(partyState?.player.job).toBe('PLD')
-      expect(partyState?.player.statuses).toEqual([])
+      expect(partyState?.players).toHaveLength(2)
+      expect(partyState?.players[0].id).toBe(1)
+      expect(partyState?.players[0].job).toBe('PLD')
+      expect(partyState?.players[1].id).toBe(2)
+      expect(partyState?.players[1].job).toBe('WHM')
+      expect(partyState?.statuses).toEqual([])
     })
 
     it('setTimeline 应该自动初始化小队状态', () => {
@@ -57,8 +60,9 @@ describe('timelineStore - 状态管理', () => {
       // 重新获取状态
       const partyState = useTimelineStore.getState().partyState
       expect(partyState).toBeDefined()
-      expect(partyState?.player.id).toBe(1)
-      expect(partyState?.player.job).toBe('PLD')
+      expect(partyState?.players).toHaveLength(2)
+      expect(partyState?.players[0].id).toBe(1)
+      expect(partyState?.players[0].job).toBe('PLD')
     })
   })
 
@@ -72,10 +76,10 @@ describe('timelineStore - 状态管理', () => {
 
       // 重新获取状态
       const partyState = useTimelineStore.getState().partyState
-      expect(partyState?.player.statuses).toHaveLength(1)
-      expect(partyState?.player.statuses[0].statusId).toBe(1873)
-      expect(partyState?.player.statuses[0].startTime).toBe(10)
-      expect(partyState?.player.statuses[0].endTime).toBe(35)
+      expect(partyState?.statuses).toHaveLength(1)
+      expect(partyState?.statuses[0].statusId).toBe(1873)
+      expect(partyState?.statuses[0].startTime).toBe(10)
+      expect(partyState?.statuses[0].endTime).toBe(35)
     })
   })
 
@@ -89,11 +93,11 @@ describe('timelineStore - 状态管理', () => {
 
       // 时间点 20: 状态仍然生效
       store.cleanupExpiredStatuses(20)
-      expect(useTimelineStore.getState().partyState?.player.statuses).toHaveLength(1)
+      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(1)
 
       // 时间点 40: 状态已过期
       store.cleanupExpiredStatuses(40)
-      expect(useTimelineStore.getState().partyState?.player.statuses).toHaveLength(0)
+      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(0)
     })
   })
 
@@ -105,14 +109,11 @@ describe('timelineStore - 状态管理', () => {
       const currentState = useTimelineStore.getState().partyState!
       const newPartyState = {
         ...currentState,
-        player: {
-          ...currentState.player,
-          currentHP: 50000,
-        },
+        players: currentState.players.map(p => (p.id === 1 ? { ...p, maxHP: 50000 } : p)),
       }
 
       store.updatePartyState(newPartyState)
-      expect(useTimelineStore.getState().partyState?.player.currentHP).toBe(50000)
+      expect(useTimelineStore.getState().partyState?.players[0].maxHP).toBe(50000)
     })
   })
 })

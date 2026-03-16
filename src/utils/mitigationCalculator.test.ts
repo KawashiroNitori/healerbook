@@ -14,13 +14,8 @@ describe('MitigationCalculator', () => {
   beforeEach(() => {
     calculator = new MitigationCalculator()
     basePartyState = {
-      player: {
-        id: 1,
-        job: 'PLD',
-        currentHP: 50000,
-        maxHP: 100000,
-        statuses: [],
-      },
+      players: [{ id: 1, job: 'PLD', maxHP: 100000 }],
+      statuses: [],
       timestamp: 0,
     }
   })
@@ -29,20 +24,17 @@ describe('MitigationCalculator', () => {
     it('应该正确计算节制的 10% 减伤', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          job: 'WHM',
-          statuses: [
-            {
-              instanceId: 'test-temperance',
-              statusId: 1873,
-              startTime: 0,
-              endTime: 25,
-              sourceActionId: 16536,
-              sourcePlayerId: 2,
-            },
-          ],
-        },
+        players: [{ id: 1, job: 'WHM', maxHP: 100000 }],
+        statuses: [
+          {
+            instanceId: 'test-temperance',
+            statusId: 1873,
+            startTime: 0,
+            endTime: 25,
+            sourceActionId: 16536,
+            sourcePlayerId: 2,
+          },
+        ],
       }
 
       const result = calculator.calculate(100000, partyState, 10, 'magical')
@@ -56,17 +48,14 @@ describe('MitigationCalculator', () => {
     it('应该正确计算单个友方减伤', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 0,
-              endTime: 20,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 0,
+            endTime: 20,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -79,23 +68,20 @@ describe('MitigationCalculator', () => {
     it('应该正确计算多个友方减伤（乘算）', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 0,
-              endTime: 20,
-            },
-            {
-              instanceId: 'test-2',
-              statusId: 1873,
-              startTime: 0,
-              endTime: 25,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 0,
+            endTime: 20,
+          },
+          {
+            instanceId: 'test-2',
+            statusId: 1873,
+            startTime: 0,
+            endTime: 25,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -108,17 +94,14 @@ describe('MitigationCalculator', () => {
     it('应该正确计算敌方 Debuff（统一放在 player.statuses）', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1193,
-              startTime: 0,
-              endTime: 15,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1193,
+            startTime: 0,
+            endTime: 15,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -131,23 +114,20 @@ describe('MitigationCalculator', () => {
     it('应该正确计算友方减伤 + 敌方 Debuff（统一在 player.statuses）', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 0,
-              endTime: 20,
-            },
-            {
-              instanceId: 'test-2',
-              statusId: 1193,
-              startTime: 0,
-              endTime: 15,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 0,
+            endTime: 20,
+          },
+          {
+            instanceId: 'test-2',
+            statusId: 1193,
+            startTime: 0,
+            endTime: 15,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -162,18 +142,15 @@ describe('MitigationCalculator', () => {
     it('应该正确消耗盾值', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 297,
-              startTime: 0,
-              endTime: 30,
-              remainingBarrier: 5000,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 297,
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 5000,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -182,24 +159,21 @@ describe('MitigationCalculator', () => {
       expect(result.mitigationPercentage).toBe(50)
       expect(result.appliedStatuses).toHaveLength(1)
       expect(result.updatedPartyState).toBeDefined()
-      expect(result.updatedPartyState!.player.statuses).toHaveLength(0)
+      expect(result.updatedPartyState!.statuses).toHaveLength(0)
     })
 
     it('应该正确处理盾值不足的情况', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 297,
-              startTime: 0,
-              endTime: 30,
-              remainingBarrier: 3000,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 297,
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 3000,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -211,24 +185,21 @@ describe('MitigationCalculator', () => {
     it('应该正确处理百分比减伤 + 盾值', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 0,
-              endTime: 20,
-            },
-            {
-              instanceId: 'test-2',
-              statusId: 297,
-              startTime: 0,
-              endTime: 30,
-              remainingBarrier: 2000,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 0,
+            endTime: 20,
+          },
+          {
+            instanceId: 'test-2',
+            statusId: 297,
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 2000,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -241,25 +212,22 @@ describe('MitigationCalculator', () => {
     it('应该正确处理多个盾值', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 297,
-              startTime: 0,
-              endTime: 30,
-              remainingBarrier: 3000,
-            },
-            {
-              instanceId: 'test-2',
-              statusId: 2613,
-              startTime: 0,
-              endTime: 15,
-              remainingBarrier: 4000,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 297,
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 3000,
+          },
+          {
+            instanceId: 'test-2',
+            statusId: 2613,
+            startTime: 0,
+            endTime: 15,
+            remainingBarrier: 4000,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -271,57 +239,51 @@ describe('MitigationCalculator', () => {
     it('应该正确处理盾值完全吸收伤害', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 297,
-              startTime: 0,
-              endTime: 30,
-              remainingBarrier: 15000,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 297,
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 15000,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
 
       expect(result.finalDamage).toBe(0)
       expect(result.mitigationPercentage).toBe(100)
-      expect(result.updatedPartyState!.player.statuses[0].remainingBarrier).toBe(5000)
+      expect(result.updatedPartyState!.statuses[0].remainingBarrier).toBe(5000)
     })
 
     it('应该按 startTime 顺序消耗盾值', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            // 注意：数组顺序故意打乱，测试是否按 startTime 排序
-            {
-              instanceId: 'shield-3',
-              statusId: 297, // 鼓舞
-              startTime: 15,
-              endTime: 45,
-              remainingBarrier: 3000,
-            },
-            {
-              instanceId: 'shield-1',
-              statusId: 2613, // 野战治疗阵
-              startTime: 5,
-              endTime: 35,
-              remainingBarrier: 2000,
-            },
-            {
-              instanceId: 'shield-2',
-              statusId: 1918, // 士气高扬之策
-              startTime: 10,
-              endTime: 40,
-              remainingBarrier: 2500,
-            },
-          ],
-        },
+        statuses: [
+          // 注意：数组顺序故意打乱，测试是否按 startTime 排序
+          {
+            instanceId: 'shield-3',
+            statusId: 297, // 鼓舞
+            startTime: 15,
+            endTime: 45,
+            remainingBarrier: 3000,
+          },
+          {
+            instanceId: 'shield-1',
+            statusId: 2613, // 野战治疗阵
+            startTime: 5,
+            endTime: 35,
+            remainingBarrier: 2000,
+          },
+          {
+            instanceId: 'shield-2',
+            statusId: 1918, // 士气高扬之策
+            startTime: 10,
+            endTime: 40,
+            remainingBarrier: 2500,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 20, 'physical')
@@ -333,32 +295,29 @@ describe('MitigationCalculator', () => {
       expect(result.appliedStatuses).toHaveLength(3)
 
       // 验证盾值消耗顺序
-      const updatedStatuses = result.updatedPartyState!.player.statuses
+      const updatedStatuses = result.updatedPartyState!.statuses
       expect(updatedStatuses).toHaveLength(0) // 所有盾值都被消耗完
     })
 
     it('应该按 startTime 顺序消耗盾值（部分消耗）', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'shield-2',
-              statusId: 297,
-              startTime: 10,
-              endTime: 40,
-              remainingBarrier: 5000,
-            },
-            {
-              instanceId: 'shield-1',
-              statusId: 2613,
-              startTime: 5,
-              endTime: 35,
-              remainingBarrier: 3000,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'shield-2',
+            statusId: 297,
+            startTime: 10,
+            endTime: 40,
+            remainingBarrier: 5000,
+          },
+          {
+            instanceId: 'shield-1',
+            statusId: 2613,
+            startTime: 5,
+            endTime: 35,
+            remainingBarrier: 3000,
+          },
+        ],
       }
 
       const result = calculator.calculate(5000, partyState, 15, 'physical')
@@ -367,7 +326,7 @@ describe('MitigationCalculator', () => {
       expect(result.finalDamage).toBe(0)
       expect(result.mitigationPercentage).toBe(100)
 
-      const updatedStatuses = result.updatedPartyState!.player.statuses
+      const updatedStatuses = result.updatedPartyState!.statuses
       expect(updatedStatuses).toHaveLength(1)
       expect(updatedStatuses[0].instanceId).toBe('shield-2')
       expect(updatedStatuses[0].remainingBarrier).toBe(3000) // 5000 - 2000
@@ -378,17 +337,14 @@ describe('MitigationCalculator', () => {
     it('应该忽略未生效的状态', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 20,
-              endTime: 40,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 20,
+            endTime: 40,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -401,17 +357,14 @@ describe('MitigationCalculator', () => {
     it('应该忽略已过期的状态', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 0,
-              endTime: 20,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 0,
+            endTime: 20,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 30, 'physical')
@@ -426,17 +379,14 @@ describe('MitigationCalculator', () => {
     it('应该正确处理物理伤害', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1195,
-              startTime: 0,
-              endTime: 15,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1195,
+            startTime: 0,
+            endTime: 15,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'physical')
@@ -447,17 +397,14 @@ describe('MitigationCalculator', () => {
     it('应该正确处理魔法伤害', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1195,
-              startTime: 0,
-              endTime: 15,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1195,
+            startTime: 0,
+            endTime: 15,
+          },
+        ],
       }
 
       const result = calculator.calculate(10000, partyState, 10, 'magical')
@@ -470,29 +417,26 @@ describe('MitigationCalculator', () => {
     it('应该返回指定时间点所有生效的状态', () => {
       const partyState: PartyState = {
         ...basePartyState,
-        player: {
-          ...basePartyState.player,
-          statuses: [
-            {
-              instanceId: 'test-1',
-              statusId: 1191,
-              startTime: 0,
-              endTime: 20,
-            },
-            {
-              instanceId: 'test-2',
-              statusId: 1873,
-              startTime: 25,
-              endTime: 50,
-            },
-            {
-              instanceId: 'test-3',
-              statusId: 1193,
-              startTime: 0,
-              endTime: 15,
-            },
-          ],
-        },
+        statuses: [
+          {
+            instanceId: 'test-1',
+            statusId: 1191,
+            startTime: 0,
+            endTime: 20,
+          },
+          {
+            instanceId: 'test-2',
+            statusId: 1873,
+            startTime: 25,
+            endTime: 50,
+          },
+          {
+            instanceId: 'test-3',
+            statusId: 1193,
+            startTime: 0,
+            endTime: 15,
+          },
+        ],
       }
 
       const activeStatuses = calculator.getActiveStatusesAtTime(partyState, 10)
@@ -535,26 +479,21 @@ describe('MitigationCalculator', () => {
   describe('MitigationCalculator with simplified PartyState', () => {
     it('should calculate damage using player.statuses only', () => {
       const partyState: PartyState = {
-        player: {
-          id: 1,
-          job: 'WHM',
-          currentHP: 50000,
-          maxHP: 50000,
-          statuses: [
-            {
-              instanceId: 'status-1',
-              statusId: 1193, // 雪仇 10% 减伤
-              startTime: 0,
-              endTime: 15,
-            },
-            {
-              instanceId: 'status-2',
-              statusId: 1176, // 武装 15% 减伤
-              startTime: 0,
-              endTime: 30,
-            },
-          ],
-        },
+        players: [{ id: 1, job: 'WHM', maxHP: 50000 }],
+        statuses: [
+          {
+            instanceId: 'status-1',
+            statusId: 1193, // 雪仇 10% 减伤
+            startTime: 0,
+            endTime: 15,
+          },
+          {
+            instanceId: 'status-2',
+            statusId: 1176, // 武装 15% 减伤
+            startTime: 0,
+            endTime: 30,
+          },
+        ],
         timestamp: 10,
       }
 

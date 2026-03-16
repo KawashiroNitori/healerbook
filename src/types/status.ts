@@ -23,6 +23,10 @@ export interface MitigationStatus {
   endTime: number
   /** 剩余盾值（仅盾值类型状态） */
   remainingBarrier?: number
+  /** 初始盾值（用于多层盾重置，仅盾值类型状态） */
+  initialBarrier?: number
+  /** 层数（默认为 1） */
+  stack?: number
   /** 来源技能 ID */
   sourceActionId?: number
   /** 来源玩家 ID（对应 FFLogsActor.id） */

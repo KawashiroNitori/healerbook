@@ -2,6 +2,6 @@
  * 执行器工厂函数索引
  */
 
-export { createFriendlyBuffExecutor } from './createFriendlyBuffExecutor'
+export { createBuffExecutor } from './createBuffExecutor'
 export { createShieldExecutor } from './createShieldExecutor'
 export { generateId } from './utils'

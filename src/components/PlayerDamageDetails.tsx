@@ -5,6 +5,7 @@
 
 import type { DamageEvent } from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
+import type { MitigationStatus } from '@/types/status'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
 import { getJobName, JOB_METADATA } from '@/data/jobs'
@@ -32,11 +33,11 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
       <h3 className="text-sm font-semibold">玩家伤害详情</h3>
 
       {sortedDetails.map(detail => {
-        // 查找对应的玩家状态（新架构：partyState.player 是单个玩家）
-        const playerState = partyState.player.id === detail.playerId ? partyState.player : null
+        // 查找对应的玩家状态
+        const playerState = partyState.players.find(p => p.id === detail.playerId)
 
         // partyState 已通过 packetId 过滤，直接取该玩家的所有状态
-        const activeStatuses = playerState?.statuses || []
+        const activeStatuses = playerState ? partyState.statuses : []
 
         return (
           <div key={detail.playerId} className="border rounded-lg p-3 space-y-2 bg-card">
@@ -85,7 +86,7 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
               <div className="space-y-1">
                 <div className="text-xs text-muted-foreground">生效状态:</div>
                 <div className="flex flex-wrap gap-1">
-                  {activeStatuses.map(status => {
+                  {activeStatuses.map((status: MitigationStatus) => {
                     const meta = getStatusById(status.statusId)
                     const iconUrl = getStatusIconUrl(status.statusId)
                     const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'

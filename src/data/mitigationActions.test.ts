@@ -9,7 +9,8 @@ import type { ActionExecutionContext } from '@/types/mitigation'
 
 describe('mitigationActions', () => {
   const mockPartyState: PartyState = {
-    player: { id: 1, job: 'PLD', currentHP: 50000, maxHP: 100000, statuses: [] },
+    players: [{ id: 1, job: 'PLD', maxHP: 100000 }],
+    statuses: [],
     timestamp: 0,
   }
 
@@ -43,8 +44,8 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].statusId).toBe(1873)
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].statusId).toBe(1873)
     })
 
     it('行吟应该为玩家添加状态', () => {
@@ -57,8 +58,8 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].statusId).toBe(1934)
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].statusId).toBe(1934)
     })
   })
 
@@ -73,10 +74,10 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].statusId).toBe(1193)
-      expect(newState.player.statuses[0].startTime).toBe(30)
-      expect(newState.player.statuses[0].endTime).toBe(45)
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].statusId).toBe(1193)
+      expect(newState.statuses[0].startTime).toBe(30)
+      expect(newState.statuses[0].endTime).toBe(45)
     })
 
     it('牵制应该为玩家添加状态', () => {
@@ -89,8 +90,8 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].statusId).toBe(1195)
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].statusId).toBe(1195)
     })
   })
 
@@ -106,7 +107,7 @@ describe('mitigationActions', () => {
       const newState = action.executor(ctx)
 
       // maxHP 100000 * 0.1 = 10000
-      expect(newState.player.statuses[0].remainingBarrier).toBe(10000)
+      expect(newState.statuses[0].remainingBarrier).toBe(10000)
     })
 
     it('神爱抚应该为玩家添加盾值', () => {
@@ -120,8 +121,8 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.player.statuses).toHaveLength(1)
-      expect(newState.player.statuses[0].remainingBarrier).toBe(10000)
+      expect(newState.statuses).toHaveLength(1)
+      expect(newState.statuses[0].remainingBarrier).toBe(10000)
     })
   })
 
@@ -137,8 +138,8 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.player.statuses.length).toBeGreaterThan(0)
-      expect(newState.player.statuses.some(s => s.statusId === 297)).toBe(true)
+      expect(newState.statuses.length).toBeGreaterThan(0)
+      expect(newState.statuses.some(s => s.statusId === 297)).toBe(true)
     })
   })
 })
