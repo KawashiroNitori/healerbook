@@ -72,16 +72,24 @@ export class MitigationCalculator {
     const statusUpdates = new Map<string, number>()
     let playerDamage = damage
 
-    for (const status of partyState.player.statuses) {
-      const meta = getStatusById(status.statusId)
-      if (!meta || meta.type !== 'absorbed') continue
-      if (!status.remainingBarrier || status.remainingBarrier <= 0) continue
-      if (time < status.startTime || time > status.endTime) continue
+    // 从 activeStatuses 中筛选盾值状态，并按开始时间排序
+    const shieldStatuses = activeStatuses
+      .filter(s => {
+        const meta = getStatusById(s.statusId)
+        return meta?.type === 'absorbed' && s.remainingBarrier && s.remainingBarrier > 0
+      })
+      .sort((a, b) => a.startTime - b.startTime)
 
-      const absorbed = Math.min(playerDamage, status.remainingBarrier)
+    for (const status of shieldStatuses) {
+      const absorbed = Math.min(playerDamage, status.remainingBarrier!)
       playerDamage -= absorbed
-      appliedStatuses.push(status)
-      statusUpdates.set(status.instanceId, status.remainingBarrier - absorbed)
+
+      // 如果状态还没在 appliedStatuses 中（百分比减伤阶段没添加），则添加
+      if (!appliedStatuses.find(s => s.instanceId === status.instanceId)) {
+        appliedStatuses.push(status)
+      }
+
+      statusUpdates.set(status.instanceId, status.remainingBarrier! - absorbed)
 
       if (playerDamage <= 0) break
     }

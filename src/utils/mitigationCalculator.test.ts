@@ -290,6 +290,87 @@ describe('MitigationCalculator', () => {
       expect(result.mitigationPercentage).toBe(100)
       expect(result.updatedPartyState!.player.statuses[0].remainingBarrier).toBe(5000)
     })
+
+    it('应该按 startTime 顺序消耗盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        player: {
+          ...basePartyState.player,
+          statuses: [
+            // 注意：数组顺序故意打乱，测试是否按 startTime 排序
+            {
+              instanceId: 'shield-3',
+              statusId: 297, // 鼓舞
+              startTime: 15,
+              endTime: 45,
+              remainingBarrier: 3000,
+            },
+            {
+              instanceId: 'shield-1',
+              statusId: 2613, // 野战治疗阵
+              startTime: 5,
+              endTime: 35,
+              remainingBarrier: 2000,
+            },
+            {
+              instanceId: 'shield-2',
+              statusId: 1918, // 士气高扬之策
+              startTime: 10,
+              endTime: 40,
+              remainingBarrier: 2500,
+            },
+          ],
+        },
+      }
+
+      const result = calculator.calculate(10000, partyState, 20, 'physical')
+
+      // 预期消耗顺序：shield-1 (startTime=5) -> shield-2 (startTime=10) -> shield-3 (startTime=15)
+      // 10000 - 2000 - 2500 - 3000 = 2500
+      expect(result.finalDamage).toBe(2500)
+      expect(result.mitigationPercentage).toBe(75)
+      expect(result.appliedStatuses).toHaveLength(3)
+
+      // 验证盾值消耗顺序
+      const updatedStatuses = result.updatedPartyState!.player.statuses
+      expect(updatedStatuses).toHaveLength(0) // 所有盾值都被消耗完
+    })
+
+    it('应该按 startTime 顺序消耗盾值（部分消耗）', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        player: {
+          ...basePartyState.player,
+          statuses: [
+            {
+              instanceId: 'shield-2',
+              statusId: 297,
+              startTime: 10,
+              endTime: 40,
+              remainingBarrier: 5000,
+            },
+            {
+              instanceId: 'shield-1',
+              statusId: 2613,
+              startTime: 5,
+              endTime: 35,
+              remainingBarrier: 3000,
+            },
+          ],
+        },
+      }
+
+      const result = calculator.calculate(5000, partyState, 15, 'physical')
+
+      // 预期消耗顺序：shield-1 (startTime=5) 先消耗 3000，shield-2 (startTime=10) 再消耗 2000
+      expect(result.finalDamage).toBe(0)
+      expect(result.mitigationPercentage).toBe(100)
+
+      const updatedStatuses = result.updatedPartyState!.player.statuses
+      expect(updatedStatuses).toHaveLength(1)
+      expect(updatedStatuses[0].instanceId).toBe('shield-2')
+      expect(updatedStatuses[0].remainingBarrier).toBe(3000) // 5000 - 2000
+    })
   })
 
   describe('状态生效时间', () => {
