@@ -20,7 +20,7 @@ export function createFriendlyBuffExecutor(statusId: number, duration: number): 
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,
       sourceActionId: ctx.actionId,
-      sourcePlayerId: ctx.partyState.player.id,
+      sourcePlayerId: ctx.sourcePlayerId,
     }
 
     return {

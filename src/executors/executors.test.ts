@@ -42,6 +42,30 @@ describe('executors', () => {
       expect(result.player.statuses[0].startTime).toBe(10)
       expect(result.player.statuses[0].endTime).toBe(15)
     })
+
+    it('should use sourcePlayerId from context', () => {
+      const executor = createFriendlyBuffExecutor(1176, 5)
+
+      const ctx: ActionExecutionContext = {
+        actionId: 7382,
+        useTime: 10,
+        partyState: {
+          player: {
+            id: 1,
+            job: 'PLD',
+            currentHP: 50000,
+            maxHP: 50000,
+            statuses: [],
+          },
+          timestamp: 10,
+        },
+        sourcePlayerId: 999, // 不同于 player.id
+      }
+
+      const result = executor(ctx)
+
+      expect(result.player.statuses[0].sourcePlayerId).toBe(999)
+    })
   })
 
   describe('createEnemyDebuffExecutor', () => {

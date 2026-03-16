@@ -30,7 +30,7 @@ export function createShieldExecutor(
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,
       sourceActionId: ctx.actionId,
-      sourcePlayerId: ctx.partyState.player.id,
+      sourcePlayerId: ctx.sourcePlayerId,
       remainingBarrier: barrier,
     }
 

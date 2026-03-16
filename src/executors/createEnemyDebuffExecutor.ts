@@ -20,7 +20,7 @@ export function createEnemyDebuffExecutor(statusId: number, duration: number): A
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,
       sourceActionId: ctx.actionId,
-      sourcePlayerId: ctx.partyState.player.id,
+      sourcePlayerId: ctx.sourcePlayerId,
     }
 
     return {
