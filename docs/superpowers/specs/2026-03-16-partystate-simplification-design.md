@@ -35,8 +35,8 @@
 ```typescript
 // 编辑模式专用状态
 interface EditorPartyState {
-  player: PlayerState      // 单个代表玩家
-  statuses: MitigationStatus[]  // 全局状态（友方 Buff + 敌方 Debuff）
+  player: PlayerState // 单个代表玩家
+  statuses: MitigationStatus[] // 全局状态（友方 Buff + 敌方 Debuff）
   timestamp: number
 }
 
@@ -51,7 +51,7 @@ interface EditorPartyState {
 ```typescript
 interface TimelineState {
   timeline: Timeline | null
-  partyState: EditorPartyState | null  // 仅编辑模式使用
+  partyState: EditorPartyState | null // 仅编辑模式使用
   // ... 其他字段
 }
 
@@ -65,19 +65,16 @@ interface TimelineState {
 
 ```typescript
 // 之前
-createFriendlyBuffExecutor(statusId: number, duration: number, isPartyWide: boolean = true)
+createBuffExecutor(statusId: number, duration: number, isPartyWide: boolean = true)
 
 // 之后
-createFriendlyBuffExecutor(statusId: number, duration: number)
+createBuffExecutor(statusId: number, duration: number)
 ```
 
 **友方 Buff 执行器**：
 
 ```typescript
-export function createFriendlyBuffExecutor(
-  statusId: number,
-  duration: number
-): ActionExecutor {
+export function createBuffExecutor(statusId: number, duration: number): ActionExecutor {
   return ctx => {
     const newStatus: MitigationStatus = {
       instanceId: generateId(),
@@ -102,10 +99,7 @@ export function createFriendlyBuffExecutor(
 **敌方 Debuff 执行器**：
 
 ```typescript
-export function createEnemyDebuffExecutor(
-  statusId: number,
-  duration: number
-): ActionExecutor {
+export function createEnemyDebuffExecutor(statusId: number, duration: number): ActionExecutor {
   return ctx => {
     const newStatus: MitigationStatus = {
       instanceId: generateId(),
@@ -170,14 +164,8 @@ class MitigationCalculator {
     damageType: DamageType = 'physical'
   ): CalculationResult {
     // 1. 获取生效的状态（玩家状态 + 全局状态）
-    const playerStatuses = this.getActiveStatuses(
-      [{ statuses: partyState.player.statuses }],
-      time
-    )
-    const globalStatuses = this.getActiveStatuses(
-      [{ statuses: partyState.statuses }],
-      time
-    )
+    const playerStatuses = this.getActiveStatuses([{ statuses: partyState.player.statuses }], time)
+    const globalStatuses = this.getActiveStatuses([{ statuses: partyState.statuses }], time)
 
     // 2. 计算百分比减伤
     let multiplier = 1.0
@@ -249,8 +237,9 @@ class MitigationCalculator {
   ): CalculationResult {
     // 1. 过滤该 packetId 的状态事件
     const activeStatusEvents = statusEvents.filter(
-      event => event.packetId === packetId &&
-               (event.targetPlayerId === targetPlayerId || !event.targetPlayerId)
+      event =>
+        event.packetId === packetId &&
+        (event.targetPlayerId === targetPlayerId || !event.targetPlayerId)
     )
 
     // 2. 转换为 MitigationStatus
@@ -412,7 +401,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
 
 **技能数据更新**：
 
-- 删除所有 `createFriendlyBuffExecutor` 和 `createShieldExecutor` 调用中的 `isPartyWide` 参数
+- 删除所有 `createBuffExecutor` 和 `createShieldExecutor` 调用中的 `isPartyWide` 参数
 
 ## 影响范围
 
@@ -423,7 +412,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
    - `src/types/mitigation.ts` - 更新 `ActionExecutionContext`
 
 2. **执行器**
-   - `src/executors/createFriendlyBuffExecutor.ts` - 删除 `isPartyWide` 参数
+   - `src/executors/createBuffExecutor.ts` - 删除 `isPartyWide` 参数
    - `src/executors/createShieldExecutor.ts` - 删除 `isPartyWide` 参数
    - `src/executors/createEnemyDebuffExecutor.ts` - 修改为添加到全局状态
 
@@ -482,6 +471,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
 **风险**：大量代码重构可能导致测试失败
 
 **缓解**：
+
 - 先更新类型定义和执行器（小范围修改）
 - 逐步迁移计算器和 Hook（增量修改）
 - 每个阶段运行测试，确保不引入回归
@@ -491,6 +481,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
 **风险**：现有的 LocalStorage 数据可能不兼容
 
 **缓解**：
+
 - `EditorPartyState` 只在运行时使用，不持久化
 - LocalStorage 只存储 `Timeline`，不存储 `PartyState`
 - 无需数据迁移

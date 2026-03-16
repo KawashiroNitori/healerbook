@@ -5,6 +5,7 @@
 **Goal:** 简化 PartyState 结构，分离编辑模式和回放模式的数据流
 
 **Architecture:**
+
 - 编辑模式使用简化的 `PartyState`（单个玩家 + 全局状态）
 - 回放模式直接从 `StatusEvent[]` 计算，不构建 PartyState
 - 删除 `isPartyWide` 参数，简化执行器逻辑
@@ -54,6 +55,7 @@
 ### 类型变更
 
 **之前**:
+
 ```typescript
 interface PartyState {
   players: PlayerState[]
@@ -63,6 +65,7 @@ interface PartyState {
 ```
 
 **之后**:
+
 ```typescript
 interface PartyState {
   player: PlayerState
@@ -74,14 +77,16 @@ interface PartyState {
 ### 执行器变更
 
 **之前**:
+
 ```typescript
-createFriendlyBuffExecutor(statusId, duration, isPartyWide = true)
-createShieldExecutor(statusId, duration, isPartyWide = true, shieldMultiplier)
+createBuffExecutor(statusId, duration, (isPartyWide = true))
+createShieldExecutor(statusId, duration, (isPartyWide = true), shieldMultiplier)
 ```
 
 **之后**:
+
 ```typescript
-createFriendlyBuffExecutor(statusId, duration)
+createBuffExecutor(statusId, duration)
 createShieldExecutor(statusId, duration, shieldMultiplier)
 ```
 
@@ -96,15 +101,18 @@ createShieldExecutor(statusId, duration, shieldMultiplier)
 ## 预期影响
 
 ### 代码简化
+
 - 删除约 100 行代码（buildPartyStateFromStatusEvents 等）
 - 执行器逻辑简化 30%
 - 消除所有 `players[0]` 数组访问
 
 ### 测试更新
+
 - 更新约 20 个测试用例
 - 所有测试应保持通过
 
 ### 性能影响
+
 - 编辑模式：性能提升（减少数组操作）
 - 回放模式：性能持平（直接从快照计算）
 
@@ -113,12 +121,15 @@ createShieldExecutor(statusId, duration, shieldMultiplier)
 ## 风险和缓解
 
 ### 风险 1: 回放模式计算错误
+
 **缓解**: 添加详细的单元测试，对比新旧计算结果
 
 ### 风险 2: 类型错误传播
+
 **缓解**: 每个 Task 完成后运行 `tsc --noEmit`
 
 ### 风险 3: 测试覆盖率下降
+
 **缓解**: 运行 `pnpm test:run --coverage` 确保覆盖率不低于 67%
 
 ---

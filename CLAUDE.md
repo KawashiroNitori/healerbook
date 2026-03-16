@@ -5,6 +5,7 @@
 ## 项目概述
 
 Healerbook 是一个专为 FF14 治疗职业设计的减伤技能规划工具。通过可视化的时间轴编辑器，玩家可以：
+
 - 规划副本中的减伤技能使用时机
 - 实时计算减伤效果后的伤害值
 - 导入 FFLogs 数据快速创建时间轴
@@ -13,32 +14,38 @@ Healerbook 是一个专为 FF14 治疗职业设计的减伤技能规划工具。
 ## 技术栈
 
 ### 核心技术
+
 - **React 19** + **TypeScript** - 前端框架
 - **Vite** - 构建工具
 - **pnpm** - 包管理器（必须使用 pnpm，不要使用 npm）
 
 ### UI 层
+
 - **Tailwind CSS v3** - 样式框架
 - **shadcn/ui** (New York style) - UI 组件库
 - **React-Konva** - Canvas 时间轴可视化
 - **Lucide React** - 图标库
 
 ### 状态管理
+
 - **Zustand** - 轻量级状态管理
   - `timelineStore` - 时间轴数据和编辑状态
   - `mitigationStore` - 减伤技能数据和过滤器
   - `uiStore` - UI 显示状态（网格、标尺等）
 
 ### 数据层
+
 - **TanStack Query** - 数据获取和缓存
 - **GraphQL Request** - FFLogs API 客户端
 - **LocalStorage** - 时间轴本地持久化
 
 ### 测试
+
 - **Vitest** - 单元测试框架
 - 测试覆盖率要求：80%+
 
 ### 部署（计划中）
+
 - **Cloudflare Workers** - Serverless 后端
 - **Cloudflare Pages** - 静态托管
 - **Cloudflare R2** - 对象存储
@@ -83,7 +90,7 @@ src/
 │   ├── fflogsParser.ts              # FFLogs URL 解析
 │   └── fflogsImporter.ts            # FFLogs 数据导入
 ├── executors/             # 技能执行器 (新)
-│   ├── createFriendlyBuffExecutor.ts  # 友方 Buff 工厂
+│   ├── createBuffExecutor.ts  # 友方 Buff 工厂
 │   ├── createEnemyDebuffExecutor.ts   # 敌方 Debuff 工厂
 │   ├── createShieldExecutor.ts        # 盾值工厂
 │   └── utils.ts                       # ID 生成工具
@@ -142,14 +149,14 @@ FF14 中的减伤通过状态实现：
 ```typescript
 // 状态类型
 type StatusType =
-  | 'multiplier'  // 百分比减伤 (乘算)
-  | 'absorbed'    // 盾值减伤 (减算)
+  | 'multiplier' // 百分比减伤 (乘算)
+  | 'absorbed' // 盾值减伤 (减算)
 
 // 状态性能
 interface StatusPerformance {
-  physics: number   // 物理减伤倍率 (0-1)
-  magic: number     // 魔法减伤倍率 (0-1)
-  darkness: number  // 特殊减伤倍率 (0-1)
+  physics: number // 物理减伤倍率 (0-1)
+  magic: number // 魔法减伤倍率 (0-1)
+  darkness: number // 特殊减伤倍率 (0-1)
 }
 ```
 
@@ -166,6 +173,7 @@ interface StatusPerformance {
 - 盾值在百分比减伤之后应用
 
 示例：
+
 ```
 原始伤害: 10000
 状态1: 节制 (10% 减伤)
@@ -179,58 +187,61 @@ interface StatusPerformance {
 ### 4. 数据模型
 
 #### PartyState（小队状态）
+
 ```typescript
 interface PartyState {
-  players: PlayerState[]  // 玩家列表
-  enemy: EnemyState       // 虚拟敌方
-  timestamp: number       // 当前时间戳
+  players: PlayerState[] // 玩家列表
+  enemy: EnemyState // 虚拟敌方
+  timestamp: number // 当前时间戳
 }
 
 interface PlayerState {
-  id: number              // 玩家 ID (对应 FFLogsActor.id)
-  job: Job                // 职业
-  currentHP: number       // 当前 HP
-  maxHP: number           // 最大 HP
-  statuses: MitigationStatus[]  // 状态列表
+  id: number // 玩家 ID (对应 FFLogsActor.id)
+  job: Job // 职业
+  currentHP: number // 当前 HP
+  maxHP: number // 最大 HP
+  statuses: MitigationStatus[] // 状态列表
 }
 
 interface EnemyState {
-  statuses: MitigationStatus[]  // 敌方状态列表 (无 id 字段)
+  statuses: MitigationStatus[] // 敌方状态列表 (无 id 字段)
 }
 ```
 
 #### MitigationStatus（状态实例）
+
 ```typescript
 interface MitigationStatus {
-  instanceId: string      // 唯一实例 ID
-  statusId: number        // 状态 ID (引用 keigenn.ts)
-  startTime: number       // 开始时间 (秒)
-  endTime: number         // 结束时间 (秒)
-  remainingBarrier?: number  // 剩余盾值 (可选)
-  sourceActionId?: number    // 来源技能 ID
-  sourcePlayerId?: number    // 来源玩家 ID
+  instanceId: string // 唯一实例 ID
+  statusId: number // 状态 ID (引用 keigenn.ts)
+  startTime: number // 开始时间 (秒)
+  endTime: number // 结束时间 (秒)
+  remainingBarrier?: number // 剩余盾值 (可选)
+  sourceActionId?: number // 来源技能 ID
+  sourcePlayerId?: number // 来源玩家 ID
 }
 ```
 
 #### MitigationAction（技能）
+
 ```typescript
 interface MitigationAction {
-  id: number              // 技能 ID
-  name: string            // 技能名称
-  icon: string            // 图标路径
-  uniqueGroup: number[]   // 互斥组
-  jobs: Job[]             // 可用职业
-  duration: number        // 持续时间 (秒)
-  cooldown: number        // 冷却时间 (秒)
-  executor: ActionExecutor  // 执行器函数
+  id: number // 技能 ID
+  name: string // 技能名称
+  icon: string // 图标路径
+  uniqueGroup: number[] // 互斥组
+  jobs: Job[] // 可用职业
+  duration: number // 持续时间 (秒)
+  cooldown: number // 冷却时间 (秒)
+  executor: ActionExecutor // 执行器函数
 }
 
 type ActionExecutor = (context: ActionExecutionContext) => PartyState
 
 interface ActionExecutionContext {
-  actionId: number        // 技能 ID
-  useTime: number         // 使用时间 (秒)
-  partyState: PartyState  // 当前小队状态
+  actionId: number // 技能 ID
+  useTime: number // 使用时间 (秒)
+  partyState: PartyState // 当前小队状态
   targetPlayerId?: number // 目标玩家 ID (可选)
 }
 ```
@@ -239,11 +250,12 @@ interface ActionExecutionContext {
 
 项目提供三种工厂函数用于创建常见的执行器：
 
-#### createFriendlyBuffExecutor
+#### createBuffExecutor
+
 为友方附加 Buff 状态 (群体或单体)
 
 ```typescript
-createFriendlyBuffExecutor(
+createBuffExecutor(
   statusIds: number[],      // 状态 ID 列表
   duration: number,         // 持续时间
   isPartyWide: boolean      // 是否群体技能
@@ -251,6 +263,7 @@ createFriendlyBuffExecutor(
 ```
 
 #### createEnemyDebuffExecutor
+
 为敌方附加 Debuff 状态
 
 ```typescript
@@ -261,6 +274,7 @@ createEnemyDebuffExecutor(
 ```
 
 #### createShieldExecutor
+
 为友方附加盾值状态
 
 ```typescript
@@ -312,11 +326,11 @@ createShieldExecutor(
 
 ```typescript
 // ✅ 正确：创建新对象
-set((state) => ({
+set(state => ({
   timeline: {
     ...state.timeline,
-    damageEvents: [...state.timeline.damageEvents, newEvent]
-  }
+    damageEvents: [...state.timeline.damageEvents, newEvent],
+  },
 }))
 
 // ❌ 错误：直接修改
@@ -341,6 +355,7 @@ get().triggerAutoSave()
 ### 性能优化
 
 #### Konva 性能优化
+
 ```typescript
 // 减少 Layer 数量（目标：≤3 层）
 <Layer>
@@ -357,6 +372,7 @@ get().triggerAutoSave()
 ```
 
 #### 事件处理优化
+
 ```typescript
 // 使用 Konva Stage 事件而非 DOM 事件
 stage.on('mousedown', handleStageMouseDown)
@@ -364,9 +380,7 @@ stage.on('mousemove', handleStageMouseMove)
 
 // 背景检测避免事件冲突
 const clickedOnBackground =
-  e.target === stage ||
-  (e.target.getClassName() === 'Rect' &&
-   e.target.attrs.fill === '#fafafa')
+  e.target === stage || (e.target.getClassName() === 'Rect' && e.target.attrs.fill === '#fafafa')
 ```
 
 ### 测试要求
@@ -385,6 +399,7 @@ pnpm test:run --coverage  # 运行测试并生成覆盖率报告
 **总体覆盖率**: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 
 **核心模块覆盖率**:
+
 - ✅ `executors/` - 100% (友方 Buff, 敌方 Debuff, 盾值工厂)
 - ✅ `statusRegistry.ts` - 100% (6 个测试)
 - ✅ `mitigationCalculator.v2.ts` - 87.5% (13 个测试)
@@ -393,6 +408,7 @@ pnpm test:run --coverage  # 运行测试并生成覆盖率报告
 - ⚠️ `timelineStore.ts` - 41% (9 个测试,主要测试状态管理功能)
 
 **测试文件**:
+
 - `src/utils/statusRegistry.test.ts` - 状态注册表测试
 - `src/executors/executors.test.ts` - 执行器工厂测试
 - `src/data/mitigationActions.new.test.ts` - 技能数据测试
@@ -443,9 +459,11 @@ pnpm workers:deploy # 部署到生产
 ## 关键文件说明
 
 ### 减伤计算引擎
+
 `src/utils/mitigationCalculator.ts`
 
 核心类 `MitigationCalculator` 提供：
+
 - `calculate()` - 计算减伤后的最终伤害
 - `getActiveEffects()` - 获取指定时间点生效的减伤效果
 - `validateCooldown()` - 验证技能 CD 是否冲突
@@ -453,9 +471,11 @@ pnpm workers:deploy # 部署到生产
 - `getNextAvailableTime()` - 获取技能下次可用时间
 
 ### 时间轴 Canvas
+
 `src/components/TimelineCanvas.tsx`
 
 主要功能：
+
 - 渲染时间轴、伤害事件、减伤分配
 - 处理拖放（技能拖拽到时间轴）
 - 处理拖动（调整事件和技能时间）
@@ -463,9 +483,11 @@ pnpm workers:deploy # 部署到生产
 - 键盘快捷键（Delete/Backspace 删除）
 
 ### 数据存储
+
 `src/utils/timelineStorage.ts`
 
 提供 LocalStorage 封装：
+
 - `saveTimeline()` - 保存时间轴
 - `getTimeline()` - 获取时间轴
 - `getAllTimelines()` - 获取所有时间轴
@@ -475,7 +497,9 @@ pnpm workers:deploy # 部署到生产
 ## 已知问题
 
 ### 类型错误
+
 构建时存在一些类型错误（与 skill→action 重命名无关）：
+
 - `Timeline` 类型定义与实际使用不匹配
 - 部分组件缺少类型注解
 - FFLogs 类型定义不完整
@@ -483,6 +507,7 @@ pnpm workers:deploy # 部署到生产
 这些问题不影响运行时功能，但需要在后续迭代中修复。
 
 ### 待实现功能
+
 - [ ] Stage 9: 导出功能（JSON、图片）
 - [ ] Stage 10: TOP100 数据源集成
 - [ ] Stage 11: 性能优化
@@ -491,6 +516,7 @@ pnpm workers:deploy # 部署到生产
 ## 开发工作流
 
 ### 添加新功能
+
 1. 在 `src/types/` 定义类型
 2. 在 `src/store/` 添加状态管理
 3. 在 `src/utils/` 实现业务逻辑
@@ -499,12 +525,14 @@ pnpm workers:deploy # 部署到生产
 6. 更新相关文档
 
 ### 修复 Bug
+
 1. 添加失败的测试用例
 2. 修复代码使测试通过
 3. 验证不影响其他功能
 4. 提交代码
 
 ### 性能优化
+
 1. 使用 React DevTools Profiler 定位瓶颈
 2. 优化 Konva 渲染（减少 Layer、禁用特效）
 3. 使用 `useMemo`/`useCallback` 避免重复计算
@@ -513,9 +541,10 @@ pnpm workers:deploy # 部署到生产
 ## 调试技巧
 
 ### 查看状态
+
 ```typescript
 // 在组件中
-const timeline = useTimelineStore((state) => state.timeline)
+const timeline = useTimelineStore(state => state.timeline)
 console.log('Timeline:', timeline)
 
 // 在浏览器控制台
@@ -523,12 +552,14 @@ window.__ZUSTAND_STORES__ // 查看所有 store
 ```
 
 ### 查看 LocalStorage
+
 ```javascript
 // 浏览器控制台
 localStorage.getItem('healerbook_timelines')
 ```
 
 ### Konva 调试
+
 ```typescript
 // 显示 FPS
 stage.on('frame', () => {
@@ -544,6 +575,7 @@ draggableNode.on('mouseenter', () => {
 ## 贡献指南
 
 ### 提交规范
+
 使用 Conventional Commits 格式：
 
 ```
@@ -556,6 +588,7 @@ chore: 升级依赖版本
 ```
 
 ### 分支策略
+
 - `main` - 主分支，保持稳定
 - `feature/*` - 功能分支
 - `fix/*` - 修复分支
@@ -563,6 +596,7 @@ chore: 升级依赖版本
 ## 参考资源
 
 ### 官方文档
+
 - [React 19](https://react.dev/)
 - [TypeScript](https://www.typescriptlang.org/)
 - [Vite](https://vitejs.dev/)
@@ -572,11 +606,13 @@ chore: 升级依赖版本
 - [Tailwind CSS](https://tailwindcss.com/)
 
 ### FF14 相关
+
 - [FFLogs API](https://www.fflogs.com/api/docs)
 - [FF14 灰机 Wiki](https://ff14.huijiwiki.com/)
 - [NGA FF14 板块](https://bbs.nga.cn/thread.php?fid=-362960)
 
 ### 类似工具
+
 - [Raidbuff](https://raidbuff.com/) - 团队增益时间轴
 - [XIV Analysis](https://xivanalysis.com/) - 日志分析工具
 

@@ -19,13 +19,13 @@
 ### 修改文件
 
 - `src/types/partyState.ts` - 简化类型定义，删除 `EnemyState` 和 `statuses` 字段
-- `src/executors/createFriendlyBuffExecutor.ts` - 删除 `isPartyWide` 参数
+- `src/executors/createBuffExecutor.ts` - 删除 `isPartyWide` 参数
 - `src/executors/createShieldExecutor.ts` - 删除 `isPartyWide` 参数
 - `src/data/mitigationActions.ts` - 替换 `createEnemyDebuffExecutor`，删除 `isPartyWide` 参数
 
 ### 删除文件
 
-- `src/executors/createEnemyDebuffExecutor.ts` - 删除，统一使用 `createFriendlyBuffExecutor` 替代
+- `src/executors/createEnemyDebuffExecutor.ts` - 删除，统一使用 `createBuffExecutor` 替代
 
 ### 测试文件
 
@@ -102,7 +102,7 @@ git commit -m "refactor: 简化 PartyState 类型，删除 EnemyState 和全局 
 
 **Files:**
 
-- Modify: `src/executors/createFriendlyBuffExecutor.ts`
+- Modify: `src/executors/createBuffExecutor.ts`
 - Test: `src/executors/executors.test.ts`
 
 - [ ] **Step 1: 编写失败的测试**
@@ -110,9 +110,9 @@ git commit -m "refactor: 简化 PartyState 类型，删除 EnemyState 和全局 
 在 `src/executors/executors.test.ts` 中添加:
 
 ```typescript
-describe('createFriendlyBuffExecutor (simplified)', () => {
+describe('createBuffExecutor (simplified)', () => {
   it('should add buff to player statuses', () => {
-    const executor = createFriendlyBuffExecutor(1176, 5)
+    const executor = createBuffExecutor(1176, 5)
 
     const ctx: ActionExecutionContext = {
       actionId: 7382,
@@ -143,14 +143,14 @@ describe('createFriendlyBuffExecutor (simplified)', () => {
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-pnpm test executors.test.ts -t "createFriendlyBuffExecutor (simplified)"
+pnpm test executors.test.ts -t "createBuffExecutor (simplified)"
 ```
 
 Expected: FAIL
 
 - [ ] **Step 3: 简化执行器实现**
 
-修改 `src/executors/createFriendlyBuffExecutor.ts`:
+修改 `src/executors/createBuffExecutor.ts`:
 
 ```typescript
 /**
@@ -167,7 +167,7 @@ import { generateId } from './utils'
  * @param duration 持续时间（秒）
  * @returns 技能执行器
  */
-export function createFriendlyBuffExecutor(statusId: number, duration: number): ActionExecutor {
+export function createBuffExecutor(statusId: number, duration: number): ActionExecutor {
   return ctx => {
     const newStatus: MitigationStatus = {
       instanceId: generateId(),
@@ -192,7 +192,7 @@ export function createFriendlyBuffExecutor(statusId: number, duration: number): 
 - [ ] **Step 4: 运行测试验证通过**
 
 ```bash
-pnpm test executors.test.ts -t "createFriendlyBuffExecutor (simplified)"
+pnpm test executors.test.ts -t "createBuffExecutor (simplified)"
 ```
 
 Expected: PASS
@@ -200,7 +200,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/executors/createFriendlyBuffExecutor.ts src/executors/executors.test.ts
+git add src/executors/createBuffExecutor.ts src/executors/executors.test.ts
 git commit -m "refactor: 简化友方 Buff 执行器，删除 isPartyWide 参数"
 ```
 
@@ -341,24 +341,24 @@ Expected: 找到所有使用该执行器的技能（如雪仇）
 
 - [ ] **Step 2: 在 mitigationActions.ts 中做两件事**
 
-2a. 将所有 `createEnemyDebuffExecutor(...)` 替换为 `createFriendlyBuffExecutor(...)`:
+2a. 将所有 `createEnemyDebuffExecutor(...)` 替换为 `createBuffExecutor(...)`:
 
 ```typescript
 // 之前
 executor: createEnemyDebuffExecutor(1193, 15),
 
 // 之后
-executor: createFriendlyBuffExecutor(1193, 15),
+executor: createBuffExecutor(1193, 15),
 ```
 
 2b. 删除唯一的 `isPartyWide: false` 参数（第 151 行附近的秘策技能）:
 
 ```typescript
 // 之前
-executor: createFriendlyBuffExecutor(1896, 15, false),
+executor: createBuffExecutor(1896, 15, false),
 
 // 之后
-executor: createFriendlyBuffExecutor(1896, 15),
+executor: createBuffExecutor(1896, 15),
 ```
 
 2c. 删除 `createEnemyDebuffExecutor` 的 import

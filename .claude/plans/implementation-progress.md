@@ -5,6 +5,7 @@
 ### ✅ Phase 1: 类型系统 (2026-02-21)
 
 **创建的文件:**
+
 - `src/types/status.ts` - 状态类型定义
   - `MitigationStatusMetadata` (引用 Keigenn)
   - `MitigationStatus` (运行时状态实例)
@@ -19,6 +20,7 @@
 - `src/types/index.ts` - 导出新类型
 
 **关键决策:**
+
 - 所有 ID 类型统一为 `number`（对应 FFLogsActor.id）
 - 直接引用 `ff14-overlay-vue/src/types/keigennRecord2.ts` 中的 Keigenn 类型
 - EnemyState 不需要 id 字段（虚拟敌方固定）
@@ -26,6 +28,7 @@
 ### ✅ Phase 2: 状态注册表 (2026-02-21)
 
 **创建的文件:**
+
 - `src/utils/statusRegistry.ts` - 状态查询接口
   - `getStatusById()` - 根据 ID 获取状态元数据
   - `getAllFriendlyStatuses()` - 获取所有友方状态
@@ -34,6 +37,7 @@
 - `src/utils/statusRegistry.test.ts` - 单元测试 (6 个测试通过)
 
 **技术细节:**
+
 - 使用 Map 缓存状态数据
 - 懒加载初始化
 - 使用相对路径导入 keigenn.ts
@@ -41,17 +45,20 @@
 ### ✅ Phase 3: 执行器工厂 (2026-02-21)
 
 **创建的文件:**
+
 - `src/executors/utils.ts` - ID 生成工具
-- `src/executors/createFriendlyBuffExecutor.ts` - 友方 Buff 执行器
+- `src/executors/createBuffExecutor.ts` - 友方 Buff 执行器
 - `src/executors/createEnemyDebuffExecutor.ts` - 敌方 Debuff 执行器
 - `src/executors/createShieldExecutor.ts` - 盾值执行器
 - `src/executors/index.ts` - 导出索引
 - `src/executors/executors.test.ts` - 单元测试 (5 个测试通过)
 
 **依赖安装:**
+
 - 安装 `nanoid@5.1.6` 用于生成唯一 ID
 
 **执行器特性:**
+
 - 不可变更新（返回新的 PartyState）
 - 支持群体/单体技能
 - 支持盾值计算（基于目标最大 HP）
@@ -59,10 +66,12 @@
 ### ✅ Phase 4: 技能数据 (核心完成 - 2026-02-21)
 
 **创建的文件:**
+
 - `src/data/mitigationActions.new.ts` - 新技能数据（10 个示例技能）
 - `src/data/mitigationActions.new.test.ts` - 单元测试 (11 个测试通过)
 
 **示例技能:**
+
 1. **友方 Buff（群体）**
    - 节制 (16536) - WHM
    - 行吟 (7405) - BRD
@@ -81,6 +90,7 @@
    - 气宇轩昂之策 (37013) - 检测秘策状态
 
 **技能分布统计:**
+
 - 使用工厂 executor: 7 个 (70%)
 - 自定义 executor: 2 个 (20%)
 - 复合技能: 1 个 (10%)
@@ -90,6 +100,7 @@
 ### ⏳ Phase 4: 技能数据（剩余工作）
 
 **任务:**
+
 - [x] 迁移剩余 ~75 个技能到新格式 (已完成 31 个技能)
 - [x] 为每个技能映射正确的状态 ID
 - [x] 验证所有技能的 executor 逻辑
@@ -98,6 +109,7 @@
 **完成时间:** 2026-02-22
 
 **技能统计:**
+
 - 总计: 31 个技能
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
@@ -109,6 +121,7 @@
 ### ⏳ Phase 5: 计算器重构
 
 **任务:**
+
 - [ ] 重构 `MitigationCalculator`
 - [ ] 实现 `getActiveStatuses()` - 获取指定时间点生效的状态
 - [ ] 实现百分比减伤计算（基于状态）
@@ -121,6 +134,7 @@
 ### ⏳ Phase 6: 状态管理
 
 **任务:**
+
 - [ ] timelineStore 添加 `partyState` 字段
 - [ ] 实现 `executeAction()` - 执行技能并更新状态
 - [ ] 实现 `updatePartyState()` - 更新小队状态
@@ -133,6 +147,7 @@
 ### ⏳ Phase 7: UI 适配
 
 **任务:**
+
 - [ ] 更新 `DamageEventCard` - 显示减伤后伤害
 - [ ] 更新 `SkillPanel` - 使用新的技能数据
 - [ ] 创建 `StatusIndicator` - 显示当前生效的状态
@@ -144,6 +159,7 @@
 ### ⏳ Phase 8: 测试文档
 
 **任务:**
+
 - [ ] 单元测试覆盖率 ≥ 80%
 - [ ] 集成测试
 - [ ] E2E 测试
@@ -154,12 +170,12 @@
 
 ## 测试覆盖率
 
-| 模块 | 测试文件 | 测试数量 | 状态 |
-|------|---------|---------|------|
-| 状态注册表 | statusRegistry.test.ts | 6 | ✅ 通过 |
-| 执行器工厂 | executors.test.ts | 5 | ✅ 通过 |
-| 技能数据 | mitigationActions.new.test.ts | 11 | ✅ 通过 |
-| **总计** | | **22** | **✅ 全部通过** |
+| 模块       | 测试文件                      | 测试数量 | 状态            |
+| ---------- | ----------------------------- | -------- | --------------- |
+| 状态注册表 | statusRegistry.test.ts        | 6        | ✅ 通过         |
+| 执行器工厂 | executors.test.ts             | 5        | ✅ 通过         |
+| 技能数据   | mitigationActions.new.test.ts | 11       | ✅ 通过         |
+| **总计**   |                               | **22**   | **✅ 全部通过** |
 
 ## 技术债务
 
@@ -209,10 +225,12 @@
 ### ✅ Phase 5: 计算器重构 (完成)
 
 **创建的文件:**
+
 - `src/utils/mitigationCalculator.v2.ts` - 新版计算器（基于状态）
 - `src/utils/mitigationCalculator.v2.test.ts` - 单元测试 (13 个测试通过)
 
 **核心功能:**
+
 1. **calculate()** - 计算减伤后的最终伤害
    - 支持百分比减伤（乘算）
    - 支持盾值减伤（减算）
@@ -232,6 +250,7 @@
 4. **getActiveStatusesAtTime()** - 获取所有生效状态（用于 UI）
 
 **测试覆盖:**
+
 - 单个友方减伤
 - 多个友方减伤（乘算）
 - 敌方 Debuff
@@ -244,6 +263,7 @@
 - 不同伤害类型
 
 **关键改进:**
+
 - 不可变更新（返回新的 PartyState）
 - 基于状态而非技能计算
 - 自动处理盾值消耗
@@ -252,6 +272,7 @@
 ### 📊 测试覆盖率更新
 
 总计 **75 个测试全部通过**:
+
 - statusRegistry: 6 个测试
 - executors: 5 个测试
 - mitigationActions.new: 11 个测试
@@ -282,6 +303,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -292,11 +314,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -379,11 +403,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -392,6 +418,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -420,6 +447,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -430,11 +458,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -517,16 +547,19 @@
 ### ✅ Phase 7: UI 适配 (完成)
 
 **类型错误修复:**
+
 - 修复了所有关键文件的类型错误
 - 更新 PropertyPanel 和 SkillPanel 以适配新的类型系统
 - 修复 AddEventDialog、fflogsImporter、timelineStorage 等文件
 - mitigationStore 现在使用新的 MITIGATION_DATA
 
 **测试状态:**
+
 - ✅ 所有 84 个测试通过
 - ✅ 构建成功(排除旧代码)
 
 **已知限制:**
+
 - 旧的 mitigationActions.ts 和 mitigationCalculator.test.ts 仍有类型错误
 - 这些文件已被新系统替代,不影响功能
 
@@ -554,6 +587,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -564,11 +598,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -651,11 +687,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -664,6 +702,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -692,6 +731,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -702,11 +742,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -789,12 +831,14 @@
 ### ✅ Phase 7: UI 适配 (核心完成)
 
 **创建的文件:**
+
 - `src/hooks/useDamageCalculationV2.ts` - 新的伤害计算 Hook
 - `src/components/StatusIndicator.tsx` - 状态指示器组件
 - `src/components/ui/badge.tsx` - shadcn/ui Badge 组件
 - `src/components/ui/scroll-area.tsx` - shadcn/ui ScrollArea 组件
 
 **修改的文件:**
+
 - `src/components/Timeline/index.tsx` - 使用新的计算 Hook
 - `src/components/Timeline/DamageEventCard.tsx` - 更新类型导入
 - `src/components/Timeline/DamageEventTrack.tsx` - 更新类型导入
@@ -805,6 +849,7 @@
 - `src/store/timelineStore.ts` - 修复 `getPartyStateAtTime` 访问
 
 **核心功能:**
+
 1. **useDamageCalculationV2** - 基于状态的伤害计算 Hook
    - 使用 `getPartyStateAtTime` 获取状态
    - 调用 `MitigationCalculatorV2.calculate()`
@@ -821,6 +866,7 @@
    - 支持单体技能的 `targetPlayerId`
 
 **待完成工作:**
+
 - [ ] 更新 PropertyPanel 以显示状态详情
 - [ ] 更新 SkillPanel 以使用新的技能数据
 - [ ] 修复旧代码中的类型错误(86 个)
@@ -828,6 +874,7 @@
   - 这些字段已从 `MitigationAction` 中移除
 
 **关键改进:**
+
 - UI 层完全解耦,不再直接访问技能的减伤字段
 - 所有减伤计算基于状态系统
 - 支持时间旅行(查询任意时间点的状态)
@@ -836,6 +883,7 @@
 ### 📊 测试覆盖率更新
 
 总计 **84 个测试全部通过**:
+
 - statusRegistry: 6 个测试
 - executors: 5 个测试
 - mitigationActions.new: 11 个测试
@@ -867,6 +915,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -877,11 +926,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -964,11 +1015,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -977,6 +1030,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -1005,6 +1059,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1015,11 +1070,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1102,16 +1159,19 @@
 ### ✅ Phase 7: UI 适配 (完成)
 
 **类型错误修复:**
+
 - 修复了所有关键文件的类型错误
 - 更新 PropertyPanel 和 SkillPanel 以适配新的类型系统
 - 修复 AddEventDialog、fflogsImporter、timelineStorage 等文件
 - mitigationStore 现在使用新的 MITIGATION_DATA
 
 **测试状态:**
+
 - ✅ 所有 84 个测试通过
 - ✅ 构建成功(排除旧代码)
 
 **已知限制:**
+
 - 旧的 mitigationActions.ts 和 mitigationCalculator.test.ts 仍有类型错误
 - 这些文件已被新系统替代,不影响功能
 
@@ -1139,6 +1199,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1149,11 +1210,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1236,11 +1299,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -1249,6 +1314,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -1277,6 +1343,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1287,11 +1354,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1374,10 +1443,12 @@
 ### ✅ Phase 6: 状态管理 (完成)
 
 **修改的文件:**
+
 - `src/store/timelineStore.ts` - 添加状态管理功能
 - `src/store/timelineStore.test.ts` - 单元测试 (9 个测试通过)
 
 **核心功能:**
+
 1. **initializePartyState()** - 根据阵容初始化小队状态
    - 从 Composition 创建 PartyState
    - 设置默认 HP 值
@@ -1403,6 +1474,7 @@
    - 直接设置新的 PartyState
 
 **测试覆盖:**
+
 - 初始化小队状态
 - setTimeline 自动初始化
 - 执行群体技能
@@ -1414,6 +1486,7 @@
 - 更新小队状态
 
 **关键改进:**
+
 - 自动初始化：setTimeline 时自动调用 initializePartyState
 - 时间旅行：getPartyStateAtTime 支持查询任意时间点的状态
 - 状态清理：自动过滤过期状态
@@ -1422,6 +1495,7 @@
 ### 📊 测试覆盖率更新
 
 总计 **84 个测试全部通过**:
+
 - statusRegistry: 6 个测试
 - executors: 5 个测试
 - mitigationActions.new: 11 个测试
@@ -1453,6 +1527,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1463,11 +1538,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1550,11 +1627,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -1563,6 +1642,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -1591,6 +1671,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1601,11 +1682,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1688,16 +1771,19 @@
 ### ✅ Phase 7: UI 适配 (完成)
 
 **类型错误修复:**
+
 - 修复了所有关键文件的类型错误
 - 更新 PropertyPanel 和 SkillPanel 以适配新的类型系统
 - 修复 AddEventDialog、fflogsImporter、timelineStorage 等文件
 - mitigationStore 现在使用新的 MITIGATION_DATA
 
 **测试状态:**
+
 - ✅ 所有 84 个测试通过
 - ✅ 构建成功(排除旧代码)
 
 **已知限制:**
+
 - 旧的 mitigationActions.ts 和 mitigationCalculator.test.ts 仍有类型错误
 - 这些文件已被新系统替代,不影响功能
 
@@ -1725,6 +1811,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1735,11 +1822,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1822,11 +1911,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -1835,6 +1926,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -1863,6 +1955,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -1873,11 +1966,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -1960,12 +2055,14 @@
 ### ✅ Phase 7: UI 适配 (核心完成)
 
 **创建的文件:**
+
 - `src/hooks/useDamageCalculationV2.ts` - 新的伤害计算 Hook
 - `src/components/StatusIndicator.tsx` - 状态指示器组件
 - `src/components/ui/badge.tsx` - shadcn/ui Badge 组件
 - `src/components/ui/scroll-area.tsx` - shadcn/ui ScrollArea 组件
 
 **修改的文件:**
+
 - `src/components/Timeline/index.tsx` - 使用新的计算 Hook
 - `src/components/Timeline/DamageEventCard.tsx` - 更新类型导入
 - `src/components/Timeline/DamageEventTrack.tsx` - 更新类型导入
@@ -1976,6 +2073,7 @@
 - `src/store/timelineStore.ts` - 修复 `getPartyStateAtTime` 访问
 
 **核心功能:**
+
 1. **useDamageCalculationV2** - 基于状态的伤害计算 Hook
    - 使用 `getPartyStateAtTime` 获取状态
    - 调用 `MitigationCalculatorV2.calculate()`
@@ -1992,6 +2090,7 @@
    - 支持单体技能的 `targetPlayerId`
 
 **待完成工作:**
+
 - [ ] 更新 PropertyPanel 以显示状态详情
 - [ ] 更新 SkillPanel 以使用新的技能数据
 - [ ] 修复旧代码中的类型错误(86 个)
@@ -1999,6 +2098,7 @@
   - 这些字段已从 `MitigationAction` 中移除
 
 **关键改进:**
+
 - UI 层完全解耦,不再直接访问技能的减伤字段
 - 所有减伤计算基于状态系统
 - 支持时间旅行(查询任意时间点的状态)
@@ -2007,6 +2107,7 @@
 ### 📊 测试覆盖率更新
 
 总计 **84 个测试全部通过**:
+
 - statusRegistry: 6 个测试
 - executors: 5 个测试
 - mitigationActions.new: 11 个测试
@@ -2038,6 +2139,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -2048,11 +2150,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -2135,11 +2239,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -2148,6 +2254,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -2176,6 +2283,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -2186,11 +2294,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -2273,16 +2383,19 @@
 ### ✅ Phase 7: UI 适配 (完成)
 
 **类型错误修复:**
+
 - 修复了所有关键文件的类型错误
 - 更新 PropertyPanel 和 SkillPanel 以适配新的类型系统
 - 修复 AddEventDialog、fflogsImporter、timelineStorage 等文件
 - mitigationStore 现在使用新的 MITIGATION_DATA
 
 **测试状态:**
+
 - ✅ 所有 84 个测试通过
 - ✅ 构建成功(排除旧代码)
 
 **已知限制:**
+
 - 旧的 mitigationActions.ts 和 mitigationCalculator.test.ts 仍有类型错误
 - 这些文件已被新系统替代,不影响功能
 
@@ -2310,6 +2423,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -2320,11 +2434,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档
@@ -2407,11 +2523,13 @@
 ### ✅ Phase 4: 技能数据 (完成)
 
 **完成内容:**
+
 - 迁移了所有 29 个旧技能到新格式
 - 新增 2 个技能 (展开战术, 暗黑布道)
 - 总计 31 个技能,覆盖所有职业
 
 **技能分布:**
+
 - 坦克: 6 个 (PLD, WAR, DRK, GNB)
 - 治疗: 11 个 (WHM, SCH, AST, SGE)
 - 远程物理: 3 个 (BRD, MCH, DNC)
@@ -2420,6 +2538,7 @@
 - 敌方 Debuff: 3 个 (雪仇, 牵制, 昏乱)
 
 **技能类型统计:**
+
 - 使用工厂 executor: 28 个 (90%)
 - 自定义 executor: 2 个 (7%)
 - 复合技能: 1 个 (3%)
@@ -2448,6 +2567,7 @@
 ### ✅ Phase 8: 测试文档 (完成)
 
 **测试覆盖率:**
+
 - 总体覆盖率: 67.3% (语句), 61.49% (分支), 65.48% (函数), 69.78% (行)
 - 核心模块覆盖率:
   - executors: 100%
@@ -2458,11 +2578,13 @@
   - timelineStore: 41% (主要测试状态管理功能)
 
 **测试统计:**
+
 - 总计: 84 个测试
 - 通过率: 100%
 - 测试文件: 7 个
 
 **文档更新:**
+
 - ✅ 更新 CLAUDE.md 以反映新架构
 - ✅ 添加状态系统文档
 - ✅ 添加执行器工厂文档

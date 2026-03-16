@@ -1,0 +1,25 @@
+#!/bin/sh
+# 拒绝包含 "claude" 的提交信息或作者信息
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# 检查提交信息
+if echo "$COMMIT_MSG" | grep -qi "claude"; then
+  echo "错误：提交信息中包含 'claude'，已拒绝提交。"
+  exit 1
+fi
+
+# 检查提交作者姓名和邮箱
+AUTHOR_NAME=$(git config user.name)
+AUTHOR_EMAIL=$(git config user.email)
+
+if echo "$AUTHOR_NAME" | grep -qi "claude"; then
+  echo "错误：提交作者姓名包含 'claude'，已拒绝提交。"
+  exit 1
+fi
+
+if echo "$AUTHOR_EMAIL" | grep -qi "claude"; then
+  echo "错误：提交作者邮箱包含 'claude'，已拒绝提交。"
+  exit 1
+fi
