@@ -8,6 +8,7 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import { JOB_MAP } from '@/data/jobMap'
+import { getTankJobs } from '@/data/jobs'
 
 const actionChinese: Record<string, string> = actionChineseRaw
 
@@ -55,7 +56,7 @@ export function parseDamageEvents(
   abilityMap?: Map<number, FFLogsAbility>
 ): DamageEvent[] {
   const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
-  const TANK_JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB']
+  const TANK_JOBS = getTankJobs()
 
   const packetMap = new Map<
     number,
@@ -213,7 +214,7 @@ export function parseDamageEvents(
 function mergeMultipleDamageEvents(events: DamageEvent[]): DamageEvent {
   if (events.length === 1) return events[0]
 
-  const TANK_JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB']
+  const TANK_JOBS = getTankJobs()
   const playerDamageMap = new Map<
     number,
     {

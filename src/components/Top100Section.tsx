@@ -15,6 +15,7 @@ import { buildMitigationKey } from '@/utils/rosterUtils'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job } from '@/types/timeline'
+import { getTankJobs, getHealerJobs, getDPSJobs, getJobRole } from '@/data/jobs'
 
 // ---- 类型定义 ----
 
@@ -95,12 +96,17 @@ function CompositionFilter({
   open: boolean
   onClose: () => void
 }) {
+  const dpsJobs = getDPSJobs()
+  const meleeJobs = dpsJobs.filter(job => getJobRole(job) === 'melee')
+  const rangedJobs = dpsJobs.filter(job => getJobRole(job) === 'ranged')
+  const casterJobs = dpsJobs.filter(job => getJobRole(job) === 'caster')
+
   const jobsByRole = {
-    坦克: ['PLD', 'WAR', 'DRK', 'GNB'] as Job[],
-    治疗: ['WHM', 'SCH', 'AST', 'SGE'] as Job[],
-    近战: ['MNK', 'DRG', 'NIN', 'SAM', 'RPR', 'VPR'] as Job[],
-    远敏: ['BRD', 'MCH', 'DNC'] as Job[],
-    法系: ['BLM', 'SMN', 'RDM', 'PCT'] as Job[],
+    坦克: getTankJobs(),
+    治疗: getHealerJobs(),
+    近战: meleeJobs,
+    远敏: rangedJobs,
+    法系: casterJobs,
   }
 
   const toggleJob = (job: Job) => {

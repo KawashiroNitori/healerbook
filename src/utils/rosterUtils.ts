@@ -1,31 +1,25 @@
 import { JOB_MAP } from '../data/jobMap'
 import { sortJobsByOrder } from '../data/jobs'
 import type { Job } from '../types/timeline'
+import { MITIGATION_DATA } from '../data/mitigationActions'
 
-// 与 src/data/mitigationActions.new.ts 保持一致
-const JOB_MITIGATION_IDS: Record<string, number[]> = {
-  PLD: [7535, 3540, 7385],
-  WAR: [7535, 7388],
-  DRK: [7535, 3638],
-  GNB: [7535, 16160],
-  WHM: [16536, 7433, 37011],
-  SCH: [185, 3585, 16542, 37013, 188, 16538, 25868],
-  AST: [16559, 3613, 37031],
-  SGE: [24311, 24310, 24298, 37034],
-  MNK: [7549],
-  DRG: [7549],
-  NIN: [7549],
-  SAM: [7549],
-  RPR: [7549],
-  VPR: [7549],
-  BRD: [7405],
-  MCH: [16889],
-  DNC: [16012],
-  BLM: [7560],
-  SMN: [7560],
-  RDM: [7560, 25857],
-  PCT: [7560, 34686],
+// 从 MITIGATION_DATA.actions 动态生成职业到技能 ID 的映射
+function buildJobMitigationIds(): Record<string, number[]> {
+  const map: Record<string, number[]> = {}
+
+  for (const action of MITIGATION_DATA.actions) {
+    for (const job of action.jobs) {
+      if (!map[job]) {
+        map[job] = []
+      }
+      map[job].push(action.id)
+    }
+  }
+
+  return map
 }
+
+const JOB_MITIGATION_IDS = buildJobMitigationIds()
 
 // 将 allCharacters 的 spec 列表转为按标准职业顺序排列的职业代码列表
 export function buildComposition(specs: string[]): string[] {
