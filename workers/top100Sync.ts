@@ -47,7 +47,11 @@ export interface EncounterStatistics {
 }
 
 /** 获取单场战斗统计数据的临时 KV 键名 */
-export function getFightStatisticsKVKey(encounterId: number, reportCode: string, fightID: number): string {
+export function getFightStatisticsKVKey(
+  encounterId: number,
+  reportCode: string,
+  fightID: number
+): string {
   return `fight-stats:${encounterId}:${reportCode}:${fightID}`
 }
 
@@ -103,6 +107,8 @@ function extractShieldData(events: FFLogsEvent[]): Record<number, number[]> {
 
   for (const event of events) {
     if (event.type === 'absorbed' && event.abilityGameID && event.amount) {
+      // 不知为何，FFLogs 的 absorbed 事件会把泛输血（1002613）记录为泛血印（1002643）
+      if (event.abilityGameID === 1002643) event.abilityGameID = 1002613
       // 减去 100 万偏移值得到真实的状态 ID
       const statusId = event.abilityGameID - 1000000
       if (!shieldByAbility[statusId]) {
@@ -119,21 +125,20 @@ function extractShieldData(events: FFLogsEvent[]): Record<number, number[]> {
  * 从事件列表中提取最大生命值数据
  * 从 absorbed 类型的事件中提取目标的最大生命值
  */
-function extractMaxHPData(
-  events: FFLogsEvent[],
-  report: FFLogsV1Report
-): Record<string, number[]> {
+function extractMaxHPData(events: FFLogsEvent[], report: FFLogsV1Report): Record<string, number[]> {
   const maxHPByJob: Record<string, number[]> = {}
 
   for (const event of events) {
     // absorbed 事件的 targetResources 包含 maxHitPoints 字段
     if (event.type === 'absorbed') {
-      const targetResources = (event as FFLogsEvent & { targetResources?: { maxHitPoints?: number } }).targetResources
+      const targetResources = (
+        event as FFLogsEvent & { targetResources?: { maxHitPoints?: number } }
+      ).targetResources
       if (targetResources) {
         const maxHP = targetResources.maxHitPoints
         const targetID = event.targetID
         if (maxHP && maxHP > 0 && targetID) {
-          const actor = report.friendlies?.find((a) => a.id === targetID)
+          const actor = report.friendlies?.find(a => a.id === targetID)
           if (actor && actor.type) {
             if (!maxHPByJob[actor.type]) {
               maxHPByJob[actor.type] = []
@@ -211,7 +216,7 @@ export async function syncEncounter(
       encounterId: encounter.id,
       encounterName,
       totalFights: sampledEntries.length,
-      fights: sampledEntries.map((e) => ({ reportCode: e.reportCode, fightID: e.fightID })),
+      fights: sampledEntries.map(e => ({ reportCode: e.reportCode, fightID: e.fightID })),
       createdAt: now,
     }
 
@@ -220,7 +225,7 @@ export async function syncEncounter(
     })
 
     // 为每场战斗推送一个任务到队列
-    const messages = sampledEntries.map((entry) => ({
+    const messages = sampledEntries.map(entry => ({
       body: {
         type: 'extract-statistics',
         encounterId: encounter.id,
@@ -252,7 +257,7 @@ export async function extractFightStatistics(
   try {
     // 获取战斗报告
     const report = await client.getReport({ reportCode })
-    const fight = report.fights.find((f) => f.id === fightID)
+    const fight = report.fights.find(f => f.id === fightID)
     if (!fight) {
       throw new Error(`Fight ${fightID} not found`)
     }
@@ -317,14 +322,14 @@ async function updateStatisticsTaskProgress(
 
   // 检查所有战斗是否都完成了
   const completionChecks = await Promise.all(
-    task.fights.map(async (fight) => {
+    task.fights.map(async fight => {
       const key = `fight-completed:${encounterId}:${fight.reportCode}:${fight.fightID}`
       const completed = await kv.get(key)
       return completed !== null
     })
   )
 
-  const allCompleted = completionChecks.every((c) => c)
+  const allCompleted = completionChecks.every(c => c)
 
   if (allCompleted) {
     // 使用锁机制确保只有一个 Worker 执行汇总
@@ -336,7 +341,7 @@ async function updateStatisticsTaskProgress(
       await kv.put(lockKey, Date.now().toString(), { expirationTtl: 60 })
 
       // 再次检查锁是否是我们设置的（简单的分布式锁）
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 100))
       const currentLock = await kv.get(lockKey)
 
       // 如果锁还在，执行汇总
@@ -414,15 +419,17 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
   await Promise.all([
     kv.delete(getStatisticsTaskKVKey(task.encounterId)),
     kv.delete(`stats-lock:${task.encounterId}`),
-    ...task.fights.map((f) =>
+    ...task.fights.map(f =>
       kv.delete(getFightStatisticsKVKey(task.encounterId, f.reportCode, f.fightID))
     ),
-    ...task.fights.map((f) =>
+    ...task.fights.map(f =>
       kv.delete(`fight-completed:${task.encounterId}:${f.reportCode}:${f.fightID}`)
     ),
   ])
 
-  console.log(`[Statistics] 汇总完成: encounter ${task.encounterId}, 采样 ${task.totalFights} 场战斗`)
+  console.log(
+    `[Statistics] 汇总完成: encounter ${task.encounterId}, 采样 ${task.totalFights} 场战斗`
+  )
 }
 
 /**

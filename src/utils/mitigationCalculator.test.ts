@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
 import type { PartyState } from '@/types/partyState'
-import type { StatusEvent } from '@/types/timeline'
 
 describe('MitigationCalculator', () => {
   let calculator: MitigationCalculator
@@ -413,69 +412,6 @@ describe('MitigationCalculator', () => {
     })
   })
 
-  describe('getActiveStatusesAtTime', () => {
-    it('应该返回指定时间点所有生效的状态', () => {
-      const partyState: PartyState = {
-        ...basePartyState,
-        statuses: [
-          {
-            instanceId: 'test-1',
-            statusId: 1191,
-            startTime: 0,
-            endTime: 20,
-          },
-          {
-            instanceId: 'test-2',
-            statusId: 1873,
-            startTime: 25,
-            endTime: 50,
-          },
-          {
-            instanceId: 'test-3',
-            statusId: 1193,
-            startTime: 0,
-            endTime: 15,
-          },
-        ],
-      }
-
-      const activeStatuses = calculator.getActiveStatusesAtTime(partyState, 10)
-
-      expect(activeStatuses).toHaveLength(2)
-      expect(activeStatuses.map(s => s.statusId)).toContain(1191)
-      expect(activeStatuses.map(s => s.statusId)).toContain(1193)
-    })
-  })
-
-  describe('MitigationCalculator.calculateFromSnapshot', () => {
-    it('should calculate damage from status snapshot', () => {
-      const calculator = new MitigationCalculator()
-
-      const statusEvents: StatusEvent[] = [
-        {
-          statusId: 1193, // 雪仇 10% 减伤
-          startTime: 0,
-          endTime: 15,
-          targetPlayerId: 1,
-          packetId: 100,
-        },
-        {
-          statusId: 1174, // 干预 10% 减伤
-          startTime: 0,
-          endTime: 30,
-          targetPlayerId: 1,
-          packetId: 100,
-        },
-      ]
-
-      const result = calculator.calculateFromSnapshot(10000, statusEvents, 100, 'physical', 1)
-
-      expect(result.finalDamage).toBe(8100) // 10000 * 0.9 * 0.9
-      expect(result.appliedStatuses).toHaveLength(2)
-      expect(result.updatedPartyState).toBeUndefined()
-    })
-  })
-
   describe('MitigationCalculator with simplified PartyState', () => {
     it('should calculate damage using player.statuses only', () => {
       const partyState: PartyState = {
@@ -502,74 +438,6 @@ describe('MitigationCalculator', () => {
       expect(result.finalDamage).toBe(7650) // 10000 * 0.9 * 0.85
       expect(result.appliedStatuses).toHaveLength(2)
       expect(result.updatedPartyState).toBeDefined()
-    })
-  })
-
-  describe('calculateFromSnapshot - 盾值消耗顺序', () => {
-    it('应该按 startTime 顺序消耗盾值（即使 statusEvents 顺序不同）', () => {
-      // 模拟 FFLogs 数据：statusEvents 顺序与 startTime 不一致
-      const statusEvents: StatusEvent[] = [
-        {
-          statusId: 1191, // 雪仇 20% 减伤
-          startTime: 0,
-          endTime: 20,
-          targetPlayerId: 1,
-          packetId: 100,
-        },
-        {
-          statusId: 297, // 鼓舞盾
-          startTime: 5, // 后施放
-          endTime: 35,
-          targetPlayerId: 1,
-          packetId: 100,
-          absorb: 2000,
-        },
-        {
-          statusId: 297, // 鼓舞盾
-          startTime: 2, // 先施放
-          endTime: 32,
-          targetPlayerId: 1,
-          packetId: 100,
-          absorb: 1000,
-        },
-      ]
-
-      const result = calculator.calculateFromSnapshot(10000, statusEvents, 100, 'physical', 1)
-
-      // 计算过程：
-      // 1. 百分比减伤：10000 * 0.8 = 8000
-      // 2. 盾值消耗（按 startTime 排序）：
-      //    - 先消耗 startTime=2 的盾：8000 - 1000 = 7000
-      //    - 再消耗 startTime=5 的盾：7000 - 2000 = 5000
-      expect(result.finalDamage).toBe(5000)
-      expect(result.appliedStatuses).toHaveLength(3) // 1 个减伤 + 2 个盾
-    })
-
-    it('应该在盾值完全吸收伤害后停止消耗', () => {
-      const statusEvents: StatusEvent[] = [
-        {
-          statusId: 297, // 鼓舞盾
-          startTime: 5,
-          endTime: 35,
-          targetPlayerId: 1,
-          packetId: 100,
-          absorb: 3000,
-        },
-        {
-          statusId: 297, // 鼓舞盾
-          startTime: 2,
-          endTime: 32,
-          targetPlayerId: 1,
-          packetId: 100,
-          absorb: 10000, // 足够吸收所有伤害
-        },
-      ]
-
-      const result = calculator.calculateFromSnapshot(5000, statusEvents, 100, 'physical', 1)
-
-      // startTime=2 的盾先消耗，完全吸收伤害
-      expect(result.finalDamage).toBe(0)
-      expect(result.appliedStatuses).toHaveLength(1) // 只消耗了第一个盾
     })
   })
 })

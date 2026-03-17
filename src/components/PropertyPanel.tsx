@@ -25,9 +25,8 @@ export default function PropertyPanel() {
   const event = timeline.damageEvents.find(e => e.id === selectedEventId)
   if (!event) return null
 
-  // 使用预先计算的结果
+  // 使用预先计算的结果（可能为空）
   const result = eventResults.get(event.id)
-  if (!result) return null
 
   return (
     <div className="w-80 border-l bg-background hidden md:flex flex-col h-full">
@@ -99,7 +98,7 @@ export default function PropertyPanel() {
         </div>
 
         {/* Mitigation Result (仅编辑模式) */}
-        {!timeline.isReplayMode && (
+        {!timeline.isReplayMode && result && (
           <div className="pt-4 border-t">
             <h3 className="font-medium mb-2">预估减伤效果</h3>
             <div className="space-y-2 text-sm">
@@ -171,9 +170,9 @@ export default function PropertyPanel() {
         )}
 
         {/* Player Damage Details (回放模式) */}
-        {timeline.isReplayMode && event.playerDamageDetails && result.updatedPartyState && (
+        {timeline.isReplayMode && event.playerDamageDetails && (
           <div className="pt-4 border-t">
-            <PlayerDamageDetails event={event} partyState={result.updatedPartyState} />
+            <PlayerDamageDetails event={event} />
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { parseFFLogsUrl } from './fflogsParser'
-import { parseCastEventsFromFFLogs, parseStatusEvents, parseDamageEvents } from './fflogsImporter'
+import { parseCastEvents, parseDamageEvents } from './fflogsImporter'
 import type { FFLogsAbility } from '@/types/fflogs'
 
 type V2Actor = { id: number; name: string; type: string }
@@ -154,7 +154,7 @@ describe('parseFFLogsUrl', () => {
   })
 })
 
-describe('parseCastEventsFromFFLogs', () => {
+describe('parseCastEvents', () => {
   const mockPlayerMap = new Map<number, V2Actor>([
     [1, { id: 1, name: 'Tank', type: 'Paladin' }],
     [2, { id: 2, name: 'Healer', type: 'WhiteMage' }],
@@ -172,7 +172,7 @@ describe('parseCastEventsFromFFLogs', () => {
       { type: 'cast', abilityGameID: 16536, sourceID: 2, timestamp: fightStartTime + 15000 },
     ]
 
-    const result = parseCastEventsFromFFLogs(events, fightStartTime, mockPlayerMap)
+    const result = parseCastEvents(events, fightStartTime, mockPlayerMap)
     expect(result).toHaveLength(2)
     expect(result[0].actionId).toBe(7535)
     expect(result[1].actionId).toBe(16536)
@@ -183,7 +183,7 @@ describe('parseCastEventsFromFFLogs', () => {
       { type: 'cast', abilityGameID: 7535, sourceID: 999, timestamp: fightStartTime + 5000 },
     ]
 
-    const result = parseCastEventsFromFFLogs(events, fightStartTime, mockPlayerMap)
+    const result = parseCastEvents(events, fightStartTime, mockPlayerMap)
     expect(result).toHaveLength(0)
   })
 
@@ -192,7 +192,7 @@ describe('parseCastEventsFromFFLogs', () => {
       { type: 'cast', abilityGameID: 7535, sourceID: 999, timestamp: fightStartTime + 5000 },
     ]
 
-    const result = parseCastEventsFromFFLogs(events, fightStartTime, mockPlayerMap)
+    const result = parseCastEvents(events, fightStartTime, mockPlayerMap)
     expect(result).toHaveLength(0)
   })
 
@@ -201,147 +201,9 @@ describe('parseCastEventsFromFFLogs', () => {
       { type: 'cast', abilityGameID: 7535, sourceID: 1, timestamp: fightStartTime + 5000 },
     ]
 
-    const result = parseCastEventsFromFFLogs(events, fightStartTime, mockPlayerMap)
+    const result = parseCastEvents(events, fightStartTime, mockPlayerMap)
     expect(result).toHaveLength(1)
     expect(result[0].timestamp).toBe(5)
-  })
-})
-
-describe('parseStatusEvents', () => {
-  const fightStartTime = 1000000
-
-  it('应该使用 duration 字段计算 endTime', () => {
-    const events = [
-      {
-        type: 'applybuff',
-        abilityGameID: 1007535, // statusId = 7535
-        sourceID: 1,
-        targetID: 2,
-        targetInstance: 1,
-        timestamp: fightStartTime + 5000,
-        duration: 15000, // 15 秒
-      },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(1)
-    expect(result[0].statusId).toBe(7535)
-    expect(result[0].startTime).toBe(5)
-    expect(result[0].endTime).toBe(20)
-  })
-
-  it('应该在没有 duration 时使用默认 30 秒', () => {
-    const events = [
-      {
-        type: 'applybuff',
-        abilityGameID: 1007535,
-        sourceID: 1,
-        targetID: 2,
-        targetInstance: 1,
-        timestamp: fightStartTime + 5000,
-      },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(1)
-    expect(result[0].statusId).toBe(7535)
-    expect(result[0].startTime).toBe(5)
-    expect(result[0].endTime).toBe(35)
-  })
-
-  it('应该处理多个相同状态的事件', () => {
-    const events = [
-      {
-        type: 'applybuff',
-        abilityGameID: 1007535,
-        sourceID: 1,
-        targetID: 2,
-        targetInstance: 1,
-        timestamp: fightStartTime + 5000,
-        duration: 15000,
-      },
-      {
-        type: 'applybuff',
-        abilityGameID: 1007535,
-        sourceID: 1,
-        targetID: 2,
-        targetInstance: 1,
-        timestamp: fightStartTime + 30000,
-        duration: 15000,
-      },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(2)
-    expect(result[0].startTime).toBe(5)
-    expect(result[0].endTime).toBe(20)
-    expect(result[1].startTime).toBe(30)
-    expect(result[1].endTime).toBe(45)
-  })
-
-  it('应该处理 applydebuff 事件', () => {
-    const events = [
-      {
-        type: 'applydebuff',
-        abilityGameID: 1007535,
-        sourceID: 1,
-        targetID: 999,
-        targetInstance: 1,
-        timestamp: fightStartTime + 5000,
-        duration: 15000,
-      },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(1)
-    expect(result[0].statusId).toBe(7535)
-    expect(result[0].startTime).toBe(5)
-    expect(result[0].endTime).toBe(20)
-  })
-
-  it('应该过滤掉非状态事件', () => {
-    const events = [
-      { type: 'cast', abilityGameID: 1007535, sourceID: 1, timestamp: fightStartTime + 5000 },
-      { type: 'damage', abilityGameID: 1007535, sourceID: 1, timestamp: fightStartTime + 5000 },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(0)
-  })
-
-  it('应该过滤掉没有 abilityGameID 的事件', () => {
-    const events = [
-      {
-        type: 'applybuff',
-        sourceID: 1,
-        targetID: 2,
-        targetInstance: 1,
-        timestamp: fightStartTime + 5000,
-      },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(0)
-  })
-
-  it('应该解析盾值（absorb）字段', () => {
-    const events = [
-      {
-        type: 'applybuff',
-        abilityGameID: 1007535,
-        sourceID: 1,
-        targetID: 2,
-        targetInstance: 1,
-        timestamp: fightStartTime + 5000,
-        duration: 15000,
-        absorb: 15000,
-      },
-    ]
-
-    const result = parseStatusEvents(events, fightStartTime)
-    expect(result).toHaveLength(1)
-    expect(result[0].statusId).toBe(7535)
-    expect(result[0].absorb).toBe(15000)
   })
 })
 
@@ -508,6 +370,7 @@ describe('parseDamageEvents', () => {
         amount: 9500,
         timestamp: fightStartTime + 5000,
         sourceID: 999,
+        buffs: '1001362.', // 圣光幕帘状态
       },
       {
         type: 'damage',
@@ -520,13 +383,24 @@ describe('parseDamageEvents', () => {
         timestamp: fightStartTime + 5000,
         sourceID: 999,
       },
+      {
+        type: 'absorbed',
+        abilityGameID: 1001362, // 圣光幕帘状态 ID
+        extraAbilityGameID: 999999,
+        targetID: 1,
+        attackerID: 999,
+        amount: 500,
+        timestamp: fightStartTime + 5000,
+      },
     ]
 
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
     expect(result).toHaveLength(1)
     expect(result[0].playerDamageDetails).toHaveLength(2)
     const tankDetail = result[0].playerDamageDetails?.find(d => d.playerId === 1)
-    expect(tankDetail?.absorbedDamage).toBe(500)
+    expect(tankDetail?.statuses).toHaveLength(1)
+    expect(tankDetail?.statuses[0].statusId).toBe(1362) // 1001362 - 1000000
+    expect(tankDetail?.statuses[0].absorb).toBe(500)
     expect(tankDetail?.finalDamage).toBe(9500)
   })
 

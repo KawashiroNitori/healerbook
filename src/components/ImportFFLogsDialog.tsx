@@ -8,12 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
-import {
-  parseComposition,
-  parseDamageEvents,
-  parseCastEventsFromFFLogs,
-  parseStatusEvents,
-} from '@/utils/fflogsImporter'
+import { parseComposition, parseDamageEvents, parseCastEvents } from '@/utils/fflogsImporter'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
@@ -196,19 +191,11 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
         newTimeline.damageEvents = damageEvents
 
         // 解析技能使用事件
-        const castEvents = parseCastEventsFromFFLogs(
-          eventsData.events || [],
-          fight.startTime,
-          playerMap
-        )
-
-        // 解析状态事件
-        const statusEvents = parseStatusEvents(eventsData.events || [], fight.startTime)
+        const castEvents = parseCastEvents(eventsData.events || [], fight.startTime, playerMap)
 
         // 设置为回放模式
         newTimeline.isReplayMode = true
         newTimeline.castEvents = castEvents
-        newTimeline.statusEvents = statusEvents
 
         toast.success(
           `已导入：${timelineName}（${duration}秒，${damageEvents.length} 个伤害事件，${castEvents.length} 个技能使用，${composition.players.length} 名玩家）`

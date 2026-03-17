@@ -77,9 +77,7 @@ function convertResponse(id: number, data: XIVAPIResponse): CafeMakerAction {
     Recast100ms: f.Recast100ms,
     PrimaryCostType: f.PrimaryCostType,
     PrimaryCostValue: f.PrimaryCostValue,
-    ActionCategory: f.ActionCategory?.fields
-      ? { Name: f.ActionCategory.fields.Name }
-      : undefined,
+    ActionCategory: f.ActionCategory?.fields ? { Name: f.ActionCategory.fields.Name } : undefined,
   }
 }
 

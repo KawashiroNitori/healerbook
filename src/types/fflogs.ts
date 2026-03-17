@@ -150,6 +150,8 @@ export interface FFLogsEvent {
   sourceID?: number
   /** 目标 Actor */
   targetID?: number
+  /** 攻击者 ID（absorbed 事件使用） */
+  attackerID?: number
   /** 技能 ID */
   abilityGameID?: number
   /** 额外技能 ID（用于盾值等） */

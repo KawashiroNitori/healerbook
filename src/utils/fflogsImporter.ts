@@ -3,7 +3,13 @@
  */
 
 import type { FFLogsReport, FFLogsAbility, FFLogsEvent } from '@/types/fflogs'
-import type { Composition, Job, DamageEvent, CastEvent, StatusEvent } from '@/types/timeline'
+import type {
+  Composition,
+  DamageEvent,
+  CastEvent,
+  PlayerDamageDetail,
+  StatusSnapshot,
+} from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
@@ -43,11 +49,11 @@ export function parseComposition(
  * 解析伤害事件（只保留 Boss 技能）
  *
  * V2 事件字段：abilityGameID, packetID, sourceID, targetID, amount, unmitigatedAmount, absorbed
- * 聚合逻辑：
- * 1. 相同 packetID 视为同一个伤害
- * 2. targetID 在 playerMap 中的为友方目标
- * 3. 伤害量 = 非坦克玩家的平均值，如果只有坦克则为所有玩家平均值
- * 4. 0.9 秒内的同名伤害事件合并
+ * 重构后的四步流程：
+ * 1. 从 damage 事件中过滤出对玩家的伤害，构建原始 PlayerDamageDetail��缺少护盾数据）
+ * 2. 从 absorbed 事件中构建耗盾事件四元组，匹配到对应的 PlayerDamageDetail
+ * 3. 将护盾数据 push 到 PlayerDamageDetail 的护盾列表
+ * 4. 按 packetID 汇总 PlayerDamageDetail，构建 DamageEvent
  */
 export function parseDamageEvents(
   events: FFLogsEvent[],
@@ -58,196 +64,164 @@ export function parseDamageEvents(
   const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
   const TANK_JOBS = getTankJobs()
 
-  const packetMap = new Map<
-    number,
-    {
-      name: string
-      abilityId: number
-      abilityType: string | number
-      firstTime: number
-      sourceID: number
-      playerDamages: Map<
-        number,
-        {
-          playerId: number
-          job: string
-          unmitigatedDamage: number
-          absorbedDamage: number
-          finalDamage: number
-        }
-      >
-    }
-  >()
+  // Step 1: 从 damage 事件中构建原始 PlayerDamageDetail，并解析 buffs 字段
+  const playerDamageDetails: PlayerDamageDetail[] = []
 
   for (const event of events) {
     if (event.type !== 'damage') continue
     if (!event.targetID || !playerMap.has(event.targetID)) continue
-
-    const packetID = event.packetID
-    if (!packetID) continue
+    if (!event.packetID) continue
 
     const abilityId = event.abilityGameID ?? 0
     const abilityMeta = abilityMap?.get(abilityId)
     const abilityName = abilityMeta?.name ?? '未知技能'
-    const abilityType = abilityMeta?.type ?? 0
 
     if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
     if (abilityId === 16152) continue // 超火流星
 
-    const targetId = event.targetID
-    const unmitigatedAmount = event.unmitigatedAmount || event.amount || 0
-    const absorbedAmount = event.absorbed || 0
-    const finalAmount = event.amount || 0
+    const player = playerMap.get(event.targetID)
+    if (!player) continue
 
-    if (!packetMap.has(packetID)) {
-      packetMap.set(packetID, {
-        name: abilityName,
-        abilityId,
-        abilityType,
-        firstTime: event.timestamp || 0,
-        sourceID: event.sourceID || 0,
-        playerDamages: new Map(),
-      })
+    const job = JOB_MAP[player.type]
+    if (!job) continue
+
+    const chineseName = getActionChinese(abilityId)
+    const skillName = chineseName ?? abilityName
+
+    // 解析 buffs 字段，提取所有减伤状态（百分比减伤和盾值）
+    const statuses: StatusSnapshot[] = []
+    if (event.buffs) {
+      const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
+
+      for (const buffId of buffIds) {
+        const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
+        const statusMeta = getStatusById(statusId)
+
+        // 添加百分比减伤状态和盾值状态（盾值先留空，后续通过 absorbed 事件填充）
+        if (statusMeta) {
+          statuses.push({
+            statusId,
+            targetPlayerId: event.targetID,
+            absorb: undefined, // 盾值状态的 absorb 字段后续填充
+          })
+        }
+      }
     }
 
-    const packet = packetMap.get(packetID)!
-    const player = playerMap.get(targetId)
-    if (player && targetId !== undefined) {
-      packet.playerDamages.set(targetId, {
-        playerId: targetId,
-        job: player.type,
-        unmitigatedDamage: unmitigatedAmount,
-        absorbedDamage: absorbedAmount,
-        finalDamage: finalAmount,
-      })
+    playerDamageDetails.push({
+      timestamp: event.timestamp || 0,
+      packetId: event.packetID,
+      sourceId: event.sourceID || 0,
+      playerId: event.targetID,
+      job,
+      abilityId,
+      skillName,
+      unmitigatedDamage: event.unmitigatedAmount || event.amount || 0,
+      finalDamage: event.amount || 0,
+      statuses,
+    })
+  }
+
+  // Step 2 & 3: 从 absorbed 事件中构建耗盾四元组，匹配并添加盾值状态
+  // 构建查找 Map: key = `${timestamp}-${targetID}-${sourceID}-${abilityGameID}`
+  const detailMap = new Map<string, PlayerDamageDetail>()
+  for (const detail of playerDamageDetails) {
+    const key = `${detail.timestamp}-${detail.playerId}-${detail.sourceId}-${detail.abilityId}`
+    detailMap.set(key, detail)
+  }
+
+  for (const event of events) {
+    if (event.type !== 'absorbed') continue
+    if (!event.amount) continue
+    if (!event.targetID) continue
+
+    // FFLogs 的 absorbed 事件会把泛输血（1002613）记录为泛血印（1002643）
+    let statusId = event.abilityGameID
+    if (statusId === 1002643) statusId = 1002613
+
+    const actualStatusId = statusId && statusId > 1_000_000 ? statusId - 1_000_000 : statusId || 0
+
+    // 构建匹配 key: 使用 attackerID 匹配 damage 事件的 sourceID
+    const key = `${event.timestamp}-${event.targetID}-${event.attackerID}-${event.extraAbilityGameID}`
+    const detail = detailMap.get(key)
+
+    if (detail) {
+      // 查找 statuses 中是否已存在该盾值状态
+      const existingStatus = detail.statuses.find(s => s.statusId === actualStatusId)
+      if (existingStatus) {
+        // 填充盾值字段
+        existingStatus.absorb = event.amount
+      }
     }
   }
 
-  const damageEvents: DamageEvent[] = []
-  let index = 0
+  // Step 4: 按时间窗口（0.9秒）+ 技能名称汇总，构建 DamageEvent
+  const TIME_WINDOW = 900 // 0.9秒 = 900毫秒
 
-  for (const [packetId, data] of packetMap) {
-    let totalUnmitigatedDamage = 0
-    for (const pd of data.playerDamages.values()) {
-      totalUnmitigatedDamage += pd.unmitigatedDamage
+  // 按时间排序所有 PlayerDamageDetail
+  playerDamageDetails.sort((a, b) => a.timestamp - b.timestamp)
+
+  const damageEvents: DamageEvent[] = []
+  const processedIndices = new Set<number>()
+
+  for (let i = 0; i < playerDamageDetails.length; i++) {
+    if (processedIndices.has(i)) continue
+
+    const baseDetail = playerDamageDetails[i]
+    const details: PlayerDamageDetail[] = [baseDetail]
+    processedIndices.add(i)
+
+    // 查找时间窗口内相同技能名称的其他伤害
+    for (let j = i + 1; j < playerDamageDetails.length; j++) {
+      if (processedIndices.has(j)) continue
+
+      const currentDetail = playerDamageDetails[j]
+      const timeDiff = currentDetail.timestamp - baseDetail.timestamp
+
+      // 超出时间窗口，停止查找
+      if (timeDiff > TIME_WINDOW) break
+
+      // 相同技能名称，合并
+      if (currentDetail.skillName === baseDetail.skillName) {
+        details.push(currentDetail)
+        processedIndices.add(j)
+      }
     }
+
+    // 过滤总伤害过低的事件
+    const totalUnmitigatedDamage = details.reduce((sum, d) => sum + d.unmitigatedDamage, 0)
     if (totalUnmitigatedDamage < 10000) continue
 
-    const relativeTime = Math.round((data.firstTime - fightStartTime) / 10) / 100
+    // 找到最早的 detail
+    const firstDetail = details.reduce((earliest, current) =>
+      current.timestamp < earliest.timestamp ? current : earliest
+    )
+    const relativeTime = Math.round((firstDetail.timestamp - fightStartTime) / 10) / 100
     if (relativeTime < 0) continue
 
-    const chineseName = getActionChinese(data.abilityId)
-    const skillName = chineseName ?? data.name
+    // 计算平均伤害（非坦克优先）
+    const nonTankDetails = details.filter(d => !TANK_JOBS.includes(d.job))
+    const detailsForAverage = nonTankDetails.length > 0 ? nonTankDetails : details
+    const averageDamage = Math.round(
+      detailsForAverage.reduce((sum, d) => sum + d.unmitigatedDamage, 0) / detailsForAverage.length
+    )
 
-    const playerDamageDetails: Array<{
-      playerId: number
-      job: Job
-      skillName: string
-      unmitigatedDamage: number
-      absorbedDamage: number
-      finalDamage: number
-    }> = []
-
-    for (const pd of data.playerDamages.values()) {
-      const job = JOB_MAP[pd.job]
-      if (!job) continue
-      playerDamageDetails.push({
-        playerId: pd.playerId,
-        job,
-        skillName,
-        unmitigatedDamage: pd.unmitigatedDamage,
-        absorbedDamage: pd.absorbedDamage,
-        finalDamage: pd.finalDamage,
-      })
-    }
-
-    const nonTankDamages = playerDamageDetails.filter(d => !TANK_JOBS.includes(d.job))
-    let averageDamage: number
-    if (nonTankDamages.length > 0) {
-      averageDamage = Math.floor(
-        nonTankDamages.reduce((acc, d) => acc + d.unmitigatedDamage, 0) / nonTankDamages.length
-      )
-    } else {
-      averageDamage = Math.floor(
-        playerDamageDetails.reduce((acc, d) => acc + d.unmitigatedDamage, 0) /
-          playerDamageDetails.length
-      )
-    }
-
+    const abilityMeta = abilityMap?.get(firstDetail.abilityId)
     damageEvents.push({
-      id: `event-${index++}`,
-      name: skillName,
+      id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
+      name: firstDetail.skillName,
       time: relativeTime,
       damage: averageDamage,
-      type: detectDamageType(data.playerDamages.size),
-      damageType: detectDamageTypeFromAbility(data.abilityType),
-      playerDamageDetails,
-      packetId: packetId,
+      type: detectDamageType(details.length),
+      damageType: detectDamageTypeFromAbility(abilityMeta?.type ?? 0),
+      playerDamageDetails: details,
+      packetId: firstDetail.packetId,
     })
   }
 
   damageEvents.sort((a, b) => a.time - b.time)
 
-  // 合并 0.9 秒内的同名伤害事件
-  const mergedEvents: DamageEvent[] = []
-  let i = 0
-  while (i < damageEvents.length) {
-    const current = damageEvents[i]
-    const toMerge: DamageEvent[] = [current]
-    let j = i + 1
-    while (j < damageEvents.length) {
-      const next = damageEvents[j]
-      if (next.time - current.time <= 0.9 && next.name === current.name) {
-        toMerge.push(next)
-        j++
-      } else {
-        break
-      }
-    }
-    mergedEvents.push(toMerge.length === 1 ? current : mergeMultipleDamageEvents(toMerge))
-    i = j
-  }
-
-  return mergedEvents
-}
-
-function mergeMultipleDamageEvents(events: DamageEvent[]): DamageEvent {
-  if (events.length === 1) return events[0]
-
-  const TANK_JOBS = getTankJobs()
-  const playerDamageMap = new Map<
-    number,
-    {
-      playerId: number
-      job: Job
-      skillName: string
-      unmitigatedDamage: number
-      absorbedDamage: number
-      finalDamage: number
-    }
-  >()
-
-  for (const event of events) {
-    for (const detail of event.playerDamageDetails || []) {
-      const existing = playerDamageMap.get(detail.playerId)
-      if (existing) {
-        existing.unmitigatedDamage += detail.unmitigatedDamage
-        existing.absorbedDamage += detail.absorbedDamage
-        existing.finalDamage += detail.finalDamage
-      } else {
-        playerDamageMap.set(detail.playerId, { ...detail })
-      }
-    }
-  }
-
-  const merged = Array.from(playerDamageMap.values())
-  const nonTank = merged.filter(d => !TANK_JOBS.includes(d.job))
-  const src = nonTank.length > 0 ? nonTank : merged
-  const averageDamage = Math.floor(
-    src.reduce((acc, d) => acc + d.unmitigatedDamage, 0) / src.length
-  )
-
-  return { ...events[0], damage: averageDamage, playerDamageDetails: merged }
+  return damageEvents
 }
 
 function detectDamageType(hitCount: number): 'aoe' | 'tankbuster' | 'raidwide' {
@@ -270,90 +244,12 @@ function detectDamageTypeFromAbility(
 }
 
 /**
- * 从 damage 事件的 buffs 字段与 absorbed 事件解析状态快照（回放模式）
- *
- * 不依赖 applybuff/removebuff 事件流，而是直接从每个 damage 事件的 buffs 字段
- * 读取该时刻目标身上的状态列表，并通过四元组匹配 absorbed 事件获取盾值消耗量。
- *
- * 匹配规则：
- *   damage  事件四元组：(timestamp, targetID, buffID,        abilityGameID)
- *   absorbed 事件四元组：(timestamp, targetID, abilityGameID, extraAbilityGameID)
- *
- * buffs 字段格式：`"1002609.1002345."` — 以 `.` 分隔的 buff ID 列表（带 1e6 偏移）
- */
-export function parseStatusEvents(events: FFLogsEvent[], fightStartTime: number): StatusEvent[] {
-  // 构建 absorbed 查找表：key -> absorbed amount
-  const absorbedMap = new Map<string, number>()
-  for (const event of events) {
-    if (event.type !== 'absorbed') continue
-    if (!event.amount) continue
-    const key = `${event.timestamp}-${event.targetID}-${event.abilityGameID}-${event.extraAbilityGameID}`
-    absorbedMap.set(key, event.amount)
-  }
-
-  const statusEvents: StatusEvent[] = []
-
-  for (const event of events) {
-    // 支持 applybuff/applydebuff 事件流模式
-    if (event.type === 'applybuff' || event.type === 'applydebuff') {
-      if (!event.abilityGameID) continue
-
-      const rawId: number = event.abilityGameID
-      const statusId = rawId > 1_000_000 ? rawId - 1_000_000 : rawId
-      const startTime = (event.timestamp - fightStartTime) / 1000
-      const duration = event.duration != null ? event.duration / 1000 : 30
-      const endTime = startTime + duration
-
-      statusEvents.push({
-        statusId,
-        startTime,
-        endTime,
-        sourcePlayerId: event.sourceID,
-        targetPlayerId: event.targetID,
-        targetInstance: event.targetInstance,
-        absorb: event.absorb,
-      })
-      continue
-    }
-
-    // 回放模式：从 damage 事件的 buffs 字段解析
-    if (event.type !== 'damage') continue
-    if (!event.buffs) continue
-
-    const { timestamp, targetID, abilityGameID: damageAbilityId, packetID } = event
-    const eventTime = (timestamp - fightStartTime) / 1000
-
-    const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
-
-    for (const buffId of buffIds) {
-      const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
-
-      if (!getStatusById(statusId)) continue
-
-      const absorbKey = `${timestamp}-${targetID}-${buffId}-${damageAbilityId}`
-      const absorb = absorbedMap.get(absorbKey)
-
-      statusEvents.push({
-        statusId,
-        startTime: eventTime,
-        endTime: eventTime,
-        targetPlayerId: targetID,
-        absorb,
-        packetId: packetID,
-      })
-    }
-  }
-
-  return statusEvents
-}
-
-/**
  * 解析技能使用事件（CastEvent）
  *
  * V2 事件字段：abilityGameID，sourceID，targetID
  * 通过 playerMap 判断是否为友方玩家施放
  */
-export function parseCastEventsFromFFLogs(
+export function parseCastEvents(
   events: FFLogsEvent[],
   fightStartTime: number,
   playerMap: Map<number, { id: number; name: string; type: string }>

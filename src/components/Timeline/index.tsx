@@ -10,7 +10,6 @@ import { useMitigationStore } from '@/store/mitigationStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { sortJobsByOrder } from '@/data/jobs'
-import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { toast } from 'sonner'
 import ConfirmDialog from '../ConfirmDialog'
 import TimeRuler from './TimeRuler'
@@ -80,8 +79,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const { actions } = useMitigationStore()
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
-
-  const eventResults = useDamageCalculation(timeline)
 
   // 布局常量
   const timeRulerHeight = 30
@@ -746,7 +743,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
               <DamageEventTrack
                 events={timeline.damageEvents}
-                eventResults={eventResults}
                 selectedEventId={selectedEventId}
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}

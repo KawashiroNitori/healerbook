@@ -25,20 +25,14 @@ export interface Timeline {
   composition: Composition
   /** 阶段列表 */
   phases: Phase[]
-  /** 伤害事件列表（扁平化，便于访问） */
+  /** 伤害事件列表 */
   damageEvents: DamageEvent[]
   /** 技能使用事件列表 */
   castEvents: CastEvent[]
-  /** 状态事件列表（编辑模式由 executor 生成，回放模式从 FFLogs 导入） */
+  /** 状态事件列表（编辑模式专用） */
   statusEvents: StatusEvent[]
   /** 是否为回放模式 */
   isReplayMode?: boolean
-  /** 减伤分配列表（已废弃，使用 castEvents 代替） */
-  mitigationAssignments?: MitigationAssignment[]
-  /** 减伤规划（已废弃，保留用于向后兼容） */
-  mitigationPlan?: MitigationPlan
-  /** 回放模式的原始状态事件（已废弃，使用 statusEvents 代替） */
-  replayStateEvents?: ReplayStateEvent[]
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
@@ -62,21 +56,51 @@ export interface Encounter {
 }
 
 /**
+ * 护盾信息
+ */
+export interface ShieldInfo {
+  /** 护盾状态 ID */
+  statusId: number
+  /** 护盾抵消量 */
+  amount: number
+}
+
+/**
+ * 状态快照（用于伤害事件的状态记录）
+ */
+export interface StatusSnapshot {
+  /** 状态 ID */
+  statusId: number
+  /** 目标玩家 ID */
+  targetPlayerId?: number
+  /** 盾值（仅盾值类型状态） */
+  absorb?: number
+}
+
+/**
  * 单个玩家的伤害详情
  */
 export interface PlayerDamageDetail {
+  /** 时间戳（毫秒） */
+  timestamp: number
+  /** 伤害包 ID */
+  packetId: number
+  /** 攻击者 ID */
+  sourceId: number
   /** 玩家 ID */
   playerId: number
   /** 玩家职业 */
   job: Job
+  /** 伤害技能 ID */
+  abilityId: number
   /** 技能名称 */
   skillName: string
   /** 原始伤害 */
   unmitigatedDamage: number
-  /** 护盾抵消量 */
-  absorbedDamage: number
   /** 最终伤害 */
   finalDamage: number
+  /** 生效的状态快照列表（包括百分比减伤和盾值） */
+  statuses: StatusSnapshot[]
 }
 
 /**
@@ -130,14 +154,6 @@ export interface Composition {
 }
 
 /**
- * 减伤规划
- */
-export interface MitigationPlan {
-  /** 减伤分配列表 */
-  assignments: MitigationAssignment[]
-}
-
-/**
  * 技能使用事件
  */
 export interface CastEvent {
@@ -151,27 +167,6 @@ export interface CastEvent {
   playerId: number
   /** 使用者职业 */
   job: Job
-  /** 目标玩家 ID（可选，用于单体技能） */
-  targetPlayerId?: number
-}
-
-/**
- * 减伤分配（已废弃，使用 CastEvent 代替）
- * @deprecated
- */
-export interface MitigationAssignment {
-  /** 分配 ID */
-  id: string
-  /** 技能 ID */
-  actionId: number
-  /** 对应的伤害事件 ID */
-  damageEventId: string
-  /** 使用时间（秒） */
-  time: number
-  /** 使用者职业 */
-  job: Job
-  /** 使用者玩家 ID */
-  playerId: number
   /** 目标玩家 ID（可选，用于单体技能） */
   targetPlayerId?: number
 }
@@ -224,23 +219,4 @@ export interface StatusEvent {
   absorb?: number
   /** 伤害包 ID（回放模式，用于关联同一次技能对不同玩家的伤害） */
   packetId?: number
-}
-
-/**
- * 回放模式状态事件（从 FFLogs 导入）
- * @deprecated 使用 StatusEvent 代替
- */
-export interface ReplayStateEvent {
-  /** 事件类型 */
-  type: 'applybuff' | 'removebuff' | 'applydebuff' | 'removedebuff'
-  /** 时间戳（相对战斗开始，毫秒） */
-  timestamp: number
-  /** 状态 ID */
-  abilityGameID: number
-  /** 来源玩家 ID */
-  sourceID?: number
-  /** 目标玩家 ID */
-  targetID?: number
-  /** 目标类型 */
-  targetInstance?: number
 }

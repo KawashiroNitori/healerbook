@@ -107,7 +107,7 @@ export default function TimelineMinimap({
       const minutes = Math.floor(t / 60)
       const timeText = `${minutes}m`
 
-      // 绘���文字背景
+      // 文字背景
       const textMetrics = ctx.measureText(timeText)
       const textWidth = textMetrics.width
       const padding = 4
@@ -117,7 +117,7 @@ export default function TimelineMinimap({
 
       // 绘制文字
       ctx.fillStyle = '#18181b'
-      ctx.fillText(timeText, x, 5)
+      ctx.fillText(timeText, x, 8)
     }
 
     // 绘制分隔线

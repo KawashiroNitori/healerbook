@@ -106,31 +106,3 @@ export interface MitigationAction {
   /** 技能执行器 */
   executor: ActionExecutor
 }
-
-/**
- * 减伤效果（运行时）
- */
-export interface MitigationEffect {
-  /** 效果 ID */
-  id?: number
-  /** 物理减伤值 */
-  physicReduce: number
-  /** 魔法减伤值 */
-  magicReduce: number
-  /** 盾值（初始值） */
-  barrier: number
-  /** 作用前的剩余盾值 */
-  remainingBarrierBefore?: number
-  /** 作用后的剩余盾值 */
-  remainingBarrierAfter?: number
-  /** 开始时间 */
-  startTime: number
-  /** 结束时间 */
-  endTime: number
-  /** 关联的技能 ID */
-  actionId: number
-  /** 使用者职业 */
-  job: Job
-  /** 关联的分配 ID（用于跟踪盾值消耗） */
-  assignmentId?: string
-}

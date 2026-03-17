@@ -98,7 +98,7 @@ export default function ActionTooltip({
             checkIntervalRef.current = null
           }
         }
-      }, 500)
+      }, 200)
     } else {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current)

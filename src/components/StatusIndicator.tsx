@@ -9,11 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface StatusIndicatorProps {
-  time: number
+  // time: number // TODO: 重新设计后启用
   className?: string
 }
 
-export default function StatusIndicator({ time, className }: StatusIndicatorProps) {
+export default function StatusIndicator({ className }: StatusIndicatorProps) {
   const timeline = useTimelineStore(state => state.timeline)
 
   const activeStatuses = useMemo(() => {
@@ -27,7 +27,7 @@ export default function StatusIndicator({ time, className }: StatusIndicatorProp
       type: 'friendly' | 'enemy'
       source: string
     }>
-  }, [timeline, time])
+  }, [timeline])
 
   if (activeStatuses.length === 0) {
     return (

@@ -4,8 +4,6 @@
  */
 
 import type { DamageEvent } from '@/types/timeline'
-import type { PartyState } from '@/types/partyState'
-import type { MitigationStatus } from '@/types/status'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
 import { getJobName, JOB_METADATA } from '@/data/jobs'
@@ -13,10 +11,9 @@ import JobIcon from './JobIcon'
 
 interface PlayerDamageDetailsProps {
   event: DamageEvent
-  partyState: PartyState
 }
 
-export default function PlayerDamageDetails({ event, partyState }: PlayerDamageDetailsProps) {
+export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps) {
   if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
     return <div className="text-sm text-muted-foreground">没有玩家伤害详情数据</div>
   }
@@ -33,11 +30,8 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
       <h3 className="text-sm font-semibold">玩家伤害详情</h3>
 
       {sortedDetails.map(detail => {
-        // 查找对应的玩家状态
-        const playerState = partyState.players.find(p => p.id === detail.playerId)
-
-        // partyState 已通过 packetId 过滤，直接取该玩家的所有状态
-        const activeStatuses = playerState ? partyState.statuses : []
+        // 直接使用 detail.statuses（来自 PlayerDamageDetail）
+        const activeStatuses = detail.statuses || []
 
         return (
           <div key={detail.playerId} className="border rounded-lg p-3 space-y-2 bg-card">
@@ -56,7 +50,9 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
               <div>
                 <div className="text-muted-foreground">盾值抵消</div>
                 <div className="font-medium text-blue-600">
-                  {detail.absorbedDamage.toLocaleString()}
+                  {detail.statuses
+                    .reduce((sum, status) => sum + (status.absorb || 0), 0)
+                    .toLocaleString()}
                 </div>
               </div>
               <div>
@@ -84,9 +80,8 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
             {/* 生效状态 */}
             {activeStatuses.length > 0 && (
               <div className="space-y-1">
-                <div className="text-xs text-muted-foreground">生效状态:</div>
                 <div className="flex flex-wrap gap-1">
-                  {activeStatuses.map((status: MitigationStatus) => {
+                  {activeStatuses.map((status, index) => {
                     const meta = getStatusById(status.statusId)
                     const iconUrl = getStatusIconUrl(status.statusId)
                     const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
@@ -111,14 +106,14 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
                         mitigationText = `${reduction}%`
                       } else if (meta.type === 'absorbed') {
                         // 盾值减伤
-                        const remaining = status.remainingBarrier || 0
-                        mitigationText = `盾: ${remaining.toLocaleString()}`
+                        const absorb = status.absorb || 0
+                        mitigationText = `盾: ${absorb.toLocaleString()}`
                       }
                     }
 
                     return (
                       <div
-                        key={status.instanceId}
+                        key={`${status.statusId}-${index}`}
                         className="flex items-center gap-1 px-2 py-1 bg-secondary rounded text-xs"
                         title={mitigationText}
                       >
@@ -130,9 +125,9 @@ export default function PlayerDamageDetails({ event, partyState }: PlayerDamageD
                           />
                         )}
                         <span>{statusName}</span>
-                        {status.remainingBarrier && status.remainingBarrier > 0 && (
+                        {status.absorb && status.absorb > 0 && (
                           <span className="text-blue-600 ml-1">
-                            ({status.remainingBarrier.toLocaleString()})
+                            ({status.absorb.toLocaleString()})
                           </span>
                         )}
                       </div>

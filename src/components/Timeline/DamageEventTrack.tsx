@@ -6,11 +6,9 @@ import { Rect, Line } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
 import { GRID_LINE_STYLE, DAMAGE_TIME_LINE_STYLE } from './constants'
 import type { DamageEvent } from '@/types/timeline'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]
-  eventResults: Map<string, CalculationResult>
   selectedEventId: string | null
   zoomLevel: number
   timelineWidth: number
@@ -29,7 +27,6 @@ interface DamageEventTrackProps {
 
 export default function DamageEventTrack({
   events,
-  eventResults,
   selectedEventId,
   zoomLevel,
   timelineWidth,
@@ -63,9 +60,7 @@ export default function DamageEventTrack({
   const CARD_HEIGHT = 28 // 卡片高度
   const damageTimeLines = events.map(event => {
     const x =
-      draggingEventPosition?.eventId === event.id
-        ? draggingEventPosition.x
-        : event.time * zoomLevel
+      draggingEventPosition?.eventId === event.id ? draggingEventPosition.x : event.time * zoomLevel
     const row = rowMap.get(event.id) ?? 0
     const cardBottomY = yOffset + row * rowHeight + CARD_HEIGHT
 
@@ -99,9 +94,6 @@ export default function DamageEventTrack({
           return a.time - b.time
         })
         .map(event => {
-          const result = eventResults.get(event.id)
-          if (!result) return null
-
           return (
             <DamageEventCard
               key={event.id}
