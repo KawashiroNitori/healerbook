@@ -5,7 +5,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useDamageCalculation } from '@/hooks/useDamageCalculation'
+import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -38,7 +38,7 @@ export default function TimelineMinimap({
   const [isDragging, setIsDragging] = useState(false)
 
   const { timeline } = useTimelineStore()
-  const eventResults = useDamageCalculation(timeline)
+  const eventResults = useDamageCalculationResults()
 
   // 计算缩略图的缩放比例（减去内边距）
   const padding = 16 // p-2 = 8px * 2
@@ -132,8 +132,11 @@ export default function TimelineMinimap({
     const contentY = 24 // 内容区域从刻度下方开始
     const contentHeight = height - contentY
 
-    // 计算最大伤害值用于归一化
-    const maxDamage = Math.max(...timeline.damageEvents.map(e => e.damage), 1)
+    // 计算最大伤害值用于归一化（优先使用最终伤害）
+    const maxDamage = Math.max(
+      ...timeline.damageEvents.map(e => eventResults.get(e.id)?.finalDamage ?? e.damage),
+      1
+    )
 
     timeline.damageEvents.forEach(event => {
       const x = event.time * zoomLevel * minimapScale
@@ -141,9 +144,12 @@ export default function TimelineMinimap({
 
       // 根据伤害结果着色
       const result = eventResults.get(event.id)
+      const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0)
       let color = '#94a3b8' // 默认灰色
 
-      if (result) {
+      if (hasOverkill) {
+        color = '#373737' // 有死亡 - 深灰黑
+      } else if (result) {
         const damageReduction = 1 - result.finalDamage / result.originalDamage
         if (damageReduction >= 0.5) {
           color = '#22c55e' // 高减伤 - 绿色
@@ -156,8 +162,9 @@ export default function TimelineMinimap({
         }
       }
 
-      // 计算柱子高度（基于伤害量）
-      const normalizedHeight = (event.damage / maxDamage) * contentHeight
+      // 计算柱子高度（基于最终伤害）
+      const finalDamage = result?.finalDamage ?? event.damage
+      const normalizedHeight = (finalDamage / maxDamage) * contentHeight
       const barHeight = Math.max(3, normalizedHeight) // 最小高度 3px
 
       ctx.fillStyle = color

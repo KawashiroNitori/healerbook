@@ -49,6 +49,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
             <div className="flex items-center gap-2">
               <JobIcon job={detail.job} size="sm" />
               <span className="text-sm font-medium">{getJobName(detail.job)}</span>
+              {(detail.overkill ?? 0) > 0 && (
+                <span className="ml-auto text-xs text-gray-500 font-medium">💀 死亡</span>
+              )}
             </div>
 
             {/* 生命条 */}
@@ -93,14 +96,16 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
             {/* 伤害构成 */}
             {(() => {
               const shieldAbsorb = detail.statuses.reduce((sum, s) => sum + (s.absorb || 0), 0)
+              const overkill = detail.overkill || 0
               const pctMitigation = Math.max(
                 0,
-                detail.unmitigatedDamage - detail.finalDamage - shieldAbsorb
+                detail.unmitigatedDamage - detail.finalDamage - overkill - shieldAbsorb
               )
               const total = detail.unmitigatedDamage
               const shieldPct = total > 0 ? (shieldAbsorb / total) * 100 : 0
-              const pctPct = total > 0 ? (pctMitigation / total) * 100 : 0
+              const multiplierPct = total > 0 ? (pctMitigation / total) * 100 : 0
               const finalPct = total > 0 ? (detail.finalDamage / total) * 100 : 0
+              const overkillPct = total > 0 ? (overkill / total) * 100 : 0
               return (
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
@@ -119,6 +124,15 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                     <div className="h-2.5 bg-secondary rounded-full flex overflow-visible">
                       {(() => {
                         const segments = [
+                          ...(overkill > 0
+                            ? [
+                                {
+                                  pct: overkillPct,
+                                  color: 'rgb(55, 55, 55)',
+                                  label: `溢出伤害 ${overkill.toLocaleString()} (${overkillPct.toFixed(1)}%)`,
+                                },
+                              ]
+                            : []),
                           {
                             pct: finalPct,
                             color: 'rgb(239, 68, 68)',
@@ -130,9 +144,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                             label: `盾值减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
                           },
                           {
-                            pct: pctPct,
+                            pct: multiplierPct,
                             color: 'rgb(59, 130, 246)',
-                            label: `百分比减免 ${pctMitigation.toLocaleString()} (${pctPct.toFixed(1)}%)`,
+                            label: `百分比减免 ${pctMitigation.toLocaleString()} (${multiplierPct.toFixed(1)}%)`,
                           },
                         ].filter(s => s.pct > 0)
                         return segments.map((seg, i) => (

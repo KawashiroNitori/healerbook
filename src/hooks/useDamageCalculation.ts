@@ -10,7 +10,7 @@ import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { useTimelineStore } from '@/store/timelineStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getStatusById } from '@/utils/statusRegistry'
+import { calculatePercentile } from '@/utils/stats'
 
 /**
  * 计算时间轴上所有伤害事件的减伤结果
@@ -44,65 +44,35 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         }> = []
 
         for (const detail of event.playerDamageDetails) {
-          // 防御性检查：确保 statuses 存在且是数组
           if (!detail.statuses || !Array.isArray(detail.statuses)) {
             continue
           }
 
-          // 计算百分比减伤
-          let multiplier = 1.0
-          for (const snapshot of detail.statuses) {
-            const statusMeta = getStatusById(snapshot.statusId)
-            if (!statusMeta || statusMeta.type !== 'multiplier') continue
-
-            // 根据伤害类型获取减伤倍率
-            const damageType = event.damageType || 'physical'
-            let damageMultiplier = 1.0
-            if (damageType === 'physical') {
-              damageMultiplier = 1 - statusMeta.performance.physics
-            } else if (damageType === 'magical') {
-              damageMultiplier = 1 - statusMeta.performance.magic
-            } else {
-              damageMultiplier = 1 - statusMeta.performance.darkness
-            }
-
-            multiplier *= damageMultiplier
-          }
-
-          let damage = detail.unmitigatedDamage * multiplier
-
-          // 计算盾值减伤
-          const shieldSnapshots = detail.statuses.filter(s => s.absorb && s.absorb > 0)
-          for (const snapshot of shieldSnapshots) {
-            const absorbed = Math.min(damage, snapshot.absorb!)
-            damage -= absorbed
-            if (damage <= 0) break
-          }
-
-          const finalDamage = Math.max(0, Math.round(damage))
           const mitigationPercentage =
             detail.unmitigatedDamage > 0
-              ? ((detail.unmitigatedDamage - finalDamage) / detail.unmitigatedDamage) * 100
+              ? ((detail.unmitigatedDamage - detail.finalDamage) / detail.unmitigatedDamage) * 100
               : 0
 
           playerResults.push({
             originalDamage: detail.unmitigatedDamage,
-            finalDamage,
+            finalDamage: detail.finalDamage,
             mitigationPercentage,
           })
         }
 
-        // 使用平均减伤率作为事件的整体减伤结果
+        // 使用中位数作为事件的整体减伤结果
         if (playerResults.length > 0) {
-          const avgMitigation =
-            playerResults.reduce((sum, r) => sum + r.mitigationPercentage, 0) / playerResults.length
-          const avgFinalDamage =
-            playerResults.reduce((sum, r) => sum + r.finalDamage, 0) / playerResults.length
+          const medianMitigation = calculatePercentile(
+            playerResults.map(r => r.mitigationPercentage)
+          )
+          const medianFinalDamage = calculatePercentile(playerResults.map(r => r.finalDamage))
+          const maxDamage = Math.max(...playerResults.map(r => r.originalDamage))
 
           results.set(event.id, {
             originalDamage: event.damage,
-            finalDamage: Math.round(avgFinalDamage),
-            mitigationPercentage: Math.round(avgMitigation * 10) / 10,
+            finalDamage: medianFinalDamage,
+            maxDamage,
+            mitigationPercentage: medianMitigation,
             appliedStatuses: [],
           })
         }

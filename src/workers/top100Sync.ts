@@ -9,6 +9,10 @@
 import { FFLogsClientV2, type RankingEntry } from './fflogsClientV2'
 import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
 import type { FFLogsEvent, FFLogsV1Report } from '@/types/fflogs'
+import type { EncounterStatistics } from '@/types/mitigation'
+import type { Job } from '@/data/jobs'
+import { calculatePercentile } from '@/utils/stats'
+import { JOB_MAP } from '@/data/jobMap'
 
 /** KV 中存储的 TOP100 数据结构 */
 export interface Top100Data {
@@ -25,24 +29,9 @@ export interface FightStatistics {
   reportCode: string
   fightID: number
   damageByAbility: Record<number, number[]>
-  maxHPByJob: Record<string, number[]>
+  maxHPByJob: Record<Job, number[]>
   shieldByAbility: Record<number, number[]>
-}
-
-/** 遭遇战统计数据 */
-export interface EncounterStatistics {
-  encounterId: number
-  encounterName: string
-  /** 每个伤害技能的中位数伤害值 */
-  damageByAbility: Record<number, number>
-  /** 每个职业的中位数最大生命值 */
-  maxHPByJob: Record<string, number>
-  /** 每个盾值技能的中位数盾值 */
-  shieldByAbility: Record<number, number>
-  /** 累计样本总数 */
-  sampleSize: number
-  /** ISO 8601 时间戳 */
-  updatedAt: string
+  healByAbility: Record<number, number[]>
 }
 
 /** 样本存储（低频访问，供定时任务读写） */
@@ -51,9 +40,11 @@ export interface EncounterSamples {
   /** 每个伤害技能的原始样本值，每个 ability 独立限制 MAX_SAMPLES 条 */
   damageByAbility: Record<number, number[]>
   /** 每个职业（Job 枚举字符串，如 "WHM"）的原始最大 HP 样本值 */
-  maxHPByJob: Record<string, number[]>
+  maxHPByJob: Record<Job, number[]>
   /** 每个盾值状态的原始样本值，每个 statusId 独立限制 MAX_SAMPLES 条 */
   shieldByAbility: Record<number, number[]>
+  /** 每个治疗技能的原始样本值，每个 ability 独立限制 MAX_SAMPLES 条 */
+  healByAbility: Record<number, number[]>
   updatedAt: string
 }
 
@@ -93,6 +84,24 @@ export function getStatisticsKVKey(encounterId: number): string {
 /** 获取样本数据的 KV 键名 */
 export function getSamplesKVKey(encounterId: number): string {
   return `statistics-samples:encounter:${encounterId}`
+}
+
+/**
+ * 从事件列表中提取治疗数据
+ */
+function extractHealData(events: FFLogsEvent[]): Record<number, number[]> {
+  const healByAbility: Record<number, number[]> = {}
+
+  for (const event of events) {
+    if (event.type === 'heal' && !event.overheal && event.abilityGameID && event.amount) {
+      if (!healByAbility[event.abilityGameID]) {
+        healByAbility[event.abilityGameID] = []
+      }
+      healByAbility[event.abilityGameID].push(event.amount)
+    }
+  }
+
+  return healByAbility
 }
 
 /**
@@ -139,14 +148,14 @@ function extractShieldData(events: FFLogsEvent[]): Record<number, number[]> {
 
 /**
  * 从事件列表中提取最大生命值数据
- * 从 absorbed 类型的事件中提取目标的最大生命值
+ * 从 heal 类型的事件中提取目标的最大生命值
  */
-function extractMaxHPData(events: FFLogsEvent[], report: FFLogsV1Report): Record<string, number[]> {
-  const maxHPByJob: Record<string, number[]> = {}
+function extractMaxHPData(events: FFLogsEvent[], report: FFLogsV1Report): Record<Job, number[]> {
+  const maxHPByJob: Partial<Record<Job, number[]>> = {}
 
   for (const event of events) {
     // absorbed 事件的 targetResources 包含 maxHitPoints 字段
-    if (event.type === 'absorbed') {
+    if (event.type === 'heal') {
       const targetResources = (
         event as FFLogsEvent & { targetResources?: { maxHitPoints?: number } }
       ).targetResources
@@ -156,20 +165,21 @@ function extractMaxHPData(events: FFLogsEvent[], report: FFLogsV1Report): Record
         if (maxHP && maxHP > 0 && targetID) {
           const actor = report.friendlies?.find(a => a.id === targetID)
           if (actor && actor.type) {
-            if (!maxHPByJob[actor.type]) {
-              maxHPByJob[actor.type] = []
+            const job = JOB_MAP[actor.type.replace(/\s/g, '')]
+            if (job) {
+              if (!maxHPByJob[job]) maxHPByJob[job] = []
+              maxHPByJob[job]!.push(maxHP)
             }
-            maxHPByJob[actor.type].push(maxHP)
           }
         }
       }
     }
   }
 
-  return maxHPByJob
+  return maxHPByJob as Record<Job, number[]>
 }
 
-const MAX_SAMPLES = 200
+const MAX_SAMPLES = 500
 
 /**
  * Reservoir Sampling（Algorithm R）
@@ -192,28 +202,17 @@ export function mergeWithReservoirSampling(
 }
 
 /**
- * 计算中位数并取整
+ * 对 Record<K, number[]> 中每个 key 计算指定百分位数
  */
-export function calculateMedian(values: number[]): number {
-  if (values.length === 0) return 0
-  const sorted = values.slice().sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 !== 0
-    ? sorted[mid]
-    : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-}
-
-/**
- * 对 Record<K, number[]> 中每个 key 计算中位数
- */
-export function calculateMedians<T extends number | string>(
-  data: Record<T, number[]>
+export function calculatePercentiles<T extends number | string>(
+  data: Record<T, number[]>,
+  percentile: number = 50
 ): Record<T, number> {
   const result: Record<string, number> = {}
 
   for (const [key, values] of Object.entries(data)) {
     if (Array.isArray(values) && values.length > 0) {
-      result[key] = calculateMedian(values as number[])
+      result[key] = calculatePercentile(values as number[], percentile)
     }
   }
 
@@ -322,6 +321,7 @@ export async function extractFightStatistics(
     const damageData = extractDamageData(eventsResponse.events)
     const shieldData = extractShieldData(eventsResponse.events)
     const maxHPData = extractMaxHPData(eventsResponse.events, report)
+    const healData = extractHealData(eventsResponse.events)
 
     // 保存到临时 KV
     const battleStats: FightStatistics = {
@@ -331,6 +331,7 @@ export async function extractFightStatistics(
       damageByAbility: damageData,
       maxHPByJob: maxHPData,
       shieldByAbility: shieldData,
+      healByAbility: healData,
     }
 
     await kv.put(
@@ -410,6 +411,7 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
   const batchDamage: Record<number, number[]> = {}
   const batchMaxHP: Record<string, number[]> = {}
   const batchShield: Record<number, number[]> = {}
+  const batchHeal: Record<number, number[]> = {}
 
   // Step 1: 读取本批次所有临时战斗数据
   for (const battle of task.fights) {
@@ -435,6 +437,12 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
       if (!batchMaxHP[job]) batchMaxHP[job] = []
       batchMaxHP[job].push(...(hps as number[]))
     }
+
+    for (const [abilityId, heals] of Object.entries(battleStats.healByAbility ?? {})) {
+      const id = Number(abilityId)
+      if (!batchHeal[id]) batchHeal[id] = []
+      batchHeal[id].push(...(heals as number[]))
+    }
   }
 
   // Step 2: 读取旧样本（不存在则视为空）
@@ -444,6 +452,7 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
     damageByAbility: {},
     maxHPByJob: {},
     shieldByAbility: {},
+    healByAbility: {},
     updatedAt: '',
   }
 
@@ -465,23 +474,35 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
     mergedMaxHP[job] = mergeWithReservoirSampling(mergedMaxHP[job] ?? [], values as number[])
   }
 
-  // Step 4: 保存新样本（无 TTL）
+  const mergedHeal: Record<number, number[]> = { ...(oldSamples.healByAbility ?? {}) }
+  for (const [id, values] of Object.entries(batchHeal)) {
+    const key = Number(id)
+    mergedHeal[key] = mergeWithReservoirSampling(mergedHeal[key] ?? [], values as number[])
+  }
+
+  // Step 4: 保存新样本
   const newSamples: EncounterSamples = {
     encounterId: task.encounterId,
     damageByAbility: mergedDamage,
     maxHPByJob: mergedMaxHP,
     shieldByAbility: mergedShield,
+    healByAbility: mergedHeal,
     updatedAt: new Date().toISOString(),
   }
-  await kv.put(getSamplesKVKey(task.encounterId), JSON.stringify(newSamples))
+  await kv.put(getSamplesKVKey(task.encounterId), JSON.stringify(newSamples), {
+    expirationTtl: 25 * 60 * 60,
+  })
 
   // Step 5: 计算中位数并保存成品
   const statistics: EncounterStatistics = {
     encounterId: task.encounterId,
     encounterName: task.encounterName,
-    damageByAbility: calculateMedians(mergedDamage),
-    maxHPByJob: calculateMedians(mergedMaxHP),
-    shieldByAbility: calculateMedians(mergedShield),
+    damageByAbility: calculatePercentiles(mergedDamage),
+    maxHPByJob: calculatePercentiles(mergedMaxHP),
+    shieldByAbility: calculatePercentiles(mergedShield),
+    healByAbility: calculatePercentiles(mergedHeal),
+    critHealByAbility: calculatePercentiles(mergedHeal, 90),
+    critShieldByAbility: calculatePercentiles(mergedShield, 90),
     sampleSize: Object.values(mergedDamage).reduce((sum, arr) => sum + arr.length, 0),
     updatedAt: new Date().toISOString(),
   }

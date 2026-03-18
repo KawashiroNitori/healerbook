@@ -31,7 +31,8 @@
       "Bash(pnpm tsc:*)",
       "Bash(cut:*)",
       "Bash(cd:*)",
-      "WebFetch(domain:v2.xivapi.com)"
+      "WebFetch(domain:v2.xivapi.com)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

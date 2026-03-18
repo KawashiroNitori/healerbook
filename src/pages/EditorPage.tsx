@@ -8,6 +8,8 @@ import { ArrowLeft } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { getTimeline } from '@/utils/timelineStorage'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
+import { useDamageCalculation } from '@/hooks/useDamageCalculation'
+import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
 import EditorToolbar from '@/components/EditorToolbar'
 import ActionPanel from '@/components/SkillPanel'
 import PropertyPanel from '@/components/PropertyPanel'
@@ -25,6 +27,7 @@ export default function EditorPage() {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
   useEncounterStatistics(timeline?.encounter?.id)
+  const calculationResults = useDamageCalculation(timeline)
 
   useEffect(() => {
     if (timelineId) {
@@ -116,28 +119,30 @@ export default function EditorPage() {
       <EditorToolbar />
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 左侧：技能面板（固定宽度，独立滚动） */}
-        <ActionPanel />
+      <DamageCalculationContext.Provider value={calculationResults}>
+        <div className="flex-1 flex overflow-hidden">
+          {/* 左侧：技能面板（固定宽度，独立滚动） */}
+          <ActionPanel />
 
-        {/* 中间：时间轴区域 */}
-        <div className="flex-1 overflow-hidden">
-          <div ref={canvasContainerRef} className="h-full">
-            {timeline ? (
-              <ErrorBoundary>
-                <TimelineCanvas width={canvasSize.width} height={canvasSize.height} />
-              </ErrorBoundary>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">加载中...</p>
-              </div>
-            )}
+          {/* 中间：时间轴区域 */}
+          <div className="flex-1 overflow-hidden">
+            <div ref={canvasContainerRef} className="h-full">
+              {timeline ? (
+                <ErrorBoundary>
+                  <TimelineCanvas width={canvasSize.width} height={canvasSize.height} />
+                </ErrorBoundary>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">加载中...</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* 右侧：属性面板 */}
-        <PropertyPanel />
-      </div>
+          {/* 右侧：属性面板 */}
+          <PropertyPanel />
+        </div>
+      </DamageCalculationContext.Provider>
     </div>
   )
 }

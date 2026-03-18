@@ -162,8 +162,14 @@ export interface FFLogsEvent {
   hitType?: number
   /** 未减伤伤害 */
   unmitigatedAmount?: number
+  /** 倍率 */
+  multiplier?: number
   /** 盾值吸收 */
   absorbed?: number
+  /** 过量治疗 */
+  overheal?: number
+  /** 溢出伤害 */
+  overkill?: number
   /** 包 ID（用于聚合同一伤害） */
   packetID?: number
   /** 状态持续时间 */

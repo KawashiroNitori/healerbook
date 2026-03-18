@@ -4,6 +4,7 @@
 
 import { Group, Rect, Text } from 'react-konva'
 import type { DamageEvent } from '@/types/timeline'
+import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 
 interface DamageEventCardProps {
   event: DamageEvent
@@ -32,6 +33,8 @@ export default function DamageEventCard({
   onDragEnd,
   isReadOnly = false,
 }: DamageEventCardProps) {
+  const calculationResults = useDamageCalculationResults()
+  const calculatedEvent = calculationResults.get(event.id)
   const x = event.time * zoomLevel
   const y = yOffset + row * rowHeight + rowHeight / 2
 
@@ -41,6 +44,16 @@ export default function DamageEventCard({
     special: '#c026d3',
   }
   const nameColor = damageTypeColorMap[event.damageType || 'physical'] || '#ef4444'
+
+  const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0) ?? false
+
+  const displayDamage = hasOverkill ? calculatedEvent?.maxDamage : calculatedEvent?.finalDamage
+  const damageText =
+    displayDamage !== undefined
+      ? displayDamage >= 10000
+        ? `${(displayDamage / 10000).toFixed(1)}w`
+        : displayDamage.toLocaleString()
+      : ''
 
   return (
     <Group
@@ -78,9 +91,9 @@ export default function DamageEventCard({
 
       {/* 技能名称 */}
       <Text
-        x={5}
+        x={hasOverkill ? 20 : 5}
         y={-15}
-        width={140}
+        width={damageText ? 90 : 140}
         height={30}
         text={event.name}
         fontSize={13}
@@ -93,6 +106,40 @@ export default function DamageEventCard({
         perfectDrawEnabled={false}
         listening={false}
       />
+
+      {/* 死亡图标 */}
+      {hasOverkill && (
+        <Text
+          x={3}
+          y={-15}
+          width={18}
+          height={30}
+          text="💀"
+          fontSize={12}
+          verticalAlign="middle"
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+
+      {/* 最终伤害数值 */}
+      {damageText && (
+        <Text
+          x={95}
+          y={-15}
+          width={50}
+          height={30}
+          text={damageText}
+          fontSize={12}
+          fill="#6b7280"
+          fontFamily="Arial, sans-serif"
+          wrap="none"
+          align="right"
+          verticalAlign="middle"
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
     </Group>
   )
 }

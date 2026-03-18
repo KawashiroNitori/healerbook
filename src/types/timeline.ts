@@ -99,6 +99,10 @@ export interface PlayerDamageDetail {
   unmitigatedDamage: number
   /** 最终伤害 */
   finalDamage: number
+  /** 溢出伤害（超出目标剩余 HP 的部分） */
+  overkill?: number
+  /** 伤害倍率 */
+  multiplier?: number
   /** 生效的状态快照列表（包括百分比减伤和盾值） */
   statuses: StatusSnapshot[]
   /** 当前生命值（伤害后） */

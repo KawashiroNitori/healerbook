@@ -124,8 +124,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       executor: createShieldExecutor(297, 30),
     },
-
-    // 秘策
     {
       id: 16542,
       name: '秘策',
@@ -150,7 +148,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const sageShieldId = 2609 // 贤者群盾
         const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
         let barrier = ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000
-        if (hasRecitation) barrier *= 1.5
+        if (hasRecitation)
+          barrier = ctx.statistics?.critShieldByAbility[baseShieldId] ?? barrier * 1.6
 
         const newStatuses: MitigationStatus[] = []
 

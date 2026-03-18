@@ -15,6 +15,7 @@ import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import { JOB_MAP } from '@/data/jobMap'
 import { getTankJobs } from '@/data/jobs'
+import { calculatePercentile } from './stats'
 
 const actionChinese: Record<string, string> = actionChineseRaw
 
@@ -118,6 +119,8 @@ export function parseDamageEvents(
       skillName,
       unmitigatedDamage: event.unmitigatedAmount || event.amount || 0,
       finalDamage: event.amount || 0,
+      overkill: event.overkill,
+      multiplier: event.multiplier,
       statuses,
       hitPoints: event.targetResources?.hitPoints,
       maxHitPoints: event.targetResources?.maxHitPoints,
@@ -204,11 +207,7 @@ export function parseDamageEvents(
     // 计算中位数伤害（非坦克优先）
     const nonTankDetails = details.filter(d => !TANK_JOBS.includes(d.job))
     const detailsForMedian = nonTankDetails.length > 0 ? nonTankDetails : details
-    const sorted = detailsForMedian.map(d => d.unmitigatedDamage).sort((a, b) => a - b)
-    const mid = Math.floor(sorted.length / 2)
-    const medianDamage = Math.round(
-      sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
-    )
+    const medianDamage = calculatePercentile(detailsForMedian.map(d => d.finalDamage))
 
     const abilityMeta = abilityMap?.get(firstDetail.abilityId)
     damageEvents.push({

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { mergeWithReservoirSampling, calculateMedian, getSamplesKVKey, calculateMedians } from './top100Sync'
+import { mergeWithReservoirSampling, getSamplesKVKey, calculatePercentiles } from './top100Sync'
+import { calculatePercentile } from '@/utils/stats'
 
 describe('mergeWithReservoirSampling', () => {
   it('总量未超上限时直接追加', () => {
@@ -25,25 +26,25 @@ describe('mergeWithReservoirSampling', () => {
   })
 })
 
-describe('calculateMedian', () => {
+describe('calculatePercentile', () => {
   it('奇数个样本', () => {
-    expect(calculateMedian([3, 1, 2])).toBe(2)
+    expect(calculatePercentile([3, 1, 2])).toBe(2)
   })
 
   it('偶数个样本', () => {
-    expect(calculateMedian([1, 2, 3, 4])).toBe(3) // round((2+3)/2)
+    expect(calculatePercentile([1, 2, 3, 4])).toBe(3) // round((2+3)/2)
   })
 
   it('偶数个样本，中间两值之和为奇数（.5 舍入）', () => {
-    expect(calculateMedian([1, 2])).toBe(2) // round((1+2)/2) = round(1.5) = 2
+    expect(calculatePercentile([1, 2])).toBe(2) // round((1+2)/2) = round(1.5) = 2
   })
 
   it('单个样本', () => {
-    expect(calculateMedian([42])).toBe(42)
+    expect(calculatePercentile([42])).toBe(42)
   })
 
   it('空数组返回 0', () => {
-    expect(calculateMedian([])).toBe(0)
+    expect(calculatePercentile([])).toBe(0)
   })
 })
 
@@ -53,15 +54,15 @@ describe('getSamplesKVKey', () => {
   })
 })
 
-describe('calculateMedians', () => {
+describe('calculatePercentiles', () => {
   it('计算每个 key 的中位数', () => {
-    const result = calculateMedians({ 100: [1, 3, 5], 200: [2, 4] })
+    const result = calculatePercentiles({ 100: [1, 3, 5], 200: [2, 4] })
     expect(result[100]).toBe(3)
     expect(result[200]).toBe(3) // round((2+4)/2)
   })
 
   it('空数组的 key 不出现在结果中', () => {
-    const result = calculateMedians({ 100: [], 200: [5] })
+    const result = calculatePercentiles({ 100: [], 200: [5] })
     expect(result[100]).toBeUndefined()
     expect(result[200]).toBe(5)
   })

@@ -18,8 +18,10 @@ export type DamageType = 'physical' | 'magical' | 'special'
 export interface CalculationResult {
   /** 原始伤害 */
   originalDamage: number
-  /** 最终伤害 */
+  /** 最终伤害（中位数） */
   finalDamage: number
+  /** 最大伤害 */
+  maxDamage: number
   /** 减伤百分比 */
   mitigationPercentage: number
   /** 应用的状态列表 */
@@ -129,6 +131,7 @@ export class MitigationCalculator {
     return {
       originalDamage,
       finalDamage: Math.max(0, Math.round(damage)),
+      maxDamage: Math.max(0, Math.round(damage)),
       mitigationPercentage: Math.round(mitigationPercentage * 10) / 10,
       appliedStatuses,
       updatedPartyState,

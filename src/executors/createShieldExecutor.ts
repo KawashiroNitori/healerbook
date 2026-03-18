@@ -16,6 +16,8 @@ export interface ShieldExecutorOptions {
   stack?: number
   /** 倍率：用于调整盾值的强度，默认为 1 */
   multiplier?: number
+  /** 是否使用暴击盾值（使用 critShieldByAbility），默认为 false */
+  crit?: boolean
 }
 
 /**
@@ -33,36 +35,12 @@ export function createShieldExecutor(
   const uniqueGroup = options?.uniqueGroup ?? [statusId]
   const stack = options?.stack ?? 1
   const multiplier = options?.multiplier ?? 1
+  const crit = options?.crit ?? false
 
   return ctx => {
     // 优先使用统计数据里的盾值，其次用兜底值 10000
-    const barrier = Math.round((ctx.statistics?.shieldByAbility[statusId] ?? 10000) * multiplier)
-
-    // 检查互斥组中是否有更强的盾
-    // 比较规则：优先比较层数，层数相等再比较剩余盾量
-    const hasStrongerShield = ctx.partyState.statuses.some(s => {
-      if (!uniqueGroup.includes(s.statusId) || s.remainingBarrier === undefined) {
-        return false
-      }
-      const existingStack = s.stack ?? 1
-
-      // 优先比较层数
-      if (existingStack > stack) {
-        return true
-      }
-
-      // 层数相等，比较剩余盾量
-      if (existingStack === stack && s.remainingBarrier > barrier) {
-        return true
-      }
-
-      return false
-    })
-
-    // 如果存在更强的盾，放弃添加
-    if (hasStrongerShield) {
-      return ctx.partyState
-    }
+    const shieldData = crit ? ctx.statistics?.critShieldByAbility : ctx.statistics?.shieldByAbility
+    const barrier = Math.round((shieldData?.[statusId] ?? 10000) * multiplier)
 
     // 删除互斥组中的旧状态
     const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))

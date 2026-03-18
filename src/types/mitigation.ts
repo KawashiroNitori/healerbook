@@ -21,12 +21,18 @@ export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'ba
 export interface EncounterStatistics {
   encounterId: number
   encounterName: string
-  /** 每个伤害技能的平均伤害值 */
+  /** 每个伤害技能的中位伤害值 */
   damageByAbility: Record<number, number>
   /** 每个职业的平均最大生命值 */
-  maxHPByJob: Record<string, number>
-  /** 每个盾值技能的平均盾值（按 actionId 索引） */
+  maxHPByJob: Record<Job, number>
+  /** 每个盾值技能的中位盾值（按 actionId 索引） */
   shieldByAbility: Record<number, number>
+  /** 每个盾值技能的暴击盾值（p90） */
+  critShieldByAbility: Record<number, number>
+  /** 每个治疗技能的中位治疗量 */
+  healByAbility: Record<number, number>
+  /** 每个治疗技能的暴击治疗量（p90） */
+  critHealByAbility: Record<number, number>
   /** 采样战斗数量 */
   sampleSize: number
   /** ISO 8601 时间戳 */
