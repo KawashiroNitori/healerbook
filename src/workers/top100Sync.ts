@@ -402,16 +402,16 @@ async function updateStatisticsTaskProgress(
 }
 
 /**
- * 汇总所有战斗的统计数据并计算平均值
+ * 汇总所有战斗的统计数据，merge 历史样本后计算中位数
  */
 async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promise<void> {
   console.log(`[Statistics] 开始汇总数据: encounter ${task.encounterId}`)
 
-  const allDamageData: Record<number, number[]> = {}
-  const allMaxHPData: Record<string, number[]> = {}
-  const allShieldData: Record<number, number[]> = {}
+  const batchDamage: Record<number, number[]> = {}
+  const batchMaxHP: Record<string, number[]> = {}
+  const batchShield: Record<number, number[]> = {}
 
-  // 读取所有战斗的统计数据
+  // Step 1: 读取本批次所有临时战斗数据
   for (const battle of task.fights) {
     const key = getFightStatisticsKVKey(task.encounterId, battle.reportCode, battle.fightID)
     const data = await kv.get(key, 'json')
@@ -419,44 +419,70 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
 
     const battleStats = data as FightStatistics
 
-    // 合并伤害数据
     for (const [abilityId, damages] of Object.entries(battleStats.damageByAbility)) {
-      if (!allDamageData[Number(abilityId)]) {
-        allDamageData[Number(abilityId)] = []
-      }
-      allDamageData[Number(abilityId)].push(...damages)
+      const id = Number(abilityId)
+      if (!batchDamage[id]) batchDamage[id] = []
+      batchDamage[id].push(...(damages as number[]))
     }
 
-    // 合并盾值数据
     for (const [abilityId, shields] of Object.entries(battleStats.shieldByAbility)) {
-      if (!allShieldData[Number(abilityId)]) {
-        allShieldData[Number(abilityId)] = []
-      }
-      allShieldData[Number(abilityId)].push(...shields)
+      const id = Number(abilityId)
+      if (!batchShield[id]) batchShield[id] = []
+      batchShield[id].push(...(shields as number[]))
     }
 
-    // 合并最大生命值数据
     for (const [job, hps] of Object.entries(battleStats.maxHPByJob)) {
-      if (!allMaxHPData[job]) {
-        allMaxHPData[job] = []
-      }
-      allMaxHPData[job].push(...hps)
+      if (!batchMaxHP[job]) batchMaxHP[job] = []
+      batchMaxHP[job].push(...(hps as number[]))
     }
   }
 
-  // 计算平均值
-  const avgDamageByAbility = calculateAverages(allDamageData)
-  const avgShieldByAbility = calculateAverages(allShieldData)
-  const avgMaxHPByJob = calculateAverages(allMaxHPData)
+  // Step 2: 读取旧样本（不存在则视为空）
+  const oldSamplesRaw = await kv.get(getSamplesKVKey(task.encounterId), 'json')
+  const oldSamples = (oldSamplesRaw as EncounterSamples | null) ?? {
+    encounterId: task.encounterId,
+    damageByAbility: {},
+    maxHPByJob: {},
+    shieldByAbility: {},
+    updatedAt: '',
+  }
 
-  // 保存最终统计数据
+  // Step 3: Merge 新数据进历史样本（reservoir sampling）
+  const mergedDamage: Record<number, number[]> = { ...oldSamples.damageByAbility }
+  for (const [id, values] of Object.entries(batchDamage)) {
+    const key = Number(id)
+    mergedDamage[key] = mergeWithReservoirSampling(mergedDamage[key] ?? [], values as number[])
+  }
+
+  const mergedShield: Record<number, number[]> = { ...oldSamples.shieldByAbility }
+  for (const [id, values] of Object.entries(batchShield)) {
+    const key = Number(id)
+    mergedShield[key] = mergeWithReservoirSampling(mergedShield[key] ?? [], values as number[])
+  }
+
+  const mergedMaxHP: Record<string, number[]> = { ...oldSamples.maxHPByJob }
+  for (const [job, values] of Object.entries(batchMaxHP)) {
+    mergedMaxHP[job] = mergeWithReservoirSampling(mergedMaxHP[job] ?? [], values as number[])
+  }
+
+  // Step 4: 保存新样本（无 TTL）
+  const newSamples: EncounterSamples = {
+    encounterId: task.encounterId,
+    damageByAbility: mergedDamage,
+    maxHPByJob: mergedMaxHP,
+    shieldByAbility: mergedShield,
+    updatedAt: new Date().toISOString(),
+  }
+  await kv.put(getSamplesKVKey(task.encounterId), JSON.stringify(newSamples))
+
+  // Step 5: 计算中位数并保存成品
   const statistics: EncounterStatistics = {
     encounterId: task.encounterId,
     encounterName: task.encounterName,
-    damageByAbility: avgDamageByAbility,
-    maxHPByJob: avgMaxHPByJob,
-    shieldByAbility: avgShieldByAbility,
-    sampleSize: task.totalFights,
+    damageByAbility: calculateMedians(mergedDamage),
+    maxHPByJob: calculateMedians(mergedMaxHP),
+    shieldByAbility: calculateMedians(mergedShield),
+    sampleSize: Object.values(mergedDamage).reduce((sum, arr) => sum + arr.length, 0),
     updatedAt: new Date().toISOString(),
   }
 
@@ -464,7 +490,7 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
     expirationTtl: 25 * 60 * 60,
   })
 
-  // 清理临时数据
+  // Step 6: 清理临时数据
   await Promise.all([
     kv.delete(getStatisticsTaskKVKey(task.encounterId)),
     kv.delete(`stats-lock:${task.encounterId}`),
@@ -476,8 +502,9 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
     ),
   ])
 
+  const totalSamples = Object.values(mergedDamage).reduce((sum, arr) => sum + arr.length, 0)
   console.log(
-    `[Statistics] 汇总完成: encounter ${task.encounterId}, 采样 ${task.totalFights} 场战斗`
+    `[Statistics] 汇总完成: encounter ${task.encounterId}, 本批次 ${task.totalFights} 场, 累计样本 ${totalSamples} 条`
   )
 }
 
