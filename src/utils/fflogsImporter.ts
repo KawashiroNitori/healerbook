@@ -199,11 +199,13 @@ export function parseDamageEvents(
     const relativeTime = Math.round((firstDetail.timestamp - fightStartTime) / 10) / 100
     if (relativeTime < 0) continue
 
-    // 计算平均伤害（非坦克优先）
+    // 计算中位数伤害（非坦克优先）
     const nonTankDetails = details.filter(d => !TANK_JOBS.includes(d.job))
-    const detailsForAverage = nonTankDetails.length > 0 ? nonTankDetails : details
-    const averageDamage = Math.round(
-      detailsForAverage.reduce((sum, d) => sum + d.unmitigatedDamage, 0) / detailsForAverage.length
+    const detailsForMedian = nonTankDetails.length > 0 ? nonTankDetails : details
+    const sorted = detailsForMedian.map(d => d.unmitigatedDamage).sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    const medianDamage = Math.round(
+      sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
     )
 
     const abilityMeta = abilityMap?.get(firstDetail.abilityId)
@@ -211,7 +213,7 @@ export function parseDamageEvents(
       id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
       name: firstDetail.skillName,
       time: relativeTime,
-      damage: averageDamage,
+      damage: medianDamage,
       type: detectDamageType(details.length),
       damageType: detectDamageTypeFromAbility(abilityMeta?.type ?? 0),
       playerDamageDetails: details,
