@@ -152,6 +152,40 @@ function extractMaxHPData(events: FFLogsEvent[], report: FFLogsV1Report): Record
   return maxHPByJob
 }
 
+const MAX_SAMPLES = 200
+
+/**
+ * Reservoir Sampling（Algorithm R）
+ * 从 reservoir + incoming 中均匀随机保留 max 条样本
+ */
+export function mergeWithReservoirSampling(
+  reservoir: number[],
+  incoming: number[],
+  max: number = MAX_SAMPLES
+): number[] {
+  const combined = [...reservoir, ...incoming]
+  if (combined.length <= max) return combined
+
+  const result = combined.slice(0, max)
+  for (let i = max; i < combined.length; i++) {
+    const j = Math.floor(Math.random() * (i + 1))
+    if (j < max) result[j] = combined[i]
+  }
+  return result
+}
+
+/**
+ * 计算中位数并取整
+ */
+export function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = values.slice().sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+}
+
 /**
  * 计算平均值并取整
  */
