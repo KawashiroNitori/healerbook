@@ -7,9 +7,8 @@
  */
 
 import { FFLogsClientV2, type RankingEntry } from './fflogsClientV2'
-import { ALL_ENCOUNTERS, type RaidEncounter } from '../src/data/raidEncounters'
-import { KVNamespace } from '@cloudflare/workers-types/experimental'
-import type { FFLogsEvent, FFLogsV1Report } from '../src/types/fflogs'
+import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
+import type { FFLogsEvent, FFLogsV1Report } from '@/types/fflogs'
 
 /** KV 中存储的 TOP100 数据结构 */
 export interface Top100Data {
@@ -162,8 +161,8 @@ function calculateAverages<T extends number | string>(
   const averages: Record<string, number> = {}
 
   for (const [key, values] of Object.entries(data)) {
-    if (values.length > 0) {
-      const avg = values.reduce((sum, val) => sum + val, 0) / values.length
+    if (Array.isArray(values) && values.length > 0) {
+      const avg = values.reduce((sum: number, val: number) => sum + val, 0) / values.length
       averages[key] = Math.round(avg)
     }
   }

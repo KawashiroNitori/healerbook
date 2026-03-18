@@ -3,9 +3,15 @@
  * 真正的 API 调用逻辑，运行在 Worker 环境中
  */
 
-import type { FFLogsV1Report, FFLogsEventsResponse, FFLogsEventDataType, FFLogsAbility, FFLogsEvent } from '../src/types/fflogs'
+import type {
+  FFLogsV1Report,
+  FFLogsEventsResponse,
+  FFLogsEventDataType,
+  FFLogsAbility,
+  FFLogsEvent,
+} from '@/types/fflogs'
 import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from './types/fflogs'
-import { buildComposition } from '../src/utils/rosterUtils'
+import { buildComposition } from '@/utils/rosterUtils'
 
 export interface FFLogsV2Config {
   clientId: string
@@ -95,7 +101,10 @@ export class FFLogsClientV2 {
 
     // 2. 检查 KV 缓存
     if (this.kv) {
-      const kvData = await this.kv.get(KV_TOKEN_KEY, 'json') as { token: string; expiresAt: number } | null
+      const kvData = (await this.kv.get(KV_TOKEN_KEY, 'json')) as {
+        token: string
+        expiresAt: number
+      } | null
       if (kvData && kvData.expiresAt > now + 5 * 60 * 1000) {
         cachedToken = kvData.token
         tokenExpiresAt = kvData.expiresAt
@@ -120,14 +129,15 @@ export class FFLogsClientV2 {
       throw new Error(`FFLogs OAuth error: ${response.statusText}`)
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as { access_token?: string; expires_in?: number }
 
-    const accessToken = data.access_token as string | undefined
+    const accessToken = data.access_token
     if (!accessToken) {
       throw new Error('FFLogs OAuth: missing access_token in response')
     }
 
-    const expiresAt = now + (data.expires_in as number) * 1000
+    const expiresIn = data.expires_in ?? 86400
+    const expiresAt = now + expiresIn * 1000
 
     // 更新内存缓存
     cachedToken = accessToken
@@ -135,7 +145,7 @@ export class FFLogsClientV2 {
 
     // 写入 KV（TTL 略短于 token 有效期）
     if (this.kv) {
-      const ttl = Math.floor((data.expires_in as number) - 5 * 60)
+      const ttl = Math.floor(expiresIn - 5 * 60)
       await this.kv.put(KV_TOKEN_KEY, JSON.stringify({ token: accessToken, expiresAt }), {
         expirationTtl: ttl > 0 ? ttl : 3600,
       })
@@ -147,7 +157,11 @@ export class FFLogsClientV2 {
   /**
    * 执行 GraphQL 查询
    */
-  private async query<T = unknown>(query: string, variables: Record<string, unknown> = {}, region: string = 'cn'): Promise<T> {
+  private async query<T = unknown>(
+    query: string,
+    variables: Record<string, unknown> = {},
+    region: string = 'cn'
+  ): Promise<T> {
     const token = await this.getAccessToken()
     const graphqlUrl = `https://${region}.fflogs.com/api/v2/client`
 
@@ -167,15 +181,18 @@ export class FFLogsClientV2 {
       throw new Error(`FFLogs GraphQL error: ${response.statusText}`)
     }
 
-    const result = await response.json()
+    const result = (await response.json()) as {
+      data?: T
+      errors?: Array<{ message: string }>
+    }
 
     // 检查 GraphQL 错误
     if (result.errors && result.errors.length > 0) {
-      const errorMessage = result.errors.map((e: { message: string }) => e.message).join(', ')
+      const errorMessage = result.errors.map(e => e.message).join(', ')
       throw new Error(errorMessage)
     }
 
-    return result.data
+    return result.data as T
   }
 
   /**
@@ -221,7 +238,20 @@ export class FFLogsClientV2 {
       }
     `
 
-    const data = await this.query(query, { code: reportCode })
+    const data = (await this.query(query, { code: reportCode })) as {
+      reportData: {
+        report: {
+          title: string
+          startTime: number
+          endTime: number
+          fights: FFLogsV2Fight[]
+          masterData: {
+            actors: FFLogsV2Actor[]
+            abilities: FFLogsV2Ability[]
+          }
+        }
+      }
+    }
     const report = data.reportData.report
 
     // 转换为 v1 格式（保持接口一致性）
@@ -229,23 +259,30 @@ export class FFLogsClientV2 {
       title: report.title,
       start: report.startTime,
       end: report.endTime,
-      fights: report.fights.map((fight: FFLogsV2Fight) => ({
+      fights: report.fights.map(fight => ({
         id: fight.id,
         name: fight.name,
-        difficulty: fight.difficulty,
+        difficulty: fight.difficulty ?? 0,
         kill: fight.kill || false,
         start_time: fight.startTime,
         end_time: fight.endTime,
         boss: fight.encounterID,
+        zoneID: 0,
+        zoneName: '',
+        size: 8,
+        hasEcho: false,
+        bossPercentage: 0,
+        fightPercentage: 0,
+        lastPhaseForPercentageDisplay: 0,
       })),
-      friendlies: report.masterData.actors.map((actor: FFLogsV2Actor) => ({
+      friendlies: report.masterData.actors.map(actor => ({
         id: actor.id,
         guid: actor.id,
         name: actor.name,
         type: actor.subType || actor.type,
         server: actor.server,
       })),
-      abilities: report.masterData.abilities.map((ability: FFLogsV2Ability) => ({
+      abilities: report.masterData.abilities.map(ability => ({
         gameID: ability.gameID,
         name: ability.name,
         type: ability.type,
@@ -259,9 +296,7 @@ export class FFLogsClientV2 {
    *
    * 同时获取国际区和国区数据，合并后按 DPS 降序排序
    */
-  async getEncounterRankings(params: {
-    encounterId: number
-  }): Promise<EncounterRankingsResult> {
+  async getEncounterRankings(params: { encounterId: number }): Promise<EncounterRankingsResult> {
     const { encounterId } = params
 
     const query = `
@@ -284,50 +319,55 @@ export class FFLogsClientV2 {
       this.query(query, { encounterId }, 'cn'),
     ])
 
-    const wwwEncounter = wwwData.worldData.encounter
-    const cnEncounter = cnData.worldData.encounter
+    const wwwEncounter = (
+      wwwData as { worldData?: { encounter?: { name?: string; characterRankings?: unknown } } }
+    )?.worldData?.encounter
+    const cnEncounter = (
+      cnData as { worldData?: { encounter?: { name?: string; characterRankings?: unknown } } }
+    )?.worldData?.encounter
     const encounterName = wwwEncounter?.name || cnEncounter?.name || ''
 
-    const wwwRankings = wwwEncounter?.characterRankings as {
-      rankings: Array<{
-        name: string
-        spec: string
-        nameTwo: string
-        specTwo: string
-        amount: number
-        duration: number
-        report: { code: string; fightID: number; startTime: number }
-        server?: { name: string; region?: string }
-        serverTwo?: { name: string }
-        allCharacters?: Array<{ name: string; spec: string }>
-      }>
-    } | undefined
+    const wwwRankings = wwwEncounter?.characterRankings as
+      | {
+          rankings: Array<{
+            name: string
+            spec: string
+            nameTwo: string
+            specTwo: string
+            amount: number
+            duration: number
+            report: { code: string; fightID: number; startTime: number }
+            server?: { name: string; region?: string }
+            serverTwo?: { name: string }
+            allCharacters?: Array<{ name: string; spec: string }>
+          }>
+        }
+      | undefined
 
-    const cnRankings = cnEncounter?.characterRankings as {
-      rankings: Array<{
-        name: string
-        spec: string
-        nameTwo: string
-        specTwo: string
-        amount: number
-        duration: number
-        report: { code: string; fightID: number; startTime: number }
-        server?: { name: string; region?: string }
-        serverTwo?: { name: string }
-        allCharacters?: Array<{ name: string; spec: string }>
-      }>
-    } | undefined
+    const cnRankings = cnEncounter?.characterRankings as
+      | {
+          rankings: Array<{
+            name: string
+            spec: string
+            nameTwo: string
+            specTwo: string
+            amount: number
+            duration: number
+            report: { code: string; fightID: number; startTime: number }
+            server?: { name: string; region?: string }
+            serverTwo?: { name: string }
+            allCharacters?: Array<{ name: string; spec: string }>
+          }>
+        }
+      | undefined
 
     // 合并两个区域的数据
-    const allRankings = [
-      ...(wwwRankings?.rankings || []),
-      ...(cnRankings?.rankings || []),
-    ]
+    const allRankings = [...(wwwRankings?.rankings || []), ...(cnRankings?.rankings || [])]
 
     // 转换为 RankingEntry 并过滤掉阵容为空的队伍
     const entries: RankingEntry[] = allRankings
-      .map((r) => {
-        const composition = buildComposition((r.allCharacters ?? []).map((c) => c.spec))
+      .map(r => {
+        const composition = buildComposition((r.allCharacters ?? []).map(c => c.spec))
         return {
           rank: 0, // 稍后重新分配排名
           characterName: r.name || '',
@@ -345,7 +385,7 @@ export class FFLogsClientV2 {
           composition,
         }
       })
-      .filter((entry) => entry.composition.length > 0) // 过滤掉阵容为空的队伍
+      .filter(entry => entry.composition.length > 0) // 过滤掉阵容为空的队伍
       .sort((a, b) => b.amount - a.amount) // 按 DPS 降序排序
 
     // 重新分配排名
@@ -369,12 +409,7 @@ export class FFLogsClientV2 {
     const { reportCode, start, end } = params
 
     // 为每种类型单独查询，并自动处理分页
-    const dataTypes: Array<string> = [
-      'Casts',
-      'DamageTaken',
-      'Healing',
-      'CombatantInfo',
-    ]
+    const dataTypes: Array<string> = ['Casts', 'DamageTaken', 'Healing', 'CombatantInfo']
 
     const query = `
       query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $limit: Int) {
@@ -402,13 +437,22 @@ export class FFLogsClientV2 {
       let hasMore = true
 
       while (hasMore) {
-        const result = await this.query(query, {
+        const result = (await this.query(query, {
           code: reportCode,
           startTime: currentStart,
           endTime: end,
           dataType,
           limit: 10000,
-        })
+        })) as {
+          reportData: {
+            report: {
+              events: {
+                data: FFLogsEvent[]
+                nextPageTimestamp?: number
+              }
+            }
+          }
+        }
 
         const eventsData = result.reportData.report.events
         events.push(...eventsData.data)
@@ -425,7 +469,7 @@ export class FFLogsClientV2 {
     }
 
     // 并行获取所有类型的事件
-    const results = await Promise.all(dataTypes.map((dataType) => fetchAllEventsForType(dataType)))
+    const results = await Promise.all(dataTypes.map(dataType => fetchAllEventsForType(dataType)))
 
     // 合并所有事件
     const allEvents = results.flat()

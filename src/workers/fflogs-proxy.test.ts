@@ -32,7 +32,7 @@ describe('手动同步接口鉴权', () => {
         'bearer test-token',
       ]
 
-      invalidFormats.forEach((format) => {
+      invalidFormats.forEach(format => {
         const request = new Request('https://example.com/api/top100/sync', {
           method: 'POST',
           headers: {
@@ -122,7 +122,7 @@ describe('手动同步接口鉴权', () => {
       const invalidSchemes = ['Basic', 'Digest', 'OAuth']
 
       expect(validScheme).toBe('Bearer')
-      invalidSchemes.forEach((scheme) => {
+      invalidSchemes.forEach(scheme => {
         expect(scheme).not.toBe('Bearer')
       })
     })

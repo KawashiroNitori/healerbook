@@ -12,9 +12,15 @@
  */
 
 import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
-import { syncEncounter, extractFightStatistics, getTop100KVKey, getStatisticsKVKey, type Top100Data } from './top100Sync'
-import { ALL_ENCOUNTERS } from '../src/data/raidEncounters'
-import type { FFLogsV1Report, FFLogsEventsResponse } from '../src/types/fflogs'
+import {
+  syncEncounter,
+  extractFightStatistics,
+  getTop100KVKey,
+  getStatisticsKVKey,
+  type Top100Data,
+} from './top100Sync'
+import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
+import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
 
 interface QueueMessageBody {
   type: string
@@ -59,101 +65,108 @@ function createClient(env: Env): FFLogsClientV2 {
   })
 }
 
-export default {
-  /**
-   * HTTP 请求处理
-   */
-  async fetch(request: Request, env: Env): Promise<Response> {
-    // CORS 处理
-    if (request.method === 'OPTIONS') {
-      return handleCORS()
+/**
+ * HTTP 请求处理
+ */
+export async function handleFetch(request: Request, env: Env): Promise<Response> {
+  // CORS 处理
+  if (request.method === 'OPTIONS') {
+    return handleCORS()
+  }
+
+  const url = new URL(request.url)
+  const path = url.pathname
+
+  try {
+    if (path.startsWith('/api/fflogs/report/')) {
+      return await handleReport(request, env)
+    } else if (path.startsWith('/api/fflogs/events/')) {
+      return await handleEvents(request, env)
+    } else if (path === '/api/top100') {
+      return await handleTop100All(env)
+    } else if (path === '/api/top100/sync' && request.method === 'POST') {
+      // 手动触发同步（仅用于测试/管理）—— 必须在 startsWith 之前检查
+      return await handleManualSync(request, env)
+    } else if (path.startsWith('/api/top100/')) {
+      return await handleTop100Encounter(request, env)
+    } else if (path.startsWith('/api/statistics/')) {
+      return await handleStatistics(request, env)
+    } else {
+      return jsonResponse({ error: 'Not Found' }, 404)
     }
+  } catch (error) {
+    console.error('Worker error:', error)
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      500
+    )
+  }
+}
 
-    const url = new URL(request.url)
-    const path = url.pathname
+/**
+ * Cron 定时任务：将所有遭遇战推送到队列
+ * 触发频率见 wrangler.toml [triggers.crons]
+ */
+export async function handleScheduled(
+  _event: ScheduledEvent,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<void> {
+  ctx.waitUntil(enqueueAllEncounters(env))
+}
 
+/**
+ * Queue 消费者：处理队列消息
+ */
+export async function handleQueue(batch: MessageBatch, env: Env): Promise<void> {
+  const client = createClient(env)
+
+  for (const message of batch.messages) {
     try {
-      if (path.startsWith('/api/fflogs/report/')) {
-        return await handleReport(request, env)
-      } else if (path.startsWith('/api/fflogs/events/')) {
-        return await handleEvents(request, env)
-      } else if (path === '/api/top100') {
-        return await handleTop100All(env)
-      } else if (path === '/api/top100/sync' && request.method === 'POST') {
-        // 手动触发同步（仅用于测试/管理）—— 必须在 startsWith 之前检查
-        return await handleManualSync(request, env)
-      } else if (path.startsWith('/api/top100/')) {
-        return await handleTop100Encounter(request, env)
-      } else if (path.startsWith('/api/statistics/')) {
-        return await handleStatistics(request, env)
-      } else {
-        return jsonResponse({ error: 'Not Found' }, 404)
-      }
-    } catch (error) {
-      console.error('Worker error:', error)
-      return jsonResponse(
-        { error: error instanceof Error ? error.message : 'Internal Server Error' },
-        500
-      )
-    }
-  },
+      const body = message.body as QueueMessageBody
 
-  /**
-   * Cron 定时任务：将所有遭遇战推送到队列
-   * 触发频率见 wrangler.toml [triggers.crons]
-   */
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(enqueueAllEncounters(env))
-  },
-
-  /**
-   * Queue 消费者：处理队列消息
-   */
-  async queue(batch: MessageBatch, env: Env): Promise<void> {
-    const client = createClient(env)
-
-    for (const message of batch.messages) {
-      try {
-        const body = message.body as QueueMessageBody
-
-        switch (body.type) {
-          case 'sync-encounter': {
-            // TOP100 同步任务
-            const encounter = ALL_ENCOUNTERS.find((e) => e.id === body.encounterId)
-            if (!encounter) {
-              console.error(`[Queue] 未找到遭遇战: ${body.encounterId}`)
-              message.ack()
-              continue
-            }
-            await syncEncounter(encounter, client, env.healerbook, env.STATISTICS_EXTRACT_QUEUE)
-            break
-          }
-
-          case 'extract-statistics': {
-            // 统计数据提取任务
-            await extractFightStatistics(
-              body.encounterId,
-              body.reportCode,
-              body.fightID,
-              client,
-              env.healerbook
-            )
-            break
-          }
-
-          default:
-            console.error(`[Queue] 未知的消息类型: ${body.type}`)
+      switch (body.type) {
+        case 'sync-encounter': {
+          // TOP100 同步任务
+          const encounter = ALL_ENCOUNTERS.find(e => e.id === body.encounterId)
+          if (!encounter) {
+            console.error(`[Queue] 未找到遭遇战: ${body.encounterId}`)
             message.ack()
             continue
+          }
+          await syncEncounter(encounter, client, env.healerbook, env.STATISTICS_EXTRACT_QUEUE)
+          break
         }
 
-        message.ack()
-      } catch (err) {
-        console.error(`[Queue] 处理失败:`, err)
-        message.retry()
+        case 'extract-statistics': {
+          // 统计数据提取任务
+          if (!body.encounterId || !body.reportCode || !body.fightID) {
+            console.error('[Queue] 缺少必需参数')
+            message.ack()
+            continue
+          }
+          await extractFightStatistics(
+            body.encounterId,
+            body.reportCode,
+            body.fightID,
+            client,
+            env.healerbook
+          )
+          break
+        }
+
+        default:
+          console.error(`[Queue] 未知的消息类型: ${body.type}`)
+          message.ack()
+          continue
       }
+
+      message.ack()
+    } catch (err) {
+      console.error(`[Queue] 处理失败:`, err)
+      message.retry()
     }
-  },
+  }
 }
 
 /**
@@ -163,7 +176,7 @@ async function enqueueAllEncounters(env: Env): Promise<void> {
   console.log('[TOP100 Sync] 开始推送任务到队列...')
 
   try {
-    const messages = ALL_ENCOUNTERS.map((encounter) => ({
+    const messages = ALL_ENCOUNTERS.map(encounter => ({
       body: {
         type: 'sync-encounter',
         encounterId: encounter.id,
@@ -185,9 +198,9 @@ async function handleTop100All(env: Env): Promise<Response> {
   const results: Record<number, Top100Data | null> = {}
 
   await Promise.all(
-    ALL_ENCOUNTERS.map(async (encounter) => {
+    ALL_ENCOUNTERS.map(async encounter => {
       const data = await env.healerbook.get(getTop100KVKey(encounter.id), 'json')
-      results[encounter.id] = (data as Top100Data | null)
+      results[encounter.id] = data as Top100Data | null
     })
   )
 
@@ -297,10 +310,7 @@ async function handleReport(request: Request, env: Env): Promise<Response> {
     const data = await client.getReport({ reportCode })
     return jsonResponse(data, 200)
   } catch (error) {
-    return jsonResponse(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      500
-    )
+    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
   }
 }
 
@@ -335,10 +345,7 @@ async function handleEvents(request: Request, env: Env): Promise<Response> {
     })
     return jsonResponse(data, 200)
   } catch (error) {
-    return jsonResponse(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      500
-    )
+    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
   }
 }
 

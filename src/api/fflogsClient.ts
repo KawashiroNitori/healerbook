@@ -4,7 +4,12 @@
  * 只负责调用 Worker 的 HTTP 接口，不包含任何 FFLogs API 调用逻辑
  */
 
-import type { FFLogsV1Report, FFLogsReport, FFLogsEvent } from '@/types/fflogs'
+import type {
+  FFLogsV1Report,
+  FFLogsReport,
+  FFLogsEvent,
+  FFLogsEventsResponse,
+} from '@/types/fflogs'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000
@@ -74,7 +79,7 @@ export class FFLogsClient {
       const response = await fetchWithTimeout(url)
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = (await response.json()) as { error?: string }
         throw new Error(error.error || `HTTP ${response.status}`)
       }
 
@@ -140,7 +145,7 @@ export class FFLogsClient {
       end?: number
       lang?: string
     } = {}
-  ) {
+  ): Promise<FFLogsEventsResponse> {
     const queryParams = new URLSearchParams(
       Object.fromEntries(
         Object.entries(params)
@@ -155,11 +160,11 @@ export class FFLogsClient {
       const response = await fetchWithTimeout(url)
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = (await response.json()) as { error?: string }
         throw new Error(error.error || `HTTP ${response.status}`)
       }
 
-      return await response.json()
+      return (await response.json()) as FFLogsEventsResponse
     } catch (error) {
       throw this.handleError(error)
     }

@@ -1,5 +1,5 @@
 name = "healerbook"
-main = "workers/fflogs-proxy.ts"
+main = "src/workers/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat_v2"]
 

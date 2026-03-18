@@ -3,8 +3,8 @@
  * 从环境变量和 KV 存储加载配置
  */
 
-import { defaultConfig } from '../../config/default'
-import type { AppConfig } from '../../config/types'
+import { defaultConfig } from '@/config/default'
+import type { AppConfig } from '@/config/types'
 
 /**
  * Cloudflare Workers 环境变量
@@ -87,7 +87,10 @@ export async function loadConfig(env: Env): Promise<AppConfig> {
     const dynamicConfig = await env.KV.get('config:dynamic', 'json')
     if (dynamicConfig) {
       // 深度合并动态配置
-      mergeConfig(config, dynamicConfig)
+      mergeConfig(
+        config as unknown as Record<string, unknown>,
+        dynamicConfig as Record<string, unknown>
+      )
     }
   } catch (error) {
     console.warn('Failed to load dynamic config from KV:', error)
