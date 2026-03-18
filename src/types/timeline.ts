@@ -2,9 +2,9 @@
  * 时间轴类型定义
  */
 
-import type { Job } from './mitigation'
+import type { Job } from '@/data/jobs'
 
-export type { Job } from './mitigation'
+export type { Job } from '@/data/jobs'
 
 /**
  * 最大队员数量

@@ -2,7 +2,7 @@
  * FFLogs API 数据类型定义
  */
 
-import type { Job } from './mitigation'
+import type { Job } from '@/data/jobs'
 
 /**
  * FFLogs v1 战斗报告响应

@@ -3,8 +3,6 @@
  * 包含所有职业的完整信息
  */
 
-import type { Job } from '@/types/timeline'
-
 /**
  * 职业角色类型
  */
@@ -15,7 +13,7 @@ export type JobRole = 'tank' | 'healer' | 'melee' | 'ranged' | 'caster'
  */
 export interface JobMetadata {
   /** 职业简称（英文） */
-  code: Job
+  code: string
   /** 职业中文名称 */
   name: string
   /** 职业英文全称 */
@@ -31,7 +29,7 @@ export interface JobMetadata {
 /**
  * 所有职业的元数据
  */
-export const JOB_METADATA: Record<Job, JobMetadata> = {
+export const JOB_METADATA = {
   // ========== 坦克 ==========
   PLD: {
     code: 'PLD',
@@ -209,25 +207,34 @@ export const JOB_METADATA: Record<Job, JobMetadata> = {
     icon: 'xiv-class_job_042',
     order: 21,
   },
+} satisfies Record<string, JobMetadata>
+
+/**
+ * FF14 职业（从 JOB_METADATA 键推导）
+ */
+export type Job = keyof typeof JOB_METADATA
+
+/**
+ * 按照标准职业顺序排序
+ * @param items - 要排序的数组
+ * @param keySelector - 可选的键选择器函数，用于从数组元素中提取 Job
+ */
+export function sortJobsByOrder<T>(items: T[], keySelector?: (item: T) => Job): T[]
+export function sortJobsByOrder(items: Job[]): Job[]
+export function sortJobsByOrder<T>(items: T[], keySelector?: (item: T) => Job): T[] {
+  return [...items].sort((a, b) => {
+    const jobA = keySelector ? keySelector(a) : (a as unknown as Job)
+    const jobB = keySelector ? keySelector(b) : (b as unknown as Job)
+    const orderA = JOB_METADATA[jobA]?.order ?? 999
+    const orderB = JOB_METADATA[jobB]?.order ?? 999
+    return orderA - orderB
+  })
 }
 
 /**
  * 职业排序顺序（按 order 字段排序）
  */
-export const JOB_ORDER: Job[] = (Object.values(JOB_METADATA) as JobMetadata[])
-  .sort((a, b) => a.order - b.order)
-  .map(meta => meta.code)
-
-/**
- * 按照标准职业顺序排序
- */
-export function sortJobsByOrder(jobs: Job[]): Job[] {
-  return [...jobs].sort((a, b) => {
-    const orderA = JOB_METADATA[a]?.order ?? 999
-    const orderB = JOB_METADATA[b]?.order ?? 999
-    return orderA - orderB
-  })
-}
+export const JOB_ORDER: Job[] = sortJobsByOrder(Object.keys(JOB_METADATA) as Job[])
 
 /**
  * 获取职业的中文名称

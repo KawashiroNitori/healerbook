@@ -20,7 +20,7 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
 
   // 按职业顺序排序
   const sortedJobs = composition?.players
-    ? sortJobsByOrder(composition.players.map(p => p.job))
+    ? sortJobsByOrder(composition.players, p => p.job).map(p => p.job)
     : []
 
   return (

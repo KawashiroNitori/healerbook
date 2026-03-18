@@ -93,10 +93,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         const composition = timeline.composition || { players: [] }
 
         // 按职业顺序排序玩家
-        const sortedPlayers = [...composition.players].sort((a, b) => {
-          const jobOrder = sortJobsByOrder([a.job, b.job])
-          return jobOrder.indexOf(a.job) - jobOrder.indexOf(b.job)
-        })
+        const sortedPlayers = sortJobsByOrder(composition.players, p => p.job)
 
         const skillTracks: SkillTrack[] = []
         sortedPlayers.forEach(player => {

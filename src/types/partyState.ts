@@ -2,7 +2,7 @@
  * 小队状态类型定义（编辑模式专用）
  */
 
-import type { Job } from './mitigation'
+import type { Job } from '@/data/jobs'
 import type { MitigationStatus } from './status'
 
 /**

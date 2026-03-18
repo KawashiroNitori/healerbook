@@ -6,7 +6,7 @@
 import type { DamageEvent } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
-import { getJobName, JOB_METADATA } from '@/data/jobs'
+import { getJobName, sortJobsByOrder } from '@/data/jobs'
 import JobIcon from './JobIcon'
 
 interface PlayerDamageDetailsProps {
@@ -19,11 +19,7 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
   }
 
   // 按照职业顺序排序玩家伤害详情
-  const sortedDetails = [...event.playerDamageDetails].sort((a, b) => {
-    const orderA = JOB_METADATA[a.job]?.order ?? 999
-    const orderB = JOB_METADATA[b.job]?.order ?? 999
-    return orderA - orderB
-  })
+  const sortedDetails = sortJobsByOrder(event.playerDamageDetails, d => d.job)
 
   return (
     <div className="space-y-3">

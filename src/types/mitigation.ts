@@ -2,7 +2,10 @@
  * 减伤技能类型定义
  */
 
+import type { Job } from '@/data/jobs'
 import type { PartyState } from './partyState'
+
+export type { Job }
 
 /**
  * 减伤类型
@@ -11,37 +14,6 @@ import type { PartyState } from './partyState'
  * - barrier: 盾值减伤（临时生命值）
  */
 export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'barrier'
-
-/**
- * FF14 职业
- */
-export type Job =
-  // 治疗
-  | 'WHM' // 白魔法师
-  | 'SCH' // 学者
-  | 'AST' // 占星术士
-  | 'SGE' // 贤者
-  // 坦克
-  | 'PLD' // 骑士
-  | 'WAR' // 战士
-  | 'DRK' // 暗黑骑士
-  | 'GNB' // 绝枪战士
-  // 近战 DPS
-  | 'DRG' // 龙骑士
-  | 'MNK' // 武僧
-  | 'NIN' // 忍者
-  | 'SAM' // 武士
-  | 'RPR' // 钐镰客
-  | 'VPR' // 蝰蛇剑士
-  // 远程物理 DPS
-  | 'BRD' // 吟游诗人
-  | 'MCH' // 机工士
-  | 'DNC' // 舞者
-  // 远程魔法 DPS
-  | 'BLM' // 黑魔法师
-  | 'SMN' // 召唤师
-  | 'RDM' // 赤魔法师
-  | 'PCT' // 绘灵法师
 
 /**
  * 副本统计数据
