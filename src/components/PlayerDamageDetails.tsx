@@ -29,6 +29,17 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
         // 直接使用 detail.statuses（来自 PlayerDamageDetail）
         const activeStatuses = detail.statuses || []
 
+        // 计算生命条数据
+        const maxHP = detail.maxHitPoints
+        const currentHP = detail.hitPoints ?? 0
+        const hpBar =
+          maxHP && maxHP > 0
+            ? {
+                survivePct: Math.max(0, Math.min(100, (currentHP / maxHP) * 100)),
+                damagePct: Math.max(0, Math.min(100, (detail.finalDamage / maxHP) * 100)),
+              }
+            : null
+
         return (
           <div key={detail.playerId} className="border rounded-lg p-3 space-y-2 bg-card">
             {/* 玩家信息 */}
@@ -36,6 +47,45 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
               <JobIcon job={detail.job} size="sm" />
               <span className="text-sm font-medium">{getJobName(detail.job)}</span>
             </div>
+
+            {/* 生命条 */}
+            {hpBar !== null && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">HP</span>
+                  <span className="tabular-nums">
+                    <span className="text-foreground">{detail.hitPoints?.toLocaleString()}</span>
+                    <span className="text-muted-foreground">
+                      {' '}
+                      / {detail.maxHitPoints?.toLocaleString()}
+                    </span>
+                    <span className="text-red-500 ml-1">
+                      (-{detail.finalDamage.toLocaleString()})
+                    </span>
+                  </span>
+                </div>
+                <div className="h-2.5 bg-secondary rounded-full overflow-hidden flex">
+                  {/* 伤害后剩余 HP */}
+                  <div
+                    className="h-full rounded-l-full"
+                    style={{
+                      width: `${hpBar.survivePct}%`,
+                      backgroundColor: 'rgb(34, 197, 94)',
+                    }}
+                  />
+                  {/* 本次伤害消耗 */}
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${hpBar.damagePct}%`,
+                      backgroundColor: 'rgb(239, 68, 68)',
+                      backgroundImage:
+                        'repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* 伤害信息 */}
             <div className="grid grid-cols-3 gap-2 text-xs">

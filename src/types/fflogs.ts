@@ -174,6 +174,14 @@ export interface FFLogsEvent {
   absorb?: number
   /** Buff 列表（字符串格式） */
   buffs?: string
+  /** 目标资源状态（包含 HP、MP 等） */
+  targetResources?: {
+    hitPoints: number
+    maxHitPoints: number
+    mp?: number
+    maxMP?: number
+    absorb?: number
+  }
 }
 
 /**

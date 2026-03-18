@@ -101,6 +101,10 @@ export interface PlayerDamageDetail {
   finalDamage: number
   /** 生效的状态快照列表（包括百分比减伤和盾值） */
   statuses: StatusSnapshot[]
+  /** 当前生命值（伤害后） */
+  hitPoints?: number
+  /** 最大生命值 */
+  maxHitPoints?: number
 }
 
 /**

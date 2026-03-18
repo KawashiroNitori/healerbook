@@ -119,6 +119,8 @@ export function parseDamageEvents(
       unmitigatedDamage: event.unmitigatedAmount || event.amount || 0,
       finalDamage: event.amount || 0,
       statuses,
+      hitPoints: event.targetResources?.hitPoints,
+      maxHitPoints: event.targetResources?.maxHitPoints,
     })
   }
 
