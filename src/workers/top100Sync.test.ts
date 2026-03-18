@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeWithReservoirSampling, calculateMedian } from './top100Sync'
+import { mergeWithReservoirSampling, calculateMedian, getSamplesKVKey } from './top100Sync'
 
 describe('mergeWithReservoirSampling', () => {
   it('总量未超上限时直接追加', () => {
@@ -44,5 +44,11 @@ describe('calculateMedian', () => {
 
   it('空数组返回 0', () => {
     expect(calculateMedian([])).toBe(0)
+  })
+})
+
+describe('getSamplesKVKey', () => {
+  it('返回正确格式', () => {
+    expect(getSamplesKVKey(1234)).toBe('statistics-samples:encounter:1234')
   })
 })

@@ -33,15 +33,27 @@ export interface FightStatistics {
 export interface EncounterStatistics {
   encounterId: number
   encounterName: string
-  /** 每个伤害技能的平均伤害值 */
+  /** 每个伤害技能的中位数伤害值 */
   damageByAbility: Record<number, number>
-  /** 每个职业的平均最大生命值 */
+  /** 每个职业的中位数最大生命值 */
   maxHPByJob: Record<string, number>
-  /** 每个盾值技能的平均盾值 */
+  /** 每个盾值技能的中位数盾值 */
   shieldByAbility: Record<number, number>
-  /** 采样战斗数量 */
+  /** 累计样本总数 */
   sampleSize: number
   /** ISO 8601 时间戳 */
+  updatedAt: string
+}
+
+/** 样本存储（低频访问，供定时任务读写） */
+export interface EncounterSamples {
+  encounterId: number
+  /** 每个伤害技能的原始样本值，每个 ability 独立限制 MAX_SAMPLES 条 */
+  damageByAbility: Record<number, number[]>
+  /** 每个职业（Job 枚举字符串，如 "WHM"）的原始最大 HP 样本值 */
+  maxHPByJob: Record<string, number[]>
+  /** 每个盾值状态的原始样本值，每个 statusId 独立限制 MAX_SAMPLES 条 */
+  shieldByAbility: Record<number, number[]>
   updatedAt: string
 }
 
@@ -76,6 +88,11 @@ export function getTop100KVKey(encounterId: number): string {
 /** 获取统计数据的 KV 键名 */
 export function getStatisticsKVKey(encounterId: number): string {
   return `statistics:encounter:${encounterId}`
+}
+
+/** 获取样本数据的 KV 键名 */
+export function getSamplesKVKey(encounterId: number): string {
+  return `statistics-samples:encounter:${encounterId}`
 }
 
 /**
