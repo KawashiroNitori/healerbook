@@ -8,6 +8,7 @@ import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
 import { getJobName, sortJobsByOrder } from '@/data/jobs'
 import JobIcon from './JobIcon'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface PlayerDamageDetailsProps {
   event: DamageEvent
@@ -28,6 +29,8 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
       {sortedDetails.map(detail => {
         // 直接使用 detail.statuses（来自 PlayerDamageDetail）
         const activeStatuses = detail.statuses || []
+
+        if (detail.unmitigatedDamage === 0) return null
 
         // 计算生命条数据
         const maxHP = detail.maxHitPoints
@@ -87,101 +90,184 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
               </div>
             )}
 
-            {/* 伤害信息 */}
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <div className="text-muted-foreground">原始伤害</div>
-                <div className="font-medium">{detail.unmitigatedDamage.toLocaleString()}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">盾值抵消</div>
-                <div className="font-medium text-blue-600">
-                  {detail.statuses
-                    .reduce((sum, status) => sum + (status.absorb || 0), 0)
-                    .toLocaleString()}
+            {/* 伤害构成 */}
+            {(() => {
+              const shieldAbsorb = detail.statuses.reduce((sum, s) => sum + (s.absorb || 0), 0)
+              const pctMitigation = Math.max(
+                0,
+                detail.unmitigatedDamage - detail.finalDamage - shieldAbsorb
+              )
+              const total = detail.unmitigatedDamage
+              const shieldPct = total > 0 ? (shieldAbsorb / total) * 100 : 0
+              const pctPct = total > 0 ? (pctMitigation / total) * 100 : 0
+              const finalPct = total > 0 ? (detail.finalDamage / total) * 100 : 0
+              return (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">减伤构成</span>
+                    <span className="tabular-nums">
+                      <span className="font-medium text-red-500">
+                        {detail.finalDamage.toLocaleString()}
+                      </span>
+                      <span className="text-muted-foreground"> / {total.toLocaleString()}</span>
+                      <span className="text-muted-foreground ml-1">
+                        ({(((total - detail.finalDamage) / total) * 100).toFixed(1)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <TooltipProvider>
+                    <div className="h-2.5 bg-secondary rounded-full flex overflow-visible">
+                      {(() => {
+                        const segments = [
+                          {
+                            pct: finalPct,
+                            color: 'rgb(239, 68, 68)',
+                            label: `真实伤害 ${detail.finalDamage.toLocaleString()} (${finalPct.toFixed(1)}%)`,
+                          },
+                          {
+                            pct: shieldPct,
+                            color: 'rgb(234, 179, 8)',
+                            label: `盾值减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
+                          },
+                          {
+                            pct: pctPct,
+                            color: 'rgb(59, 130, 246)',
+                            label: `百分比减免 ${pctMitigation.toLocaleString()} (${pctPct.toFixed(1)}%)`,
+                          },
+                        ].filter(s => s.pct > 0)
+                        return segments.map((seg, i) => (
+                          <Tooltip key={seg.color} delayDuration={0}>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={`h-full cursor-default ${i === 0 ? 'rounded-l-full' : ''} ${i === segments.length - 1 ? 'rounded-r-full' : ''}`}
+                                style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{seg.label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))
+                      })()}
+                    </div>
+                  </TooltipProvider>
                 </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">最终伤害</div>
-                <div className="font-medium text-red-600">
-                  {detail.finalDamage.toLocaleString()}
-                </div>
-              </div>
-            </div>
-
-            {/* 减伤百分比 */}
-            {detail.unmitigatedDamage > 0 && (
-              <div className="text-xs">
-                <span className="text-muted-foreground">减伤率: </span>
-                <span className="font-medium text-green-600">
-                  {(
-                    ((detail.unmitigatedDamage - detail.finalDamage) / detail.unmitigatedDamage) *
-                    100
-                  ).toFixed(1)}
-                  %
-                </span>
-              </div>
-            )}
+              )
+            })()}
 
             {/* 生效状态 */}
-            {activeStatuses.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex flex-wrap gap-1">
-                  {activeStatuses.map((status, index) => {
-                    const meta = getStatusById(status.statusId)
-                    const iconUrl = getStatusIconUrl(status.statusId)
-                    const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
+            {activeStatuses.length > 0 &&
+              (() => {
+                const damageType = event.damageType || 'physical'
 
-                    // 计算减伤幅度显示文本
-                    let mitigationText = ''
-                    if (meta) {
-                      if (meta.type === 'multiplier') {
-                        // 百分比减伤，根据伤害类型选择对应的减伤值
-                        let multiplier = 1.0
-                        const damageType = event.damageType || 'physical'
+                const multiplierStatuses = activeStatuses.filter(
+                  s => getStatusById(s.statusId)?.type === 'multiplier'
+                )
+                const shieldStatuses = activeStatuses.filter(
+                  s => getStatusById(s.statusId)?.type === 'absorbed' && (s.absorb || 0) > 0
+                )
 
-                        if (damageType === 'physical') {
-                          multiplier = meta.performance.physics
-                        } else if (damageType === 'magical') {
-                          multiplier = meta.performance.magic
-                        } else {
-                          multiplier = meta.performance.darkness
-                        }
+                const totalPctMitigation = multiplierStatuses.reduce((acc, s) => {
+                  const meta = getStatusById(s.statusId)
+                  if (!meta) return acc
+                  const multiplier =
+                    damageType === 'physical'
+                      ? meta.performance.physics
+                      : damageType === 'magical'
+                        ? meta.performance.magic
+                        : meta.performance.darkness
+                  return acc * multiplier
+                }, 1)
+                const pctReduction = ((1 - totalPctMitigation) * 100).toFixed(1)
 
-                        const reduction = ((1 - multiplier) * 100).toFixed(1)
-                        mitigationText = `${reduction}%`
-                      } else if (meta.type === 'absorbed') {
-                        // 盾值减伤
-                        const absorb = status.absorb || 0
-                        mitigationText = `盾: ${absorb.toLocaleString()}`
-                      }
-                    }
+                const totalShield = shieldStatuses.reduce((sum, s) => sum + (s.absorb || 0), 0)
+                const shieldEquivPct =
+                  detail.unmitigatedDamage > 0
+                    ? ((totalShield / detail.unmitigatedDamage) * 100).toFixed(1)
+                    : '0.0'
 
-                    return (
-                      <div
-                        key={`${status.statusId}-${index}`}
-                        className="flex items-center gap-1 px-2 py-1 bg-secondary rounded text-xs"
-                        title={mitigationText}
-                      >
-                        {iconUrl && (
-                          <img
-                            src={iconUrl}
-                            alt={mitigationText}
-                            className="w-4 h-4 object-contain"
-                          />
-                        )}
-                        <span>{statusName}</span>
-                        {status.absorb && status.absorb > 0 && (
-                          <span className="text-blue-600 ml-1">
-                            ({status.absorb.toLocaleString()})
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+                const renderIcon = (status: (typeof activeStatuses)[0], index: number) => {
+                  const meta = getStatusById(status.statusId)
+                  const iconUrl = getStatusIconUrl(status.statusId)
+                  const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
+                  let mitigationText = ''
+                  if (meta?.type === 'multiplier') {
+                    const multiplier =
+                      damageType === 'physical'
+                        ? meta.performance.physics
+                        : damageType === 'magical'
+                          ? meta.performance.magic
+                          : meta.performance.darkness
+                    mitigationText = `${((1 - multiplier) * 100).toFixed(1)}%`
+                  } else if (meta?.type === 'absorbed') {
+                    mitigationText = `盾: ${(status.absorb || 0).toLocaleString()}`
+                  }
+                  return (
+                    <Tooltip key={`${status.statusId}-${index}`} delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-default">
+                          {iconUrl && (
+                            <img
+                              src={iconUrl}
+                              alt={statusName}
+                              className="w-6 h-6 object-contain"
+                            />
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {statusName}
+                          {mitigationText ? ` · ${mitigationText}` : ''}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                }
+
+                return (
+                  <TooltipProvider>
+                    <div className="space-y-1.5">
+                      {multiplierStatuses.length > 0 && (
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">百分比</span>
+                            <span className="text-green-500 font-medium tabular-nums">
+                              -{pctReduction}%
+                              <span className="text-muted-foreground ml-1">
+                                (
+                                {Math.round(
+                                  detail.unmitigatedDamage * (1 - totalPctMitigation)
+                                ).toLocaleString()}
+                                )
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap0">
+                            {multiplierStatuses.map((s, i) => renderIcon(s, i))}
+                          </div>
+                        </div>
+                      )}
+                      {shieldStatuses.length > 0 && (
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">盾</span>
+                            <span className="text-yellow-500 font-medium tabular-nums">
+                              {totalShield.toLocaleString()}
+                              <span className="text-muted-foreground ml-1">
+                                ({shieldEquivPct}%)
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap">
+                            {shieldStatuses.map((s, i) => renderIcon(s, i))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </TooltipProvider>
+                )
+              })()}
           </div>
         )
       })}
