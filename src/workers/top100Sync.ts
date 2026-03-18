@@ -204,21 +204,20 @@ export function calculateMedian(values: number[]): number {
 }
 
 /**
- * 计算平均值并取整
+ * 对 Record<K, number[]> 中每个 key 计算中位数
  */
-function calculateAverages<T extends number | string>(
+export function calculateMedians<T extends number | string>(
   data: Record<T, number[]>
 ): Record<T, number> {
-  const averages: Record<string, number> = {}
+  const result: Record<string, number> = {}
 
   for (const [key, values] of Object.entries(data)) {
     if (Array.isArray(values) && values.length > 0) {
-      const avg = values.reduce((sum: number, val: number) => sum + val, 0) / values.length
-      averages[key] = Math.round(avg)
+      result[key] = calculateMedian(values as number[])
     }
   }
 
-  return averages as Record<T, number>
+  return result as Record<T, number>
 }
 
 /**
