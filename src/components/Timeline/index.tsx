@@ -297,6 +297,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         return
       }
 
+      // 鼠标按下时立即隐藏悬浮窗
+      useTooltipStore.getState().clearTooltip()
+
       const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
@@ -318,11 +321,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         scrollTop: clampedScrollRef.current.scrollTop,
       }
       stage.container().style.cursor = 'grabbing'
-      // 点击背景时关闭悬浮窗
-      if (clickedOnBackground) {
-        const { clearTooltip } = useTooltipStore.getState()
-        clearTooltip()
-      }
     }
 
     const handleStagePointerMove = (e: KonvaMouseEvent) => {
@@ -457,6 +455,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         return
       }
 
+      // 鼠标按下时立即隐藏悬浮窗
+      useTooltipStore.getState().clearTooltip()
+
       const target = e.target as KonvaNode
       if (!isReadOnly) {
         let node = target
@@ -478,11 +479,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         scrollTop: clampedScrollRef.current.scrollTop,
       }
       stage.container().style.cursor = 'grabbing'
-      // 点击背景时关闭悬浮窗
-      if (clickedOnBackground) {
-        const { clearTooltip } = useTooltipStore.getState()
-        clearTooltip()
-      }
     }
 
     const handleStagePointerMove = (e: KonvaMouseEvent) => {
@@ -577,6 +573,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   // 处理技能悬浮提示
   const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
+    if (isDraggingRef.current) return
     const stage = e.target.getStage()
     if (!stage) return
     const stageBounds = stage.container().getBoundingClientRect()
@@ -610,6 +607,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }
 
   const handleHoverActionFromDom = (action: MitigationAction, anchorRect: DOMRect) => {
+    if (isDraggingRef.current) return
     showTooltip(action, anchorRect)
   }
 
