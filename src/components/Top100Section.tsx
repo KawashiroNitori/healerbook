@@ -15,7 +15,7 @@ import { buildMitigationKey } from '@/utils/rosterUtils'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job } from '@/types/timeline'
-import { getTankJobs, getHealerJobs, getDPSJobs, getJobRole } from '@/data/jobs'
+import { getTankJobs, getHealerJobs, getDPSJobs, getJobRole, getJobName } from '@/data/jobs'
 
 // ---- 类型定义 ----
 
@@ -135,13 +135,17 @@ function CompositionFilter({
               {selectedJobs.length > 0 && (
                 <>
                   <p className="text-xs text-muted-foreground">{selectedJobs.length}/8</p>
-                  <button
-                    onClick={() => onJobsChange([])}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    title="清空"
-                  >
-                    <Eraser className="w-4 h-4" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onJobsChange([])}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Eraser className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>清空</TooltipContent>
+                  </Tooltip>
                 </>
               )}
             </div>
@@ -157,21 +161,24 @@ function CompositionFilter({
                     const isSelected = selectedJobs.includes(job)
                     const isDisabled = !isSelected && selectedJobs.length >= 8
                     return (
-                      <button
-                        key={job}
-                        onClick={() => toggleJob(job)}
-                        disabled={isDisabled}
-                        className={`transition-all ${
-                          isSelected
-                            ? 'opacity-100 scale-100'
-                            : isDisabled
-                              ? 'opacity-20 cursor-not-allowed'
-                              : 'opacity-40 scale-95 hover:opacity-60'
-                        }`}
-                        title={job}
-                      >
-                        <JobIcon job={job} size="md" />
-                      </button>
+                      <Tooltip key={job}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleJob(job)}
+                            disabled={isDisabled}
+                            className={`transition-all ${
+                              isSelected
+                                ? 'opacity-100 scale-100'
+                                : isDisabled
+                                  ? 'opacity-20 cursor-not-allowed'
+                                  : 'opacity-40 scale-95 hover:opacity-60'
+                            }`}
+                          >
+                            <JobIcon job={job} size="md" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{getJobName(job)}</TooltipContent>
+                      </Tooltip>
                     )
                   })}
                 </div>

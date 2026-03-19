@@ -8,6 +8,7 @@ import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useTooltipStore } from '@/store/tooltipStore'
+import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { sortJobsByOrder } from '@/data/jobs'
 import { toast } from 'sonner'
@@ -76,7 +77,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     updateScrollState,
     zoomWithScrollPreservation,
   } = useTimelineStore()
-  const { actions } = useMitigationStore()
+  const { actions, loadActions } = useMitigationStore()
+  const { hiddenPlayerIds } = useUIStore()
+
+  useEffect(() => {
+    if (actions.length === 0) {
+      loadActions()
+    }
+  }, [actions.length, loadActions])
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
 
@@ -97,6 +105,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
         const skillTracks: SkillTrack[] = []
         sortedPlayers.forEach(player => {
+          if (hiddenPlayerIds.has(player.id)) return
           const jobActions = actions.filter(action => action.jobs.includes(player.job))
           jobActions.forEach(action => {
             skillTracks.push({

@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Check, X, Pencil } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface EditableTitleProps {
   value: string
@@ -81,20 +82,28 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           style={{ width: `${inputWidth}px` }}
           className={`px-2 py-1 border rounded-md ${className}`}
         />
-        <button
-          onClick={handleSave}
-          className="p-1 hover:bg-accent rounded-md transition-colors"
-          title="保存"
-        >
-          <Check className="w-4 h-4 text-green-600" />
-        </button>
-        <button
-          onClick={handleCancel}
-          className="p-1 hover:bg-accent rounded-md transition-colors"
-          title="取消"
-        >
-          <X className="w-4 h-4 text-red-600" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleSave}
+              className="p-1 hover:bg-accent rounded-md transition-colors"
+            >
+              <Check className="w-4 h-4 text-green-600" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>保存</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleCancel}
+              className="p-1 hover:bg-accent rounded-md transition-colors"
+            >
+              <X className="w-4 h-4 text-red-600" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>取消</TooltipContent>
+        </Tooltip>
       </div>
     )
   }
@@ -102,13 +111,17 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
   return (
     <div className="flex items-center gap-2 group">
       <h1 className={className}>{value}</h1>
-      <button
-        onClick={() => setIsEditing(true)}
-        className="p-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-all"
-        title="编辑标题"
-      >
-        <Pencil className="w-4 h-4" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="p-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-all"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>编辑标题</TooltipContent>
+      </Tooltip>
     </div>
   )
 }

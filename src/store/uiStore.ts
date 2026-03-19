@@ -23,6 +23,8 @@ interface UIState {
   theme: 'light' | 'dark'
   /** 是否为只读模式 */
   isReadOnly: boolean
+  /** 隐藏的玩家 ID 集合 */
+  hiddenPlayerIds: Set<number>
 
   // Actions
   /** 切换侧边栏 */
@@ -43,6 +45,8 @@ interface UIState {
   setTheme: (theme: 'light' | 'dark') => void
   /** 切换只读模式 */
   toggleReadOnly: () => void
+  /** 切换玩家轨道可见性 */
+  togglePlayerVisibility: (playerId: number) => void
 }
 
 export const useUIStore = create<UIState>(set => ({
@@ -55,6 +59,7 @@ export const useUIStore = create<UIState>(set => ({
   showCooldownIndicators: true,
   theme: 'light',
   isReadOnly: false,
+  hiddenPlayerIds: new Set<number>(),
 
   toggleSidebar: () =>
     set(state => ({
@@ -104,4 +109,15 @@ export const useUIStore = create<UIState>(set => ({
     set(state => ({
       isReadOnly: !state.isReadOnly,
     })),
+
+  togglePlayerVisibility: (playerId: number) =>
+    set(state => {
+      const next = new Set(state.hiddenPlayerIds)
+      if (next.has(playerId)) {
+        next.delete(playerId)
+      } else {
+        next.add(playerId)
+      }
+      return { hiddenPlayerIds: next }
+    }),
 }))

@@ -32,7 +32,10 @@
       "Bash(cut:*)",
       "Bash(cd:*)",
       "WebFetch(domain:v2.xivapi.com)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:jestsee.hashnode.dev)"
     ]
   }
 }

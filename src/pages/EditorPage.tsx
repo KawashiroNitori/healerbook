@@ -11,7 +11,6 @@ import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
 import EditorToolbar from '@/components/EditorToolbar'
-import ActionPanel from '@/components/SkillPanel'
 import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
 import ErrorBoundary from '@/components/ErrorBoundary'
@@ -121,9 +120,6 @@ export default function EditorPage() {
       {/* Main Content */}
       <DamageCalculationContext.Provider value={calculationResults}>
         <div className="flex-1 flex overflow-hidden">
-          {/* 左侧：技能面板（固定宽度，独立滚动） */}
-          <ActionPanel />
-
           {/* 中间：时间轴区域 */}
           <div className="flex-1 overflow-hidden">
             <div ref={canvasContainerRef} className="h-full">

@@ -9,6 +9,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import AddEventDialog from './AddEventDialog'
+import CompositionPopover from './CompositionPopover'
 
 export default function EditorToolbar() {
   const { timeline, exitReplayMode, zoomWithScrollPreservation } = useTimelineStore()
@@ -47,21 +49,29 @@ export default function EditorToolbar() {
     <div className="h-12 border-b bg-background flex items-center px-4 gap-4">
       {/* Zoom Controls */}
       <div className="flex items-center gap-2">
-        <button
-          onClick={handleZoomOut}
-          className="p-2 hover:bg-accent rounded transition-colors"
-          title="缩小"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleZoomOut}
+              className="p-2 hover:bg-accent rounded transition-colors"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>缩小</TooltipContent>
+        </Tooltip>
 
-        <button
-          onClick={handleZoomIn}
-          className="p-2 hover:bg-accent rounded transition-colors"
-          title="放大"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleZoomIn}
+              className="p-2 hover:bg-accent rounded transition-colors"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>放大</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="w-px h-6 bg-border" />
@@ -95,7 +105,10 @@ export default function EditorToolbar() {
 
       <div className="w-px h-6 bg-border" />
 
-      {/* Add Event Button */}
+      {/* Party Composition */}
+      <CompositionPopover />
+
+      <div className="w-px h-6 bg-border" />
       <button
         onClick={() => setShowAddEventDialog(true)}
         disabled={isReadOnly}
