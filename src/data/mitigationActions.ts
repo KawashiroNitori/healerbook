@@ -134,10 +134,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createBuffExecutor(1896, 15),
     },
 
-    // 气宇轩昂之策 - 检测秘策状态附加额外盾值
+    // 意气轩昂之策 - 检测秘策状态附加额外盾值
     {
       id: 37013,
-      name: '气宇轩昂之策',
+      name: '意气轩昂之策',
       icon: '/i/002000/002880.png',
       jobs: ['SCH'],
       duration: 30,
@@ -146,20 +146,22 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
+        // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用技能描述中的技能基础恢复力 * 180%
         const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
-        let barrier = ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000
-        if (hasRecitation)
-          barrier = ctx.statistics?.critShieldByAbility[baseShieldId] ?? barrier * 1.6
+        const baseHeal = hasRecitation
+          ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
+          : (ctx.statistics?.healByAbility[37013] ?? 10000)
+        const barrier = Math.round(baseHeal * 1.8)
 
         const newStatuses: MitigationStatus[] = []
 
-        // 基础鼓舞盾
         newStatuses.push({
           instanceId: generateId(),
           statusId: baseShieldId,
           startTime: ctx.useTime,
           endTime: ctx.useTime + 30,
           remainingBarrier: barrier,
+          initialBarrier: barrier,
           sourceActionId: ctx.actionId,
           sourcePlayerId: ctx.sourcePlayerId,
         })
@@ -203,6 +205,74 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 20,
       cooldown: 120,
       executor: createBuffExecutor(2711, 20),
+    },
+
+    {
+      id: 16545,
+      name: '炽天召唤',
+      icon: '/i/002000/002850.png',
+      jobs: ['SCH'],
+      duration: 22,
+      cooldown: 120,
+      executor: createBuffExecutor(3095, 22),
+    },
+
+    {
+      id: 16546,
+      name: '慰藉',
+      icon: '/i/002000/002851.png',
+      jobs: ['SCH'],
+      duration: 30,
+      cooldown: 1,
+      executor: createShieldExecutor(1917, 30),
+    },
+
+    {
+      id: 37014,
+      name: '炽天附体',
+      icon: '/i/002000/002881.png',
+      jobs: ['SCH'],
+      duration: 30,
+      cooldown: 180,
+      executor: createBuffExecutor(3885, 30),
+    },
+
+    {
+      id: 37016,
+      name: '降临之章',
+      icon: '/i/002000/002883.png',
+      jobs: ['SCH'],
+      duration: 30,
+      cooldown: 1,
+      executor: (ctx: ActionExecutionContext) => {
+        const baseShieldId = 297 // 鼓舞
+        const sageShieldId = 2609 // 贤者群盾
+        // 降临之章的鼓舞盾是 240 恢复力，而且秘策无效
+        const baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
+        const barrier = Math.round(baseHeal * 1.8)
+
+        const newStatuses: MitigationStatus[] = []
+
+        newStatuses.push({
+          instanceId: generateId(),
+          statusId: baseShieldId,
+          startTime: ctx.useTime,
+          endTime: ctx.useTime + 30,
+          remainingBarrier: barrier,
+          initialBarrier: barrier,
+          sourceActionId: ctx.actionId,
+          sourcePlayerId: ctx.sourcePlayerId,
+        })
+
+        const filteredStatuses = ctx.partyState.statuses.filter(
+          s => ![baseShieldId, sageShieldId].includes(s.statusId)
+        )
+
+        return {
+          ...ctx.partyState,
+          statuses: [...filteredStatuses, ...newStatuses],
+        }
+      },
     },
 
     // 占星术士 (AST)
@@ -322,6 +392,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           startTime: ctx.useTime,
           endTime: ctx.useTime + 30,
           remainingBarrier: barrier,
+          initialBarrier: barrier,
           sourceActionId: ctx.actionId,
           sourcePlayerId: ctx.sourcePlayerId,
         })
