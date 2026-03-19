@@ -11,10 +11,13 @@ import { getIconUrl } from '@/utils/iconUtils'
 import type { MitigationAction } from '@/types/mitigation'
 import { getActionById } from '@/api/xivapi'
 import JobIcon from './JobIcon'
+import type { TooltipPlacement } from '@/store/tooltipStore'
 
 interface ActionTooltipProps {
   action: MitigationAction | null
   anchorRect: DOMRect | null
+  placementPriority?: TooltipPlacement[]
+  noTransition?: boolean
   onMouseEnter: () => void
   onMouseLeave: () => void
 }
@@ -22,6 +25,8 @@ interface ActionTooltipProps {
 export default function ActionTooltip({
   action,
   anchorRect,
+  placementPriority = ['r', 'l', 'b', 't'],
+  noTransition = false,
   onMouseEnter,
   onMouseLeave,
 }: ActionTooltipProps) {
@@ -51,6 +56,7 @@ export default function ActionTooltip({
       setIsPositioned(false)
     } else {
       setIsVisible(false)
+      if (noTransition) setDisplayedData(null)
     }
   }
 
@@ -144,38 +150,42 @@ export default function ActionTooltip({
     const { anchorRect } = displayedData
     const tooltipWidth = tooltipRef.current.offsetWidth
     const tooltipHeight = tooltipRef.current.offsetHeight
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
+    const vw = window.innerWidth
+    const vh = window.innerHeight
 
-    // 优先显示在下方
-    if (anchorRect.bottom + tooltipHeight <= viewportHeight) {
-      const left = Math.min(anchorRect.left, viewportWidth - tooltipWidth)
-      setPosition({ left: Math.max(0, left), top: anchorRect.bottom })
-      setIsPositioned(true)
-      return
+    const fits = {
+      b: anchorRect.bottom + tooltipHeight <= vh,
+      t: anchorRect.top - tooltipHeight >= 0,
+      r: anchorRect.right + tooltipWidth <= vw,
+      l: anchorRect.left - tooltipWidth >= 0,
     }
 
-    // 显示在上方
-    if (anchorRect.top - tooltipHeight >= 0) {
-      const left = Math.min(anchorRect.left, viewportWidth - tooltipWidth)
-      setPosition({ left: Math.max(0, left), top: anchorRect.top - tooltipHeight })
+    const place = (p: (typeof placementPriority)[number]) => {
+      if (p === 'b') {
+        const left = Math.max(0, Math.min(anchorRect.left, vw - tooltipWidth))
+        setPosition({ left, top: anchorRect.bottom })
+      } else if (p === 't') {
+        const left = Math.max(0, Math.min(anchorRect.left, vw - tooltipWidth))
+        setPosition({ left, top: anchorRect.top - tooltipHeight })
+      } else if (p === 'r') {
+        const top = Math.max(0, Math.min(anchorRect.top, vh - tooltipHeight))
+        setPosition({ left: anchorRect.right, top })
+      } else {
+        const top = Math.max(0, Math.min(anchorRect.top, vh - tooltipHeight))
+        setPosition({ left: anchorRect.left - tooltipWidth, top })
+      }
       setIsPositioned(true)
-      return
     }
 
-    // 显示在右侧
-    if (anchorRect.right + tooltipWidth <= viewportWidth) {
-      const top = Math.min(anchorRect.top, viewportHeight - tooltipHeight)
-      setPosition({ left: anchorRect.right, top: Math.max(0, top) })
-      setIsPositioned(true)
-      return
+    for (const p of placementPriority) {
+      if (fits[p]) {
+        place(p)
+        return
+      }
     }
-
-    // 显示在左侧
-    const top = Math.min(anchorRect.top, viewportHeight - tooltipHeight)
-    setPosition({ left: anchorRect.left - tooltipWidth, top: Math.max(0, top) })
-    setIsPositioned(true)
-  }, [displayedData, isLoading, apiData])
+    // 全部放不下时用第一优先级
+    place(placementPriority[0])
+  }, [displayedData, isLoading, apiData, placementPriority])
 
   if (!displayedData) return null
 
@@ -185,14 +195,15 @@ export default function ActionTooltip({
     <div
       ref={tooltipRef}
       className={cn(
-        'fixed z-[9999] transition-opacity duration-150',
+        'fixed z-[9999]',
+        !noTransition && 'transition-opacity duration-150',
         isVisible && isPositioned ? 'opacity-100' : 'opacity-0'
       )}
       style={{
         left: `${position.left}px`,
         top: `${position.top}px`,
         transform: isVisible && isPositioned ? 'scale(1)' : 'scale(0.95)',
-        transition: 'opacity 150ms, transform 150ms',
+        transition: noTransition ? 'none' : 'opacity 150ms, transform 150ms',
       }}
       onTransitionEnd={() => {
         if (!isVisible) setDisplayedData(null)

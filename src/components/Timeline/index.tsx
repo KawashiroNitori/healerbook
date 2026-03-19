@@ -585,7 +585,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const screenX = stageBounds.left + absPos.x
     const screenY = stageBounds.top + absPos.y
     const anchorRect = new DOMRect(screenX, screenY - 15, 30, 30)
-    showTooltip(action, anchorRect)
+    showTooltip(action, anchorRect, ['b', 't', 'l', 'r'])
   }
 
   const handleClickAction = (
@@ -603,7 +603,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const screenX = stageBounds.left + absPos.x
     const screenY = stageBounds.top + absPos.y
     const anchorRect = new DOMRect(screenX, screenY - 15, 30, 30)
-    toggleTooltip(action, anchorRect)
+    toggleTooltip(action, anchorRect, ['b', 't', 'l', 'r'])
   }
 
   const handleHoverActionFromDom = (action: MitigationAction, anchorRect: DOMRect) => {
