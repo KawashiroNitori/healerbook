@@ -766,6 +766,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         <div
           className="flex-shrink-0 border-r bg-background overflow-hidden"
           style={{ width: labelColumnWidth }}
+          onWheel={e => {
+            e.preventDefault()
+            setScrollTop(prev => Math.max(0, Math.min(prev + e.deltaY, maxScrollTop)))
+          }}
         >
           <div
             ref={labelColumnContainerRef}
