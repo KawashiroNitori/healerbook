@@ -3,7 +3,7 @@
  */
 
 import { Group, Rect, Text } from 'react-konva'
-import type { DamageEvent } from '@/types/timeline'
+import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 
 interface DamageEventCardProps {
@@ -38,10 +38,10 @@ export default function DamageEventCard({
   const x = event.time * zoomLevel
   const y = yOffset + row * rowHeight + rowHeight / 2
 
-  const damageTypeColorMap: Record<string, string> = {
+  const damageTypeColorMap: Record<DamageType, string> = {
     physical: '#ef4444',
     magical: '#1e40af',
-    special: '#c026d3',
+    darkness: '#c026d3',
   }
   const nameColor = damageTypeColorMap[event.damageType || 'physical'] || '#ef4444'
 

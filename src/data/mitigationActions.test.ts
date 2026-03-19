@@ -22,7 +22,7 @@ describe('mitigationActions', () => {
       }
     })
 
-    it('所有技能应该���必需字段', () => {
+    it('所有技能应该包含必需字段', () => {
       for (const action of MITIGATION_DATA.actions) {
         expect(action.id).toBeGreaterThan(0)
         expect(action.name).toBeTruthy()

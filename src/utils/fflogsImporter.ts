@@ -9,6 +9,7 @@ import type {
   CastEvent,
   PlayerDamageDetail,
   StatusSnapshot,
+  DamageType,
 } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
@@ -51,7 +52,7 @@ export function parseComposition(
  *
  * V2 事件字段：abilityGameID, packetID, sourceID, targetID, amount, unmitigatedAmount, absorbed
  * 重构后的四步流程：
- * 1. 从 damage 事件中过滤出对玩家的伤害，构建原始 PlayerDamageDetail��缺少护盾数据）
+ * 1. 从 damage 事件中过滤出对玩家的伤害，构建原始 PlayerDamageDetail（缺少护盾数据）
  * 2. 从 absorbed 事件中构建耗盾事件四元组，匹配到对应的 PlayerDamageDetail
  * 3. 将护盾数据 push 到 PlayerDamageDetail 的护盾列表
  * 4. 按 packetID 汇总 PlayerDamageDetail，构建 DamageEvent
@@ -207,7 +208,7 @@ export function parseDamageEvents(
     // 计算中位数伤害（非坦克优先）
     const nonTankDetails = details.filter(d => !TANK_JOBS.includes(d.job))
     const detailsForMedian = nonTankDetails.length > 0 ? nonTankDetails : details
-    const medianDamage = calculatePercentile(detailsForMedian.map(d => d.finalDamage))
+    const medianDamage = calculatePercentile(detailsForMedian.map(d => d.unmitigatedDamage))
 
     const abilityMeta = abilityMap?.get(firstDetail.abilityId)
     damageEvents.push({
@@ -237,13 +238,11 @@ function detectDamageType(hitCount: number): 'aoe' | 'tankbuster' | 'raidwide' {
  * 根据 ability.type 判断伤害类型
  * V2 API 返回字符串数字：'1024'=魔法，'128'=物理
  */
-function detectDamageTypeFromAbility(
-  abilityType: string | number
-): 'physical' | 'magical' | 'special' {
+function detectDamageTypeFromAbility(abilityType: string | number): DamageType {
   const t = Number(abilityType)
   if (t === 1024) return 'magical'
   if (t === 128) return 'physical'
-  return 'special'
+  return 'darkness'
 }
 
 /**

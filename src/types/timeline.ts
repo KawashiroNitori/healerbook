@@ -12,6 +12,11 @@ export type { Job } from '@/data/jobs'
 export const MAX_PARTY_SIZE = 8
 
 /**
+ * 伤害类型
+ */
+export type DamageType = 'physical' | 'magical' | 'darkness'
+
+/**
  * 时间轴
  */
 export interface Timeline {
@@ -126,7 +131,7 @@ export interface DamageEvent {
   /** 攻击类型 */
   type: 'aoe' | 'tankbuster' | 'raidwide'
   /** 伤害类型 */
-  damageType: 'physical' | 'magical' | 'special'
+  damageType: DamageType
   /** 目标玩家 ID（可选，用于单体伤害） */
   targetPlayerId?: number
   /** 每个玩家的伤害详情 */

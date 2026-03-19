@@ -26,6 +26,8 @@ export interface FFLogsV1Report {
   enemies?: FFLogsV1Actor[]
   /** 技能元数据（V2 API 提供） */
   abilities?: FFLogsAbility[]
+  /** 阶段数据 */
+  phases?: FFLogsV2Phase[]
 }
 
 /**
@@ -301,4 +303,44 @@ export interface FFLogsGraphQLResponse<T = unknown> {
     }>
     path?: string[]
   }>
+}
+
+/**
+ * FFLogs V2 战斗（Workers 使用）
+ */
+export interface FFLogsV2Fight {
+  id: number
+  name: string
+  difficulty: number
+  kill?: boolean
+  startTime: number
+  endTime: number
+  encounterID: number
+}
+
+export interface FFLogsV2PhaseMetadata {
+  id: number
+  name: string
+  isIntermission: boolean
+}
+
+export interface FFLogsV2Phase {
+  encounterID: number
+  separatesWipes: boolean
+  phases: FFLogsV2PhaseMetadata[]
+}
+
+export interface FFLogsV2Actor {
+  id: number
+  name: string
+  subType?: string
+  type: string
+  server: string
+}
+
+export interface FFLogsV2Ability {
+  gameID: number
+  name: string
+  type: string
+  icon: string
 }

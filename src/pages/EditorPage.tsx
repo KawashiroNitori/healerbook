@@ -54,7 +54,7 @@ export default function EditorPage() {
         const newWidth = canvasContainerRef.current.clientWidth
         const newHeight = canvasContainerRef.current.clientHeight
 
-        // 只在尺寸真��变化时更新，避免无限循环
+        // 只在尺寸真正变化时更新，避免无限循环
         setCanvasSize(prev => {
           if (prev.width === newWidth && prev.height === newHeight) {
             return prev
@@ -138,10 +138,9 @@ export default function EditorPage() {
               )}
             </div>
           </div>
-
-          {/* 右侧：属性面板 */}
-          <PropertyPanel />
         </div>
+        {/* 右侧：属性面板（固定悬浮） */}
+        <PropertyPanel />
       </DamageCalculationContext.Provider>
     </div>
   )

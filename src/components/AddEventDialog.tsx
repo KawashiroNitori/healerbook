@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
+import type { DamageType } from '@/types/timeline'
 
 interface AddEventDialogProps {
   open: boolean
@@ -18,7 +19,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
   const [time, setTime] = useState(0)
   const [damage, setDamage] = useState(100000)
   const [type, setType] = useState<'aoe' | 'tankbuster' | 'raidwide'>('raidwide')
-  const [damageType, setDamageType] = useState<'physical' | 'magical' | 'special'>('magical')
+  const [damageType, setDamageType] = useState<DamageType>('magical')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,12 +104,12 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <label className="block text-sm font-medium mb-1">伤害类型</label>
             <select
               value={damageType}
-              onChange={e => setDamageType(e.target.value as 'physical' | 'magical' | 'special')}
+              onChange={e => setDamageType(e.target.value as DamageType)}
               className="w-full px-3 py-2 border rounded-md"
             >
               <option value="physical">物理</option>
               <option value="magical">魔法</option>
-              <option value="special">特殊</option>
+              <option value="darkness">特殊</option>
             </select>
           </div>
 

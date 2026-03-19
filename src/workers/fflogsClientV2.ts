@@ -10,7 +10,7 @@ import type {
   FFLogsAbility,
   FFLogsEvent,
 } from '@/types/fflogs'
-import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from './types/fflogs'
+import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability, FFLogsV2Phase } from '@/types/fflogs'
 import { buildComposition } from '@/utils/rosterUtils'
 
 export interface FFLogsV2Config {
@@ -209,6 +209,18 @@ export class FFLogsClientV2 {
             title
             startTime
             endTime
+            owner {
+              name
+            }
+            phases {
+              encounterID
+              separatesWipes
+              phases {
+                id
+                name
+                isIntermission
+              }
+            }
             fights {
               id
               name
@@ -245,6 +257,8 @@ export class FFLogsClientV2 {
           startTime: number
           endTime: number
           fights: FFLogsV2Fight[]
+          owner: { name: string }
+          phases: FFLogsV2Phase[]
           masterData: {
             actors: FFLogsV2Actor[]
             abilities: FFLogsV2Ability[]
@@ -257,8 +271,10 @@ export class FFLogsClientV2 {
     // 转换为 v1 格式（保持接口一致性）
     return {
       title: report.title,
+      owner: report.owner.name,
       start: report.startTime,
       end: report.endTime,
+      phases: report.phases,
       fights: report.fights.map(fight => ({
         id: fight.id,
         name: fight.name,

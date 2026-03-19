@@ -5,12 +5,8 @@
 
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus } from '@/types/status'
+import type { DamageType } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
-
-/**
- * 伤害类型
- */
-export type DamageType = 'physical' | 'magical' | 'special'
 
 /**
  * 计算结果
@@ -41,7 +37,7 @@ export class MitigationCalculator {
    * @param originalDamage 原始伤害
    * @param partyState 小队状态
    * @param time 当前时间（秒）
-   * @param damageType 伤害类��（物理/魔法/特殊）
+   * @param damageType 伤害类型（物理/魔法/特殊）
    * @returns 计算结果
    */
   calculate(
@@ -176,7 +172,7 @@ export class MitigationCalculator {
         return performance.physics
       case 'magical':
         return performance.magic
-      case 'special':
+      case 'darkness':
         return performance.darkness
       default:
         return 1.0

@@ -8,6 +8,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
 import { Trash2 } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
+import type { DamageType } from '@/types/timeline'
 
 export default function PropertyPanel() {
   const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent } = useTimelineStore()
@@ -29,7 +30,7 @@ export default function PropertyPanel() {
   const result = eventResults.get(event.id)
 
   return (
-    <div className="w-80 border-l bg-background hidden md:flex flex-col h-full">
+    <div className="fixed right-4 top-[136px] bottom-[112px] w-[22rem] hidden md:flex flex-col bg-background/95 backdrop-blur border rounded-xl shadow-lg z-10 overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="font-semibold">伤害事件</h2>
@@ -85,7 +86,7 @@ export default function PropertyPanel() {
             value={event.damageType || 'physical'}
             onChange={e =>
               updateDamageEvent(event.id, {
-                damageType: e.target.value as 'physical' | 'magical' | 'special',
+                damageType: e.target.value as DamageType,
               })
             }
             className="w-full px-3 py-2 border rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -93,7 +94,7 @@ export default function PropertyPanel() {
           >
             <option value="physical">物理</option>
             <option value="magical">魔法</option>
-            <option value="special">特殊</option>
+            <option value="darkness">特殊</option>
           </select>
         </div>
 
@@ -125,7 +126,7 @@ export default function PropertyPanel() {
               <div className="mt-4">
                 <div className="text-sm font-medium mb-2">已应用状态</div>
                 <div className="space-y-1">
-                  {result.appliedStatuses.map((status, index) => {
+                  {result.appliedStatuses.map(status => {
                     const statusMeta = getStatusById(status.statusId)
                     if (!statusMeta) return null
 
@@ -153,7 +154,7 @@ export default function PropertyPanel() {
 
                     return (
                       <div
-                        key={`${status.statusId}-${index}`}
+                        key={status.instanceId}
                         className="text-xs p-2 bg-muted rounded flex justify-between items-center gap-2"
                       >
                         <span className="truncate">{statusMeta.name}</span>
