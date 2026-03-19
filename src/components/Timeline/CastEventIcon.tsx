@@ -171,7 +171,15 @@ export default function CastEventIcon({
         width={30}
         height={30}
         fill="transparent"
-        onMouseEnter={e => onHover(action, e)}
+        onMouseEnter={e => {
+          onHover(action, e)
+          const stage = e.target.getStage()
+          if (stage) stage.container().style.cursor = 'pointer'
+        }}
+        onMouseLeave={e => {
+          const stage = e.target.getStage()
+          if (stage) stage.container().style.cursor = 'default'
+        }}
         onTap={e => onClickIcon(action, e)}
       />
     </Group>

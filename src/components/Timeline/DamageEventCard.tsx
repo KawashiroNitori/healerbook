@@ -66,6 +66,14 @@ export default function DamageEventCard({
       })}
       onClick={onSelect}
       onTap={onSelect}
+      onMouseEnter={e => {
+        const stage = e.target.getStage()
+        if (stage) stage.container().style.cursor = 'pointer'
+      }}
+      onMouseLeave={e => {
+        const stage = e.target.getStage()
+        if (stage) stage.container().style.cursor = 'default'
+      }}
       onDragStart={onDragStart}
       onDragMove={e => {
         onDragMove(e.target.x())

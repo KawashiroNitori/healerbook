@@ -329,7 +329,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: clampedScrollRef.current.scrollTop,
       }
-      stage.container().style.cursor = 'grabbing'
+      stage.container().style.cursor = 'default'
     }
 
     const handleStagePointerMove = (e: KonvaMouseEvent) => {
@@ -384,7 +384,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
-      stage.container().style.cursor = 'grab'
+      stage.container().style.cursor = 'default'
     }
 
     const handleNativeWheel = (e: WheelEvent) => {
@@ -402,17 +402,27 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
 
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      handleStagePointerMove({ evt: e } as unknown as KonvaMouseEvent)
+    }
+    const handleWindowMouseUp = () => {
+      if (isDraggingRef.current) handleStagePointerUp()
+    }
+
     stage.on('mousedown touchstart', handleStagePointerDown)
-    stage.on('mousemove touchmove', handleStagePointerMove)
-    stage.on('mouseup touchend', handleStagePointerUp)
-    stage.on('mouseleave', handleStagePointerUp)
+    stage.on('touchmove', handleStagePointerMove)
+    stage.on('touchend', handleStagePointerUp)
+    window.addEventListener('mousemove', handleWindowMouseMove)
+    window.addEventListener('mouseup', handleWindowMouseUp)
     stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
 
     return () => {
       stage.off('mousedown touchstart', handleStagePointerDown)
-      stage.off('mousemove touchmove', handleStagePointerMove)
-      stage.off('mouseup touchend', handleStagePointerUp)
-      stage.off('mouseleave', handleStagePointerUp)
+      stage.off('touchmove', handleStagePointerMove)
+      stage.off('touchend', handleStagePointerUp)
+      window.removeEventListener('mousemove', handleWindowMouseMove)
+      window.removeEventListener('mouseup', handleWindowMouseUp)
       stage.container().removeEventListener('wheel', handleNativeWheel)
     }
     // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
@@ -487,7 +497,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: clampedScrollRef.current.scrollTop,
       }
-      stage.container().style.cursor = 'grabbing'
+      stage.container().style.cursor = 'default'
     }
 
     const handleStagePointerMove = (e: KonvaMouseEvent) => {
@@ -544,7 +554,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
-      stage.container().style.cursor = 'grab'
+      stage.container().style.cursor = 'default'
     }
 
     const handleNativeWheel = (e: WheelEvent) => {
@@ -562,17 +572,27 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
 
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      handleStagePointerMove({ evt: e } as unknown as KonvaMouseEvent)
+    }
+    const handleWindowMouseUp = () => {
+      if (isDraggingRef.current) handleStagePointerUp()
+    }
+
     stage.on('mousedown touchstart', handleStagePointerDown)
-    stage.on('mousemove touchmove', handleStagePointerMove)
-    stage.on('mouseup touchend', handleStagePointerUp)
-    stage.on('mouseleave', handleStagePointerUp)
+    stage.on('touchmove', handleStagePointerMove)
+    stage.on('touchend', handleStagePointerUp)
+    window.addEventListener('mousemove', handleWindowMouseMove)
+    window.addEventListener('mouseup', handleWindowMouseUp)
     stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
 
     return () => {
       stage.off('mousedown touchstart', handleStagePointerDown)
-      stage.off('mousemove touchmove', handleStagePointerMove)
-      stage.off('mouseup touchend', handleStagePointerUp)
-      stage.off('mouseleave', handleStagePointerUp)
+      stage.off('touchmove', handleStagePointerMove)
+      stage.off('touchend', handleStagePointerUp)
+      window.removeEventListener('mousemove', handleWindowMouseMove)
+      window.removeEventListener('mouseup', handleWindowMouseUp)
       stage.container().removeEventListener('wheel', handleNativeWheel)
     }
     // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
@@ -735,7 +755,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         </div>
 
         {/* 右侧固定 Stage 区域 */}
-        <div className="flex-1 overflow-hidden" style={{ cursor: 'grab' }}>
+        <div className="flex-1 overflow-hidden" style={{ cursor: 'default' }}>
           <Stage width={viewportWidth} height={fixedAreaHeight} ref={fixedStageRef}>
             <Layer x={-clampedScrollLeft}>
               <TimeRuler
@@ -796,7 +816,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         </div>
 
         {/* 右侧技能轨道 Stage */}
-        <div className="flex-1 overflow-hidden" style={{ cursor: 'grab' }}>
+        <div className="flex-1 overflow-hidden" style={{ cursor: 'default' }}>
           <Stage
             width={viewportWidth}
             height={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
