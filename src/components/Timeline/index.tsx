@@ -317,7 +317,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           node = node.parent as KonvaNode
         }
       }
-      const clickedOnBackground = target === stage || target.getClassName?.() === 'Rect'
+      const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
       // 走到这里说明没有找到可拖动节点（或只读模式），统一触发时间轴平移
       clickedBackgroundRef.current = clickedOnBackground
       hasMovedRef.current = false

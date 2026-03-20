@@ -76,7 +76,14 @@ export default function DamageEventTrack({
   return (
     <>
       {/* 伤害事件轨道背景 */}
-      <Rect x={0} y={yOffset} width={timelineWidth} height={trackHeight} fill="#e5e7eb" />
+      <Rect
+        x={0}
+        y={yOffset}
+        width={timelineWidth}
+        height={trackHeight}
+        fill="#e5e7eb"
+        draggableBackground={true}
+      />
 
       {/* 时间刻度网格线 */}
       {gridLines}

@@ -15,7 +15,14 @@ export default function TimeRuler({ maxTime, zoomLevel, timelineWidth, height }:
   return (
     <>
       {/* 时间标尺轨道背景 */}
-      <Rect x={0} y={0} width={timelineWidth} height={height} fill="#f3f4f6" />
+      <Rect
+        x={0}
+        y={0}
+        width={timelineWidth}
+        height={height}
+        fill="#f3f4f6"
+        draggableBackground={true}
+      />
 
       {/* 时间标尺刻度 */}
       {Array.from({ length: Math.ceil(maxTime / 10) + 1 }).map((_, i) => {
