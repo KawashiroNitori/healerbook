@@ -447,4 +447,85 @@ describe('parseDamageEvents', () => {
     const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
     expect(result).toHaveLength(0)
   })
+
+  it('应该在 unmitigatedAmount 为 0 时从 multiplier 和 absorbed 推测原始伤害', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Healer1', type: 'WhiteMage' }],
+      [2, { id: 2, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 0, // 无效，需推测
+        multiplier: 0.8,
+        absorbed: 2000,
+        amount: 6000, // 推测：(6000 + 2000) / 0.8 = 10000
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        multiplier: 1,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    const details = result[0].playerDamageDetails ?? []
+    const healerDetail = details.find(d => d.playerId === 1)
+    expect(healerDetail?.unmitigatedDamage).toBe(10000)
+  })
+
+  it('应该在 unmitigatedAmount 为 0 且无法推测时忽略该玩家伤害', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Healer1', type: 'WhiteMage' }],
+      [2, { id: 2, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 0, // 无效，multiplier 也缺失，应忽略
+        amount: 0,
+        absorbed: 0,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        multiplier: 1,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    // 第一个玩家的伤害事件被忽略，只有第二个玩家
+    expect(result[0].playerDamageDetails).toHaveLength(1)
+    expect(result[0].playerDamageDetails?.[0].playerId).toBe(2)
+  })
 })

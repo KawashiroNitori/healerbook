@@ -90,6 +90,19 @@ export function parseDamageEvents(
     const chineseName = getActionChinese(abilityId)
     const skillName = chineseName ?? abilityName
 
+    // 计算未减伤伤害：优先使用 unmitigatedAmount，为 0 时从 absorbed 和 multiplier 推测
+    let unmitigatedDamage = event.unmitigatedAmount ?? 0
+    if (unmitigatedDamage === 0) {
+      const finalAmount = event.amount ?? 0
+      const absorbed = event.absorbed ?? 0
+      const multiplier = event.multiplier
+      if (multiplier && multiplier > 0 && (finalAmount > 0 || absorbed > 0)) {
+        unmitigatedDamage = Math.round((finalAmount + absorbed) / multiplier)
+      } else {
+        continue
+      }
+    }
+
     // 解析 buffs 字段，提取所有减伤状态（百分比减伤和盾值）
     const statuses: StatusSnapshot[] = []
     if (event.buffs) {
@@ -118,7 +131,7 @@ export function parseDamageEvents(
       job,
       abilityId,
       skillName,
-      unmitigatedDamage: event.unmitigatedAmount || event.amount || 0,
+      unmitigatedDamage: unmitigatedDamage,
       finalDamage: event.amount || 0,
       overkill: event.overkill,
       multiplier: event.multiplier,
