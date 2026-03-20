@@ -35,7 +35,8 @@
       "Bash(xargs grep:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:ui.shadcn.com)",
-      "WebFetch(domain:jestsee.hashnode.dev)"
+      "WebFetch(domain:jestsee.hashnode.dev)",
+      "Bash(pnpm list:*)"
     ]
   }
 }

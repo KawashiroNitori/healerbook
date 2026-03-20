@@ -332,7 +332,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.container().style.cursor = 'default'
     }
 
-    const handleStagePointerMove = (e: KonvaMouseEvent) => {
+    const handleStagePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
       const evt = e.evt
 
       // 处理双指缩放
@@ -404,7 +404,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
     const handleWindowMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return
-      handleStagePointerMove({ evt: e } as unknown as KonvaMouseEvent)
+      handleStagePointerMove({ evt: e } as unknown as KonvaEventObject<MouseEvent | TouchEvent>)
     }
     const handleWindowMouseUp = () => {
       if (isDraggingRef.current) handleStagePointerUp()
@@ -500,7 +500,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       stage.container().style.cursor = 'default'
     }
 
-    const handleStagePointerMove = (e: KonvaMouseEvent) => {
+    const handleStagePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
       const evt = e.evt
 
       // 处理双指缩放
@@ -574,7 +574,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
     const handleWindowMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return
-      handleStagePointerMove({ evt: e } as unknown as KonvaMouseEvent)
+      handleStagePointerMove({ evt: e } as unknown as KonvaEventObject<MouseEvent | TouchEvent>)
     }
     const handleWindowMouseUp = () => {
       if (isDraggingRef.current) handleStagePointerUp()
