@@ -2,8 +2,9 @@
  * 技能轨道 Canvas 区域组件
  */
 
-import type { ReactElement } from 'react'
+import type { ReactElement, RefObject } from 'react'
 import { Group, Layer, Line, Rect, Text } from 'react-konva'
+import type Konva from 'konva'
 import CastEventIcon from './CastEventIcon'
 import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME } from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
@@ -30,6 +31,8 @@ interface SkillTracksCanvasProps {
   onHoverAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
   onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
   isReadOnly?: boolean
+  bgLayerRef?: RefObject<Konva.Layer | null>
+  eventLayerRef?: RefObject<Konva.Layer | null>
 }
 
 export default function SkillTracksCanvas({
@@ -51,12 +54,14 @@ export default function SkillTracksCanvas({
   onHoverAction,
   onClickAction,
   isReadOnly = false,
+  bgLayerRef,
+  eventLayerRef,
 }: SkillTracksCanvasProps) {
   const skillTracksHeight = skillTracks.length * trackHeight
 
   return (
     <>
-      <Layer x={-scrollLeft} y={-scrollTop}>
+      <Layer ref={bgLayerRef} x={-scrollLeft} y={-scrollTop}>
         {/* 技能轨道背景（可双击添加技能） */}
         {skillTracks.map((track, index) => (
           <Rect
@@ -127,7 +132,7 @@ export default function SkillTracksCanvas({
       </Layer>
 
       {/* 技能使用事件层 */}
-      <Layer x={-scrollLeft} y={-scrollTop}>
+      <Layer ref={eventLayerRef} x={-scrollLeft} y={-scrollTop}>
         {/* 伤害事件时刻的红色虚线 */}
         {timeline.damageEvents.map(event => {
           const x =

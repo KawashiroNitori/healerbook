@@ -2,7 +2,7 @@
  * 时间轴 Canvas 主组件（重构版）
  */
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { Stage, Layer } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -20,6 +20,7 @@ import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
 import SkillTracksCanvas from './SkillTracksCanvas'
 import TimelineMinimap from './TimelineMinimap'
+import type { TimelineMinimapHandle } from './TimelineMinimap'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -53,6 +54,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const maxScrollLeftRef = useRef(0)
   const minScrollLeftRef = useRef(0)
+  const maxScrollTopRef = useRef(0)
   const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
   // 记录是否点击了背景（用于区分点击和拖动）
   const clickedBackgroundRef = useRef(false)
@@ -61,6 +63,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const panJustEndedRef = useRef(false)
   const lastPanEndTimeRef = useRef(0) // 记录最后一次平移结束的时间戳，用于阻止 dblclick
   const inertiaRafIdRef = useRef<number | null>(null)
+  // Konva Layer refs（用于直接操作 Layer 位置，绕过 React 渲染）
+  const fixedLayerRef = useRef<Konva.Layer | null>(null)
+  const mainBgLayerRef = useRef<Konva.Layer | null>(null)
+  const mainEventLayerRef = useRef<Konva.Layer | null>(null)
+  const minimapRef = useRef<TimelineMinimapHandle | null>(null)
 
   const {
     timeline,
@@ -95,6 +102,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     dragStartRef,
     maxScrollLeftRef,
     minScrollLeftRef,
+    maxScrollTopRef,
     clampedScrollRef,
     clickedBackgroundRef,
     hasMovedRef,
@@ -103,17 +111,44 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     inertiaRafIdRef,
   }
 
+  // 直接操作 Konva Layer 位置的回调（拖动/惯性动画期间绕过 React 渲染）
+  const handleDirectScroll = useCallback((newScrollLeft: number, newScrollTop: number) => {
+    // 固定区域 Layer（仅水平滚动）
+    if (fixedLayerRef.current) {
+      fixedLayerRef.current.x(-newScrollLeft)
+      fixedLayerRef.current.getStage()?.batchDraw()
+    }
+    // 技能轨道 Layers（水平 + 垂直滚动）
+    if (mainBgLayerRef.current) {
+      mainBgLayerRef.current.x(-newScrollLeft)
+      mainBgLayerRef.current.y(-newScrollTop)
+    }
+    if (mainEventLayerRef.current) {
+      mainEventLayerRef.current.x(-newScrollLeft)
+      mainEventLayerRef.current.y(-newScrollTop)
+      mainEventLayerRef.current.getStage()?.batchDraw()
+    }
+    // 标签列垂直滚动
+    if (labelColumnContainerRef.current) {
+      labelColumnContainerRef.current.style.transform = `translateY(-${newScrollTop}px)`
+    }
+    // 同步 minimap 视口指示器
+    minimapRef.current?.updateViewport(newScrollLeft)
+  }, [])
+
   useTimelinePanZoom(fixedStageRef, panZoomRefs, {
     enableVerticalScroll: false,
     isReadOnly,
     setScrollLeft,
     setScrollTop,
+    onDirectScroll: handleDirectScroll,
   })
   useTimelinePanZoom(stageRef, panZoomRefs, {
     enableVerticalScroll: true,
     isReadOnly,
     setScrollLeft,
     setScrollTop,
+    onDirectScroll: handleDirectScroll,
   })
 
   // 布局常量
@@ -122,74 +157,74 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const labelColumnWidth = 70
   const minimapHeight = 80 + 16 + 1 // canvas(80) + p-2 padding(16) + border-t(1)
 
-  // 计算布局数据
-  const layoutData = timeline
-    ? (() => {
-        // 获取阵容和技能轨道信息
-        const composition = timeline.composition || { players: [] }
+  // 计算布局数据（仅在 timeline/zoomLevel/actions/hiddenPlayerIds 变化时重新计算）
+  const layoutData = useMemo(() => {
+    if (!timeline) return null
 
-        // 按职业顺序排序玩家
-        const sortedPlayers = sortJobsByOrder(composition.players, p => p.job)
+    // 获取阵容和技能轨道信息
+    const composition = timeline.composition || { players: [] }
 
-        const skillTracks: SkillTrack[] = []
-        sortedPlayers.forEach(player => {
-          if (hiddenPlayerIds.has(player.id)) return
-          const jobActions = actions.filter(action => action.jobs.includes(player.job))
-          jobActions.forEach(action => {
-            skillTracks.push({
-              job: player.job,
-              playerId: player.id,
-              actionId: action.id,
-              actionName: action.name,
-              actionIcon: action.icon,
-            })
-          })
+    // 按职业顺序排序玩家
+    const sortedPlayers = sortJobsByOrder(composition.players, p => p.job)
+
+    const skillTracks: SkillTrack[] = []
+    sortedPlayers.forEach(player => {
+      if (hiddenPlayerIds.has(player.id)) return
+      const jobActions = actions.filter(action => action.jobs.includes(player.job))
+      jobActions.forEach(action => {
+        skillTracks.push({
+          job: player.job,
+          playerId: player.id,
+          actionId: action.id,
+          actionName: action.name,
+          actionIcon: action.icon,
         })
+      })
+    })
 
-        // 泳道算法：为每个伤害事件分配行
-        const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
-        const LANE_ROW_HEIGHT = 36 // 每行高度（px）
-        const damageEventRowMap = new Map<string, number>()
-        const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
+    // 泳道算法：为每个伤害事件分配行
+    const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
+    const LANE_ROW_HEIGHT = 36 // 每行高度（px）
+    const damageEventRowMap = new Map<string, number>()
+    const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
 
-        const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
-        for (const event of sortedDamageEvents) {
-          const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
-          if (laneIndex !== -1) {
-            damageEventRowMap.set(event.id, laneIndex)
-            laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
-          } else {
-            damageEventRowMap.set(event.id, laneEndTimes.length)
-            laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
-          }
-        }
-        const laneCount = Math.max(1, laneEndTimes.length)
-        const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
+    const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+    for (const event of sortedDamageEvents) {
+      const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
+      if (laneIndex !== -1) {
+        damageEventRowMap.set(event.id, laneIndex)
+        laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
+      } else {
+        damageEventRowMap.set(event.id, laneEndTimes.length)
+        laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+      }
+    }
+    const laneCount = Math.max(1, laneEndTimes.length)
+    const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
 
-        // 计算时间轴总长度
-        const lastEventTime = Math.max(
-          0,
-          ...timeline.damageEvents.map(e => e.time),
-          ...timeline.castEvents.map(ce => ce.timestamp)
-        )
+    // 计算时间轴总长度
+    const lastEventTime = Math.max(
+      0,
+      ...timeline.damageEvents.map(e => e.time),
+      ...timeline.castEvents.map(ce => ce.timestamp)
+    )
 
-        const maxTime = Math.max(300, lastEventTime + 60)
-        const timelineWidth = (maxTime - TIMELINE_START_TIME) * zoomLevel
-        const fixedAreaHeight = timeRulerHeight + eventTrackHeight
-        const skillTracksHeight = skillTracks.length * skillTrackHeight
+    const maxTime = Math.max(300, lastEventTime + 60)
+    const timelineWidth = (maxTime - TIMELINE_START_TIME) * zoomLevel
+    const fixedAreaHeight = timeRulerHeight + eventTrackHeight
+    const skillTracksHeight = skillTracks.length * skillTrackHeight
 
-        return {
-          skillTracks,
-          damageEventRowMap,
-          eventTrackHeight,
-          timelineWidth,
-          fixedAreaHeight,
-          skillTracksHeight,
-          laneCount,
-          LANE_ROW_HEIGHT,
-        }
-      })()
-    : null
+    return {
+      skillTracks,
+      damageEventRowMap,
+      eventTrackHeight,
+      timelineWidth,
+      fixedAreaHeight,
+      skillTracksHeight,
+      laneCount,
+      LANE_ROW_HEIGHT,
+    }
+  }, [timeline, zoomLevel, actions, hiddenPlayerIds])
 
   // 视口宽度（Stage 实际宽度）
   const viewportWidth = Math.max(width - labelColumnWidth, 1)
@@ -233,10 +268,19 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   useEffect(() => {
     maxScrollLeftRef.current = maxScrollLeft
     minScrollLeftRef.current = minScrollLeft
+    maxScrollTopRef.current = maxScrollTop
     clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
     scrollLeftRef.current = scrollLeft
     scrollTopRef.current = scrollTop
-  }, [maxScrollLeft, clampedScrollLeft, clampedScrollTop, scrollLeft, scrollTop])
+  }, [
+    maxScrollLeft,
+    minScrollLeft,
+    maxScrollTop,
+    clampedScrollLeft,
+    clampedScrollTop,
+    scrollLeft,
+    scrollTop,
+  ])
 
   // 检查技能是否与同轨道的其他技能重叠
   const checkOverlap = (
@@ -445,7 +489,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         {/* 右侧固定 Stage 区域 */}
         <div className="flex-1 overflow-hidden" style={{ cursor: 'default' }}>
           <Stage width={viewportWidth} height={fixedAreaHeight} ref={fixedStageRef}>
-            <Layer x={-clampedScrollLeft}>
+            <Layer ref={fixedLayerRef} x={-clampedScrollLeft}>
               <TimeRuler
                 maxTime={maxTime}
                 zoomLevel={zoomLevel}
@@ -522,6 +566,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               draggingEventPosition={draggingEventPosition}
               scrollLeft={clampedScrollLeft}
               scrollTop={clampedScrollTop}
+              bgLayerRef={mainBgLayerRef}
+              eventLayerRef={mainEventLayerRef}
               onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
               onContextMenu={castEventId => {
@@ -539,6 +585,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       {/* 缩略图导航 */}
       <TimelineMinimap
+        ref={minimapRef}
         width={width}
         height={80}
         scrollLeft={clampedScrollLeft}
@@ -546,6 +593,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         totalWidth={timelineWidth}
         zoomLevel={zoomLevel}
         onScroll={newScrollLeft => {
+          // 停止正在进行的惯性动画（修复 3：minimap 点击不停惯性）
+          if (inertiaRafIdRef.current !== null) {
+            cancelAnimationFrame(inertiaRafIdRef.current)
+            inertiaRafIdRef.current = null
+          }
           setScrollLeft(newScrollLeft)
         }}
       />

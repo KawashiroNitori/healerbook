@@ -1,6 +1,9 @@
 /**
  * 时间轴平移/缩放交互 Hook
  * 统一使用 PointerEvent 处理鼠标和触摸的平移操作
+ *
+ * 性能优化：拖动和惯性动画期间通过 onDirectScroll 直接更新 Konva Layer 位置，
+ * 绕过 React 渲染循环，仅在操作结束时同步 React state。
  */
 
 import type { RefObject, Dispatch, SetStateAction } from 'react'
@@ -16,6 +19,7 @@ export interface PanZoomRefs {
   dragStartRef: RefObject<{ x: number; y: number; scrollLeft: number; scrollTop: number }>
   maxScrollLeftRef: RefObject<number>
   minScrollLeftRef: RefObject<number>
+  maxScrollTopRef: RefObject<number>
   clampedScrollRef: RefObject<{ scrollLeft: number; scrollTop: number }>
   clickedBackgroundRef: RefObject<boolean>
   hasMovedRef: RefObject<boolean>
@@ -29,6 +33,8 @@ interface PanZoomOptions {
   isReadOnly: boolean
   setScrollLeft: Dispatch<SetStateAction<number>>
   setScrollTop: Dispatch<SetStateAction<number>>
+  /** 直接更新 Konva 图层位置的回调，绕过 React 渲染 */
+  onDirectScroll?: (scrollLeft: number, scrollTop: number) => void
 }
 
 /** 惯性参数 */
@@ -40,7 +46,7 @@ export function useTimelinePanZoom(
   refs: PanZoomRefs,
   options: PanZoomOptions
 ) {
-  const { enableVerticalScroll, isReadOnly, setScrollLeft, setScrollTop } = options
+  const { enableVerticalScroll, isReadOnly, setScrollLeft, setScrollTop, onDirectScroll } = options
 
   useEffect(() => {
     const stage = stageRef.current
@@ -52,6 +58,7 @@ export function useTimelinePanZoom(
       dragStartRef,
       maxScrollLeftRef,
       minScrollLeftRef,
+      maxScrollTopRef,
       clampedScrollRef,
       clickedBackgroundRef,
       hasMovedRef,
@@ -66,11 +73,27 @@ export function useTimelinePanZoom(
     let lastMoveTime = 0
     let lastClientX = 0
     let lastClientY = 0
+    // 直接滚动模式下的本地滚动位置追踪
+    let localScrollLeft = 0
+    let localScrollTop = 0
+
+    const clampScrollLeft = (value: number) =>
+      Math.min(maxScrollLeftRef.current, Math.max(minScrollLeftRef.current, value))
+
+    const clampScrollTop = (value: number) => Math.min(maxScrollTopRef.current, Math.max(0, value))
 
     const stopInertia = () => {
       if (inertiaRafIdRef.current !== null) {
         cancelAnimationFrame(inertiaRafIdRef.current)
         inertiaRafIdRef.current = null
+      }
+    }
+
+    /** 将本地滚动位置同步到 React state */
+    const syncToReactState = () => {
+      setScrollLeft(localScrollLeft)
+      if (enableVerticalScroll) {
+        setScrollTop(localScrollTop)
       }
     }
 
@@ -81,13 +104,30 @@ export function useTimelinePanZoom(
         velocityY *= FRICTION
         if (Math.abs(velocityX) < MIN_VELOCITY && Math.abs(velocityY) < MIN_VELOCITY) {
           inertiaRafIdRef.current = null
+          // 惯性结束，同步到 React state
+          if (onDirectScroll) {
+            syncToReactState()
+          }
           return
         }
-        setScrollLeft(prev =>
-          Math.min(maxScrollLeftRef.current, Math.max(minScrollLeftRef.current, prev + velocityX))
-        )
-        if (enableVerticalScroll) {
-          setScrollTop(prev => Math.max(0, prev + velocityY))
+
+        if (onDirectScroll) {
+          localScrollLeft = clampScrollLeft(localScrollLeft + velocityX)
+          if (enableVerticalScroll) {
+            localScrollTop = clampScrollTop(localScrollTop + velocityY)
+          }
+          const effectiveScrollTop = enableVerticalScroll
+            ? localScrollTop
+            : clampedScrollRef.current.scrollTop
+          clampedScrollRef.current = { scrollLeft: localScrollLeft, scrollTop: effectiveScrollTop }
+          onDirectScroll(localScrollLeft, effectiveScrollTop)
+        } else {
+          setScrollLeft(prev =>
+            Math.min(maxScrollLeftRef.current, Math.max(minScrollLeftRef.current, prev + velocityX))
+          )
+          if (enableVerticalScroll) {
+            setScrollTop(prev => clampScrollTop(prev + velocityY))
+          }
         }
         inertiaRafIdRef.current = requestAnimationFrame(tick)
       }
@@ -126,12 +166,14 @@ export function useTimelinePanZoom(
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: clampedScrollRef.current.scrollTop,
       }
-      // 初始化速度跟踪
+      // 初始化速度跟踪和本地滚动位置
       velocityX = 0
       velocityY = 0
       lastMoveTime = performance.now()
       lastClientX = evt.clientX
       lastClientY = evt.clientY
+      localScrollLeft = clampedScrollRef.current.scrollLeft
+      localScrollTop = clampedScrollRef.current.scrollTop
     }
 
     // --- Window pointermove: 单点拖动平移 ---
@@ -155,10 +197,27 @@ export function useTimelinePanZoom(
       lastClientY = e.clientY
 
       const deltaX = dragStartRef.current.x - e.clientX
-      setScrollLeft(Math.max(minScrollLeftRef.current, dragStartRef.current.scrollLeft + deltaX))
-      if (enableVerticalScroll) {
-        const deltaY = dragStartRef.current.y - e.clientY
-        setScrollTop(Math.max(0, dragStartRef.current.scrollTop + deltaY))
+      const newScrollLeft = clampScrollLeft(dragStartRef.current.scrollLeft + deltaX)
+
+      if (onDirectScroll) {
+        localScrollLeft = newScrollLeft
+        if (enableVerticalScroll) {
+          const deltaY = dragStartRef.current.y - e.clientY
+          localScrollTop = clampScrollTop(dragStartRef.current.scrollTop + deltaY)
+        }
+        // 不启用垂直滚动时，使用 clampedScrollRef 中的当前值，避免覆盖另一个 hook 实例写入的值
+        const effectiveScrollTop = enableVerticalScroll
+          ? localScrollTop
+          : clampedScrollRef.current.scrollTop
+        clampedScrollRef.current = { scrollLeft: localScrollLeft, scrollTop: effectiveScrollTop }
+        onDirectScroll(localScrollLeft, effectiveScrollTop)
+      } else {
+        setScrollLeft(Math.max(minScrollLeftRef.current, dragStartRef.current.scrollLeft + deltaX))
+        if (enableVerticalScroll) {
+          setScrollTop(
+            clampScrollTop(dragStartRef.current.scrollTop + (dragStartRef.current.y - e.clientY))
+          )
+        }
       }
     }
 
@@ -185,8 +244,12 @@ export function useTimelinePanZoom(
       hasMovedRef.current = false
 
       // 如果最后一次 move 距离太久（手指停住再松开），不启动惯性
-      if (didMove && performance.now() - lastMoveTime < 100) {
+      const shouldStartInertia = didMove && performance.now() - lastMoveTime < 100
+      if (shouldStartInertia) {
         startInertia()
+      } else if (onDirectScroll && didMove) {
+        // 没有惯性，同步最终位置到 React state
+        syncToReactState()
       }
     }
 
