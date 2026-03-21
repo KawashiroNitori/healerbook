@@ -5,7 +5,7 @@
 import type { ReactElement } from 'react'
 import { Group, Layer, Line, Rect, Text } from 'react-konva'
 import CastEventIcon from './CastEventIcon'
-import { DAMAGE_TIME_LINE_STYLE } from './constants'
+import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME } from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -61,7 +61,7 @@ export default function SkillTracksCanvas({
         {skillTracks.map((track, index) => (
           <Rect
             key={`track-bg-${track.playerId}-${track.actionId}`}
-            x={0}
+            x={TIMELINE_START_TIME * zoomLevel}
             y={index * trackHeight}
             width={timelineWidth}
             height={trackHeight}
@@ -96,25 +96,34 @@ export default function SkillTracksCanvas({
         {skillTracks.map((track, index) => (
           <Line
             key={`track-line-${track.playerId}-${track.actionId}`}
-            points={[0, (index + 1) * trackHeight, timelineWidth, (index + 1) * trackHeight]}
+            points={[
+              TIMELINE_START_TIME * zoomLevel,
+              (index + 1) * trackHeight,
+              TIMELINE_START_TIME * zoomLevel + timelineWidth,
+              (index + 1) * trackHeight,
+            ]}
             stroke="#e5e7eb"
             strokeWidth={1}
           />
         ))}
 
         {/* 网格（仅垂直线） */}
-        {Array.from({ length: Math.ceil(maxTime / 10) + 1 }).map((_, i) => {
-          const time = i * 10
-          const x = time * zoomLevel
-          return (
-            <Line
-              key={`grid-${i}`}
-              points={[x, 0, x, skillTracksHeight]}
-              stroke="#f3f4f6"
-              strokeWidth={1}
-            />
-          )
-        })}
+        {(() => {
+          const startTick = Math.ceil(TIMELINE_START_TIME / 10) * 10
+          const lines = []
+          for (let time = startTick; time <= maxTime; time += 10) {
+            const x = time * zoomLevel
+            lines.push(
+              <Line
+                key={`grid-${time}`}
+                points={[x, 0, x, skillTracksHeight]}
+                stroke={time === 0 ? '#9ca3af' : '#f3f4f6'}
+                strokeWidth={time === 0 ? 2 : 1}
+              />
+            )
+          }
+          return lines
+        })()}
       </Layer>
 
       {/* 技能使用事件层 */}
@@ -311,7 +320,7 @@ export default function SkillTracksCanvas({
 
           const leftBoundary = sameTrackCastEvents
             .filter(other => other.endTime <= castEventTimeSeconds)
-            .reduce((max, other) => Math.max(max, other.endTime), 0)
+            .reduce((max, other) => Math.max(max, other.endTime), TIMELINE_START_TIME)
 
           const rightBoundary = sameTrackCastEvents
             .filter(other => other.startTime >= castEventTimeSeconds + currentDuration)

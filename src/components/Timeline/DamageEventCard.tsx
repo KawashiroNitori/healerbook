@@ -70,7 +70,7 @@ export default function DamageEventCard({
       y={y}
       draggable={isSelected && !isReadOnly}
       dragBoundFunc={pos => ({
-        x: Math.max(0, pos.x),
+        x: pos.x,
         y: y,
       })}
       onClick={onSelect}

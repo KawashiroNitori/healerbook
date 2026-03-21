@@ -4,7 +4,7 @@
 
 import { Rect, Line } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
-import { GRID_LINE_STYLE, DAMAGE_TIME_LINE_STYLE } from './constants'
+import { GRID_LINE_STYLE, DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME } from './constants'
 import type { DamageEvent } from '@/types/timeline'
 
 interface DamageEventTrackProps {
@@ -45,13 +45,15 @@ export default function DamageEventTrack({
   // 生成时间刻度网格线（每10秒一条，实线）
   const gridLines = []
   const gridInterval = 10 // 10秒间隔
-  for (let time = gridInterval; time <= maxTime; time += gridInterval) {
+  const startTick = Math.ceil(TIMELINE_START_TIME / 10) * 10
+  for (let time = startTick; time <= maxTime; time += gridInterval) {
     const x = time * zoomLevel
     gridLines.push(
       <Line
         key={`grid-${time}`}
         points={[x, yOffset, x, yOffset + trackHeight]}
-        {...GRID_LINE_STYLE}
+        stroke={time === 0 ? '#9ca3af' : GRID_LINE_STYLE.stroke}
+        strokeWidth={time === 0 ? 2 : GRID_LINE_STYLE.strokeWidth}
       />
     )
   }
@@ -77,7 +79,7 @@ export default function DamageEventTrack({
     <>
       {/* 伤害事件轨道背景 */}
       <Rect
-        x={0}
+        x={TIMELINE_START_TIME * zoomLevel}
         y={yOffset}
         width={timelineWidth}
         height={trackHeight}

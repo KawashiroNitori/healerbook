@@ -72,7 +72,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
               onChange={e => setTime(parseFloat(e.target.value) || 0)}
               className="w-full px-3 py-2 border rounded-md"
               step="0.1"
-              min="0"
+              min="-30"
             />
           </div>
 

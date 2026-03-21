@@ -25,8 +25,6 @@ interface TimelineState {
   selectedCastEventId: string | null
   /** 当前播放时间 (秒) */
   currentTime: number
-  /** 是否正在播放 */
-  isPlaying: boolean
   /** 缩放级别 (像素/秒) */
   zoomLevel: number
   /** 待恢复的滚动进度 (0-1) */
@@ -59,8 +57,6 @@ interface TimelineState {
   selectCastEvent: (castEventId: string | null) => void
   /** 设置当前时间 */
   setCurrentTime: (time: number) => void
-  /** 播放/暂停 */
-  togglePlay: () => void
   /** 设置缩放级别 */
   setZoomLevel: (level: number) => void
   /** 设置待恢复的滚动进度 */
@@ -100,8 +96,7 @@ const initialState = {
   selectedEventId: null,
   selectedCastEventId: null,
   currentTime: 0,
-  isPlaying: false,
-  zoomLevel: 50, // 50 像素/秒
+  zoomLevel: 30, // xx 像素 / 秒
   pendingScrollProgress: null,
   currentScrollLeft: 0,
   currentTimelineWidth: 0,
@@ -118,8 +113,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       selectedEventId: null,
       selectedCastEventId: null,
       currentTime: 0,
-      isPlaying: false,
-      zoomLevel: 50,
     })
     // 初始化小队状态
     if (timeline?.composition) {
@@ -218,11 +211,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       currentTime: Math.max(0, time),
     }),
 
-  togglePlay: () =>
-    set(state => ({
-      isPlaying: !state.isPlaying,
-    })),
-
   setZoomLevel: level =>
     set({
       zoomLevel: Math.max(10, Math.min(200, level)),
@@ -245,12 +233,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const currentZoom = state.zoomLevel
     const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
 
-    // 计算当前滚动进度（0-1 之间的百分比）
-    const currentMaxScroll = Math.max(0, state.currentTimelineWidth - state.currentViewportWidth)
-    const scrollProgress = currentMaxScroll > 0 ? state.currentScrollLeft / currentMaxScroll : 0
+    // 保存视口中央对应的时间（秒），缩放后据此还原位置
+    const timeAtCenter = (state.currentScrollLeft + state.currentViewportWidth / 2) / currentZoom
 
-    // 保存滚动进度
-    set({ pendingScrollProgress: scrollProgress })
+    set({ pendingScrollProgress: timeAtCenter })
 
     // 更新缩放级别
     set({ zoomLevel: newZoomLevel })

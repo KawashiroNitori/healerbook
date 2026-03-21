@@ -6,6 +6,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import { TIMELINE_START_TIME } from './constants'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -46,7 +47,8 @@ export default function TimelineMinimap({
   const minimapScale = canvasWidth / totalWidth
 
   // 计算可视区域在缩略图中的位置和宽度
-  const viewportLeft = scrollLeft * minimapScale
+  const timelineOffset = -TIMELINE_START_TIME * zoomLevel
+  const viewportLeft = (scrollLeft + timelineOffset) * minimapScale
   const viewportWidthInMinimap = viewportWidth * minimapScale
 
   // 绘制缩略图
@@ -86,12 +88,21 @@ export default function TimelineMinimap({
     ctx.strokeStyle = '#e4e4e7'
     ctx.lineWidth = 1
     for (let t = 0; t <= maxTime; t += tickInterval) {
-      const x = t * zoomLevel * minimapScale
+      const x = (t - TIMELINE_START_TIME) * zoomLevel * minimapScale
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, height)
       ctx.stroke()
     }
+
+    // 0 秒标记线（加粗）
+    const zeroX = -TIMELINE_START_TIME * zoomLevel * minimapScale
+    ctx.strokeStyle = '#9ca3af'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(zeroX, 0)
+    ctx.lineTo(zeroX, height)
+    ctx.stroke()
 
     // 再绘制时间标签（确保在最上层）
     ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -99,13 +110,9 @@ export default function TimelineMinimap({
     ctx.textBaseline = 'top'
 
     for (let t = 0; t <= maxTime; t += tickInterval) {
-      // 跳过 0 分钟的标签
-      if (t === 0) continue
+      const x = (t - TIMELINE_START_TIME) * zoomLevel * minimapScale
 
-      const x = t * zoomLevel * minimapScale
-
-      const minutes = Math.floor(t / 60)
-      const timeText = `${minutes}m`
+      const timeText = t === 0 ? '0s' : `${Math.floor(t / 60)}m`
 
       // 文字背景
       const textMetrics = ctx.measureText(timeText)
@@ -113,11 +120,11 @@ export default function TimelineMinimap({
       const padding = 4
 
       ctx.fillStyle = '#ffffff'
-      ctx.fillRect(x - textWidth / 2 - padding, 2, textWidth + padding * 2, 16)
+      ctx.fillRect(x - textWidth / 2 - padding, 4, textWidth + padding * 2, 16)
 
       // 绘制文字
       ctx.fillStyle = '#18181b'
-      ctx.fillText(timeText, x, 8)
+      ctx.fillText(timeText, x, 7)
     }
 
     // 绘制分隔线
@@ -139,7 +146,7 @@ export default function TimelineMinimap({
     )
 
     timeline.damageEvents.forEach(event => {
-      const x = event.time * zoomLevel * minimapScale
+      const x = (event.time - TIMELINE_START_TIME) * zoomLevel * minimapScale
       const eventWidth = Math.max(3, 5 * minimapScale)
 
       // 根据伤害结果着色
@@ -219,8 +226,10 @@ export default function TimelineMinimap({
 
     // 将缩略图坐标转换为实际滚动位置
     // 让点击位置居中
-    const targetScrollLeft = x / minimapScale - viewportWidth / 2
-    const clampedScrollLeft = Math.max(0, Math.min(targetScrollLeft, totalWidth - viewportWidth))
+    const minScroll = TIMELINE_START_TIME * zoomLevel
+    const maxScroll = totalWidth + minScroll - viewportWidth
+    const targetScrollLeft = x / minimapScale - timelineOffset - viewportWidth / 2
+    const clampedScrollLeft = Math.max(minScroll, Math.min(targetScrollLeft, maxScroll))
 
     onScroll(clampedScrollLeft)
   }

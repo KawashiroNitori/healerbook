@@ -2,6 +2,9 @@
  * 时间轴组件共享常量
  */
 
+/** 时间轴起点（秒），允许展示战斗开始前的 prepull 阶段 */
+export const TIMELINE_START_TIME = -30
+
 // 时间刻度网格线样式（实线）
 export const GRID_LINE_STYLE = {
   stroke: '#d1d5db',

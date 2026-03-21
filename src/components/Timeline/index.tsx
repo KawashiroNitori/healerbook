@@ -10,6 +10,8 @@ import { useMitigationStore } from '@/store/mitigationStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
+import { useTimelinePanZoom } from '@/hooks/useTimelinePanZoom'
+import type { PanZoomRefs } from '@/hooks/useTimelinePanZoom'
 import { sortJobsByOrder } from '@/data/jobs'
 import { toast } from 'sonner'
 import ConfirmDialog from '../ConfirmDialog'
@@ -21,8 +23,8 @@ import TimelineMinimap from './TimelineMinimap'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
-import type { KonvaMouseEvent, KonvaNode } from '@/types/konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
+import { TIMELINE_START_TIME } from './constants'
 
 interface TimelineCanvasProps {
   width: number
@@ -49,6 +51,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const maxScrollLeftRef = useRef(0)
+  const minScrollLeftRef = useRef(0)
   const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
   // 记录是否点击了背景（用于区分点击和拖动）
   const clickedBackgroundRef = useRef(false)
@@ -76,7 +79,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setZoomLevel,
     setPendingScrollProgress,
     updateScrollState,
-    zoomWithScrollPreservation,
   } = useTimelineStore()
   const { actions, loadActions } = useMitigationStore()
   const { hiddenPlayerIds } = useUIStore()
@@ -88,6 +90,36 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }, [actions.length, loadActions])
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
+
+  // 平移/缩放交互 Hook 的共享 refs
+  const panZoomRefs: PanZoomRefs = {
+    isDraggingRef,
+    dragStartRef,
+    maxScrollLeftRef,
+    minScrollLeftRef,
+    clampedScrollRef,
+    clickedBackgroundRef,
+    hasMovedRef,
+    panJustEndedRef,
+    lastPanEndTimeRef,
+    isPinchingRef,
+    lastPinchDistanceRef,
+    pinchStartZoomRef,
+    pinchCenterXRef,
+  }
+
+  useTimelinePanZoom(fixedStageRef, panZoomRefs, {
+    enableVerticalScroll: false,
+    isReadOnly,
+    setScrollLeft,
+    setScrollTop,
+  })
+  useTimelinePanZoom(stageRef, panZoomRefs, {
+    enableVerticalScroll: true,
+    isReadOnly,
+    setScrollLeft,
+    setScrollTop,
+  })
 
   // 布局常量
   const timeRulerHeight = 30
@@ -147,7 +179,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         )
 
         const maxTime = Math.max(300, lastEventTime + 60)
-        const timelineWidth = maxTime * zoomLevel
+        const timelineWidth = (maxTime - TIMELINE_START_TIME) * zoomLevel
         const fixedAreaHeight = timeRulerHeight + eventTrackHeight
         const skillTracksHeight = skillTracks.length * skillTrackHeight
 
@@ -167,8 +199,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 视口宽度（Stage 实际宽度）
   const viewportWidth = Math.max(width - labelColumnWidth, 1)
   // 限制 scrollLeft 不超出范围
-  const maxScrollLeft = layoutData ? Math.max(0, layoutData.timelineWidth - viewportWidth) : 0
-  const clampedScrollLeft = Math.min(scrollLeft, maxScrollLeft)
+  const minScrollLeft = TIMELINE_START_TIME * zoomLevel
+  const maxScrollLeft = layoutData
+    ? Math.max(minScrollLeft, layoutData.timelineWidth + minScrollLeft - viewportWidth)
+    : 0
+  const clampedScrollLeft = Math.max(minScrollLeft, Math.min(scrollLeft, maxScrollLeft))
   const maxScrollTop = layoutData
     ? Math.max(
         0,
@@ -177,11 +212,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     : 0
   const clampedScrollTop = Math.min(scrollTop, maxScrollTop)
 
-  // 当 zoomLevel 变化时，根据保存的滚动进度还原位置
+  // 当 zoomLevel 变化时，根据保存的时间位置还原滚动（以视口中央为锚点）
   useEffect(() => {
     if (pendingScrollProgress !== null && layoutData) {
-      const newMaxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
-      const newScrollLeft = pendingScrollProgress * newMaxScroll
+      // pendingScrollProgress 存储的是视口中央的时间（秒）
+      const newScrollLeft = pendingScrollProgress * zoomLevel - viewportWidth / 2
 
       queueMicrotask(() => {
         setScrollLeft(newScrollLeft)
@@ -202,6 +237,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 同步 ref（用于事件处理器闭包）
   useEffect(() => {
     maxScrollLeftRef.current = maxScrollLeft
+    minScrollLeftRef.current = minScrollLeft
     clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
     scrollLeftRef.current = scrollLeft
     scrollTopRef.current = scrollTop
@@ -262,346 +298,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedEventId, selectedCastEventId, removeDamageEvent, removeCastEvent, isReadOnly])
-
-  // 处理顶部固定区域的 Stage 事件
-  useEffect(() => {
-    const stage = fixedStageRef.current
-    if (!stage) return
-
-    const getClientPosition = (evt: MouseEvent | TouchEvent) => {
-      if ('touches' in evt && evt.touches.length > 0) {
-        return { clientX: evt.touches[0].clientX, clientY: evt.touches[0].clientY }
-      }
-      return { clientX: (evt as MouseEvent).clientX, clientY: (evt as MouseEvent).clientY }
-    }
-
-    const getTouchDistance = (evt: TouchEvent) => {
-      if (evt.touches.length < 2) return null
-      const touch1 = evt.touches[0]
-      const touch2 = evt.touches[1]
-      const dx = Math.abs(touch2.clientX - touch1.clientX)
-      return dx
-    }
-
-    const getTouchCenter = (evt: TouchEvent) => {
-      if (evt.touches.length < 2) return null
-      const touch1 = evt.touches[0]
-      const touch2 = evt.touches[1]
-      return (touch1.clientX + touch2.clientX) / 2
-    }
-
-    const handleStagePointerDown = (e: KonvaMouseEvent) => {
-      const evt = e.evt
-
-      // 检测双指触摸
-      if ('touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
-        e.evt.preventDefault()
-        isPinchingRef.current = true
-        isDraggingRef.current = false
-        lastPinchDistanceRef.current = getTouchDistance(evt as unknown as TouchEvent)
-        pinchStartZoomRef.current = zoomLevel
-        const centerX = getTouchCenter(evt as unknown as TouchEvent)
-        if (centerX !== null) {
-          pinchCenterXRef.current = centerX
-        }
-        return
-      }
-
-      // 鼠标按下时立即隐藏悬浮窗
-      useTooltipStore.getState().clearTooltip()
-
-      const target = e.target as KonvaNode
-      if (!isReadOnly) {
-        let node = target
-        while (node && node !== stage) {
-          if (node.attrs?.draggable) return
-          node = node.parent as KonvaNode
-        }
-      }
-      const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
-      // 走到这里说明没有找到可拖动节点（或只读模式），统一触发时间轴平移
-      clickedBackgroundRef.current = clickedOnBackground
-      hasMovedRef.current = false
-      isDraggingRef.current = true
-      const { clientX, clientY } = getClientPosition(evt)
-      dragStartRef.current = {
-        x: clientX,
-        y: clientY,
-        scrollLeft: clampedScrollRef.current.scrollLeft,
-        scrollTop: clampedScrollRef.current.scrollTop,
-      }
-    }
-
-    const handleStagePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
-      const evt = e.evt
-
-      // 处理双指缩放
-      if (
-        isPinchingRef.current &&
-        'touches' in evt &&
-        (evt as unknown as TouchEvent).touches.length === 2
-      ) {
-        e.evt.preventDefault()
-        const currentDistance = getTouchDistance(evt as unknown as TouchEvent)
-        if (currentDistance && lastPinchDistanceRef.current) {
-          const scale = currentDistance / lastPinchDistanceRef.current
-          const newZoomLevel = Math.max(10, Math.min(200, pinchStartZoomRef.current * scale))
-
-          // 计算缩放中心点在时间轴上的时间位置
-          const oldZoom = zoomLevel
-          const centerX = pinchCenterXRef.current
-          const timeAtCenter = (clampedScrollRef.current.scrollLeft + centerX) / oldZoom
-
-          // 更新缩放级别
-          setZoomLevel(newZoomLevel)
-
-          // 调整���动位置，使缩放中心点保持在相同的屏幕位置
-          const newScrollLeft = timeAtCenter * newZoomLevel - centerX
-          setScrollLeft(Math.max(0, newScrollLeft))
-        }
-        return
-      }
-
-      if (!isDraggingRef.current) return
-      hasMovedRef.current = true
-      panJustEndedRef.current = true
-      const { clientX } = getClientPosition(evt)
-      const deltaX = dragStartRef.current.x - clientX
-      setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
-    }
-
-    const handleStagePointerUp = () => {
-      // 只有在点击背景且没有拖动时才取消选中
-      if (clickedBackgroundRef.current && !hasMovedRef.current) {
-        selectEvent(null)
-        selectCastEvent(null)
-      }
-      isDraggingRef.current = false
-      clickedBackgroundRef.current = false
-      if (hasMovedRef.current) {
-        lastPanEndTimeRef.current = Date.now()
-        requestAnimationFrame(() => {
-          panJustEndedRef.current = false
-        })
-      }
-      hasMovedRef.current = false
-      isPinchingRef.current = false
-      lastPinchDistanceRef.current = null
-    }
-
-    const handleNativeWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        e.stopPropagation()
-
-        const delta = e.deltaY > 0 ? -5 : 5
-        zoomWithScrollPreservation(delta)
-      } else {
-        e.preventDefault()
-        // 支持触摸板横向滚动（deltaX）和纵向滚轮转横向（deltaY）
-        const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY
-        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + scrollDelta)))
-      }
-    }
-
-    const handleWindowMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return
-      handleStagePointerMove({ evt: e } as unknown as KonvaEventObject<MouseEvent | TouchEvent>)
-    }
-    const handleWindowMouseUp = () => {
-      if (isDraggingRef.current) handleStagePointerUp()
-    }
-
-    stage.on('mousedown touchstart', handleStagePointerDown)
-    stage.on('touchmove', handleStagePointerMove)
-    stage.on('touchend', handleStagePointerUp)
-    window.addEventListener('mousemove', handleWindowMouseMove)
-    window.addEventListener('mouseup', handleWindowMouseUp)
-    stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
-
-    return () => {
-      stage.off('mousedown touchstart', handleStagePointerDown)
-      stage.off('touchmove', handleStagePointerMove)
-      stage.off('touchend', handleStagePointerUp)
-      window.removeEventListener('mousemove', handleWindowMouseMove)
-      window.removeEventListener('mouseup', handleWindowMouseUp)
-      stage.container().removeEventListener('wheel', handleNativeWheel)
-    }
-    // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
-    // 添加它会导致事件监听器频繁重新绑定，影响性能
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeline, isReadOnly, scrollLeft, scrollTop])
-
-  // 处理技能轨道 Stage 事件
-  useEffect(() => {
-    const stage = stageRef.current
-    if (!stage) return
-
-    const getClientPosition = (evt: MouseEvent | TouchEvent) => {
-      if ('touches' in evt && evt.touches.length > 0) {
-        return { clientX: evt.touches[0].clientX, clientY: evt.touches[0].clientY }
-      }
-      return { clientX: (evt as MouseEvent).clientX, clientY: (evt as MouseEvent).clientY }
-    }
-
-    const getTouchDistance = (evt: TouchEvent) => {
-      if (evt.touches.length < 2) return null
-      const touch1 = evt.touches[0]
-      const touch2 = evt.touches[1]
-      const dx = Math.abs(touch2.clientX - touch1.clientX)
-      return dx
-    }
-
-    const getTouchCenter = (evt: TouchEvent) => {
-      if (evt.touches.length < 2) return null
-      const touch1 = evt.touches[0]
-      const touch2 = evt.touches[1]
-      return (touch1.clientX + touch2.clientX) / 2
-    }
-
-    const handleStagePointerDown = (e: KonvaMouseEvent) => {
-      const evt = e.evt
-
-      // 检测双指触摸
-      if ('touches' in evt && (evt as unknown as TouchEvent).touches.length === 2) {
-        e.evt.preventDefault()
-        isPinchingRef.current = true
-        isDraggingRef.current = false
-        lastPinchDistanceRef.current = getTouchDistance(evt as unknown as TouchEvent)
-        pinchStartZoomRef.current = zoomLevel
-        const centerX = getTouchCenter(evt as unknown as TouchEvent)
-        if (centerX !== null) {
-          pinchCenterXRef.current = centerX
-        }
-        return
-      }
-
-      // 鼠标按下时立即隐藏悬浮窗
-      useTooltipStore.getState().clearTooltip()
-
-      const target = e.target as KonvaNode
-      if (!isReadOnly) {
-        let node = target
-        while (node && node !== stage) {
-          if (node.attrs?.draggable) return
-          node = node.parent as KonvaNode
-        }
-      }
-      // 走到这里说明没有找到可拖动节点（或只读模式），统一触发时间轴平移
-      const clickedOnBackground = target === stage || target.attrs?.draggableBackground === true
-      clickedBackgroundRef.current = clickedOnBackground
-      hasMovedRef.current = false
-      isDraggingRef.current = true
-      const { clientX, clientY } = getClientPosition(evt)
-      dragStartRef.current = {
-        x: clientX,
-        y: clientY,
-        scrollLeft: clampedScrollRef.current.scrollLeft,
-        scrollTop: clampedScrollRef.current.scrollTop,
-      }
-    }
-
-    const handleStagePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
-      const evt = e.evt
-
-      // 处理双指缩放
-      if (
-        isPinchingRef.current &&
-        'touches' in evt &&
-        (evt as unknown as TouchEvent).touches.length === 2
-      ) {
-        e.evt.preventDefault()
-        const currentDistance = getTouchDistance(evt as unknown as TouchEvent)
-        if (currentDistance && lastPinchDistanceRef.current) {
-          const scale = currentDistance / lastPinchDistanceRef.current
-          const newZoomLevel = Math.max(10, Math.min(200, pinchStartZoomRef.current * scale))
-
-          // 计算缩放中心点在时间轴上的时间位置
-          const oldZoom = zoomLevel
-          const centerX = pinchCenterXRef.current
-          const timeAtCenter = (clampedScrollRef.current.scrollLeft + centerX) / oldZoom
-
-          // 更新缩放级别
-          setZoomLevel(newZoomLevel)
-
-          // 调整滚动位置，使缩放中心点保持在相同的屏幕位置
-          const newScrollLeft = timeAtCenter * newZoomLevel - centerX
-          setScrollLeft(Math.max(0, newScrollLeft))
-        }
-        return
-      }
-
-      if (!isDraggingRef.current) return
-      hasMovedRef.current = true
-      panJustEndedRef.current = true
-      const { clientX, clientY } = getClientPosition(evt)
-      const deltaX = dragStartRef.current.x - clientX
-      const deltaY = dragStartRef.current.y - clientY
-      setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
-      setScrollTop(Math.max(0, dragStartRef.current.scrollTop + deltaY))
-    }
-
-    const handleStagePointerUp = () => {
-      // 只有在点击背景且没有拖动时才取消选中
-      if (clickedBackgroundRef.current && !hasMovedRef.current) {
-        selectEvent(null)
-        selectCastEvent(null)
-      }
-      isDraggingRef.current = false
-      clickedBackgroundRef.current = false
-      if (hasMovedRef.current) {
-        lastPanEndTimeRef.current = Date.now()
-        requestAnimationFrame(() => {
-          panJustEndedRef.current = false
-        })
-      }
-      hasMovedRef.current = false
-      isPinchingRef.current = false
-      lastPinchDistanceRef.current = null
-    }
-
-    const handleNativeWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        e.stopPropagation()
-
-        const delta = e.deltaY > 0 ? -5 : 5
-        zoomWithScrollPreservation(delta)
-      } else {
-        e.preventDefault()
-        // 支持触摸板横向滚动（deltaX）和纵向滚轮转横向（deltaY）
-        const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY
-        setScrollLeft(prev => Math.min(maxScrollLeftRef.current, Math.max(0, prev + scrollDelta)))
-      }
-    }
-
-    const handleWindowMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return
-      handleStagePointerMove({ evt: e } as unknown as KonvaEventObject<MouseEvent | TouchEvent>)
-    }
-    const handleWindowMouseUp = () => {
-      if (isDraggingRef.current) handleStagePointerUp()
-    }
-
-    stage.on('mousedown touchstart', handleStagePointerDown)
-    stage.on('touchmove', handleStagePointerMove)
-    stage.on('touchend', handleStagePointerUp)
-    window.addEventListener('mousemove', handleWindowMouseMove)
-    window.addEventListener('mouseup', handleWindowMouseUp)
-    stage.container().addEventListener('wheel', handleNativeWheel, { passive: false })
-
-    return () => {
-      stage.off('mousedown touchstart', handleStagePointerDown)
-      stage.off('touchmove', handleStagePointerMove)
-      stage.off('touchend', handleStagePointerUp)
-      window.removeEventListener('mousemove', handleWindowMouseMove)
-      window.removeEventListener('mouseup', handleWindowMouseUp)
-      stage.container().removeEventListener('wheel', handleNativeWheel)
-    }
-    // zoomWithScrollPreservation 来自 Zustand store，引用稳定，不需要作为依赖
-    // 添加它会导致事件监听器频繁重新绑定，影响性能
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeline, isReadOnly, scrollLeft, scrollTop])
 
   // 处理技能悬浮提示
   const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
@@ -674,7 +370,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 处理伤害事件拖动
   const handleEventDragEnd = (eventId: string, x: number) => {
     if (isReadOnly) return
-    const newTime = Math.max(0, Math.round((x / zoomLevel) * 10) / 10)
+    const newTime = Math.max(TIMELINE_START_TIME, Math.round((x / zoomLevel) * 10) / 10)
     const { updateDamageEvent } = useTimelineStore.getState()
     updateDamageEvent(eventId, { time: newTime })
     setDraggingEventPosition(null)
@@ -683,7 +379,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 处理技能使用事件拖动
   const handleCastEventDragEnd = (castEventId: string, x: number) => {
     if (isReadOnly) return
-    const newTime = Math.max(0, Math.round((x / zoomLevel) * 10) / 10)
+    const newTime = Math.max(TIMELINE_START_TIME, Math.round((x / zoomLevel) * 10) / 10)
     const { updateCastEvent } = useTimelineStore.getState()
     updateCastEvent(castEventId, { timestamp: newTime })
   }
