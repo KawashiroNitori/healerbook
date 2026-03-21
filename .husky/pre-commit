@@ -1,2 +1,2 @@
 pnpm lint-staged
-pnpm build
+pnpm tsc -b --noEmit
