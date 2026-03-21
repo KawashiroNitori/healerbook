@@ -141,7 +141,7 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                           {
                             pct: shieldPct,
                             color: 'rgb(234, 179, 8)',
-                            label: `盾值减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
+                            label: `护盾减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
                           },
                           {
                             pct: multiplierPct,

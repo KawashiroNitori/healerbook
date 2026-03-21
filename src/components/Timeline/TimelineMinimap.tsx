@@ -209,14 +209,15 @@ export default function TimelineMinimap({
   ])
 
   // 处理点击和拖动
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
+    ;(e.target as HTMLDivElement).setPointerCapture(e.pointerId)
     setIsDragging(true)
-    handleMouseMove(e)
+    handlePointerMove(e)
   }
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
-    if (!isDragging && e.type !== 'mousedown') return
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement> | PointerEvent) => {
+    if (!isDragging && e.type !== 'pointerdown') return
 
     const container = containerRef.current
     if (!container) return
@@ -234,22 +235,21 @@ export default function TimelineMinimap({
     onScroll(clampedScrollLeft)
   }
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
     setIsDragging(false)
   }
 
-  // 全局鼠标事件监听
+  // 全局指针事件监听
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('pointermove', handlePointerMove)
+      window.addEventListener('pointerup', handlePointerUp)
       return () => {
-        window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', handleMouseUp)
+        window.removeEventListener('pointermove', handlePointerMove)
+        window.removeEventListener('pointerup', handlePointerUp)
       }
     }
-    // handleMouseMove 在每次渲染时重新创建，但添加为依赖会导致监听器频繁重新绑定
-    // 当前实现通过 ref 访问最新状态，不需要重新绑定监听器
+    // handlePointerMove 在每次渲染时重新创建，但添加为依赖会导致监听器频繁重新绑定
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDragging])
 
@@ -259,8 +259,8 @@ export default function TimelineMinimap({
     <div className="border-t border-border bg-background p-2">
       <div
         ref={containerRef}
-        className="relative cursor-pointer select-none"
-        onMouseDown={handleMouseDown}
+        className="relative cursor-pointer select-none touch-none"
+        onPointerDown={handlePointerDown}
         style={{ height }}
       >
         <canvas

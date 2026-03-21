@@ -83,9 +83,10 @@
     overflow-y: scroll;
   }
 
-  /* 编辑器页面：隐藏主滚动条 */
+  /* 编辑器页面：隐藏主滚动条，禁止原生缩放 */
   html:has(.editor-page) {
     overflow: hidden;
+    touch-action: pan-x pan-y;
   }
 }
 

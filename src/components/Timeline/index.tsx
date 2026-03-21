@@ -49,6 +49,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const [scrollTop, setScrollTop] = useState(0)
   // 拖动状态
   const isDraggingRef = useRef(false)
+  const activePointerIdRef = useRef<number | null>(null)
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const maxScrollLeftRef = useRef(0)
   const minScrollLeftRef = useRef(0)
@@ -59,11 +60,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 平移刚结束标记：mouseup 时设 true，同帧 click 可见；requestAnimationFrame 自动清除
   const panJustEndedRef = useRef(false)
   const lastPanEndTimeRef = useRef(0) // 记录最后一次平移结束的时间戳，用于阻止 dblclick
-  // 双指缩放状态
-  const isPinchingRef = useRef(false)
-  const lastPinchDistanceRef = useRef<number | null>(null)
-  const pinchStartZoomRef = useRef<number>(50)
-  const pinchCenterXRef = useRef<number>(0) // 双指中心点的屏幕坐标
+  const inertiaRafIdRef = useRef<number | null>(null)
 
   const {
     timeline,
@@ -94,6 +91,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 平移/缩放交互 Hook 的共享 refs
   const panZoomRefs: PanZoomRefs = {
     isDraggingRef,
+    activePointerIdRef,
     dragStartRef,
     maxScrollLeftRef,
     minScrollLeftRef,
@@ -102,10 +100,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     hasMovedRef,
     panJustEndedRef,
     lastPanEndTimeRef,
-    isPinchingRef,
-    lastPinchDistanceRef,
-    pinchStartZoomRef,
-    pinchCenterXRef,
+    inertiaRafIdRef,
   }
 
   useTimelinePanZoom(fixedStageRef, panZoomRefs, {
@@ -483,7 +478,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       </div>
 
       {/* 可滚动区域：技能轨道 */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden select-none">
         {/* 左侧技能标签 */}
         <div
           className="flex-shrink-0 border-r bg-background overflow-hidden"

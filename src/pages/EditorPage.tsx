@@ -44,6 +44,22 @@ export default function EditorPage() {
     }
   }, [timelineId, setTimeline, navigate])
 
+  // 禁止编辑器页面的浏览器原生缩放（Ctrl+滚轮 / Safari 手势）
+  useEffect(() => {
+    const preventZoom = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault()
+    }
+    const preventGesture = (e: Event) => e.preventDefault()
+    document.addEventListener('wheel', preventZoom, { passive: false })
+    document.addEventListener('gesturestart', preventGesture)
+    document.addEventListener('gesturechange', preventGesture)
+    return () => {
+      document.removeEventListener('wheel', preventZoom)
+      document.removeEventListener('gesturestart', preventGesture)
+      document.removeEventListener('gesturechange', preventGesture)
+    }
+  }, [])
+
   // 监听容器尺寸变化
   useEffect(() => {
     let resizeTimeout: number | null = null
@@ -92,7 +108,10 @@ export default function EditorPage() {
   }, [])
 
   return (
-    <div className="editor-page h-screen flex flex-col bg-background overflow-hidden">
+    <div
+      className="editor-page flex flex-col bg-background overflow-hidden"
+      style={{ height: '100dvh' }}
+    >
       <title>{timeline?.name ? `${timeline.name} - ${APP_NAME}` : APP_NAME}</title>
       {/* Header */}
       <header className="border-b flex-shrink-0">

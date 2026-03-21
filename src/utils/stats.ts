@@ -18,10 +18,10 @@ export function calculatePercentile(values: number[], percentile: number = 50): 
 const DEFAULT_MAX_HP = 100000
 
 /**
- * 从 EncounterStatistics 获取非坦克职业的中位数最大 HP
+ * 从 EncounterStatistics 获取非坦克职业的最低最大 HP
  * 无数据时返回 100000
  */
-export function getNonTankMedianHP(statistics: EncounterStatistics | null): number {
+export function getNonTankMinHP(statistics: EncounterStatistics | null): number {
   if (!statistics?.maxHPByJob) return DEFAULT_MAX_HP
 
   const tankJobs = new Set<string>(getTankJobs())
@@ -30,5 +30,5 @@ export function getNonTankMedianHP(statistics: EncounterStatistics | null): numb
     .map(([, hp]) => hp)
     .filter(hp => hp > 0)
 
-  return hpValues.length > 0 ? calculatePercentile(hpValues) : DEFAULT_MAX_HP
+  return hpValues.length > 0 ? Math.min(...hpValues) : DEFAULT_MAX_HP
 }

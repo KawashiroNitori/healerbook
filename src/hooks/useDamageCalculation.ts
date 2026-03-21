@@ -10,7 +10,7 @@ import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { useTimelineStore } from '@/store/timelineStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { calculatePercentile, getNonTankMedianHP } from '@/utils/stats'
+import { calculatePercentile, getNonTankMinHP } from '@/utils/stats'
 
 /**
  * 计算时间轴上所有伤害事件的减伤结果
@@ -87,7 +87,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     // 编辑模式：使用 PartyState，单次时间轴扫描
     if (!partyState) return results
 
-    const referenceMaxHP = getNonTankMedianHP(statistics)
+    const referenceMaxHP = getNonTankMinHP(statistics)
     const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
     const sortedCastEvents = [...(timeline.castEvents || [])].sort(
       (a, b) => a.timestamp - b.timestamp

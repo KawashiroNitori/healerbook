@@ -1,18 +1,18 @@
 /**
  * 时间轴平移/缩放交互 Hook
- * 统一处理鼠标、触摸、滚轮的平移和缩放操作
+ * 统一使用 PointerEvent 处理鼠标和触摸的平移操作
  */
 
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { useEffect } from 'react'
 import type Konva from 'konva'
-import type { KonvaEventObject } from 'konva/lib/Node'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import type { KonvaMouseEvent, KonvaNode } from '@/types/konva'
 
 export interface PanZoomRefs {
   isDraggingRef: RefObject<boolean>
+  activePointerIdRef: RefObject<number | null>
   dragStartRef: RefObject<{ x: number; y: number; scrollLeft: number; scrollTop: number }>
   maxScrollLeftRef: RefObject<number>
   minScrollLeftRef: RefObject<number>
@@ -21,10 +21,7 @@ export interface PanZoomRefs {
   hasMovedRef: RefObject<boolean>
   panJustEndedRef: RefObject<boolean>
   lastPanEndTimeRef: RefObject<number>
-  isPinchingRef: RefObject<boolean>
-  lastPinchDistanceRef: RefObject<number | null>
-  pinchStartZoomRef: RefObject<number>
-  pinchCenterXRef: RefObject<number>
+  inertiaRafIdRef: RefObject<number | null>
 }
 
 interface PanZoomOptions {
@@ -34,21 +31,9 @@ interface PanZoomOptions {
   setScrollTop: Dispatch<SetStateAction<number>>
 }
 
-// --- Touch helpers (多点触摸必须保留 TouchEvent) ---
-
-function getTouchDistance(evt: TouchEvent): number | null {
-  if (evt.touches.length < 2) return null
-  const touch1 = evt.touches[0]
-  const touch2 = evt.touches[1]
-  return Math.abs(touch2.clientX - touch1.clientX)
-}
-
-function getTouchCenter(evt: TouchEvent): number | null {
-  if (evt.touches.length < 2) return null
-  const touch1 = evt.touches[0]
-  const touch2 = evt.touches[1]
-  return (touch1.clientX + touch2.clientX) / 2
-}
+/** 惯性参数 */
+const FRICTION = 0.92 // 每帧速度衰减系数
+const MIN_VELOCITY = 0.5 // 低于此速度停止动画（px/frame）
 
 export function useTimelinePanZoom(
   stageRef: RefObject<Konva.Stage | null>,
@@ -63,6 +48,7 @@ export function useTimelinePanZoom(
 
     const {
       isDraggingRef,
+      activePointerIdRef,
       dragStartRef,
       maxScrollLeftRef,
       minScrollLeftRef,
@@ -71,15 +57,52 @@ export function useTimelinePanZoom(
       hasMovedRef,
       panJustEndedRef,
       lastPanEndTimeRef,
-      isPinchingRef,
-      lastPinchDistanceRef,
-      pinchStartZoomRef,
-      pinchCenterXRef,
+      inertiaRafIdRef,
     } = refs
+
+    // --- 惯性状态 ---
+    let velocityX = 0
+    let velocityY = 0
+    let lastMoveTime = 0
+    let lastClientX = 0
+    let lastClientY = 0
+
+    const stopInertia = () => {
+      if (inertiaRafIdRef.current !== null) {
+        cancelAnimationFrame(inertiaRafIdRef.current)
+        inertiaRafIdRef.current = null
+      }
+    }
+
+    const startInertia = () => {
+      stopInertia()
+      const tick = () => {
+        velocityX *= FRICTION
+        velocityY *= FRICTION
+        if (Math.abs(velocityX) < MIN_VELOCITY && Math.abs(velocityY) < MIN_VELOCITY) {
+          inertiaRafIdRef.current = null
+          return
+        }
+        setScrollLeft(prev =>
+          Math.min(maxScrollLeftRef.current, Math.max(minScrollLeftRef.current, prev + velocityX))
+        )
+        if (enableVerticalScroll) {
+          setScrollTop(prev => Math.max(0, prev + velocityY))
+        }
+        inertiaRafIdRef.current = requestAnimationFrame(tick)
+      }
+      inertiaRafIdRef.current = requestAnimationFrame(tick)
+    }
 
     // --- Konva pointerdown: 单点按下开始平移 ---
     const handlePointerDown = (e: KonvaMouseEvent) => {
       const evt = e.evt as PointerEvent
+
+      // 已有活跃指针时忽略额外的触摸点
+      if (activePointerIdRef.current !== null) return
+
+      // 停止正在进行的惯性动画
+      stopInertia()
 
       // 鼠标按下时立即隐藏悬浮窗
       useTooltipStore.getState().clearTooltip()
@@ -96,19 +119,41 @@ export function useTimelinePanZoom(
       clickedBackgroundRef.current = clickedOnBackground
       hasMovedRef.current = false
       isDraggingRef.current = true
+      activePointerIdRef.current = evt.pointerId
       dragStartRef.current = {
         x: evt.clientX,
         y: evt.clientY,
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: clampedScrollRef.current.scrollTop,
       }
+      // 初始化速度跟踪
+      velocityX = 0
+      velocityY = 0
+      lastMoveTime = performance.now()
+      lastClientX = evt.clientX
+      lastClientY = evt.clientY
     }
 
     // --- Window pointermove: 单点拖动平移 ---
     const handlePointerMove = (e: PointerEvent) => {
-      if (!isDraggingRef.current) return
+      if (!isDraggingRef.current || e.pointerId !== activePointerIdRef.current) return
       hasMovedRef.current = true
       panJustEndedRef.current = true
+
+      // 计算瞬时速度（px/frame，约 16ms）
+      const now = performance.now()
+      const dt = now - lastMoveTime
+      if (dt > 0) {
+        const rawVx = ((lastClientX - e.clientX) / dt) * 16
+        const rawVy = ((lastClientY - e.clientY) / dt) * 16
+        // 用指数移动平均平滑速度，避免最后一帧突变
+        velocityX = velocityX * 0.3 + rawVx * 0.7
+        velocityY = velocityY * 0.3 + rawVy * 0.7
+      }
+      lastMoveTime = now
+      lastClientX = e.clientX
+      lastClientY = e.clientY
+
       const deltaX = dragStartRef.current.x - e.clientX
       setScrollLeft(Math.max(minScrollLeftRef.current, dragStartRef.current.scrollLeft + deltaX))
       if (enableVerticalScroll) {
@@ -118,8 +163,9 @@ export function useTimelinePanZoom(
     }
 
     // --- Window pointerup: 单点抬起结束平移 ---
-    const handlePointerUp = () => {
-      if (!isDraggingRef.current) return
+    const handlePointerUp = (e: PointerEvent) => {
+      if (!isDraggingRef.current || e.pointerId !== activePointerIdRef.current) return
+      activePointerIdRef.current = null
       // 只有在点击背景且没有拖动时才取消选中
       if (clickedBackgroundRef.current && !hasMovedRef.current) {
         const { selectEvent, selectCastEvent } = useTimelineStore.getState()
@@ -128,60 +174,25 @@ export function useTimelinePanZoom(
       }
       isDraggingRef.current = false
       clickedBackgroundRef.current = false
-      if (hasMovedRef.current) {
+
+      const didMove = hasMovedRef.current
+      if (didMove) {
         lastPanEndTimeRef.current = Date.now()
         requestAnimationFrame(() => {
           panJustEndedRef.current = false
         })
       }
       hasMovedRef.current = false
-      isPinchingRef.current = false
-      lastPinchDistanceRef.current = null
-    }
 
-    // --- Touch: 双指缩放（必须保留 TouchEvent 以访问多点坐标） ---
-    const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
-      const evt = e.evt
-      if (evt.touches.length !== 2) return
-      evt.preventDefault()
-      isPinchingRef.current = true
-      isDraggingRef.current = false
-      lastPinchDistanceRef.current = getTouchDistance(evt)
-      pinchStartZoomRef.current = useTimelineStore.getState().zoomLevel
-      const centerX = getTouchCenter(evt)
-      if (centerX !== null) {
-        pinchCenterXRef.current = centerX
+      // 如果最后一次 move 距离太久（手指停住再松开），不启动惯性
+      if (didMove && performance.now() - lastMoveTime < 100) {
+        startInertia()
       }
-    }
-
-    const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
-      const evt = e.evt
-      if (!isPinchingRef.current || evt.touches.length !== 2) return
-      evt.preventDefault()
-      const currentDistance = getTouchDistance(evt)
-      if (!currentDistance || !lastPinchDistanceRef.current) return
-
-      const scale = currentDistance / lastPinchDistanceRef.current
-      const newZoomLevel = Math.max(10, Math.min(200, pinchStartZoomRef.current * scale))
-
-      const oldZoom = useTimelineStore.getState().zoomLevel
-      const centerX = pinchCenterXRef.current
-      const timeAtCenter = (clampedScrollRef.current.scrollLeft + centerX) / oldZoom
-
-      const { setZoomLevel } = useTimelineStore.getState()
-      setZoomLevel(newZoomLevel)
-      const newScrollLeft = timeAtCenter * newZoomLevel - centerX
-      setScrollLeft(Math.max(minScrollLeftRef.current, newScrollLeft))
-    }
-
-    const handleTouchEnd = () => {
-      if (!isPinchingRef.current) return
-      isPinchingRef.current = false
-      lastPinchDistanceRef.current = null
     }
 
     // --- Wheel: Ctrl+滚轮缩放 / 普通滚轮平移 ---
     const handleWheel = (e: WheelEvent) => {
+      stopInertia()
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         e.stopPropagation()
@@ -207,18 +218,13 @@ export function useTimelinePanZoom(
 
     // --- 绑定事件 ---
     stage.on('pointerdown', handlePointerDown)
-    stage.on('touchstart', handleTouchStart)
-    stage.on('touchmove', handleTouchMove)
-    stage.on('touchend', handleTouchEnd)
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
     stage.container().addEventListener('wheel', handleWheel, { passive: false })
 
     return () => {
+      stopInertia()
       stage.off('pointerdown', handlePointerDown)
-      stage.off('touchstart', handleTouchStart)
-      stage.off('touchmove', handleTouchMove)
-      stage.off('touchend', handleTouchEnd)
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
       stage.container().removeEventListener('wheel', handleWheel)

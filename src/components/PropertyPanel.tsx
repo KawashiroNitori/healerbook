@@ -7,7 +7,7 @@ import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
-import { Trash2 } from 'lucide-react'
+import { Trash2, TriangleAlert, Skull } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { DamageType } from '@/types/timeline'
@@ -141,7 +141,29 @@ export default function PropertyPanel() {
               const isDangerous = !isLethal && result.finalDamage >= maxHP * 0.9
 
               return (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
+                  {isLethal && (
+                    <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                      <Skull className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium text-red-700">致死</p>
+                        <p className="text-xs text-red-600/80">
+                          伤害溢出 {(result.finalDamage - maxHP).toLocaleString()} HP，需要更多减伤
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {isDangerous && (
+                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                      <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium text-amber-700">危险</p>
+                        <p className="text-xs text-amber-600/80">
+                          伤害后仅剩 {remainHP.toLocaleString()} HP（{survivePct.toFixed(1)}%）
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">HP</span>
                     <span className="tabular-nums">
@@ -150,10 +172,6 @@ export default function PropertyPanel() {
                       <span className="text-red-500 ml-1">
                         (-{result.finalDamage.toLocaleString()})
                       </span>
-                      {isLethal && <span className="ml-1.5 text-red-600 font-semibold">致死</span>}
-                      {isDangerous && (
-                        <span className="ml-1.5 text-amber-500 font-semibold">危险</span>
-                      )}
                     </span>
                   </div>
                   <div className="h-2.5 bg-secondary rounded-full overflow-hidden flex">
@@ -185,13 +203,18 @@ export default function PropertyPanel() {
               const total = result.originalDamage
               if (total <= 0) return null
 
+              const maxHP = result.referenceMaxHP || 0
               const shieldAbsorb = (result.appliedStatuses || []).reduce((sum, s) => {
                 const meta = getStatusById(s.statusId)
                 if (meta?.type !== 'absorbed') return sum
                 return sum + (s.remainingBarrier || 0)
               }, 0)
               const pctMitigation = Math.max(0, total - result.finalDamage - shieldAbsorb)
-              const finalPct = (result.finalDamage / total) * 100
+              const overkill = maxHP > 0 ? Math.max(0, result.finalDamage - maxHP) : 0
+              const effectiveDamage = result.finalDamage - overkill
+
+              const overkillPct = (overkill / total) * 100
+              const effectivePct = (effectiveDamage / total) * 100
               const shieldPct = (shieldAbsorb / total) * 100
               const multiplierPct = (pctMitigation / total) * 100
 
@@ -213,14 +236,19 @@ export default function PropertyPanel() {
                     <div className="h-2.5 bg-secondary rounded-full flex overflow-visible">
                       {[
                         {
-                          pct: finalPct,
+                          pct: overkillPct,
+                          color: 'rgb(55, 55, 55)',
+                          label: `溢出伤害 ${overkill.toLocaleString()} (${overkillPct.toFixed(1)}%)`,
+                        },
+                        {
+                          pct: effectivePct,
                           color: 'rgb(239, 68, 68)',
-                          label: `真实伤害 ${result.finalDamage.toLocaleString()} (${finalPct.toFixed(1)}%)`,
+                          label: `有效伤害 ${effectiveDamage.toLocaleString()} (${effectivePct.toFixed(1)}%)`,
                         },
                         {
                           pct: shieldPct,
                           color: 'rgb(234, 179, 8)',
-                          label: `盾值减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
+                          label: `护盾减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
                         },
                         {
                           pct: multiplierPct,
@@ -234,7 +262,11 @@ export default function PropertyPanel() {
                             <TooltipTrigger asChild>
                               <div
                                 className={`h-full cursor-default ${i === 0 ? 'rounded-l-full' : ''} ${i === arr.length - 1 ? 'rounded-r-full' : ''}`}
-                                style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
+                                style={{
+                                  width: `${seg.pct}%`,
+                                  minWidth: 4,
+                                  backgroundColor: seg.color,
+                                }}
                               />
                             </TooltipTrigger>
                             <TooltipContent>

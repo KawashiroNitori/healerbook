@@ -122,7 +122,35 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       duration: 30,
       cooldown: 90,
-      executor: createShieldExecutor(297, 30),
+      executor: (ctx: ActionExecutionContext) => {
+        const baseShieldId = 297 // 鼓舞
+        const sageShieldId = 2609 // 贤者群盾
+        // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
+        const baseHeal = ctx.statistics?.healByAbility[185] ?? 10000
+        const barrier = Math.round(baseHeal * 1.8)
+
+        const newStatuses: MitigationStatus[] = []
+
+        newStatuses.push({
+          instanceId: generateId(),
+          statusId: baseShieldId,
+          startTime: ctx.useTime,
+          endTime: ctx.useTime + 30,
+          remainingBarrier: barrier,
+          initialBarrier: barrier,
+          sourceActionId: ctx.actionId,
+          sourcePlayerId: ctx.sourcePlayerId,
+        })
+
+        const filteredStatuses = ctx.partyState.statuses.filter(
+          s => ![baseShieldId, sageShieldId].includes(s.statusId)
+        )
+
+        return {
+          ...ctx.partyState,
+          statuses: [...filteredStatuses, ...newStatuses],
+        }
+      },
     },
     {
       id: 16542,
