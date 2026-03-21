@@ -18,7 +18,7 @@ export function getStatusIconUrl(statusId: number): string | undefined {
   const iconPath = completeIcon(iconId)
 
   // 使用 xivapi 的图标 URL
-  return `https://xivapi.com/i/${iconPath}.png`
+  return `https://cafemaker.wakingsands.com/i/${iconPath}.png`
 }
 
 /**

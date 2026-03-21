@@ -11,7 +11,7 @@ describe('statusIconUtils', () => {
       // 测试一个已知的状态 ID（石化）
       const url = getStatusIconUrl(1)
       expect(url).toBeDefined()
-      expect(url).toContain('xivapi.com/i/')
+      expect(url).toContain('cafemaker.wakingsands.com/i/')
       expect(url).toContain('.png')
     })
 

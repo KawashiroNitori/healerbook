@@ -135,7 +135,7 @@ export default function ActionTooltip({
     queryKey: ['action', displayedData?.action.id ?? 0],
     queryFn: () => getActionById(displayedData!.action.id),
     enabled: displayedData !== null,
-    staleTime: 1000 * 60 * 60,
+    staleTime: 1000 * 60 * 60 * 24,
     gcTime: 1000 * 60 * 60 * 24,
     retry: 2,
   })

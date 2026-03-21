@@ -53,7 +53,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 记录是否点击了背景（用于区分点击和拖动）
   const clickedBackgroundRef = useRef(false)
   const hasMovedRef = useRef(false)
-  const panJustEndedRef = useRef(false) // 标记刚刚完成了平移操作，阻止后续 click 选中技能
+  // 平移刚结束标记：mouseup 时设 true，同帧 click 可见；requestAnimationFrame 自动清除
+  const panJustEndedRef = useRef(false)
   const lastPanEndTimeRef = useRef(0) // 记录最后一次平移结束的时间戳，用于阻止 dblclick
   // 双指缩放状态
   const isPinchingRef = useRef(false)
@@ -329,7 +330,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: clampedScrollRef.current.scrollTop,
       }
-      stage.container().style.cursor = 'default'
     }
 
     const handleStagePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -355,7 +355,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           // 更新缩放级别
           setZoomLevel(newZoomLevel)
 
-          // 调整滚动位置，使缩放中心点保持在相同的屏幕位置
+          // 调整���动位置，使缩放中心点保持在相同的屏幕位置
           const newScrollLeft = timeAtCenter * newZoomLevel - centerX
           setScrollLeft(Math.max(0, newScrollLeft))
         }
@@ -364,6 +364,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       if (!isDraggingRef.current) return
       hasMovedRef.current = true
+      panJustEndedRef.current = true
       const { clientX } = getClientPosition(evt)
       const deltaX = dragStartRef.current.x - clientX
       setScrollLeft(Math.max(0, dragStartRef.current.scrollLeft + deltaX))
@@ -379,12 +380,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       clickedBackgroundRef.current = false
       if (hasMovedRef.current) {
         lastPanEndTimeRef.current = Date.now()
+        requestAnimationFrame(() => {
+          panJustEndedRef.current = false
+        })
       }
-      panJustEndedRef.current = hasMovedRef.current // 在重置前记录是否发生过移动
       hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
-      stage.container().style.cursor = 'default'
     }
 
     const handleNativeWheel = (e: WheelEvent) => {
@@ -497,7 +499,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: clampedScrollRef.current.scrollTop,
       }
-      stage.container().style.cursor = 'default'
     }
 
     const handleStagePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -532,6 +533,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       if (!isDraggingRef.current) return
       hasMovedRef.current = true
+      panJustEndedRef.current = true
       const { clientX, clientY } = getClientPosition(evt)
       const deltaX = dragStartRef.current.x - clientX
       const deltaY = dragStartRef.current.y - clientY
@@ -549,12 +551,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       clickedBackgroundRef.current = false
       if (hasMovedRef.current) {
         lastPanEndTimeRef.current = Date.now()
+        requestAnimationFrame(() => {
+          panJustEndedRef.current = false
+        })
       }
-      panJustEndedRef.current = hasMovedRef.current // 在重置前记录是否发生过移动
       hasMovedRef.current = false
       isPinchingRef.current = false
       lastPinchDistanceRef.current = null
-      stage.container().style.cursor = 'default'
     }
 
     const handleNativeWheel = (e: WheelEvent) => {
@@ -648,8 +651,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
     if (!timeline || isReadOnly) return
 
-    // 如果刚刚完成了平移操作（300ms 内），阻止误触发
-    if (Date.now() - lastPanEndTimeRef.current < 300) return
+    // 如果刚刚完成了平移操作，阻止误触发
+    if (panJustEndedRef.current || Date.now() - lastPanEndTimeRef.current < 300) return
 
     if (checkOverlap(time, track.playerId, track.actionId)) {
       toast.error('无法添加技能', {
@@ -685,21 +688,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     updateCastEvent(castEventId, { timestamp: newTime })
   }
 
-  // 拖动结束时不应选中伤害事件，只有明确的点击才选中
+  // 平移刚结束的同帧内阻止意外选中（panJustEndedRef 由 rAF 自动清除）
   const handleSelectEvent = (id: string) => {
-    if (panJustEndedRef.current) {
-      panJustEndedRef.current = false
-      return
-    }
+    if (panJustEndedRef.current) return
     selectEvent(id)
   }
 
-  // 拖动结束时不应选中技能，只有明确的点击才选中
+  // 平移刚结束的同帧内阻止意外选中
   const handleSelectCastEvent = (id: string) => {
-    if (panJustEndedRef.current) {
-      panJustEndedRef.current = false
-      return
-    }
+    if (panJustEndedRef.current) return
     selectCastEvent(id)
   }
 

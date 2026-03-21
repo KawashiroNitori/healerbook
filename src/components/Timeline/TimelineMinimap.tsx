@@ -147,8 +147,14 @@ export default function TimelineMinimap({
       const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0)
       let color = '#94a3b8' // 默认灰色
 
+      // 回放模式：playerDamageDetails 存在，hasOverkill 可能为 true
+      // 编辑模式：无 playerDamageDetails，hasOverkill 始终 false；referenceMaxHP 仅编辑模式存在
       if (hasOverkill) {
         color = '#373737' // 有死亡 - 深灰黑
+      } else if (result?.referenceMaxHP && result.finalDamage >= result.referenceMaxHP) {
+        color = '#dc2626' // 致死 - 深红
+      } else if (result?.referenceMaxHP && result.finalDamage >= result.referenceMaxHP * 0.9) {
+        color = '#f59e0b' // 危险 - 琥珀
       } else if (result) {
         const damageReduction = 1 - result.finalDamage / result.originalDamage
         if (damageReduction >= 0.5) {

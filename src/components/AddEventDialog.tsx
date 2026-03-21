@@ -18,7 +18,7 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
   const [name, setName] = useState('')
   const [time, setTime] = useState(0)
   const [damage, setDamage] = useState(100000)
-  const [type, setType] = useState<'aoe' | 'tankbuster' | 'raidwide'>('raidwide')
+  const [type, setType] = useState<'aoe' | 'tankbuster'>('aoe')
   const [damageType, setDamageType] = useState<DamageType>('magical')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -91,10 +91,9 @@ export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
             <label className="block text-sm font-medium mb-1">攻击类型</label>
             <select
               value={type}
-              onChange={e => setType(e.target.value as 'aoe' | 'tankbuster' | 'raidwide')}
+              onChange={e => setType(e.target.value as 'aoe' | 'tankbuster')}
               className="w-full px-3 py-2 border rounded-md"
             >
-              <option value="raidwide">全团伤害</option>
               <option value="aoe">AOE</option>
               <option value="tankbuster">死刑</option>
             </select>

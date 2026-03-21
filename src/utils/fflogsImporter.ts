@@ -15,7 +15,7 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import { JOB_MAP } from '@/data/jobMap'
-import { getTankJobs } from '@/data/jobs'
+import { getTankJobs, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
 
 const actionChinese: Record<string, string> = actionChineseRaw
@@ -229,7 +229,7 @@ export function parseDamageEvents(
       name: firstDetail.skillName,
       time: relativeTime,
       damage: medianDamage,
-      type: detectDamageType(details.length),
+      type: detectDamageType(details, TANK_JOBS),
       damageType: detectDamageTypeFromAbility(abilityMeta?.type ?? 0),
       playerDamageDetails: details,
       packetId: firstDetail.packetId,
@@ -238,13 +238,54 @@ export function parseDamageEvents(
 
   damageEvents.sort((a, b) => a.time - b.time)
 
+  // 后处理：验证 tankbuster 分类
+  refineTankbusterClassification(damageEvents)
+
   return damageEvents
 }
 
-function detectDamageType(hitCount: number): 'aoe' | 'tankbuster' | 'raidwide' {
-  if (hitCount >= 8) return 'raidwide'
-  if (hitCount >= 4) return 'aoe'
-  return 'tankbuster'
+function detectDamageType(details: PlayerDamageDetail[], tankJobs: Job[]): 'aoe' | 'tankbuster' {
+  const uniquePlayerIds = new Set(details.map(d => d.playerId))
+  if (uniquePlayerIds.size > 2) return 'aoe'
+  if (uniquePlayerIds.size > 0 && details.every(d => tankJobs.includes(d.job))) return 'tankbuster'
+  return 'aoe'
+}
+
+/**
+ * 后处理：验证 tankbuster 分类
+ *
+ * 1. 交叉验证：同 abilityId 在其他实例中命中过非坦克 → 回退为 aoe
+ * 2. 伤害量验证：人均伤害需显著高于本场 aoe 中位数（1.5x），否则回退为 aoe
+ */
+function refineTankbusterClassification(damageEvents: DamageEvent[]): void {
+  // Step 1: 交叉验证 —— 同 abilityId 只要有一次命中非坦克就不是死刑
+  const abilityHasNonTankTarget = new Set<number>()
+  for (const event of damageEvents) {
+    if (event.type === 'aoe') {
+      const abilityId = event.playerDamageDetails?.[0]?.abilityId
+      if (abilityId !== undefined) abilityHasNonTankTarget.add(abilityId)
+    }
+  }
+
+  for (const event of damageEvents) {
+    if (event.type !== 'tankbuster') continue
+    const abilityId = event.playerDamageDetails?.[0]?.abilityId
+    if (abilityId !== undefined && abilityHasNonTankTarget.has(abilityId)) {
+      event.type = 'aoe'
+    }
+  }
+
+  // Step 2: 伤害量验证 —— 人均伤害需显著高于 aoe 中位数
+  const aoeDamages = damageEvents.filter(e => e.type === 'aoe').map(e => e.damage)
+  if (aoeDamages.length > 0) {
+    const medianAoeDamage = calculatePercentile(aoeDamages)
+    for (const event of damageEvents) {
+      if (event.type !== 'tankbuster') continue
+      if (event.damage < medianAoeDamage * 1.5) {
+        event.type = 'aoe'
+      }
+    }
+  }
 }
 
 /**

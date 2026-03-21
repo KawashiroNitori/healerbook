@@ -35,6 +35,7 @@ export default function DamageEventCard({
 }: DamageEventCardProps) {
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
+  const isTankbuster = event.type === 'tankbuster'
   const x = event.time * zoomLevel
   const y = yOffset + row * rowHeight + rowHeight / 2
 
@@ -47,13 +48,21 @@ export default function DamageEventCard({
 
   const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0) ?? false
 
-  const displayDamage = hasOverkill ? calculatedEvent?.maxDamage : calculatedEvent?.finalDamage
-  const damageText =
-    displayDamage !== undefined
-      ? displayDamage >= 10000
-        ? `${(displayDamage / 10000).toFixed(1)}w`
-        : displayDamage.toLocaleString()
-      : ''
+  // 编辑模式警示（referenceMaxHP 仅编辑模式存在）
+  const refHP = calculatedEvent?.referenceMaxHP
+  const isLethal = !hasOverkill && refHP != null && calculatedEvent!.finalDamage >= refHP
+  const isDangerous =
+    !hasOverkill && !isLethal && refHP != null && calculatedEvent!.finalDamage >= refHP * 0.9
+
+  const getDamageText = (): string => {
+    if (isTankbuster) return '死刑'
+    const displayDamage = hasOverkill ? calculatedEvent?.maxDamage : calculatedEvent?.finalDamage
+    if (displayDamage === undefined) return ''
+    return displayDamage >= 10000
+      ? `${(displayDamage / 10000).toFixed(1)}w`
+      : displayDamage.toLocaleString()
+  }
+  const damageText = getDamageText()
 
   return (
     <Group
@@ -89,17 +98,19 @@ export default function DamageEventCard({
         y={-15}
         width={150}
         height={30}
-        fill="#ffffff"
-        stroke={isSelected ? '#3b82f6' : '#d1d5db'}
+        fill={isTankbuster ? '#f9fafb' : '#ffffff'}
+        stroke={isSelected ? '#3b82f6' : isTankbuster ? '#9ca3af' : '#d1d5db'}
         strokeWidth={isSelected ? 2 : 1}
+        dash={isTankbuster && !isSelected ? [4, 3] : undefined}
         cornerRadius={4}
+        opacity={isTankbuster ? 0.7 : 1}
         shadowEnabled={false}
         perfectDrawEnabled={false}
       />
 
       {/* 技能名称 */}
       <Text
-        x={hasOverkill ? 20 : 5}
+        x={hasOverkill || isLethal || isDangerous ? 20 : 5}
         y={-15}
         width={damageText ? 90 : 140}
         height={30}
@@ -115,7 +126,7 @@ export default function DamageEventCard({
         listening={false}
       />
 
-      {/* 死亡图标 */}
+      {/* 死亡图标（回放模式） */}
       {hasOverkill && (
         <Text
           x={3}
@@ -124,6 +135,40 @@ export default function DamageEventCard({
           height={30}
           text="💀"
           fontSize={12}
+          verticalAlign="middle"
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+
+      {/* 致死警示（编辑模式） */}
+      {isLethal && (
+        <Text
+          x={3}
+          y={-15}
+          width={18}
+          height={30}
+          text="⚠"
+          fontSize={13}
+          fill="#dc2626"
+          fontStyle="bold"
+          verticalAlign="middle"
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+
+      {/* 危险警示（编辑模式） */}
+      {isDangerous && (
+        <Text
+          x={3}
+          y={-15}
+          width={18}
+          height={30}
+          text="⚠"
+          fontSize={13}
+          fill="#f59e0b"
+          fontStyle="bold"
           verticalAlign="middle"
           perfectDrawEnabled={false}
           listening={false}

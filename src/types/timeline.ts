@@ -129,7 +129,7 @@ export interface DamageEvent {
   /** 原始伤害（非坦克玩家平均值，如果只有坦克则为所有玩家平均值） */
   damage: number
   /** 攻击类型 */
-  type: 'aoe' | 'tankbuster' | 'raidwide'
+  type: 'aoe' | 'tankbuster'
   /** 伤害类型 */
   damageType: DamageType
   /** 目标玩家 ID（可选，用于单体伤害） */

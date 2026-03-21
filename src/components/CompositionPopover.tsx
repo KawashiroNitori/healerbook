@@ -59,24 +59,26 @@ export default function CompositionPopover() {
                   {getJobName(player.job)}
                 </span>
                 {(hoveredPlayerId === player.id || hiddenPlayerIds.has(player.id)) && (
-                  <button
-                    onClick={() => togglePlayerVisibility(player.id)}
-                    className="p-0.5 hover:bg-muted rounded"
-                  >
-                    {hiddenPlayerIds.has(player.id) ? (
-                      <EyeOff className="w-3 h-3 text-muted-foreground" />
-                    ) : (
-                      <Eye className="w-3 h-3 text-muted-foreground" />
+                  <>
+                    <button
+                      onClick={() => togglePlayerVisibility(player.id)}
+                      className="p-0.5 hover:bg-muted rounded"
+                    >
+                      {hiddenPlayerIds.has(player.id) ? (
+                        <EyeOff className="w-3 h-3 text-muted-foreground" />
+                      ) : (
+                        <Eye className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </button>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => handleRemove(player.id)}
+                        className="p-0.5 hover:bg-muted rounded"
+                      >
+                        <X className="w-3 h-3 text-muted-foreground" />
+                      </button>
                     )}
-                  </button>
-                )}
-                {!isReadOnly && (
-                  <button
-                    onClick={() => handleRemove(player.id)}
-                    className="p-0.5 hover:bg-muted rounded"
-                  >
-                    <X className="w-3 h-3 text-muted-foreground" />
-                  </button>
+                  </>
                 )}
               </div>
             ))

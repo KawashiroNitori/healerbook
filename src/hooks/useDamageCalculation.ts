@@ -10,7 +10,7 @@ import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { useTimelineStore } from '@/store/timelineStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { calculatePercentile } from '@/utils/stats'
+import { calculatePercentile, getNonTankMedianHP } from '@/utils/stats'
 
 /**
  * 计算时间轴上所有伤害事件的减伤结果
@@ -32,6 +32,9 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     if (timeline.isReplayMode) {
       // 回放模式：直接使用 PlayerDamageDetail.statuses
       for (const event of timeline.damageEvents) {
+        // 死刑不参与团减计算
+        if (event.type === 'tankbuster') continue
+
         if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
           continue
         }
@@ -84,6 +87,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     // 编辑模式：使用 PartyState，单次时间轴扫描
     if (!partyState) return results
 
+    const referenceMaxHP = getNonTankMedianHP(statistics)
     const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
     const sortedCastEvents = [...(timeline.castEvents || [])].sort(
       (a, b) => a.timestamp - b.timestamp
@@ -129,6 +133,9 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         statuses: currentState.statuses.filter(s => s.endTime >= event.time),
       }
 
+      // 死刑不参与团减计算，但状态步进仍需正常执行
+      if (event.type === 'tankbuster') continue
+
       const result = calculator.calculate(
         event.damage,
         currentState,
@@ -136,7 +143,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         event.damageType || 'physical'
       )
 
-      results.set(event.id, result)
+      results.set(event.id, { ...result, referenceMaxHP })
       // updatedPartyState 一定存在（编辑模式下 calculate 总会返回它）
       if (result.updatedPartyState) {
         currentState = result.updatedPartyState

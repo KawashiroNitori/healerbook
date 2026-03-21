@@ -528,4 +528,233 @@ describe('parseDamageEvents', () => {
     expect(result[0].playerDamageDetails).toHaveLength(1)
     expect(result[0].playerDamageDetails?.[0].playerId).toBe(2)
   })
+
+  it('应该将全坦目标且伤害远高于 AOE 的伤害判定为 tankbuster', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Tank2', type: 'Warrior' }],
+      [3, { id: 3, name: 'Healer1', type: 'WhiteMage' }],
+      [4, { id: 4, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = new Map<number, FFLogsAbility>([
+      [100001, { gameID: 100001, name: 'AOE Attack', type: 1024 }],
+      [100002, { gameID: 100002, name: 'Tankbuster', type: 128 }],
+    ])
+
+    const events = [
+      // AOE: 命中所有人，伤害 ~10000
+      ...[1, 2, 3, 4].map(targetID => ({
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 100001,
+        targetID,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      })),
+      // 死刑: 只命中坦克，伤害 ~30000（远高于 AOE 的 1.5 倍）
+      {
+        type: 'damage',
+        packetID: 2,
+        abilityGameID: 100002,
+        targetID: 1,
+        unmitigatedAmount: 30000,
+        absorbed: 0,
+        amount: 30000,
+        timestamp: fightStartTime + 15000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(2)
+    const aoe = result.find(e => e.name === 'AOE Attack')
+    const tb = result.find(e => e.name === 'Tankbuster')
+    expect(aoe?.type).toBe('aoe')
+    expect(tb?.type).toBe('tankbuster')
+  })
+
+  it('应该将包含非坦克目标的伤害判定为 aoe', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Raidwide', 1024)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 11000,
+        absorbed: 0,
+        amount: 11000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('aoe')
+  })
+
+  it('交叉验证：同技能在其他实例中命中非坦克时应回退为 aoe', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'DPS1', type: 'Samurai' }],
+    ])
+    // 同一个技能 ID，两次施放
+    const abilityMap = makeAbilityMap(888888, 'Random Target', 1024)
+
+    const events = [
+      // 第一次：恰好命中坦克
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 888888,
+        targetID: 1,
+        unmitigatedAmount: 15000,
+        absorbed: 0,
+        amount: 15000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      // 第二次：命中 DPS
+      {
+        type: 'damage',
+        packetID: 2,
+        abilityGameID: 888888,
+        targetID: 2,
+        unmitigatedAmount: 15000,
+        absorbed: 0,
+        amount: 15000,
+        timestamp: fightStartTime + 20000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(2)
+    // 两次都应该是 aoe（第一次通过交叉验证回退）
+    expect(result.every(e => e.type === 'aoe')).toBe(true)
+  })
+
+  it('伤害量验证：全坦目标但伤害不高于 AOE 中位数 1.5 倍时应回退为 aoe', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = new Map<number, FFLogsAbility>([
+      [100001, { gameID: 100001, name: 'AOE Attack', type: 1024 }],
+      [100002, { gameID: 100002, name: 'Low Hit on Tank', type: 128 }],
+    ])
+
+    const events = [
+      // AOE: 命中所有人，伤害 ~10000
+      ...[1, 2, 3].map(targetID => ({
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 100001,
+        targetID,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      })),
+      // 只命中坦克，但伤害 12000（< AOE 中位数 10000 × 1.5 = 15000）
+      {
+        type: 'damage',
+        packetID: 2,
+        abilityGameID: 100002,
+        targetID: 1,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 15000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(2)
+    const lowHit = result.find(e => e.name === 'Low Hit on Tank')
+    expect(lowHit?.type).toBe('aoe')
+  })
+
+  it('无 AOE 参照时全坦目标应保持 tankbuster', () => {
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'DarkKnight' }]])
+    const abilityMap = makeAbilityMap(999999, 'Single Tankbuster', 128)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 30000,
+        absorbed: 0,
+        amount: 30000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('tankbuster')
+  })
+
+  it('命中超过 2 人时即使全是坦克也应判定为 aoe', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Tank2', type: 'Warrior' }],
+      [3, { id: 3, name: 'Tank3', type: 'DarkKnight' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Multi Tank Hit', 128)
+
+    const events = [1, 2, 3].map(targetID => ({
+      type: 'damage',
+      packetID: 1,
+      abilityGameID: 999999,
+      targetID,
+      unmitigatedAmount: 30000,
+      absorbed: 0,
+      amount: 30000,
+      timestamp: fightStartTime + 5000,
+      sourceID: 999,
+    }))
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('aoe')
+  })
 })

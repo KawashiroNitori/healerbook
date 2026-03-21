@@ -24,6 +24,8 @@ export interface CalculationResult {
   appliedStatuses: MitigationStatus[]
   /** 更新后的小队状态（盾值消耗后，回放模式下为 undefined） */
   updatedPartyState?: PartyState
+  /** 非坦中位血量参考值（编辑模式填充） */
+  referenceMaxHP?: number
 }
 
 /**
