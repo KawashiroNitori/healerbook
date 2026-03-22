@@ -2,6 +2,7 @@
  * 技能使用事件图标组件
  */
 
+import { useState } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
@@ -46,6 +47,7 @@ export default function CastEventIcon({
   onClickIcon,
   isReadOnly = false,
 }: CastEventIconProps) {
+  const [isHovered, setIsHovered] = useState(false)
   const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
   const effectiveDuration =
     nextCastTime === Infinity
@@ -74,6 +76,23 @@ export default function CastEventIcon({
       }}
       onContextMenu={onContextMenu}
     >
+      {/* 持续时间条外缘光晕（在填充条之前渲染，shadow 不被自身遮挡） */}
+      {isSelected && action.duration > 0 && (
+        <Rect
+          x={26}
+          y={-15}
+          width={Math.max(0, effectiveDuration * zoomLevel - 26)}
+          height={30}
+          fill="#10b981"
+          opacity={0.6}
+          shadowColor="#10b981"
+          shadowBlur={18}
+          shadowOpacity={1}
+          shadowEnabled={true}
+          listening={false}
+        />
+      )}
+
       {/* 持续时间条（从图标内部开始，填充圆角缺口，绿色，无圆角） */}
       {action.duration > 0 && (
         <Rect
@@ -82,7 +101,7 @@ export default function CastEventIcon({
           width={Math.max(0, effectiveDuration * zoomLevel - 26)}
           height={30}
           fill="#10b981"
-          opacity={0.3}
+          opacity={isHovered ? 0.45 : 0.3}
           shadowEnabled={false}
           perfectDrawEnabled={false}
         />
@@ -95,10 +114,26 @@ export default function CastEventIcon({
           y={0}
           text={`${action.duration}s`}
           fontSize={10}
-          fill="#10b981"
+          fill={isSelected ? '#ffffff' : '#10b981'}
           fontStyle="bold"
           fontFamily="Arial, sans-serif"
           perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+
+      {isSelected && action.cooldown > 0 && (
+        <Rect
+          x={effectiveDuration * zoomLevel}
+          y={-15}
+          width={Math.max(0, action.cooldown * zoomLevel - effectiveDuration * zoomLevel)}
+          height={30}
+          fill="#3b82f6"
+          opacity={0.5}
+          shadowColor="#3b82f6"
+          shadowBlur={18}
+          shadowOpacity={1}
+          shadowEnabled={true}
           listening={false}
         />
       )}
@@ -111,7 +146,7 @@ export default function CastEventIcon({
           width={Math.max(0, action.cooldown * zoomLevel - effectiveDuration * zoomLevel)}
           height={30}
           fill="#3b82f6"
-          opacity={0.2}
+          opacity={isHovered ? 0.35 : 0.2}
           shadowEnabled={false}
           perfectDrawEnabled={false}
         />
@@ -124,7 +159,7 @@ export default function CastEventIcon({
           y={0}
           text={`${action.cooldown}s`}
           fontSize={10}
-          fill="#3b82f6"
+          fill={isSelected ? '#ffffff' : '#3b82f6'}
           fontStyle="bold"
           fontFamily="Arial, sans-serif"
           perfectDrawEnabled={false}
@@ -164,22 +199,33 @@ export default function CastEventIcon({
         </>
       )}
 
-      {/* 图标区域鼠标响应层（仅图标范围触发悬浮提示） */}
+      {/* 全宽透明鼠标响应层（覆盖图标 + 持续时间条 + 冷却时间条，仅控制高亮和光标） */}
+      <Rect
+        x={0}
+        y={-15}
+        width={Math.max(30, action.cooldown * zoomLevel)}
+        height={30}
+        fill="transparent"
+        onMouseEnter={e => {
+          setIsHovered(true)
+          const stage = e.target.getStage()
+          if (stage) stage.container().style.cursor = 'pointer'
+        }}
+        onMouseLeave={e => {
+          setIsHovered(false)
+          const stage = e.target.getStage()
+          if (stage) stage.container().style.cursor = 'default'
+        }}
+      />
+
+      {/* 图标区域 hover/tap 响应（触发悬浮窗，移动端 tap） */}
       <Rect
         x={0}
         y={-15}
         width={30}
         height={30}
         fill="transparent"
-        onMouseEnter={e => {
-          onHover(action, e)
-          const stage = e.target.getStage()
-          if (stage) stage.container().style.cursor = 'pointer'
-        }}
-        onMouseLeave={e => {
-          const stage = e.target.getStage()
-          if (stage) stage.container().style.cursor = 'default'
-        }}
+        onMouseEnter={e => onHover(action, e)}
         onTap={e => onClickIcon(action, e)}
       />
     </Group>

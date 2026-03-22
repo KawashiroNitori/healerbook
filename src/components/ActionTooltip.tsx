@@ -211,7 +211,7 @@ export default function ActionTooltip({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg shadow-2xl text-white w-[400px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.8)]">
+      <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg shadow-2xl text-white w-[400px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.8)] select-none">
         {isLoading ? (
           <div className="p-3 flex items-center justify-center gap-2 text-sm text-gray-400">
             <Loader2 className="w-4 h-4 animate-spin" />

@@ -9,7 +9,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Slider } from '@/components/ui/slider'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +24,8 @@ import AddEventDialog from './AddEventDialog'
 import CompositionPopover from './CompositionPopover'
 
 export default function EditorToolbar() {
-  const { timeline, exitReplayMode, zoomWithScrollPreservation } = useTimelineStore()
+  const { timeline, exitReplayMode, zoomLevel, setZoomLevel, setPendingScrollProgress } =
+    useTimelineStore()
   const { toggleReadOnly } = useUIStore()
   const [showAddEventDialog, setShowAddEventDialog] = useState(false)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
@@ -37,41 +38,29 @@ export default function EditorToolbar() {
     setShowExitReplayConfirm(false)
   }
 
-  const handleZoomIn = () => {
-    zoomWithScrollPreservation(10)
-  }
-
-  const handleZoomOut = () => {
-    zoomWithScrollPreservation(-10)
+  const handleZoomChange = (values: number[]) => {
+    const newZoom = values[0]
+    // 保存当前时间中心点以还原位置
+    const state = useTimelineStore.getState()
+    const timeAtCenter =
+      (state.currentScrollLeft + state.currentViewportWidth / 2) / (state.zoomLevel || newZoom)
+    setPendingScrollProgress(timeAtCenter)
+    setZoomLevel(newZoom)
   }
 
   return (
     <div className="h-12 border-b bg-background flex items-center px-4 gap-4">
       {/* Zoom Controls */}
       <div className="flex items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleZoomOut}
-              className="p-2 hover:bg-accent rounded transition-colors"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>缩小</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleZoomIn}
-              className="p-2 hover:bg-accent rounded transition-colors"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>放大</TooltipContent>
-        </Tooltip>
+        <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+        <Slider
+          value={[zoomLevel]}
+          onValueChange={handleZoomChange}
+          min={10}
+          max={100}
+          className="w-24"
+        />
+        <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
       </div>
 
       <div className="w-px h-6 bg-border" />

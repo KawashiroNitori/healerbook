@@ -41,7 +41,10 @@ export default function SkillIcon({ iconPath, isSelected }: SkillIconProps) {
           stroke="#3b82f6"
           strokeWidth={2}
           cornerRadius={4}
-          shadowEnabled={false}
+          shadowEnabled={true}
+          shadowColor="#3b82f6"
+          shadowBlur={10}
+          shadowOpacity={0.9}
           perfectDrawEnabled={false}
         />
       )}
