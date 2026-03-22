@@ -56,6 +56,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const minScrollLeftRef = useRef(0)
   const maxScrollTopRef = useRef(0)
   const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
+  /** 实际视觉垂直滚动位置，仅由 handleDirectScroll 更新，不受 React state 影响 */
+  const visualScrollTopRef = useRef(0)
   // 记录是否点击了背景（用于区分点击和拖动）
   const clickedBackgroundRef = useRef(false)
   const hasMovedRef = useRef(false)
@@ -104,6 +106,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     minScrollLeftRef,
     maxScrollTopRef,
     clampedScrollRef,
+    visualScrollTopRef,
     clickedBackgroundRef,
     hasMovedRef,
     panJustEndedRef,
@@ -113,6 +116,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   // 直接操作 Konva Layer 位置的回调（拖动/惯性动画期间绕过 React 渲染）
   const handleDirectScroll = useCallback((newScrollLeft: number, newScrollTop: number) => {
+    // 记录真实视觉滚动位置（供 handlePointerDown 读取，不受过时 React state 影响）
+    visualScrollTopRef.current = newScrollTop
     // 固定区域 Layer（仅水平滚动）
     if (fixedLayerRef.current) {
       fixedLayerRef.current.x(-newScrollLeft)

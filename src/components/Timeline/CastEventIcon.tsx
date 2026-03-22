@@ -203,7 +203,7 @@ export default function CastEventIcon({
       <Rect
         x={0}
         y={-15}
-        width={Math.max(30, action.cooldown * zoomLevel)}
+        width={Math.max(30, effectiveDuration * zoomLevel, action.cooldown * zoomLevel)}
         height={30}
         fill="transparent"
         onMouseEnter={e => {

@@ -21,6 +21,8 @@ export interface PanZoomRefs {
   minScrollLeftRef: RefObject<number>
   maxScrollTopRef: RefObject<number>
   clampedScrollRef: RefObject<{ scrollLeft: number; scrollTop: number }>
+  /** 实际视觉滚动位置（仅由 handleDirectScroll 更新，不受 React state 影响） */
+  visualScrollTopRef: RefObject<number>
   clickedBackgroundRef: RefObject<boolean>
   hasMovedRef: RefObject<boolean>
   panJustEndedRef: RefObject<boolean>
@@ -60,6 +62,7 @@ export function useTimelinePanZoom(
       minScrollLeftRef,
       maxScrollTopRef,
       clampedScrollRef,
+      visualScrollTopRef,
       clickedBackgroundRef,
       hasMovedRef,
       panJustEndedRef,
@@ -164,7 +167,7 @@ export function useTimelinePanZoom(
         x: evt.clientX,
         y: evt.clientY,
         scrollLeft: clampedScrollRef.current.scrollLeft,
-        scrollTop: clampedScrollRef.current.scrollTop,
+        scrollTop: visualScrollTopRef.current,
       }
       // 初始化速度跟踪和本地滚动位置
       velocityX = 0
@@ -173,7 +176,7 @@ export function useTimelinePanZoom(
       lastClientX = evt.clientX
       lastClientY = evt.clientY
       localScrollLeft = clampedScrollRef.current.scrollLeft
-      localScrollTop = clampedScrollRef.current.scrollTop
+      localScrollTop = visualScrollTopRef.current
     }
 
     // --- Window pointermove: 单点拖动平移 ---
