@@ -10,20 +10,54 @@ import type {
   FFLogsEvent,
   FFLogsEventsResponse,
 } from '@/types/fflogs'
+import { useAuthStore } from '@/store/authStore'
+import { toast } from 'sonner'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000
+const REFRESH_TIMEOUT = 10000
+const AUTH_REFRESH_URL = '/api/auth/refresh'
+
+// 防止并发 401 时多次触发 token 刷新
+let refreshingPromise: Promise<boolean> | null = null
 
 /**
- * 带超时的 fetch 请求
+ * 带鉴权和自动续期的 fetch 请求
  */
-async function fetchWithTimeout(url: string, timeout: number = REQUEST_TIMEOUT): Promise<Response> {
+async function fetchWithAuth(url: string, timeout: number = REQUEST_TIMEOUT): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
+  const { accessToken } = useAuthStore.getState()
+
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
   try {
-    const response = await fetch(url, { signal: controller.signal })
+    const response = await fetch(url, { signal: controller.signal, headers })
     clearTimeout(timeoutId)
+
+    // 401：尝试续期（当前 Worker 路由不强制鉴权，此逻辑为后续鉴权路由准备）
+    if (response.status === 401) {
+      const refreshed = await tryRefreshToken()
+      if (refreshed) {
+        const { accessToken: newToken } = useAuthStore.getState()
+        const retryController = new AbortController()
+        const retryTimeoutId = setTimeout(() => retryController.abort(), timeout)
+        try {
+          const retryResponse = await fetch(url, {
+            signal: retryController.signal,
+            headers: newToken ? { Authorization: `Bearer ${newToken}` } : {},
+          })
+          return retryResponse
+        } finally {
+          clearTimeout(retryTimeoutId)
+        }
+      }
+    }
+
     return response
   } catch (error) {
     clearTimeout(timeoutId)
@@ -31,6 +65,56 @@ async function fetchWithTimeout(url: string, timeout: number = REQUEST_TIMEOUT):
       throw new Error('请求超时，请稍后重试')
     }
     throw error
+  }
+}
+
+async function tryRefreshToken(): Promise<boolean> {
+  // 如果已有刷新进行中，复用同一个 Promise
+  if (refreshingPromise) return refreshingPromise
+
+  refreshingPromise = doRefreshToken().finally(() => {
+    refreshingPromise = null
+  })
+
+  return refreshingPromise
+}
+
+async function doRefreshToken(): Promise<boolean> {
+  const { refreshToken, setTokens, clearTokens, username } = useAuthStore.getState()
+  if (!refreshToken) return false
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REFRESH_TIMEOUT)
+
+  try {
+    const res = await fetch(AUTH_REFRESH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) {
+      clearTokens()
+      toast.error('登录已过期，请重新登录')
+      return false
+    }
+
+    const { access_token } = (await res.json()) as { access_token: string }
+    if (!access_token || typeof access_token !== 'string') {
+      clearTokens()
+      toast.error('登录已过期，请重新登录')
+      return false
+    }
+    // refresh 接口不返回 name，保留 authStore 中缓存的 username
+    setTokens(access_token, refreshToken, username ?? '')
+    return true
+  } catch {
+    clearTokens()
+    toast.error('登录已过期，请重新登录')
+    return false
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
@@ -76,7 +160,7 @@ export class FFLogsClient {
     const url = `${this.baseUrl}/report/${reportCode}`
 
     try {
-      const response = await fetchWithTimeout(url)
+      const response = await fetchWithAuth(url)
 
       if (!response.ok) {
         const error = (await response.json()) as { error?: string }
@@ -157,7 +241,7 @@ export class FFLogsClient {
     const url = `${this.baseUrl}/events/${reportCode}?${queryParams}`
 
     try {
-      const response = await fetchWithTimeout(url)
+      const response = await fetchWithAuth(url)
 
       if (!response.ok) {
         const error = (await response.json()) as { error?: string }
@@ -177,9 +261,6 @@ export class FFLogsClient {
     if (error instanceof Error) {
       if (error.message.includes('请求超时')) {
         return error
-      }
-      if (error.message.includes('401')) {
-        return new Error('FFLogs 连接配置错误，请联系开发者')
       }
       if (error.message.includes('403')) {
         return new Error('没有访问权限')

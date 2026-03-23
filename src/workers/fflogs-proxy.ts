@@ -21,6 +21,7 @@ import {
 } from './top100Sync'
 import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
+import { handleAuthCallback, handleAuthRefresh } from './auth'
 
 interface QueueMessageBody {
   type: string
@@ -41,6 +42,12 @@ export interface Env {
   // Queue 绑定
   TOP100_SYNC_QUEUE: Queue
   STATISTICS_EXTRACT_QUEUE: Queue
+  // FFLogs OAuth 回调地址（Authorization Code Flow）
+  FFLOGS_OAUTH_REDIRECT_URI?: string
+  // JWT 签名密钥
+  JWT_SECRET?: string
+  // 允许的前端域名（用于认证端点的 CORS，如 https://healerbook.pages.dev）
+  ALLOWED_ORIGIN?: string
 }
 
 /**
@@ -78,14 +85,17 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   const path = url.pathname
 
   try {
-    if (path.startsWith('/api/fflogs/report/')) {
+    if (path === '/api/auth/callback' && request.method === 'POST') {
+      return await handleAuthCallback(request, env)
+    } else if (path === '/api/auth/refresh' && request.method === 'POST') {
+      return await handleAuthRefresh(request, env)
+    } else if (path.startsWith('/api/fflogs/report/')) {
       return await handleReport(request, env)
     } else if (path.startsWith('/api/fflogs/events/')) {
       return await handleEvents(request, env)
     } else if (path === '/api/top100') {
       return await handleTop100All(env)
     } else if (path === '/api/top100/sync' && request.method === 'POST') {
-      // 手动触发同步（仅用于测试/管理）—— 必须在 startsWith 之前检查
       return await handleManualSync(request, env)
     } else if (path.startsWith('/api/top100/')) {
       return await handleTop100Encounter(request, env)

@@ -11,3 +11,13 @@ FFLOGS_CLIENT_SECRET=your_client_secret_here
 # 手动同步接口鉴权令牌
 # 生成方式: openssl rand -hex 32
 SYNC_AUTH_TOKEN=your_secret_token_here
+
+# FFLogs OAuth 用户登录（Authorization Code Flow）
+# 复用上方的 FFLOGS_CLIENT_ID/SECRET，无需额外 OAuth App
+FFLOGS_OAUTH_REDIRECT_URI=http://localhost:5173/callback
+
+# JWT 签名密钥（HMAC-SHA256），生成方式: openssl rand -hex 32
+JWT_SECRET=your_jwt_secret_here
+
+# 认证端点允许的前端域名（生产环境替换为实际域名，如 https://healerbook.pages.dev）
+ALLOWED_ORIGIN=http://localhost:5173

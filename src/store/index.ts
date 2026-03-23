@@ -5,3 +5,4 @@
 export { useTimelineStore } from './timelineStore'
 export { useMitigationStore } from './mitigationStore'
 export { useUIStore } from './uiStore'
+export { useAuthStore } from './authStore'

@@ -53,6 +53,9 @@ importers:
       graphql-request:
         specifier: ^7.4.0
         version: 7.4.0(graphql@16.12.0)
+      jose:
+        specifier: ^6.2.2
+        version: 6.2.2
       konva:
         specifier: ^10.2.0
         version: 10.2.0
@@ -1942,6 +1945,9 @@ packages:
   jiti@1.21.7:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
+
+  jose@6.2.2:
+    resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
 
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
@@ -4399,6 +4405,8 @@ snapshots:
       - '@types/react'
 
   jiti@1.21.7: {}
+
+  jose@6.2.2: {}
 
   js-tokens@10.0.0: {}
 
