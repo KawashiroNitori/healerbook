@@ -13,9 +13,7 @@ FFLOGS_CLIENT_SECRET=your_client_secret_here
 SYNC_AUTH_TOKEN=your_secret_token_here
 
 # FFLogs OAuth 用户登录（Authorization Code Flow）
-# 注意：与上方 FFLOGS_CLIENT_ID/SECRET 不同，这里是专用于用户登录的 OAuth App
-FFLOGS_OAUTH_CLIENT_ID=your_oauth_client_id_here
-FFLOGS_OAUTH_CLIENT_SECRET=your_oauth_client_secret_here
+# 复用上方的 FFLOGS_CLIENT_ID/SECRET，无需额外 OAuth App
 FFLOGS_OAUTH_REDIRECT_URI=http://localhost:5173/callback
 
 # JWT 签名密钥（HMAC-SHA256），生成方式: openssl rand -hex 32

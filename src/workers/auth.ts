@@ -22,8 +22,8 @@ async function exchangeCodeForToken(
 ): Promise<FFLogsTokenResponse> {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: env.FFLOGS_OAUTH_CLIENT_ID!,
-    client_secret: env.FFLOGS_OAUTH_CLIENT_SECRET!,
+    client_id: env.FFLOGS_CLIENT_ID!,
+    client_secret: env.FFLOGS_CLIENT_SECRET!,
     redirect_uri: env.FFLOGS_OAUTH_REDIRECT_URI!,
     code,
   })
@@ -70,7 +70,7 @@ export async function handleAuthCallback(request: Request, env: Env): Promise<Re
   if (!env.JWT_SECRET) {
     return jsonError('Server configuration error', 500)
   }
-  if (!env.FFLOGS_OAUTH_CLIENT_ID || !env.FFLOGS_OAUTH_CLIENT_SECRET || !env.FFLOGS_OAUTH_REDIRECT_URI) {
+  if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET || !env.FFLOGS_OAUTH_REDIRECT_URI) {
     return jsonError('Server configuration error', 500)
   }
 

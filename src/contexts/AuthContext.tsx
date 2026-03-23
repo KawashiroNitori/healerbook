@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { nanoid } from 'nanoid'
 
-const FFLOGS_OAUTH_CLIENT_ID = import.meta.env.VITE_FFLOGS_OAUTH_CLIENT_ID as string
+const FFLOGS_OAUTH_CLIENT_ID = import.meta.env.VITE_FFLOGS_CLIENT_ID as string
 const FFLOGS_AUTH_URL = 'https://www.fflogs.com/oauth/authorize'
 
 interface AuthContextValue {

@@ -42,9 +42,7 @@ export interface Env {
   // Queue 绑定
   TOP100_SYNC_QUEUE: Queue
   STATISTICS_EXTRACT_QUEUE: Queue
-  // FFLogs 用户端 OAuth（Authorization Code Flow）
-  FFLOGS_OAUTH_CLIENT_ID?: string
-  FFLOGS_OAUTH_CLIENT_SECRET?: string
+  // FFLogs OAuth 回调地址（Authorization Code Flow）
   FFLOGS_OAUTH_REDIRECT_URI?: string
   // JWT 签名密钥
   JWT_SECRET?: string
