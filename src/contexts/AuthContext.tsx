@@ -5,7 +5,6 @@ import { nanoid } from 'nanoid'
 
 const FFLOGS_OAUTH_CLIENT_ID = import.meta.env.VITE_FFLOGS_OAUTH_CLIENT_ID as string
 const FFLOGS_AUTH_URL = 'https://www.fflogs.com/oauth/authorize'
-const REDIRECT_URI = `${window.location.origin}/callback`
 
 interface AuthContextValue {
   username: string | null
@@ -20,12 +19,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { username, accessToken, clearTokens } = useAuthStore()
 
   function login() {
+    if (!FFLOGS_OAUTH_CLIENT_ID) {
+      toast.error('FFLogs Client ID 未配置，请联系开发者')
+      return
+    }
+    const redirectUri = `${window.location.origin}/callback`
     const state = nanoid()
     sessionStorage.setItem('oauth_state', state)
 
     const params = new URLSearchParams({
       client_id: FFLOGS_OAUTH_CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'view:user-profile',
       state,
