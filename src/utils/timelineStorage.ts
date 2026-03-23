@@ -3,12 +3,20 @@
  */
 
 import type { Timeline } from '@/types/timeline'
+import { customAlphabet } from 'nanoid'
+
+// 使用纯字母数字字母表（排除默认的 _ 和 -），避免 ID 包含特殊字符
+const generateId = customAlphabet(
+  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+  21
+)
 
 const STORAGE_KEY = 'healerbook_timelines'
 
 export interface TimelineMetadata {
   id: string
   name: string
+  description?: string
   encounterId: string
   createdAt: string
   updatedAt: string
@@ -57,6 +65,7 @@ export function saveTimeline(timeline: Timeline): void {
     const newMetadata: TimelineMetadata = {
       id: timeline.id,
       name: timeline.name,
+      description: timeline.description,
       encounterId: timeline.encounter?.id?.toString() || 'unknown',
       createdAt: timeline.createdAt,
       updatedAt: new Date().toISOString(),
@@ -100,7 +109,7 @@ export function createNewTimeline(encounterId: string, name: string): Timeline {
   const now = new Date().toISOString()
 
   return {
-    id: `timeline-${Date.now()}`,
+    id: generateId(),
     name,
     encounter: {
       id: parseInt(encounterId) || 0,
