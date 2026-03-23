@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000
+const REFRESH_TIMEOUT = 10000
 const AUTH_REFRESH_URL = '/api/auth/refresh'
 
 // 防止并发 401 时多次触发 token 刷新
@@ -43,10 +44,17 @@ async function fetchWithAuth(url: string, timeout: number = REQUEST_TIMEOUT): Pr
       const refreshed = await tryRefreshToken()
       if (refreshed) {
         const { accessToken: newToken } = useAuthStore.getState()
-        const retryResponse = await fetch(url, {
-          headers: newToken ? { Authorization: `Bearer ${newToken}` } : {},
-        })
-        return retryResponse
+        const retryController = new AbortController()
+        const retryTimeoutId = setTimeout(() => retryController.abort(), timeout)
+        try {
+          const retryResponse = await fetch(url, {
+            signal: retryController.signal,
+            headers: newToken ? { Authorization: `Bearer ${newToken}` } : {},
+          })
+          return retryResponse
+        } finally {
+          clearTimeout(retryTimeoutId)
+        }
       }
     }
 
@@ -75,11 +83,15 @@ async function doRefreshToken(): Promise<boolean> {
   const { refreshToken, setTokens, clearTokens, username } = useAuthStore.getState()
   if (!refreshToken) return false
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REFRESH_TIMEOUT)
+
   try {
     const res = await fetch(AUTH_REFRESH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: controller.signal,
     })
 
     if (!res.ok) {
@@ -89,6 +101,11 @@ async function doRefreshToken(): Promise<boolean> {
     }
 
     const { access_token } = (await res.json()) as { access_token: string }
+    if (!access_token || typeof access_token !== 'string') {
+      clearTokens()
+      toast.error('登录已过期，请重新登录')
+      return false
+    }
     // refresh 接口不返回 name，保留 authStore 中缓存的 username
     setTokens(access_token, refreshToken, username ?? '')
     return true
@@ -96,6 +113,8 @@ async function doRefreshToken(): Promise<boolean> {
     clearTokens()
     toast.error('登录已过期，请重新登录')
     return false
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
