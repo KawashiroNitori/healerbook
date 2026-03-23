@@ -1,12 +1,14 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
+import { JWTExpired } from 'jose/errors'
 import { nanoid } from 'nanoid'
 
 const ALGORITHM = 'HS256'
 const ACCESS_TOKEN_TTL = 60 * 60          // 1 小时（秒）
 const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 30  // 30 天（秒）
 
+const encoder = new TextEncoder()
 function getSecretKey(secret: string): Uint8Array {
-  return new TextEncoder().encode(secret)
+  return encoder.encode(secret)
 }
 
 export interface AccessTokenPayload extends JWTPayload {
@@ -49,16 +51,20 @@ export async function signRefreshToken(
     .sign(getSecretKey(secret))
 }
 
-export async function verifyToken(
-  token: string,
-  secret: string
-): Promise<JWTPayload | null> {
+export type VerifyResult =
+  | { ok: true; payload: JWTPayload }
+  | { ok: false; reason: 'expired' | 'invalid' }
+
+export async function verifyToken(token: string, secret: string): Promise<VerifyResult> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey(secret), {
       algorithms: [ALGORITHM],
     })
-    return payload
-  } catch {
-    return null
+    return { ok: true, payload }
+  } catch (err) {
+    if (err instanceof JWTExpired) {
+      return { ok: false, reason: 'expired' }
+    }
+    return { ok: false, reason: 'invalid' }
   }
 }
