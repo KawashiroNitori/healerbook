@@ -49,6 +49,7 @@ id = "b2d47d0e3be342248906a82ea3a540d5"
 
 # 生产环境
 [env.production]
+name = "healerbook"
 [env.production.vars]
 ENVIRONMENT = "production"
 RATE_LIMIT_RPM = "30"
