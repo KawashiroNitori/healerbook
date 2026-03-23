@@ -15,13 +15,15 @@ import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import EditableTitle from '@/components/EditableTitle'
+import EditableDescription from '@/components/EditableDescription'
 import { toast } from 'sonner'
 import { APP_NAME } from '@/lib/constants'
 
 export default function EditorPage() {
   const { timelineId } = useParams<{ timelineId: string }>()
   const navigate = useNavigate()
-  const { timeline, setTimeline, updateTimelineName } = useTimelineStore()
+  const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
+    useTimelineStore()
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
@@ -128,7 +130,10 @@ export default function EditorPage() {
               onChange={updateTimelineName}
               className="text-lg font-bold"
             />
-            <p className="text-xs text-muted-foreground">ID: {timelineId}</p>
+            <EditableDescription
+              value={timeline?.description || ''}
+              onChange={updateTimelineDescription}
+            />
           </div>
         </div>
       </header>

@@ -31,7 +31,6 @@ export default function CreateTimelineDialog({
 }: CreateTimelineDialogProps) {
   const navigate = useNavigate()
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
   const [encounterId, setEncounterId] = useState(RAID_TIERS[0]?.encounters[0]?.id.toString() || '')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -43,9 +42,6 @@ export default function CreateTimelineDialog({
     }
 
     const timeline = createNewTimeline(encounterId, name.trim())
-    if (description.trim()) {
-      timeline.description = description.trim()
-    }
     saveTimeline(timeline)
     onCreated()
     navigate(`/editor/${timeline.id}`)
@@ -69,19 +65,6 @@ export default function CreateTimelineDialog({
               onChange={e => setName(e.target.value)}
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
-              autoComplete="off"
-              data-1p-ignore
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">说明</label>
-            <input
-              type="text"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="可选：为这个时间轴添加简短说明"
-              className="w-full px-3 py-2 border rounded-md"
               autoComplete="off"
               data-1p-ignore
             />

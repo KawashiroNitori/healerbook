@@ -41,7 +41,7 @@ id = "4d48c91437374775b166165a05d56839"
 [[env.production.queues.producers]]
 queue = "top100-sync-queue"
 binding = "TOP100_SYNC_QUEUE"
-
+21
 [[env.production.queues.producers]]
 queue = "statistics-extract-queue"
 binding = "STATISTICS_EXTRACT_QUEUE"

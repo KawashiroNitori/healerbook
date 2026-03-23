@@ -67,6 +67,8 @@ interface TimelineState {
   zoomWithScrollPreservation: (delta: number) => void
   /** 更新时间轴名称 */
   updateTimelineName: (name: string) => void
+  /** 更新时间轴说明 */
+  updateTimelineDescription: (description: string) => void
   /** 更新阵容 */
   updateComposition: (composition: Composition) => void
   /** 添加伤害事件 */
@@ -250,6 +252,21 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         timeline: {
           ...state.timeline,
           name,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    })
+    get().triggerAutoSave(0)
+  },
+
+  updateTimelineDescription: description => {
+    set(state => {
+      if (!state.timeline) return state
+
+      return {
+        timeline: {
+          ...state.timeline,
+          description: description || undefined,
           updatedAt: new Date().toISOString(),
         },
       }
