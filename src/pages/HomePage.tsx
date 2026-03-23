@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import { toast } from 'sonner'
 import { APP_NAME } from '@/lib/constants'
 import TimelineCard from '@/components/TimelineCard'
+import AuthButton from '@/components/AuthButton'
 
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
 const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
@@ -54,9 +55,12 @@ export default function HomePage() {
       <title>{APP_NAME}</title>
       {/* Header */}
       <header className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">{APP_NAME}</h1>
-          <p className="text-sm text-muted-foreground">FF14 减伤规划工具</p>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{APP_NAME}</h1>
+            <p className="text-sm text-muted-foreground">FF14 减伤规划工具</p>
+          </div>
+          <AuthButton />
         </div>
       </header>
 
