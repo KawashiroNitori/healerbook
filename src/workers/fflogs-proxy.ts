@@ -41,6 +41,12 @@ export interface Env {
   // Queue 绑定
   TOP100_SYNC_QUEUE: Queue
   STATISTICS_EXTRACT_QUEUE: Queue
+  // FFLogs 用户端 OAuth（Authorization Code Flow）
+  FFLOGS_OAUTH_CLIENT_ID?: string
+  FFLOGS_OAUTH_CLIENT_SECRET?: string
+  FFLOGS_OAUTH_REDIRECT_URI?: string
+  // JWT 签名密钥
+  JWT_SECRET?: string
 }
 
 /**
@@ -78,14 +84,17 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   const path = url.pathname
 
   try {
-    if (path.startsWith('/api/fflogs/report/')) {
+    if (path === '/api/auth/callback' && request.method === 'POST') {
+      return await handleAuthCallback(request, env)
+    } else if (path === '/api/auth/refresh' && request.method === 'POST') {
+      return await handleAuthRefresh(request, env)
+    } else if (path.startsWith('/api/fflogs/report/')) {
       return await handleReport(request, env)
     } else if (path.startsWith('/api/fflogs/events/')) {
       return await handleEvents(request, env)
     } else if (path === '/api/top100') {
       return await handleTop100All(env)
     } else if (path === '/api/top100/sync' && request.method === 'POST') {
-      // 手动触发同步（仅用于测试/管理）—— 必须在 startsWith 之前检查
       return await handleManualSync(request, env)
     } else if (path.startsWith('/api/top100/')) {
       return await handleTop100Encounter(request, env)
