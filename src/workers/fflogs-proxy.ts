@@ -21,6 +21,7 @@ import {
 } from './top100Sync'
 import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
+import { handleAuthCallback, handleAuthRefresh } from './auth'
 
 interface QueueMessageBody {
   type: string
