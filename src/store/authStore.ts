@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 interface AuthState {
   accessToken: string | null
@@ -9,6 +9,9 @@ interface AuthState {
   clearTokens: () => void
 }
 
+// Security note: tokens are stored in localStorage per design decision.
+// This accepts XSS risk in exchange for simplicity (no HttpOnly cookie backend needed).
+// See docs/superpowers/specs/2026-03-23-fflogs-oauth-design.md
 export const useAuthStore = create<AuthState>()(
   persist(
     set => ({
@@ -21,6 +24,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'healerbook-auth',
+      storage: createJSONStorage(() => localStorage),
     }
   )
 )

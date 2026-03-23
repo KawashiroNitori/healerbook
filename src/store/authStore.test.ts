@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAuthStore } from './authStore'
+
+// Silence Zustand persist middleware warnings about localStorage being unavailable in Node test env
+beforeEach(() => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
 
 describe('authStore', () => {
   beforeEach(() => {
