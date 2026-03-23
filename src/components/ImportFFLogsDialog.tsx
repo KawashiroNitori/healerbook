@@ -27,6 +27,7 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
   const [url, setUrl] = useState(initialUrl ?? '')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingStep, setLoadingStep] = useState('')
+  const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const [parsedInfo, setParsedInfo] = useState<{
     reportCode: string | null
@@ -195,6 +196,18 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
 
         // 设置为回放模式
         newTimeline.isReplayMode = true
+
+        // 设置 description
+        if (description.trim()) {
+          newTimeline.description = description.trim()
+        }
+
+        // 记录 FFLogs 来源（parsed.reportCode 已在 handleSubmit 开头验证非 null）
+        newTimeline.fflogsSource = {
+          reportCode: parsed.reportCode!,
+          fightId: fightId!,
+        }
+
         newTimeline.castEvents = castEvents
 
         toast.success(
@@ -274,6 +287,20 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
                 )}
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">说明</label>
+            <input
+              type="text"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="可选：为这个时间轴添加简短说明"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={isLoading}
+              autoComplete="off"
+              data-1p-ignore
+            />
           </div>
 
           {error && (
