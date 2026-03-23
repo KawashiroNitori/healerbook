@@ -9,9 +9,11 @@ interface FFLogsTokenResponse {
 
 interface FFLogsUserResponse {
   data?: {
-    currentUser?: {
-      id: number
-      name: string
+    userData?: {
+      currentUser?: {
+        id: number
+        name: string
+      }
     }
   }
 }
@@ -50,7 +52,7 @@ async function fetchFFLogsUser(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ query: '{ currentUser { id name } }' }),
+    body: JSON.stringify({ query: '{ userData { currentUser { id name } } }' }),
   })
 
   if (!response.ok) {
@@ -58,7 +60,7 @@ async function fetchFFLogsUser(
   }
 
   const data = (await response.json()) as FFLogsUserResponse
-  const user = data.data?.currentUser
+  const user = data.data?.userData?.currentUser
   if (!user) {
     throw new Error('Failed to get user info from FFLogs')
   }
