@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import TooltipOverlay from '@/components/TooltipOverlay'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider } from './components/AuthProvider'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const EditorPage = lazy(() => import('./pages/EditorPage'))

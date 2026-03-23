@@ -1,19 +1,11 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { nanoid } from 'nanoid'
+import { AuthContext, type AuthContextValue } from '@/contexts/AuthContext'
 
 const FFLOGS_OAUTH_CLIENT_ID = import.meta.env.VITE_FFLOGS_CLIENT_ID as string
 const FFLOGS_AUTH_URL = 'https://www.fflogs.com/oauth/authorize'
-
-interface AuthContextValue {
-  username: string | null
-  isLoggedIn: boolean
-  login: () => void
-  logout: () => void
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { username, accessToken, clearTokens } = useAuthStore()
@@ -24,7 +16,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     const redirectUri = `${window.location.origin}/callback`
-    const state = nanoid()
+    const returnTo = window.location.pathname + window.location.search
+    const state = btoa(JSON.stringify({ nonce: nanoid(), returnTo }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
     sessionStorage.setItem('oauth_state', state)
 
     const params = new URLSearchParams({
@@ -50,12 +46,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) {
-    throw new Error('useAuth must be used within AuthProvider')
-  }
-  return ctx
 }

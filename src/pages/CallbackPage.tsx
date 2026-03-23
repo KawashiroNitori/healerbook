@@ -28,9 +28,21 @@ export default function CallbackPage() {
 
     sessionStorage.removeItem('oauth_state')
 
+    let returnTo = '/'
+    try {
+      const padded =
+        state.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((state.length + 3) % 4)
+      const parsed = JSON.parse(atob(padded)) as { returnTo?: string }
+      if (parsed.returnTo?.startsWith('/')) {
+        returnTo = parsed.returnTo
+      }
+    } catch {
+      // state 解析失败，回退到首页
+    }
+
     if (!code) {
       toast.error('授权失败：缺少 code 参数')
-      navigate('/', { replace: true })
+      navigate(returnTo, { replace: true })
       return
     }
 
@@ -58,12 +70,11 @@ export default function CallbackPage() {
       })
       .then(({ access_token, refresh_token, name }) => {
         setTokens(access_token, refresh_token, name)
-        toast.success(`欢迎，${name}！`)
-        navigate('/', { replace: true })
+        navigate(returnTo, { replace: true })
       })
       .catch((err: unknown) => {
         toast.error(`登录失败：${err instanceof Error ? err.message : '未知错误'}`)
-        navigate('/', { replace: true })
+        navigate(returnTo, { replace: true })
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
