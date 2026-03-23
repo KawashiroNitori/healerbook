@@ -17,6 +17,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/fflogs'
 const REQUEST_TIMEOUT = 60000
 const AUTH_REFRESH_URL = '/api/auth/refresh'
 
+// 防止并发 401 时多次触发 token 刷新
+let refreshingPromise: Promise<boolean> | null = null
+
 /**
  * 带鉴权和自动续期的 fetch 请求
  */
@@ -58,6 +61,17 @@ async function fetchWithAuth(url: string, timeout: number = REQUEST_TIMEOUT): Pr
 }
 
 async function tryRefreshToken(): Promise<boolean> {
+  // 如果已有刷新进行中，复用同一个 Promise
+  if (refreshingPromise) return refreshingPromise
+
+  refreshingPromise = doRefreshToken().finally(() => {
+    refreshingPromise = null
+  })
+
+  return refreshingPromise
+}
+
+async function doRefreshToken(): Promise<boolean> {
   const { refreshToken, setTokens, clearTokens, username } = useAuthStore.getState()
   if (!refreshToken) return false
 
