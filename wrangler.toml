@@ -6,34 +6,10 @@ compatibility_flags = ["nodejs_compat_v2"]
 [triggers]
 crons = ["0 */12 * * *"]
 
-[[queues.producers]]
-queue = "top100-sync-queue"
-binding = "TOP100_SYNC_QUEUE"
-
-[[queues.producers]]
-queue = "statistics-extract-queue"
-binding = "STATISTICS_EXTRACT_QUEUE"
-
-[[queues.consumers]]
-queue = "top100-sync-queue"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 3
-
-[[queues.consumers]]
-queue = "statistics-extract-queue"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 3
-
 [assets]
 directory = "dist/client"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
-
-[[kv_namespaces]]
-binding = "healerbook"
-id = "b2d47d0e3be342248906a82ea3a540d5"
 
 # 开发环境
 [env.development]
@@ -61,6 +37,26 @@ ALLOWED_ORIGIN = "https://xivhealer.com"
 [[env.production.kv_namespaces]]
 binding = "healerbook"
 id = "4d48c91437374775b166165a05d56839"
+
+[[env.production.queues.producers]]
+queue = "top100-sync-queue"
+binding = "TOP100_SYNC_QUEUE"
+
+[[env.production.queues.producers]]
+queue = "statistics-extract-queue"
+binding = "STATISTICS_EXTRACT_QUEUE"
+
+[[env.production.queues.consumers]]
+queue = "top100-sync-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
+[[env.production.queues.consumers]]
+queue = "statistics-extract-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
 
 # Secrets (通过 wrangler secret 设置)
 # v1 API
