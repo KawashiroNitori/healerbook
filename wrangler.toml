@@ -39,15 +39,19 @@ id = "b2d47d0e3be342248906a82ea3a540d5"
 [env.development]
 [env.development.vars]
 ENVIRONMENT = "development"
-FFLOGS_API_URL = "https://www.fflogs.com/v1"
+FFLOGS_CLIENT_ID = "a15cca7c-686d-4c4b-9d90-c1ee194b7638"
+FFLOGS_OAUTH_REDIRECT_URI = "http://localhost:5173/callback"
+ALLOWED_ORIGIN = "http://localhost:5173"
 
 # 生产环境
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
-FFLOGS_API_URL = "https://www.fflogs.com/v1"
 RATE_LIMIT_RPM = "30"
 CACHE_TTL = "3600"
+FFLOGS_CLIENT_ID = "a1263e4f-6950-4100-9a79-f7ebfb94363c"
+FFLOGS_OAUTH_REDIRECT_URI = "https://xivhealer.com/callback"
+ALLOWED_ORIGIN = "https://xivhealer.com"
 
 [[env.development.kv_namespaces]]
 binding = "healerbook"
@@ -62,7 +66,6 @@ id = "4d48c91437374775b166165a05d56839"
 # wrangler secret put FFLOGS_API_KEY
 #
 # v2 API (OAuth)
-# wrangler secret put FFLOGS_CLIENT_ID
 # wrangler secret put FFLOGS_CLIENT_SECRET
 #
 # 手动同步接口鉴权
