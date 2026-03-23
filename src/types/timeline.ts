@@ -24,6 +24,13 @@ export interface Timeline {
   id: string
   /** 时间轴名称 */
   name: string
+  /** 时间轴说明（可选） */
+  description?: string
+  /** FFLogs 导入来源（仅从 FFLogs 导入的时间轴存在） */
+  fflogsSource?: {
+    reportCode: string
+    fightId: number
+  }
   /** 副本信息 */
   encounter: Encounter
   /** 小队阵容 */
