@@ -44,7 +44,7 @@ async function exchangeCodeForToken(
 async function fetchFFLogsUser(
   accessToken: string
 ): Promise<{ id: number; name: string }> {
-  const response = await fetch('https://www.fflogs.com/api/v2/client', {
+  const response = await fetch('https://www.fflogs.com/api/v2/user', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
