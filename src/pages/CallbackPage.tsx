@@ -41,8 +41,14 @@ export default function CallbackPage() {
     })
       .then(async res => {
         if (!res.ok) {
-          const err = (await res.json()) as { error?: string }
-          throw new Error(err.error || `HTTP ${res.status}`)
+          let message = `HTTP ${res.status}`
+          try {
+            const err = (await res.json()) as { error?: string }
+            if (err.error) message = err.error
+          } catch {
+            // response was not JSON, use status code message
+          }
+          throw new Error(message)
         }
         return res.json() as Promise<{
           access_token: string
