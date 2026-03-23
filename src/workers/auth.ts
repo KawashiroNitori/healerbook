@@ -70,21 +70,21 @@ async function fetchFFLogsUser(
 
 export async function handleAuthCallback(request: Request, env: Env): Promise<Response> {
   if (!env.JWT_SECRET) {
-    return jsonError('Server configuration error', 500)
+    return jsonError('Server configuration error', 500, env.ALLOWED_ORIGIN)
   }
   if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET || !env.FFLOGS_OAUTH_REDIRECT_URI) {
-    return jsonError('Server configuration error', 500)
+    return jsonError('Server configuration error', 500, env.ALLOWED_ORIGIN)
   }
 
   let code: string
   try {
     const body = (await request.json()) as { code?: string }
     if (!body.code) {
-      return jsonError('Missing code', 400)
+      return jsonError('Missing code', 400, env.ALLOWED_ORIGIN)
     }
     code = body.code
   } catch {
-    return jsonError('Invalid request body', 400)
+    return jsonError('Invalid request body', 400, env.ALLOWED_ORIGIN)
   }
 
   try {
@@ -97,67 +97,67 @@ export async function handleAuthCallback(request: Request, env: Env): Promise<Re
       signRefreshToken(userId, env.JWT_SECRET),
     ])
 
-    return jsonOk({ access_token: accessToken, refresh_token: refreshToken, name: user.name })
+    return jsonOk({ access_token: accessToken, refresh_token: refreshToken, name: user.name }, env.ALLOWED_ORIGIN)
   } catch (error) {
     console.error('[Auth] callback error:', error)
-    return jsonError('OAuth callback failed', 400)
+    return jsonError('OAuth callback failed', 400, env.ALLOWED_ORIGIN)
   }
 }
 
 export async function handleAuthRefresh(request: Request, env: Env): Promise<Response> {
   if (!env.JWT_SECRET) {
-    return jsonError('Server configuration error', 500)
+    return jsonError('Server configuration error', 500, env.ALLOWED_ORIGIN)
   }
 
   let refreshToken: string
   try {
     const body = (await request.json()) as { refresh_token?: string }
     if (!body.refresh_token) {
-      return jsonError('Missing refresh_token', 400)
+      return jsonError('Missing refresh_token', 400, env.ALLOWED_ORIGIN)
     }
     refreshToken = body.refresh_token
   } catch {
-    return jsonError('Invalid request body', 400)
+    return jsonError('Invalid request body', 400, env.ALLOWED_ORIGIN)
   }
 
   const result = await verifyToken(refreshToken, env.JWT_SECRET)
 
   if (!result.ok || !result.payload.sub) {
-    return jsonError('Invalid or expired refresh token', 401)
+    return jsonError('Invalid or expired refresh token', 401, env.ALLOWED_ORIGIN)
   }
 
   // Verify this is actually a refresh token, not an access token
   if (result.payload['type'] !== 'refresh') {
-    return jsonError('Invalid token type', 401)
+    return jsonError('Invalid token type', 401, env.ALLOWED_ORIGIN)
   }
 
   try {
     // refresh token 中无 name，续期时 name 使用空字符串占位
     // 前端展示 username 依赖 authStore 缓存值，不重新从 JWT 读取
     const accessToken = await signAccessToken(result.payload.sub, '', env.JWT_SECRET)
-    return jsonOk({ access_token: accessToken })
+    return jsonOk({ access_token: accessToken }, env.ALLOWED_ORIGIN)
   } catch (error) {
     console.error('[Auth] refresh error:', error)
-    return jsonError('Failed to issue new access token', 500)
+    return jsonError('Failed to issue new access token', 500, env.ALLOWED_ORIGIN)
   }
 }
 
-function jsonOk(data: unknown): Response {
+function jsonOk(data: unknown, allowedOrigin?: string): Response {
   return new Response(JSON.stringify(data), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin ?? '*',
     },
   })
 }
 
-function jsonError(message: string, status: number): Response {
+function jsonError(message: string, status: number, allowedOrigin?: string): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin ?? '*',
     },
   })
 }

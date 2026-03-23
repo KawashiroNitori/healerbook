@@ -46,6 +46,8 @@ export interface Env {
   FFLOGS_OAUTH_REDIRECT_URI?: string
   // JWT 签名密钥
   JWT_SECRET?: string
+  // 允许的前端域名（用于认证端点的 CORS，如 https://healerbook.pages.dev）
+  ALLOWED_ORIGIN?: string
 }
 
 /**
