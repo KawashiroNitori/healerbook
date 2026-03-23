@@ -13,7 +13,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "workers:deploy": "wrangler deploy --env production",
+    "workers:deploy": "wrangler deploy --config wrangler.toml --env production",
     "prepare": "husky"
   },
   "lint-staged": {

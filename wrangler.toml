@@ -43,6 +43,10 @@ FFLOGS_CLIENT_ID = "a15cca7c-686d-4c4b-9d90-c1ee194b7638"
 FFLOGS_OAUTH_REDIRECT_URI = "http://localhost:5173/callback"
 ALLOWED_ORIGIN = "http://localhost:5173"
 
+[[env.development.kv_namespaces]]
+binding = "healerbook"
+id = "b2d47d0e3be342248906a82ea3a540d5"
+
 # 生产环境
 [env.production]
 [env.production.vars]
@@ -52,10 +56,6 @@ CACHE_TTL = "3600"
 FFLOGS_CLIENT_ID = "a1263e4f-6950-4100-9a79-f7ebfb94363c"
 FFLOGS_OAUTH_REDIRECT_URI = "https://xivhealer.com/callback"
 ALLOWED_ORIGIN = "https://xivhealer.com"
-
-[[env.development.kv_namespaces]]
-binding = "healerbook"
-id = "b2d47d0e3be342248906a82ea3a540d5"
 
 [[env.production.kv_namespaces]]
 binding = "healerbook"
