@@ -202,8 +202,7 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
         )
       } catch (eventError) {
         console.error('Failed to fetch events:', eventError)
-        // 即使获取事件失败，也创建时间轴
-        toast.warning('无法获取伤害事件，已创建空时间轴')
+        throw eventError
       }
 
       // 保存时间轴
