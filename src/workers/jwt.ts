@@ -42,7 +42,7 @@ export async function signRefreshToken(
   secret: string
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
-  return new SignJWT({})
+  return new SignJWT({ type: 'refresh' })
     .setProtectedHeader({ alg: ALGORITHM })
     .setSubject(userId)
     .setJti(nanoid())

@@ -20,15 +20,11 @@ async function exchangeCodeForToken(
   code: string,
   env: Env
 ): Promise<FFLogsTokenResponse> {
-  if (!env.FFLOGS_OAUTH_CLIENT_ID || !env.FFLOGS_OAUTH_CLIENT_SECRET || !env.FFLOGS_OAUTH_REDIRECT_URI) {
-    throw new Error('OAuth credentials not configured')
-  }
-
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: env.FFLOGS_OAUTH_CLIENT_ID,
-    client_secret: env.FFLOGS_OAUTH_CLIENT_SECRET,
-    redirect_uri: env.FFLOGS_OAUTH_REDIRECT_URI,
+    client_id: env.FFLOGS_OAUTH_CLIENT_ID!,
+    client_secret: env.FFLOGS_OAUTH_CLIENT_SECRET!,
+    redirect_uri: env.FFLOGS_OAUTH_REDIRECT_URI!,
     code,
   })
 
@@ -72,7 +68,10 @@ async function fetchFFLogsUser(
 
 export async function handleAuthCallback(request: Request, env: Env): Promise<Response> {
   if (!env.JWT_SECRET) {
-    return jsonError('JWT_SECRET not configured', 500)
+    return jsonError('Server configuration error', 500)
+  }
+  if (!env.FFLOGS_OAUTH_CLIENT_ID || !env.FFLOGS_OAUTH_CLIENT_SECRET || !env.FFLOGS_OAUTH_REDIRECT_URI) {
+    return jsonError('Server configuration error', 500)
   }
 
   let code: string
@@ -99,16 +98,13 @@ export async function handleAuthCallback(request: Request, env: Env): Promise<Re
     return jsonOk({ access_token: accessToken, refresh_token: refreshToken, name: user.name })
   } catch (error) {
     console.error('[Auth] callback error:', error)
-    return jsonError(
-      error instanceof Error ? error.message : 'OAuth callback failed',
-      400
-    )
+    return jsonError('OAuth callback failed', 400)
   }
 }
 
 export async function handleAuthRefresh(request: Request, env: Env): Promise<Response> {
   if (!env.JWT_SECRET) {
-    return jsonError('JWT_SECRET not configured', 500)
+    return jsonError('Server configuration error', 500)
   }
 
   let refreshToken: string
@@ -126,6 +122,11 @@ export async function handleAuthRefresh(request: Request, env: Env): Promise<Res
 
   if (!result.ok || !result.payload.sub) {
     return jsonError('Invalid or expired refresh token', 401)
+  }
+
+  // Verify this is actually a refresh token, not an access token
+  if (result.payload['type'] !== 'refresh') {
+    return jsonError('Invalid token type', 401)
   }
 
   try {
