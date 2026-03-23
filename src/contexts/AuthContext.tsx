@@ -31,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       client_id: FFLOGS_OAUTH_CLIENT_ID,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: 'view:user-profile',
       state,
     })
 
