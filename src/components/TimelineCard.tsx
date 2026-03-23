@@ -29,7 +29,12 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-medium group-hover:text-primary">{timeline.name}</h3>
+        <div>
+          <h3 className="font-medium group-hover:text-primary">{timeline.name}</h3>
+          {timeline.description && (
+            <p className="text-sm text-muted-foreground mt-0.5">{timeline.description}</p>
+          )}
+        </div>
         <button
           onClick={onDelete}
           className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
@@ -47,6 +52,17 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
         </div>
       ) : (
         <p className="text-sm text-muted-foreground mb-2">无阵容信息</p>
+      )}
+
+      {fullTimeline?.fflogsSource && (
+        <div className="flex items-center gap-1 mb-1">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+            FFLogs
+          </span>
+          <span className="text-xs text-muted-foreground font-mono">
+            {fullTimeline.fflogsSource.reportCode}#{fullTimeline.fflogsSource.fightId}
+          </span>
+        </div>
       )}
 
       <p className="text-xs text-muted-foreground">
