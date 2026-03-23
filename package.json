@@ -41,6 +41,7 @@
     "date-fns": "^4.1.0",
     "graphql": "^16.12.0",
     "graphql-request": "^7.4.0",
+    "jose": "^6.2.2",
     "konva": "^10.2.0",
     "lucide-react": "^0.574.0",
     "nanoid": "^5.1.6",
