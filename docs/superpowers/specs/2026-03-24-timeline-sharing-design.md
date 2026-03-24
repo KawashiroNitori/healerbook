@@ -23,12 +23,20 @@ type SharedTimeline = Omit<
   Timeline,
   'statusEvents' | 'isShared' | 'hasLocalChanges' | 'serverVersion' | 'isReplayMode'
 > & {
-  // 服务端附加元数据
-  authorId: string // FFLogs 用户 ID（从 JWT sub 字段解析，随 GET 响应一并返回，用于客户端作者判断）
+  // 服务端附加元数据（authorId 不对外暴露，由 Worker 服务端计算 isAuthor 后返回）
+  authorId: string // FFLogs 用户 ID（从 JWT sub 字段解析，仅存于 KV，不随 GET 响应返回）
   authorName: string // FFLogs 用户名（每次 PUT 时用当前 JWT name 覆盖）
   publishedAt: number // 首次发布时间（Unix timestamp，秒）
   updatedAt: number // 最新发布时间（Unix timestamp，秒）
   version: number // 从 1 开始，每次保存递增（内部用，不对用户展示）
+}
+```
+
+GET 响应的公开类型（客户端可见）：
+
+```typescript
+type PublicSharedTimeline = Omit<SharedTimeline, 'authorId'> & {
+  isAuthor: boolean // Worker 服务端比对 JWT sub 与 authorId 后计算，无 token 时为 false
 }
 ```
 
@@ -49,7 +57,7 @@ interface Timeline {
 }
 ```
 
-> **Breaking change**：`createdAt` / `updatedAt` 从 ISO string 改为 Unix timestamp number，`timelineStorage.ts` 中所有生成时间戳的地方统一改为 `Math.floor(Date.now() / 1000)`，`TimelineMetadata` 接口同步更新，首页排序改为数字比较，`saveTimeline` 中的 `updatedAt` 直接使用 `timeline.updatedAt` 而非独立生成。不做旧数据迁移。
+> **Breaking change**：`createdAt` / `updatedAt` 从 ISO string 改为 Unix timestamp number，`timelineStorage.ts` 中所有生成时间戳的地方统一改为 `Math.floor(Date.now() / 1000)`，`TimelineMetadata` 接口同步更新，首页排序改为数字比较，`saveTimeline` 中的 `updatedAt` 直接使用 `timeline.updatedAt` 而非独立生成。不做旧数据迁移，旧数据排序结果不确定，属于可接受限制。
 
 ### authStore 变更
 
@@ -72,18 +80,13 @@ interface AuthState {
 { "access_token": "...", "refresh_token": "...", "name": "...", "user_id": "123456" }
 ```
 
-### authorId 说明
-
-`authorId`（FFLogs 数字用户 ID）随 GET 响应公开返回，客户端用于"是作者"判断（`authStore.userId === sharedTimeline.authorId`）。FFLogs 用户 ID 属于半公开信息，接受此暴露。
-
 ### KV 存储键
 
 ```
-timeline:{id}       → SharedTimeline JSON（完整数据，公开查看用）
-timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 version 递增用）
+timeline:{id}  → SharedTimeline JSON（含 authorId，单一 key，公开查看和权限检查均使用此 key）
 ```
 
-> KV 单条 value 上限为 25MB，本期不做上传大小校验，依赖 KV 的自然限制。
+> 使用单一 KV key，避免免费计划下双写消耗两次写操作配额。KV 单条 value 上限为 25MB，本期不做上传大小校验。
 
 ---
 
@@ -91,17 +94,17 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 
 ### 新增 Worker 端点
 
-| 方法 | 路径                 | 鉴权       | 说明                   |
-| ---- | -------------------- | ---------- | ---------------------- |
-| POST | `/api/timelines`     | Bearer JWT | 首次发布时间轴         |
-| PUT  | `/api/timelines/:id` | Bearer JWT | 更新已发布时间轴       |
-| GET  | `/api/timelines/:id` | 无需       | 获取分享时间轴（公开） |
+| 方法 | 路径                 | 鉴权            | 说明                   |
+| ---- | -------------------- | --------------- | ---------------------- |
+| POST | `/api/timelines`     | Bearer JWT      | 首次发布时间轴         |
+| PUT  | `/api/timelines/:id` | Bearer JWT      | 更新已发布时间轴       |
+| GET  | `/api/timelines/:id` | 可选 Bearer JWT | 获取分享时间轴（公开） |
 
 ### POST /api/timelines
 
 - 请求体：本地 `Timeline` 对象（不含 `statusEvents`、`isShared`、`hasLocalChanges`、`serverVersion`、`isReplayMode`）
 - Worker 从 JWT `sub` 取 `authorId`，`name` 取 `authorName`，生成新 nanoid 作为 ID
-- 同时写入 `timeline:{id}` 和 `timeline-meta:{id}`
+- 写入 `timeline:{id}`
 - 响应：
   ```json
   { "id": "<服务器颁发的nanoid>", "publishedAt": 1742780000, "version": 1 }
@@ -118,8 +121,8 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
   ```json
   { ...timeline数据, "expectedVersion": 1 }
   ```
-- Worker 鉴权：从 `timeline-meta:{id}` 读取 `authorId`，与 JWT `sub` 不符返回 403
-- Worker 冲突检测（乐观锁）：若 `expectedVersion` 存在且 `timeline-meta.version !== expectedVersion`，返回 409：
+- Worker 鉴权：读取 `timeline:{id}.authorId`，与 JWT `sub` 不符返回 403
+- Worker 冲突检测（乐观锁）：若 `expectedVersion` 存在且 `timeline.version !== expectedVersion`，返回 409：
   ```json
   { "error": "conflict", "serverVersion": 2, "serverUpdatedAt": 1742780100 }
   ```
@@ -131,8 +134,9 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 
 ### GET /api/timelines/:id
 
-- 无需鉴权，返回完整 `SharedTimeline`（含 `authorId`）
-- 不存在返回 404
+- 可选接受 Bearer JWT；若 token 有效，Worker 比对 `sub` 与 `authorId`，计算 `isAuthor`
+- 返回 `PublicSharedTimeline`（不含 `authorId`，含 `isAuthor: boolean`）
+- 不存在返回 404；网络/5xx 错误由客户端显示通用错误提示 + 重试按钮
 
 ---
 
@@ -175,7 +179,7 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 │ 分享后任何人可通过链接查看    │
 │ 仅你可以编辑和更新           │
 │                             │
-│         [发布分享]          │
+│         [发布分享]          │  ← 点击后进入 loading 态，禁止重复点击
 └─────────────────────────────┘
 ```
 
@@ -186,9 +190,11 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 │ xivhealer.com/timeline/xxx  [复制]│
 │                                  │
 │ ● 有未发布的本地修改（有变更时显示）│
-│         [保存更新]               │  ← hasLocalChanges=true 时高亮，否则禁用
+│         [保存更新]               │  ← hasLocalChanges=true 时高亮；点击后进入 loading 态，禁止重复点击；无变更时禁用
 └──────────────────────────────────┘
 ```
+
+> **发布分享** 和 **保存更新** 按钮点击后立即进入 loading 态（显示加载指示器），在请求完成（成功、失败或冲突）之前禁止点击，防止重复提交。
 
 ### 冲突解决对话框（PUT 返回 409 时弹出）
 
@@ -203,10 +209,10 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 └──────────────────────────────────────┘
 ```
 
+- 本地版本时间取 `timeline.updatedAt`，服务器版本时间取 409 响应体中的 `serverUpdatedAt`
 - **保留本地版本**：不带 `expectedVersion` 重新发起 PUT（强制覆写），成功后 `hasLocalChanges=false`
 - **使用服务器版本**：GET 最新服务器数据，覆盖本地，`hasLocalChanges=false`，`serverVersion` 更新
-
-> 对话框中"本地版本时间"取 `timeline.updatedAt`，"服务器版本时间"取 409 响应体中的 `serverUpdatedAt`。
+- 两个选项点击后同样进入 loading 态，禁止重复点击
 
 ---
 
@@ -222,24 +228,24 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 
 ### `/timeline/:id` 页面逻辑
 
-**"是作者"判断**：`authStore.userId === sharedTimeline.authorId`
+**"是作者"判断**：使用 GET 响应中的 `isAuthor` 字段（由 Worker 服务端计算）
 
 ```
 加载时
-  └─ GET /api/timelines/:id
+  └─ GET /api/timelines/:id（携带 Bearer JWT，若已登录）
        ├─ 404         → 显示"时间轴不存在或已删除"
        ├─ 网络/5xx错误 → 显示通用错误提示 + 重试按钮
        └─ 成功
-            ├─ 是作者（已登录且 authStore.userId === authorId）
+            ├─ isAuthor=true
             │    ├─ 本地有此 ID → 直接跳转 /editor/:id
             │    └─ 本地无此 ID → 写入 localStorage（保留原 ID，isShared=true，hasLocalChanges=false，
             │                      serverVersion=sharedTimeline.version）
             │                    → 显示 toast "已从服务器恢复此时间轴"
             │                    → 跳转 /editor/:id
-            └─ 非作者 / 未登录 → 渲染只读时间轴 + "在本地创建副本"按钮
+            └─ isAuthor=false → 渲染只读时间轴 + "在本地创建副本"按钮
 ```
 
-**Token 过期处理**：`authStore.userId` 持久化，token 有效性校验下沉到 PUT 请求，失效时由现有 token 刷新机制处理。
+**Token 过期处理**：token 有效性校验下沉到 PUT 请求，失效时由现有 token 刷新机制处理。
 
 ### 只读时间轴页面
 
@@ -259,11 +265,11 @@ timeline-meta:{id}  → { authorId, publishedAt, version }（权限检查和 ver
 ## 五、约束与边界
 
 - `statusEvents`、`isShared`、`hasLocalChanges`、`serverVersion`、`isReplayMode` 不上传服务器
-- 时间类型统一使用 Unix timestamp（秒级 number），不做旧数据迁移；旧数据在 breaking change 后排序结果不确定，属于可接受限制
+- `authorId` 仅存于 KV，不随 GET 响应暴露；客户端通过 `isAuthor` 字段判断身份
+- 时间类型统一使用 Unix timestamp（秒级 number），不做旧数据迁移；旧数据排序结果不确定，属于可接受限制
 - 服务器颁发的 ID 格式与本地 nanoid 一致（21位字母数字）
 - 分享链接始终指向最新发布版本，无历史版本
 - 分享链接永久有效，撤销分享功能不在本期范围内
-- `version` 字段内部追踪，不对用户展示；KV 无原子 CAS，双击"保存更新"可能导致 version 重复递增，属于可接受的已知限制
-- KV 双写（`timeline:{id}` 和 `timeline-meta:{id}`）无事务保证，Worker 崩溃可能导致两者不一致，下次 PUT 的冲突检测可能误判；属于可接受的已知限制
+- `version` 字段内部追踪，不对用户展示；KV 无原子 CAS，并发写入可能导致 version 不严格单调，属于可接受的已知限制
 - 作者通过分享链接进入编辑器（本地有此 ID）时，不检查服务器版本是否更新，可能编辑过时数据；点击"保存更新"时 409 冲突对话框会介入修正，属于已知体验限制
 - 首页时间轴卡片不展示分享状态徽标（不在本期范围内）
