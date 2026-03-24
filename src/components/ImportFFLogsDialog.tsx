@@ -3,7 +3,6 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
@@ -21,8 +20,12 @@ interface ImportFFLogsDialogProps {
   initialUrl?: string
 }
 
-export default function ImportFFLogsDialog({ open, onClose, initialUrl }: ImportFFLogsDialogProps) {
-  const navigate = useNavigate()
+export default function ImportFFLogsDialog({
+  open,
+  onClose,
+  onImported,
+  initialUrl,
+}: ImportFFLogsDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState(initialUrl ?? '')
   const [isLoading, setIsLoading] = useState(false)
@@ -219,7 +222,8 @@ export default function ImportFFLogsDialog({ open, onClose, initialUrl }: Import
       saveTimeline(newTimeline)
 
       // 跳转到编辑器
-      navigate(`/editor/${newTimeline.id}`)
+      window.open(`/editor/${newTimeline.id}`, '_blank')
+      onImported()
       onClose()
     } catch (err) {
       if (err instanceof Error) {

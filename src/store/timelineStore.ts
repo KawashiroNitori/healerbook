@@ -431,6 +431,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           ...state.timeline,
           isReplayMode: false,
           // 保留 statusEvents，因为编辑模式也可能有 statusEvents
+          // 清除原始 FFLogs 伤害明细，编辑模式不再需要这些数据
+          damageEvents: state.timeline.damageEvents.map(e => {
+            const copy = { ...e }
+            delete copy.playerDamageDetails
+            return copy
+          }),
         },
       }
     })

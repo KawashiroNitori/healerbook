@@ -3,7 +3,6 @@
  */
 
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
@@ -29,7 +28,6 @@ export default function CreateTimelineDialog({
   onClose,
   onCreated,
 }: CreateTimelineDialogProps) {
-  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [encounterId, setEncounterId] = useState(RAID_TIERS[0]?.encounters[0]?.id.toString() || '')
 
@@ -44,7 +42,7 @@ export default function CreateTimelineDialog({
     const timeline = createNewTimeline(encounterId, name.trim())
     saveTimeline(timeline)
     onCreated()
-    navigate(`/editor/${timeline.id}`)
+    window.open(`/editor/${timeline.id}`, '_blank')
   }
 
   return (

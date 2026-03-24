@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { House } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { getTimeline } from '@/utils/timelineStorage'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
@@ -122,7 +122,7 @@ export default function EditorPage() {
             onClick={() => navigate('/')}
             className="p-2 hover:bg-accent rounded-md transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <House className="w-5 h-5" />
           </button>
           <div>
             <EditableTitle
