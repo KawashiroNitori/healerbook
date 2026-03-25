@@ -288,19 +288,10 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
               />
             </div>
           )}
-
-          <div className="flex-1" />
-
-          {/* 在本地创建副本（仅只读模式） */}
-          {isViewMode && (
-            <Button variant="outline" size="sm" onClick={handleCreateCopy}>
-              在本地创建副本
-            </Button>
-          )}
         </div>
       </header>
 
-      <EditorToolbar />
+      <EditorToolbar onCreateCopy={isViewMode ? handleCreateCopy : undefined} />
 
       {/* Main Content */}
       <DamageCalculationContext.Provider value={calculationResults}>

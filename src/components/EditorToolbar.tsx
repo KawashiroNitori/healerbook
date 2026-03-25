@@ -27,7 +27,11 @@ import ConflictDialog from './ConflictDialog'
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
 
-export default function EditorToolbar() {
+interface EditorToolbarProps {
+  onCreateCopy?: () => void
+}
+
+export default function EditorToolbar({ onCreateCopy }: EditorToolbarProps) {
   const {
     timeline,
     exitReplayMode,
@@ -122,7 +126,7 @@ export default function EditorToolbar() {
           添加事件
         </button>
 
-        {/* 分享按钮（有 timeline 且非回放模式且非只读时显示） */}
+        {/* 右侧：分享按钮 或 在本地创建副本 */}
         {timeline && !isReplayMode && !isReadOnly && (
           <>
             <div className="flex-1" />
@@ -134,6 +138,14 @@ export default function EditorToolbar() {
               onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
               onConflict={c => setConflict(c)}
             />
+          </>
+        )}
+        {timeline && !isReplayMode && isReadOnly && onCreateCopy && (
+          <>
+            <div className="flex-1" />
+            <Button variant="outline" size="sm" onClick={onCreateCopy}>
+              在本地创建副本
+            </Button>
           </>
         )}
 
