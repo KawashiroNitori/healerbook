@@ -30,9 +30,10 @@ import { useAuthStore } from '@/store/authStore'
 
 interface EditorToolbarProps {
   onCreateCopy?: () => void
+  forceReadOnly?: boolean
 }
 
-export default function EditorToolbar({ onCreateCopy }: EditorToolbarProps) {
+export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToolbarProps) {
   const navigate = useNavigate()
   const {
     timeline,
@@ -110,7 +111,11 @@ export default function EditorToolbar({ onCreateCopy }: EditorToolbarProps) {
             <Unlock className="w-4 h-4 text-muted-foreground" />
           )}
           <span className="text-sm text-muted-foreground">只读</span>
-          <Switch checked={isReadOnly} onCheckedChange={toggleReadOnly} disabled={isReplayMode} />
+          <Switch
+            checked={isReadOnly}
+            onCheckedChange={toggleReadOnly}
+            disabled={isReplayMode || forceReadOnly}
+          />
         </div>
 
         <div className="w-px h-6 bg-border" />

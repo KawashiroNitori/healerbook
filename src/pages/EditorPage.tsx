@@ -269,7 +269,10 @@ export default function EditorPage() {
         </div>
       </header>
 
-      <EditorToolbar onCreateCopy={isViewMode ? handleCreateCopy : undefined} />
+      <EditorToolbar
+        onCreateCopy={isViewMode ? handleCreateCopy : undefined}
+        forceReadOnly={isViewMode}
+      />
 
       {/* Main Content */}
       <DamageCalculationContext.Provider value={calculationResults}>
