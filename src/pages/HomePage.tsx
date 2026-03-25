@@ -110,7 +110,7 @@ export default function HomePage() {
                 <TimelineCard
                   key={timeline.id}
                   timeline={timeline}
-                  onClick={() => navigate(`/editor/${timeline.id}`)}
+                  onClick={() => navigate(`/timeline/${timeline.id}`)}
                   onDelete={e => {
                     e.stopPropagation()
                     handleDeleteTimeline(timeline.id)

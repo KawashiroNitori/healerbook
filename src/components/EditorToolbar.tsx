@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ZoomIn, ZoomOut, Plus, Lock, Unlock, Play } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -32,6 +33,7 @@ interface EditorToolbarProps {
 }
 
 export default function EditorToolbar({ onCreateCopy }: EditorToolbarProps) {
+  const navigate = useNavigate()
   const {
     timeline,
     exitReplayMode,
@@ -132,9 +134,10 @@ export default function EditorToolbar({ onCreateCopy }: EditorToolbarProps) {
             <div className="flex-1" />
             <SharePopover
               timeline={timeline}
-              onPublished={(newId, publishedAt, version) =>
+              onPublished={(newId, publishedAt, version) => {
                 applyPublishResult(newId, publishedAt, version)
-              }
+                navigate(`/timeline/${newId}`, { replace: true })
+              }}
               onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
               onConflict={c => setConflict(c)}
             />

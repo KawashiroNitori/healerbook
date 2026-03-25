@@ -1,7 +1,10 @@
 /**
- * 编辑器页面
- * source='local'  — 从 localStorage 加载（编辑模式）
- * source='api'    — 从服务器加载（作者：编辑；非作者：只读）
+ * 编辑器 / 查看页面（统一路由 /timeline/:id）
+ *
+ * 三种模式由数据状态自动推导：
+ *   local  — localStorage 有且 isShared=false：纯本地编辑，未发布
+ *   author — localStorage 有且 isShared=true，或从 API 恢复（isAuthor=true）：作者查看/编辑已发布时间轴
+ *   view   — localStorage 无，API 返回 isAuthor=false：只读查看他人时间轴
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -27,92 +30,81 @@ import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
 import type { Timeline } from '@/types/timeline'
 
+type PageMode = 'local' | 'author' | 'view' | 'loading' | 'not_found' | 'network_error'
+
 const generateId = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   21
 )
 
-interface EditorPageProps {
-  source?: 'local' | 'api'
-}
-
-export default function EditorPage({ source = 'local' }: EditorPageProps) {
-  // /editor/:timelineId  or  /timeline/:id
-  const params = useParams<{ timelineId?: string; id?: string }>()
-  const entityId = params.timelineId || params.id
-
+export default function EditorPage() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const accessToken = useAuthStore(s => s.accessToken)
   const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
     useTimelineStore()
-  // callback ref：DOM attach/detach 时触发 state 更新，保证 ResizeObserver 能正确初始化
+
+  // 初始模式：同步检查 localStorage，避免本地时间轴出现加载闪烁
+  const [mode, setMode] = useState<PageMode>(() => {
+    if (!id) return 'not_found'
+    const local = getTimeline(id)
+    if (!local) return 'loading'
+    return local.isShared ? 'author' : 'local'
+  })
+
+  // view 模式专用：保存服务器数据用于显示作者名和创建副本
+  const [sharedData, setSharedData] = useState<PublicSharedTimeline | null>(null)
+
+  // callback ref：DOM attach 时触发 state 更新，确保 ResizeObserver 在加载完成后正确初始化
   const [canvasContainer, setCanvasContainer] = useState<HTMLDivElement | null>(null)
   const canvasContainerRef = useCallback((node: HTMLDivElement | null) => {
     setCanvasContainer(node)
   }, [])
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
-  // API source 专用状态
-  const [loading, setLoading] = useState(source === 'api')
-  const [error, setError] = useState<'not_found' | 'network' | null>(null)
-  const [sharedData, setSharedData] = useState<PublicSharedTimeline | null>(null)
-  const [isAuthor, setIsAuthor] = useState(false)
-
   useEncounterStatistics(timeline?.encounter?.id)
   const calculationResults = useDamageCalculation(timeline)
 
   // ── 数据加载 ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!entityId) return
+    if (!id) return
 
-    if (source === 'local') {
-      const loadedTimeline = getTimeline(entityId)
-      if (loadedTimeline) {
-        setTimeline(loadedTimeline)
-      } else {
-        toast.error('时间轴不存在')
-        navigate('/')
-      }
+    const local = getTimeline(id)
+
+    if (local) {
+      // 本地有 → 直接使用，无需请求 API
+      setTimeline(local)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 与 setTimeline 批量更新，处理 id 切换时的模式重置
+      setMode(local.isShared ? 'author' : 'local')
       return () => {
         setTimeline(null)
       }
     }
 
-    // source === 'api'
-    setLoading(true)
-    setError(null)
-
+    // 本地无 → 从 API 加载
     const load = async () => {
       try {
-        const data = await fetchSharedTimeline(entityId, accessToken)
+        const data = await fetchSharedTimeline(id, accessToken)
         setSharedData(data)
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = data
+
         if (data.isAuthor) {
-          setIsAuthor(true)
-          // 作者：优先使用本地版本
-          const local = getTimeline(entityId)
-          if (local) {
-            setTimeline(local)
-          } else {
-            // 从服务器恢复到本地
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = data
-            const restored: Timeline = {
-              ...rest,
-              statusEvents: [],
-              isShared: true,
-              hasLocalChanges: false,
-              serverVersion: data.version,
-            }
-            saveTimeline(restored)
-            setTimeline(restored)
-            toast.success('已从服务器恢复此时间轴')
+          // 作者：从服务器恢复到本地
+          const restored: Timeline = {
+            ...rest,
+            statusEvents: [],
+            isShared: true,
+            hasLocalChanges: false,
+            serverVersion: data.version,
           }
-          useUIStore.setState({ isReadOnly: false })
+          saveTimeline(restored)
+          setTimeline(restored)
+          setMode('author')
+          toast.success('已从服务器恢复此时间轴')
         } else {
           // 非作者：只读查看
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = data
           const viewTimeline: Timeline = {
             ...rest,
             statusEvents: [],
@@ -121,16 +113,11 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
           }
           setTimeline(viewTimeline)
           useUIStore.setState({ isReadOnly: true })
+          setMode('view')
           document.title = `${data.name} - ${APP_NAME}`
         }
       } catch (err) {
-        if (err instanceof Error && err.message === 'NOT_FOUND') {
-          setError('not_found')
-        } else {
-          setError('network')
-        }
-      } finally {
-        setLoading(false)
+        setMode(err instanceof Error && err.message === 'NOT_FOUND' ? 'not_found' : 'network_error')
       }
     }
 
@@ -140,7 +127,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
       useUIStore.setState({ isReadOnly: false })
       setTimeline(null)
     }
-  }, [entityId, source, accessToken]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, accessToken]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 禁止浏览器原生缩放 ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -159,7 +146,6 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
   }, [])
 
   // ── 监听容器尺寸变化 ───────────────────────────────────────────────────────
-  // 依赖 canvasContainer state：DOM attach 后 effect 重跑，确保 source='api' 加载完成后也能正确测量
   useEffect(() => {
     if (!canvasContainer) return
 
@@ -191,7 +177,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
     }
   }, [canvasContainer])
 
-  // ── 在本地创建副本（非作者） ───────────────────────────────────────────────
+  // ── 在本地创建副本（view 模式） ───────────────────────────────────────────
   const handleCreateCopy = () => {
     if (!sharedData) return
     const newId = generateId()
@@ -209,11 +195,11 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
       updatedAt: now,
     }
     saveTimeline(copy)
-    navigate(`/editor/${newId}`)
+    navigate(`/timeline/${newId}`)
   }
 
-  // ── 加载 / 错误屏 (API source) ────────────────────────────────────────────
-  if (source === 'api' && loading) {
+  // ── 加载 / 错误屏 ─────────────────────────────────────────────────────────
+  if (mode === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -221,7 +207,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
     )
   }
 
-  if (source === 'api' && error === 'not_found') {
+  if (mode === 'not_found') {
     return (
       <div className="flex min-h-screen items-center justify-center flex-col gap-4">
         <p className="text-muted-foreground">时间轴不存在或已删除</p>
@@ -233,7 +219,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
     )
   }
 
-  if (source === 'api' && error === 'network') {
+  if (mode === 'network_error') {
     return (
       <div className="flex min-h-screen items-center justify-center flex-col gap-4">
         <p className="text-muted-foreground">加载失败，请检查网络连接</p>
@@ -246,8 +232,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
     )
   }
 
-  // ── 判断当前是否为只读（非作者查看） ──────────────────────────────────────
-  const isViewMode = source === 'api' && !isAuthor
+  const isViewMode = mode === 'view'
 
   return (
     <div

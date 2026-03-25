@@ -21,8 +21,7 @@ function App() {
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/editor/:timelineId" element={<EditorPage />} />
-                <Route path="/timeline/:id" element={<EditorPage source="api" />} />
+                <Route path="/timeline/:id" element={<EditorPage />} />
                 <Route path="/callback" element={<CallbackPage />} />
               </Routes>
             </Suspense>

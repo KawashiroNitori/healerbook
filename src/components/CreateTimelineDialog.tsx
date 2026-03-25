@@ -42,7 +42,7 @@ export default function CreateTimelineDialog({
     const timeline = createNewTimeline(encounterId, name.trim())
     saveTimeline(timeline)
     onCreated()
-    window.open(`/editor/${timeline.id}`, '_blank')
+    window.open(`/timeline/${timeline.id}`, '_blank')
   }
 
   return (

@@ -222,7 +222,7 @@ export default function ImportFFLogsDialog({
       saveTimeline(newTimeline)
 
       // 跳转到编辑器
-      window.open(`/editor/${newTimeline.id}`, '_blank')
+      window.open(`/timeline/${newTimeline.id}`, '_blank')
       onImported()
       onClose()
     } catch (err) {
