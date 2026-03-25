@@ -2,6 +2,8 @@
  * 时间轴分享 API 客户端
  */
 
+import { HTTPError } from 'ky'
+import { apiClient } from './apiClient'
 import type { Timeline } from '@/types/timeline'
 
 // 上传时排除的字段
@@ -42,34 +44,19 @@ function buildPayload(timeline: Timeline): UploadPayload {
   return rest
 }
 
-function authHeaders(accessToken: string): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${accessToken}`,
-  }
-}
-
 /**
  * 首次发布时间轴
  */
-export async function publishTimeline(
-  timeline: Timeline,
-  accessToken: string
-): Promise<PublishResult> {
-  const res = await fetch('/api/timelines', {
-    method: 'POST',
-    headers: authHeaders(accessToken),
-    body: JSON.stringify(buildPayload(timeline)),
-  })
-
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
-      error?: string
+export async function publishTimeline(timeline: Timeline): Promise<PublishResult> {
+  try {
+    return await apiClient.post('timelines', { json: buildPayload(timeline) }).json<PublishResult>()
+  } catch (err) {
+    if (err instanceof HTTPError) {
+      const body = await err.response.json<{ error?: string }>().catch(() => ({ error: undefined }))
+      throw new Error(body.error ?? `HTTP ${err.response.status}`)
     }
-    throw new Error(err.error ?? `HTTP ${res.status}`)
+    throw err
   }
-
-  return res.json() as Promise<PublishResult>
 }
 
 /**
@@ -79,7 +66,6 @@ export async function publishTimeline(
 export async function updateTimeline(
   id: string,
   timeline: Timeline,
-  accessToken: string,
   expectedVersion?: number
 ): Promise<UpdateResult | ConflictError> {
   const payload = {
@@ -87,53 +73,39 @@ export async function updateTimeline(
     ...(expectedVersion !== undefined ? { expectedVersion } : {}),
   }
 
-  const res = await fetch(`/api/timelines/${id}`, {
-    method: 'PUT',
-    headers: authHeaders(accessToken),
-    body: JSON.stringify(payload),
-  })
-
-  if (res.status === 409) {
-    const body = (await res.json()) as { serverVersion: number; serverUpdatedAt: number }
-    return {
-      type: 'conflict',
-      serverVersion: body.serverVersion,
-      serverUpdatedAt: body.serverUpdatedAt,
+  try {
+    return await apiClient.put(`timelines/${id}`, { json: payload }).json<UpdateResult>()
+  } catch (err) {
+    if (err instanceof HTTPError && err.response.status === 409) {
+      const body = await err.response.json<{ serverVersion: number; serverUpdatedAt: number }>()
+      return {
+        type: 'conflict',
+        serverVersion: body.serverVersion,
+        serverUpdatedAt: body.serverUpdatedAt,
+      }
     }
-  }
-
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
-      error?: string
+    if (err instanceof HTTPError) {
+      const body = await err.response.json<{ error?: string }>().catch(() => ({ error: undefined }))
+      throw new Error(body.error ?? `HTTP ${err.response.status}`)
     }
-    throw new Error(err.error ?? `HTTP ${res.status}`)
+    throw err
   }
-
-  return res.json() as Promise<UpdateResult>
 }
 
 /**
  * 获取分享的时间轴（公开）
- * @param accessToken 可选；提供时 Worker 会计算 isAuthor
+ * 若已登录，Worker 会根据 Authorization 头计算 isAuthor
  */
-export async function fetchSharedTimeline(
-  id: string,
-  accessToken?: string | null
-): Promise<PublicSharedTimeline> {
-  const headers: HeadersInit = {}
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`
+export async function fetchSharedTimeline(id: string): Promise<PublicSharedTimeline> {
+  try {
+    return await apiClient.get(`timelines/${id}`).json<PublicSharedTimeline>()
+  } catch (err) {
+    if (err instanceof HTTPError && err.response.status === 404) {
+      throw new Error('NOT_FOUND')
+    }
+    if (err instanceof HTTPError) {
+      throw new Error(`HTTP ${err.response.status}`)
+    }
+    throw err
   }
-
-  const res = await fetch(`/api/timelines/${id}`, { headers })
-
-  if (res.status === 404) {
-    throw new Error('NOT_FOUND')
-  }
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
-  }
-
-  return res.json() as Promise<PublicSharedTimeline>
 }

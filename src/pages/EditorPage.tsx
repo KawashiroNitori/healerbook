@@ -55,7 +55,7 @@ export default function EditorPage() {
     error,
   } = useQuery({
     queryKey: ['shared-timeline', id, accessToken],
-    queryFn: () => fetchSharedTimeline(id!, accessToken),
+    queryFn: () => fetchSharedTimeline(id!),
     enabled: !!id && localTimeline === null,
     retry: false,
     staleTime: 5 * 60 * 1000,

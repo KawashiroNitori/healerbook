@@ -51,7 +51,7 @@ export default function SharePopover({
     if (!accessToken) return
     setLoading(true)
     try {
-      const result = await publishTimeline(timeline, accessToken)
+      const result = await publishTimeline(timeline)
       onPublished(result.id, result.publishedAt, result.version)
       toast.success('发布成功')
     } catch (err) {
@@ -65,12 +65,7 @@ export default function SharePopover({
     if (!accessToken || !isShared) return
     setLoading(true)
     try {
-      const result = await updateTimeline(
-        timeline.id,
-        timeline,
-        accessToken,
-        timeline.serverVersion
-      )
+      const result = await updateTimeline(timeline.id, timeline, timeline.serverVersion)
       if ('type' in result && result.type === 'conflict') {
         onConflict(result)
       } else if ('updatedAt' in result) {

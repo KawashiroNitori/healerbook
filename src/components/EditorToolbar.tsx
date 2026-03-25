@@ -190,7 +190,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           onKeepLocal={async () => {
             if (!accessToken) return
             const { updateTimeline } = await import('@/api/timelineShareApi')
-            const result = await updateTimeline(timeline.id, timeline, accessToken)
+            const result = await updateTimeline(timeline.id, timeline)
             if (!('type' in result)) {
               applyUpdateResult(result.updatedAt, result.version)
             }
@@ -198,7 +198,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           }}
           onUseServer={async () => {
             if (!accessToken) return
-            const server = await fetchSharedTimeline(timeline.id, accessToken)
+            const server = await fetchSharedTimeline(timeline.id)
             applyServerTimeline(server)
             setConflict(null)
           }}
