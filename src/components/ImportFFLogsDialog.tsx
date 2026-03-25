@@ -36,6 +36,7 @@ export default function ImportFFLogsDialog({
     fightId: number | null
     isLastFight: boolean
   } | null>(null)
+  const [description, setDescription] = useState('')
 
   // 自动聚焦输入框并检测剪贴板
   useEffect(() => {
@@ -74,6 +75,15 @@ export default function ImportFFLogsDialog({
       setParsedInfo(null)
     }
   }, [url])
+
+  // 当 URL 解析成功后，自动填充默认 description（用户可修改）
+  useEffect(() => {
+    if (parsedInfo?.reportCode) {
+      setDescription(prev => prev || `导入自 ${url}`)
+    } else {
+      setDescription('')
+    }
+  }, [parsedInfo, url])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,8 +209,10 @@ export default function ImportFFLogsDialog({
         // 设置为回放模式
         newTimeline.isReplayMode = true
 
-        // 预填 description：记录导入来源
-        newTimeline.description = `导入自 ${url}`
+        // 预填 description：用户可编辑的输入值
+        if (description.trim()) {
+          newTimeline.description = description.trim()
+        }
 
         // 记录 FFLogs 来源（parsed.reportCode 已在 handleSubmit 开头验证非 null）
         newTimeline.fflogsSource = {
@@ -288,6 +300,20 @@ export default function ImportFFLogsDialog({
                 )}
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">说明</label>
+            <input
+              type="text"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="可选：为这个时间轴添加简短说明"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={isLoading}
+              autoComplete="off"
+              data-1p-ignore
+            />
           </div>
 
           {error && (
