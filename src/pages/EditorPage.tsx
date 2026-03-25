@@ -3,12 +3,13 @@
  *
  * 三种模式由数据状态自动推导：
  *   local  — localStorage 有且 isShared=false：纯本地编辑，未发布
- *   author — localStorage 有且 isShared=true，或从 API 恢复（isAuthor=true）：作者查看/编辑已发布时间轴
+ *   author — localStorage 有且 isShared=true，或从 API 恢复（isAuthor=true）：作者查看/编辑
  *   view   — localStorage 无，API 返回 isAuthor=false：只读查看他人时间轴
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { House, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { customAlphabet } from 'nanoid'
@@ -16,7 +17,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { getTimeline, saveTimeline } from '@/utils/timelineStorage'
-import { fetchSharedTimeline, type PublicSharedTimeline } from '@/api/timelineShareApi'
+import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
@@ -44,16 +45,32 @@ export default function EditorPage() {
   const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
     useTimelineStore()
 
-  // 初始模式：同步检查 localStorage，避免本地时间轴出现加载闪烁
-  const [mode, setMode] = useState<PageMode>(() => {
-    if (!id) return 'not_found'
-    const local = getTimeline(id)
-    if (!local) return 'loading'
-    return local.isShared ? 'author' : 'local'
+  // 同步读 localStorage，id 变化时重新取，其余渲染复用缓存
+  const localTimeline = useMemo(() => (id ? getTimeline(id) : null), [id])
+
+  // 仅在本地无记录时才请求 API
+  const {
+    data: apiData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['shared-timeline', id, accessToken],
+    queryFn: () => fetchSharedTimeline(id!, accessToken),
+    enabled: !!id && localTimeline === null,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   })
 
-  // view 模式专用：保存服务器数据用于显示作者名和创建副本
-  const [sharedData, setSharedData] = useState<PublicSharedTimeline | null>(null)
+  // 从 query 状态派生页面模式，无需额外 useState
+  const mode: PageMode = (() => {
+    if (!id) return 'not_found'
+    if (localTimeline) return localTimeline.isShared ? 'author' : 'local'
+    if (isLoading || (!apiData && !error)) return 'loading'
+    if (error)
+      return error instanceof Error && error.message === 'NOT_FOUND' ? 'not_found' : 'network_error'
+    if (apiData) return apiData.isAuthor ? 'author' : 'view'
+    return 'loading'
+  })()
 
   // callback ref：DOM attach 时触发 state 更新，确保 ResizeObserver 在加载完成后正确初始化
   const [canvasContainer, setCanvasContainer] = useState<HTMLDivElement | null>(null)
@@ -65,69 +82,45 @@ export default function EditorPage() {
   useEncounterStatistics(timeline?.encounter?.id)
   const calculationResults = useDamageCalculation(timeline)
 
-  // ── 数据加载 ──────────────────────────────────────────────────────────────
+  // ── 副作用：将加载结果同步到 store ───────────────────────────────────────
   useEffect(() => {
-    if (!id) return
-
-    const local = getTimeline(id)
-
-    if (local) {
-      // 本地有 → 直接使用，无需请求 API
-      setTimeline(local)
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 与 setTimeline 批量更新，处理 id 切换时的模式重置
-      setMode(local.isShared ? 'author' : 'local')
-      return () => {
-        setTimeline(null)
-      }
+    if (localTimeline) {
+      setTimeline(localTimeline)
+      return () => setTimeline(null)
     }
 
-    // 本地无 → 从 API 加载
-    const load = async () => {
-      try {
-        const data = await fetchSharedTimeline(id, accessToken)
-        setSharedData(data)
+    if (!apiData) return
 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = data
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { isAuthor, authorName: _a, publishedAt: _p, version: _v, ...rest } = apiData
 
-        if (data.isAuthor) {
-          // 作者：从服务器恢复到本地
-          const restored: Timeline = {
-            ...rest,
-            statusEvents: [],
-            isShared: true,
-            hasLocalChanges: false,
-            serverVersion: data.version,
-          }
-          saveTimeline(restored)
-          setTimeline(restored)
-          setMode('author')
-          toast.success('已从服务器恢复此时间轴')
-        } else {
-          // 非作者：只读查看
-          const viewTimeline: Timeline = {
-            ...rest,
-            statusEvents: [],
-            isShared: false,
-            hasLocalChanges: false,
-          }
-          setTimeline(viewTimeline)
-          useUIStore.setState({ isReadOnly: true })
-          setMode('view')
-          document.title = `${data.name} - ${APP_NAME}`
-        }
-      } catch (err) {
-        setMode(err instanceof Error && err.message === 'NOT_FOUND' ? 'not_found' : 'network_error')
+    if (isAuthor) {
+      const restored: Timeline = {
+        ...rest,
+        statusEvents: [],
+        isShared: true,
+        hasLocalChanges: false,
+        serverVersion: apiData.version,
       }
+      saveTimeline(restored)
+      setTimeline(restored)
+      toast.success('已从服务器恢复此时间轴')
+    } else {
+      const viewTimeline: Timeline = {
+        ...rest,
+        statusEvents: [],
+        isShared: false,
+        hasLocalChanges: false,
+      }
+      setTimeline(viewTimeline)
+      useUIStore.setState({ isReadOnly: true })
     }
-
-    load()
 
     return () => {
       useUIStore.setState({ isReadOnly: false })
       setTimeline(null)
     }
-  }, [id, accessToken]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localTimeline, apiData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 禁止浏览器原生缩放 ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -179,15 +172,15 @@ export default function EditorPage() {
 
   // ── 在本地创建副本（view 模式） ───────────────────────────────────────────
   const handleCreateCopy = () => {
-    if (!sharedData) return
+    if (!apiData) return
     const newId = generateId()
     const now = Math.floor(Date.now() / 1000)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = sharedData
+    const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = apiData
     const copy: Timeline = {
       ...rest,
       id: newId,
-      name: `${sharedData.name}（副本）`,
+      name: `${apiData.name}（副本）`,
       statusEvents: [],
       isShared: false,
       hasLocalChanges: false,
@@ -254,9 +247,9 @@ export default function EditorPage() {
           {isViewMode ? (
             // 只读头部：静态标题 + 作者名
             <div>
-              <h1 className="text-lg font-bold">{sharedData?.name}</h1>
-              {sharedData?.authorName && (
-                <p className="text-sm text-muted-foreground">by {sharedData.authorName}</p>
+              <h1 className="text-lg font-bold">{apiData?.name}</h1>
+              {apiData?.authorName && (
+                <p className="text-sm text-muted-foreground">by {apiData.authorName}</p>
               )}
             </div>
           ) : (
