@@ -40,6 +40,8 @@ export interface Env {
   SYNC_AUTH_TOKEN?: string
   // KV 命名空间（对应 wrangler.toml 中 binding = "healerbook"）
   healerbook: KVNamespace
+  // D1 数据库（共享时间轴存储）
+  DB: D1Database
   // Queue 绑定
   TOP100_SYNC_QUEUE: Queue
   STATISTICS_EXTRACT_QUEUE: Queue
