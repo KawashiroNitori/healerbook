@@ -4,7 +4,7 @@
  * source='api'    — 从服务器加载（作者：编辑；非作者：只读）
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { House, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -45,7 +45,11 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
   const accessToken = useAuthStore(s => s.accessToken)
   const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
     useTimelineStore()
-  const canvasContainerRef = useRef<HTMLDivElement>(null)
+  // callback ref：DOM attach/detach 时触发 state 更新，保证 ResizeObserver 能正确初始化
+  const [canvasContainer, setCanvasContainer] = useState<HTMLDivElement | null>(null)
+  const canvasContainerRef = useCallback((node: HTMLDivElement | null) => {
+    setCanvasContainer(node)
+  }, [])
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
   // API source 专用状态
@@ -155,18 +159,19 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
   }, [])
 
   // ── 监听容器尺寸变化 ───────────────────────────────────────────────────────
+  // 依赖 canvasContainer state：DOM attach 后 effect 重跑，确保 source='api' 加载完成后也能正确测量
   useEffect(() => {
+    if (!canvasContainer) return
+
     let resizeTimeout: number | null = null
 
     const updateSize = () => {
-      if (canvasContainerRef.current) {
-        const newWidth = canvasContainerRef.current.clientWidth
-        const newHeight = canvasContainerRef.current.clientHeight
-        setCanvasSize(prev => {
-          if (prev.width === newWidth && prev.height === newHeight) return prev
-          return { width: newWidth, height: newHeight }
-        })
-      }
+      const newWidth = canvasContainer.clientWidth
+      const newHeight = canvasContainer.clientHeight
+      setCanvasSize(prev => {
+        if (prev.width === newWidth && prev.height === newHeight) return prev
+        return { width: newWidth, height: newHeight }
+      })
     }
 
     const debouncedUpdateSize = () => {
@@ -177,14 +182,14 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
     updateSize()
     window.addEventListener('resize', debouncedUpdateSize)
     const resizeObserver = new ResizeObserver(debouncedUpdateSize)
-    if (canvasContainerRef.current) resizeObserver.observe(canvasContainerRef.current)
+    resizeObserver.observe(canvasContainer)
 
     return () => {
       if (resizeTimeout) clearTimeout(resizeTimeout)
       window.removeEventListener('resize', debouncedUpdateSize)
       resizeObserver.disconnect()
     }
-  }, [])
+  }, [canvasContainer])
 
   // ── 在本地创建副本（非作者） ───────────────────────────────────────────────
   const handleCreateCopy = () => {
