@@ -320,8 +320,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
             </div>
           </div>
         </div>
-        {/* 属性面板（只读查看时隐藏） */}
-        {!isViewMode && <PropertyPanel />}
+        <PropertyPanel />
       </DamageCalculationContext.Provider>
     </div>
   )
