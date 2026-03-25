@@ -95,6 +95,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
               size="sm"
               className="gap-2 h-9 text-sm bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
               onClick={() => setShowExitReplayConfirm(true)}
+              disabled={forceReadOnly}
             >
               <Play className="w-4 h-4" />
               回放
