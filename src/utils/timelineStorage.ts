@@ -20,6 +20,7 @@ export interface TimelineMetadata {
   encounterId: string
   createdAt: number
   updatedAt: number
+  isShared?: boolean
 }
 
 /**
@@ -69,6 +70,7 @@ export function saveTimeline(timeline: Timeline): void {
       encounterId: timeline.encounter?.id?.toString() || 'unknown',
       createdAt: timeline.createdAt,
       updatedAt: timeline.updatedAt,
+      ...(timeline.isShared && { isShared: true }),
     }
 
     if (existingIndex >= 0) {

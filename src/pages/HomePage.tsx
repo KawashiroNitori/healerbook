@@ -15,6 +15,10 @@ import { toast } from 'sonner'
 import { APP_NAME } from '@/lib/constants'
 import TimelineCard from '@/components/TimelineCard'
 import AuthButton from '@/components/AuthButton'
+import { useAuth } from '@/hooks/useAuth'
+import { Globe } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchMyTimelines } from '@/api/timelineShareApi'
 
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
 const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
@@ -22,6 +26,7 @@ const Top100Section = lazy(() => import('@/components/Top100Section'))
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const { isLoggedIn } = useAuth()
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -31,6 +36,12 @@ export default function HomePage() {
   const [timelines, setTimelines] = useState<TimelineMetadata[]>(
     data.sort((a, b) => b.updatedAt - a.updatedAt)
   )
+
+  const { data: myTimelines } = useQuery({
+    queryKey: ['myTimelines'],
+    queryFn: fetchMyTimelines,
+    enabled: isLoggedIn,
+  })
 
   const loadTimelines = () => {
     const data = getAllTimelineMetadata()
@@ -120,6 +131,31 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        {/* 已发布的时间轴 */}
+        {isLoggedIn && myTimelines && myTimelines.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              已发布
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myTimelines.map(timeline => (
+                <TimelineCard
+                  key={timeline.id}
+                  timeline={{
+                    id: timeline.id,
+                    name: timeline.name,
+                    encounterId: '',
+                    createdAt: timeline.publishedAt,
+                    updatedAt: timeline.updatedAt,
+                  }}
+                  onClick={() => navigate(`/timeline/${timeline.id}`)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* TOP100 参考方案 */}
         <Suspense fallback={null}>

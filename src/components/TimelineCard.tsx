@@ -10,7 +10,7 @@ import { sortJobsByOrder } from '@/data/jobs'
 interface TimelineCardProps {
   timeline: TimelineMetadata
   onClick: () => void
-  onDelete: (e: React.MouseEvent) => void
+  onDelete?: (e: React.MouseEvent) => void
 }
 
 export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCardProps) {
@@ -32,12 +32,14 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
         <div>
           <h3 className="font-medium group-hover:text-primary">{timeline.name}</h3>
         </div>
-        <button
-          onClick={onDelete}
-          className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* 职业阵容 */}

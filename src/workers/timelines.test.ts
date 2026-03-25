@@ -33,6 +33,18 @@ function makeMockD1(initialRows: DbRow[] = []): D1Database {
     prepare: (sql: string) => ({
       bind: (...args: unknown[]) => {
         if (sql.startsWith('SELECT')) {
+          // SELECT ... WHERE author_id = ? → .all()
+          if (sql.includes('WHERE author_id = ?')) {
+            return {
+              all: async <T>(): Promise<{ results: T[] }> => {
+                const authorId = args[0] as string
+                const rows = [...store.values()].filter(r => r.author_id === authorId)
+                rows.sort((a, b) => b.updated_at - a.updated_at)
+                return { results: rows as unknown as T[] }
+              },
+            }
+          }
+          // SELECT * WHERE id = ? → .first()
           return {
             first: async <T>(): Promise<T | null> => {
               const id = args[0] as string
@@ -92,7 +104,7 @@ function makeMockD1(initialRows: DbRow[] = []): D1Database {
 
 function makeMockEnv(db: D1Database, jwtSecret = 'test-secret'): Env {
   return {
-    DB: db,
+    healerbook_timelines: db,
     JWT_SECRET: jwtSecret,
     ALLOWED_ORIGIN: 'http://localhost:5173',
   } as unknown as Env
@@ -316,5 +328,63 @@ describe('GET /api/timelines/:id', () => {
     expect(body.encounter).toBeDefined()
     expect(body.damageEvents).toBeDefined()
     expect(body.name).toBe('测试时间轴')
+  })
+})
+
+describe('GET /api/timelines（列表）', () => {
+  it('未登录时返回 401', async () => {
+    const db = makeMockD1()
+    const env = makeMockEnv(db)
+
+    const req = new Request('https://example.com/api/my/timelines', { method: 'GET' })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(401)
+  })
+
+  it('无记录时返回空数组', async () => {
+    const db = makeMockD1()
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('user1', 'User1', 'test-secret')
+
+    const req = new Request('https://example.com/api/my/timelines', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as unknown[]
+    expect(body).toEqual([])
+  })
+
+  it('只返回该用户的时间轴，按 updated_at 倒序', async () => {
+    const db = makeMockD1([
+      makeDbRow({ id: 'a1', updated_at: 100, author_id: 'user1' }),
+      makeDbRow({ id: 'a2', updated_at: 200, author_id: 'user1' }),
+      makeDbRow({ id: 'b1', updated_at: 300, author_id: 'user2' }),
+    ])
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('user1', 'User1', 'test-secret')
+
+    const req = new Request('https://example.com/api/my/timelines', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as Array<{
+      id: string
+      name: string
+      publishedAt: number
+      updatedAt: number
+      version: number
+    }>
+    expect(body).toHaveLength(2)
+    expect(body[0].id).toBe('a2')
+    expect(body[1].id).toBe('a1')
+    expect(
+      body.every(item => 'publishedAt' in item && 'updatedAt' in item && 'version' in item)
+    ).toBe(true)
+    expect(body.every(item => !('authorId' in item) && !('content' in item))).toBe(true)
   })
 })

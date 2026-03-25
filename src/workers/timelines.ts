@@ -10,13 +10,7 @@ const generateId = customAlphabet(
 )
 
 // 不存入数据库的字段
-const EXCLUDED_FIELDS = [
-  'statusEvents',
-  'isShared',
-  'hasLocalChanges',
-  'serverVersion',
-  'isReplayMode',
-]
+const EXCLUDED_FIELDS = ['statusEvents', 'isShared', 'hasLocalChanges', 'serverVersion']
 
 // D1 timelines 表的行结构
 interface DbRow {
@@ -124,9 +118,10 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
   const newId = generateId()
   const content = buildContent(body)
 
-  await env.DB.prepare(
-    'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  )
+  await env.healerbook_timelines
+    .prepare(
+      'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    )
     .bind(newId, body.name as string, auth.userId, auth.username, now, now, 1, content)
     .run()
 
@@ -137,7 +132,10 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
   const auth = await getAuthUserId(request, env)
   if (!auth) return jsonRes({ error: 'Unauthorized' }, 401, env.ALLOWED_ORIGIN)
 
-  const row = await env.DB.prepare('SELECT * FROM timelines WHERE id = ?').bind(id).first<DbRow>()
+  const row = await env.healerbook_timelines
+    .prepare('SELECT * FROM timelines WHERE id = ?')
+    .bind(id)
+    .first<DbRow>()
 
   if (!row) return jsonRes({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN)
 
@@ -164,15 +162,17 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
   let result: { meta: { changes: number } }
 
   if (expectedVersion !== undefined) {
-    result = await env.DB.prepare(
-      'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=? AND version=?'
-    )
+    result = await env.healerbook_timelines
+      .prepare(
+        'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=? AND version=?'
+      )
       .bind(newName, auth.username, now, content, id, expectedVersion)
       .run()
   } else {
-    result = await env.DB.prepare(
-      'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=?'
-    )
+    result = await env.healerbook_timelines
+      .prepare(
+        'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=?'
+      )
       .bind(newName, auth.username, now, content, id)
       .run()
   }
@@ -190,7 +190,10 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
 }
 
 async function handleGet(request: Request, env: Env, id: string): Promise<Response> {
-  const row = await env.DB.prepare('SELECT * FROM timelines WHERE id = ?').bind(id).first<DbRow>()
+  const row = await env.healerbook_timelines
+    .prepare('SELECT * FROM timelines WHERE id = ?')
+    .bind(id)
+    .first<DbRow>()
 
   if (!row) return jsonRes({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN)
 
@@ -208,6 +211,36 @@ async function handleGet(request: Request, env: Env, id: string): Promise<Respon
   return jsonRes({ ...publicData, isAuthor }, 200, env.ALLOWED_ORIGIN)
 }
 
+interface TimelineListItem {
+  id: string
+  name: string
+  publishedAt: number
+  updatedAt: number
+  version: number
+}
+
+async function handleList(request: Request, env: Env): Promise<Response> {
+  const auth = await getAuthUserId(request, env)
+  if (!auth) return jsonRes({ error: 'Unauthorized' }, 401, env.ALLOWED_ORIGIN)
+
+  const result = await env.healerbook_timelines
+    .prepare(
+      'SELECT id, name, published_at, updated_at, version FROM timelines WHERE author_id = ? ORDER BY updated_at DESC'
+    )
+    .bind(auth.userId)
+    .all<{ id: string; name: string; published_at: number; updated_at: number; version: number }>()
+
+  const items: TimelineListItem[] = result.results.map(r => ({
+    id: r.id,
+    name: r.name,
+    publishedAt: r.published_at,
+    updatedAt: r.updated_at,
+    version: r.version,
+  }))
+
+  return jsonRes(items, 200, env.ALLOWED_ORIGIN)
+}
+
 /**
  * 处理 /api/timelines/* 路由
  */
@@ -219,14 +252,16 @@ export async function handleTimelines(request: Request, env: Env): Promise<Respo
     return handlePost(request, env)
   }
 
-  const putMatch = path.match(/^\/api\/timelines\/([0-9A-Za-z]+)$/)
-  if (putMatch && request.method === 'PUT') {
-    return handlePut(request, env, putMatch[1])
+  if (path === '/api/my/timelines' && request.method === 'GET') {
+    return handleList(request, env)
   }
 
-  const getMatch = path.match(/^\/api\/timelines\/([0-9A-Za-z]+)$/)
-  if (getMatch && request.method === 'GET') {
-    return handleGet(request, env, getMatch[1])
+  const idMatch = path.match(/^\/api\/timelines\/([0-9A-Za-z]+)$/)
+  if (idMatch && request.method === 'PUT') {
+    return handlePut(request, env, idMatch[1])
+  }
+  if (idMatch && request.method === 'GET') {
+    return handleGet(request, env, idMatch[1])
   }
 
   return jsonRes({ error: 'Not Found' }, 404, env.ALLOWED_ORIGIN)

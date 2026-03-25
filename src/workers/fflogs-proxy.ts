@@ -41,7 +41,7 @@ export interface Env {
   // KV 命名空间（对应 wrangler.toml 中 binding = "healerbook"）
   healerbook: KVNamespace
   // D1 数据库（共享时间轴存储）
-  DB: D1Database
+  healerbook_timelines: D1Database
   // Queue 绑定
   TOP100_SYNC_QUEUE: Queue
   STATISTICS_EXTRACT_QUEUE: Queue
@@ -92,7 +92,11 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
       return await handleAuthCallback(request, env)
     } else if (path === '/api/auth/refresh' && request.method === 'POST') {
       return await handleAuthRefresh(request, env)
-    } else if (path === '/api/timelines' || path.match(/^\/api\/timelines\/[0-9A-Za-z]+$/)) {
+    } else if (
+      path === '/api/timelines' ||
+      path === '/api/my/timelines' ||
+      path.match(/^\/api\/timelines\/[0-9A-Za-z]+$/)
+    ) {
       return await handleTimelines(request, env)
     } else if (path.startsWith('/api/fflogs/report/')) {
       return await handleReport(request, env)

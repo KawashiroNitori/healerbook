@@ -6,16 +6,25 @@ import { HTTPError } from 'ky'
 import { apiClient } from './apiClient'
 import type { Timeline } from '@/types/timeline'
 
-// 上传时排除的字段
-type UploadPayload = Omit<
-  Timeline,
-  'statusEvents' | 'isShared' | 'hasLocalChanges' | 'serverVersion' | 'isReplayMode'
->
+// 上传到服务器的字段（白名单）
+export interface UploadPayload {
+  id: string
+  name: string
+  description?: string
+  fflogsSource?: Timeline['fflogsSource']
+  encounter: Timeline['encounter']
+  composition: Timeline['composition']
+  phases: Timeline['phases']
+  damageEvents: Timeline['damageEvents']
+  castEvents: Timeline['castEvents']
+  isReplayMode?: boolean
+  createdAt: number
+  updatedAt: number
+}
 
 export interface PublicSharedTimeline extends UploadPayload {
   authorName: string
   publishedAt: number
-  updatedAt: number
   version: number
   isAuthor: boolean
 }
@@ -39,9 +48,20 @@ export interface ConflictError {
 }
 
 function buildPayload(timeline: Timeline): UploadPayload {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { statusEvents, isShared, hasLocalChanges, serverVersion, isReplayMode, ...rest } = timeline
-  return rest
+  return {
+    id: timeline.id,
+    name: timeline.name,
+    ...(timeline.description !== undefined && { description: timeline.description }),
+    ...(timeline.fflogsSource !== undefined && { fflogsSource: timeline.fflogsSource }),
+    encounter: timeline.encounter,
+    composition: timeline.composition,
+    phases: timeline.phases,
+    damageEvents: timeline.damageEvents,
+    castEvents: timeline.castEvents,
+    ...(timeline.isReplayMode !== undefined && { isReplayMode: timeline.isReplayMode }),
+    createdAt: timeline.createdAt,
+    updatedAt: timeline.updatedAt,
+  }
 }
 
 /**
@@ -88,6 +108,26 @@ export async function updateTimeline(
       const body = await err.response.json<{ error?: string }>().catch(() => ({ error: undefined }))
       throw new Error(body.error ?? `HTTP ${err.response.status}`)
     }
+    throw err
+  }
+}
+
+export interface MyTimelineItem {
+  id: string
+  name: string
+  publishedAt: number
+  updatedAt: number
+  version: number
+}
+
+/**
+ * 获取当前登录用户的已发布时间轴列表
+ */
+export async function fetchMyTimelines(): Promise<MyTimelineItem[]> {
+  try {
+    return await apiClient.get('my/timelines').json<MyTimelineItem[]>()
+  } catch (err) {
+    if (err instanceof HTTPError && err.response.status === 401) return []
     throw err
   }
 }

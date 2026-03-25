@@ -245,14 +245,22 @@ export default function EditorPage() {
           </button>
 
           {isViewMode ? (
-            // 只读头部：静态标题 + 作者名
+            // 只读头部：静态标题 + 说明（只读）
             <div>
               <h1 className="text-lg font-bold">{apiData?.name}</h1>
-              {apiData?.authorName && (
-                <p className="text-sm text-muted-foreground">by {apiData.authorName}</p>
-              )}
+              <EditableDescription
+                value={apiData?.description || ''}
+                onChange={() => {}}
+                readOnly
+              />
             </div>
-          ) : (
+          ) : null}
+
+          {isViewMode && apiData?.authorName && (
+            <p className="ml-auto text-sm text-muted-foreground">by {apiData.authorName}</p>
+          )}
+
+          {!isViewMode && (
             // 编辑头部：可编辑标题 + 描述
             <div>
               <EditableTitle
