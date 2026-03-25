@@ -1,5 +1,5 @@
 /**
- * 时间轴分享 API 客户端
+ * 时间轴共享 API 客户端
  */
 
 import { HTTPError } from 'ky'
@@ -93,7 +93,7 @@ export async function updateTimeline(
 }
 
 /**
- * 获取分享的时间轴（公开）
+ * 获取共享的时间轴（公开）
  * 若已登录，Worker 会根据 Authorization 头计算 isAuthor
  */
 export async function fetchSharedTimeline(id: string): Promise<PublicSharedTimeline> {

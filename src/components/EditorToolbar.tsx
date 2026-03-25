@@ -133,7 +133,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           添加事件
         </button>
 
-        {/* 右侧：分享按钮 或 在本地创建副本 */}
+        {/* 右侧：共享按钮 或 在本地创建副本 */}
         {timeline && (
           <>
             <div className="flex-1" />

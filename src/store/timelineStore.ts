@@ -87,7 +87,7 @@ interface TimelineState {
   exitReplayMode: () => void
   /** 触发自动保存 */
   triggerAutoSave: (delay?: number) => void
-  /** 将本地时间轴首次发布到服务器，更新 ID 和分享状态 */
+  /** 将本地时间轴首次发布到服务器，更新 ID 和共享状态 */
   applyPublishResult: (newId: string, publishedAt: number, version: number) => void
   /** 将保存更新结果写入本地状态 */
   applyUpdateResult: (updatedAt: number, version: number) => void
