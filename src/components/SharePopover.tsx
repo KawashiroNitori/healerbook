@@ -38,9 +38,13 @@ export default function SharePopover({
   const shareUrl = isShared ? `${SHARE_BASE_URL}/timeline/${timeline.id}` : ''
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('复制失败，请手动复制链接')
+    }
   }
 
   const handlePublish = async () => {
