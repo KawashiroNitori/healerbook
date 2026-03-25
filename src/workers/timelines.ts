@@ -9,7 +9,7 @@ const generateId = customAlphabet(
   21
 )
 
-// 不上传到服务器的字段
+// 不存入数据库的字段
 const EXCLUDED_FIELDS = [
   'statusEvents',
   'isShared',
@@ -18,7 +18,19 @@ const EXCLUDED_FIELDS = [
   'isReplayMode',
 ]
 
-// 服务端存储的完整格式（含 authorId）
+// D1 timelines 表的行结构
+interface DbRow {
+  id: string
+  name: string
+  author_id: string
+  author_name: string
+  published_at: number
+  updated_at: number
+  version: number
+  content: string
+}
+
+// 对外暴露的完整时间轴（含 authorId，GET 时会剥离）
 interface SharedTimeline {
   id: string
   name: string
@@ -64,6 +76,35 @@ function stripExcludedFields(obj: Record<string, unknown>): Record<string, unkno
   return copy
 }
 
+/**
+ * 将请求 body 拆分为结构化字段和 content JSON blob。
+ * content 包含除 id、name 之外的所有透传字段（id 和 name 均存为独立列）。
+ */
+function buildContent(body: Record<string, unknown>): string {
+  const stripped = stripExcludedFields(body)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { name: _name, id: _id, ...rest } = stripped
+  return JSON.stringify(rest)
+}
+
+/**
+ * 将 D1 行合并还原为 SharedTimeline。
+ * 结构化列优先，覆盖 content 中可能残留的同名字段。
+ */
+function rowToSharedTimeline(row: DbRow): SharedTimeline {
+  const content = JSON.parse(row.content) as Record<string, unknown>
+  return {
+    ...content,
+    id: row.id,
+    name: row.name,
+    authorId: row.author_id,
+    authorName: row.author_name,
+    publishedAt: row.published_at,
+    updatedAt: row.updated_at,
+    version: row.version,
+  }
+}
+
 async function handlePost(request: Request, env: Env): Promise<Response> {
   const auth = await getAuthUserId(request, env)
   if (!auth) return jsonRes({ error: 'Unauthorized' }, 401, env.ALLOWED_ORIGIN)
@@ -75,26 +116,19 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
     return jsonRes({ error: 'Invalid JSON' }, 400, env.ALLOWED_ORIGIN)
   }
 
-  // 验证必要字段
   if (!body.name || !body.encounter || !body.createdAt) {
     return jsonRes({ error: 'Missing required fields' }, 400, env.ALLOWED_ORIGIN)
   }
 
   const now = Math.floor(Date.now() / 1000)
   const newId = generateId()
+  const content = buildContent(body)
 
-  const shared: SharedTimeline = {
-    ...stripExcludedFields(body),
-    id: newId,
-    name: body.name as string,
-    authorId: auth.userId,
-    authorName: auth.username,
-    publishedAt: now,
-    updatedAt: now,
-    version: 1,
-  }
-
-  await env.healerbook.put(`timeline:${newId}`, JSON.stringify(shared))
+  await env.DB.prepare(
+    'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  )
+    .bind(newId, body.name as string, auth.userId, auth.username, now, now, 1, content)
+    .run()
 
   return jsonRes({ id: newId, publishedAt: now, version: 1 }, 201, env.ALLOWED_ORIGIN)
 }
@@ -103,13 +137,11 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
   const auth = await getAuthUserId(request, env)
   if (!auth) return jsonRes({ error: 'Unauthorized' }, 401, env.ALLOWED_ORIGIN)
 
-  const raw = await env.healerbook.get(`timeline:${id}`)
-  if (!raw) return jsonRes({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN)
+  const row = await env.DB.prepare('SELECT * FROM timelines WHERE id = ?').bind(id).first<DbRow>()
 
-  const existing = JSON.parse(raw) as SharedTimeline
+  if (!row) return jsonRes({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN)
 
-  // 权限检查
-  if (existing.authorId !== auth.userId) {
+  if (row.author_id !== auth.userId) {
     return jsonRes({ error: 'Forbidden' }, 403, env.ALLOWED_ORIGIN)
   }
 
@@ -120,50 +152,56 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
     return jsonRes({ error: 'Invalid JSON' }, 400, env.ALLOWED_ORIGIN)
   }
 
-  // 乐观锁冲突检测
   const expectedVersion = body.expectedVersion as number | undefined
-  if (expectedVersion !== undefined && existing.version !== expectedVersion) {
+  const now = Math.floor(Date.now() / 1000)
+
+  const newBody = { ...body }
+  delete newBody.expectedVersion
+
+  const newName = (newBody.name as string | undefined) ?? row.name
+  const content = buildContent(newBody)
+
+  let result: { meta: { changes: number } }
+
+  if (expectedVersion !== undefined) {
+    result = await env.DB.prepare(
+      'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=? AND version=?'
+    )
+      .bind(newName, auth.username, now, content, id, expectedVersion)
+      .run()
+  } else {
+    result = await env.DB.prepare(
+      'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=?'
+    )
+      .bind(newName, auth.username, now, content, id)
+      .run()
+  }
+
+  if (result.meta.changes === 0) {
+    // expectedVersion 不匹配（极低概率：步骤间记录被删除，统一返回 409）
     return jsonRes(
-      { error: 'conflict', serverVersion: existing.version, serverUpdatedAt: existing.updatedAt },
+      { error: 'conflict', serverVersion: row.version, serverUpdatedAt: row.updated_at },
       409,
       env.ALLOWED_ORIGIN
     )
   }
 
-  const now = Math.floor(Date.now() / 1000)
-  const newBody = { ...body }
-  delete newBody.expectedVersion
-
-  const updated: SharedTimeline = {
-    ...existing,
-    ...stripExcludedFields(newBody),
-    id,
-    authorId: existing.authorId,
-    authorName: auth.username,
-    publishedAt: existing.publishedAt,
-    updatedAt: now,
-    version: existing.version + 1,
-  }
-
-  await env.healerbook.put(`timeline:${id}`, JSON.stringify(updated))
-
-  return jsonRes({ id, updatedAt: now, version: updated.version }, 200, env.ALLOWED_ORIGIN)
+  return jsonRes({ id, updatedAt: now, version: row.version + 1 }, 200, env.ALLOWED_ORIGIN)
 }
 
 async function handleGet(request: Request, env: Env, id: string): Promise<Response> {
-  const raw = await env.healerbook.get(`timeline:${id}`)
-  if (!raw) return jsonRes({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN)
+  const row = await env.DB.prepare('SELECT * FROM timelines WHERE id = ?').bind(id).first<DbRow>()
 
-  const data = JSON.parse(raw) as SharedTimeline
+  if (!row) return jsonRes({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN)
 
-  // 计算 isAuthor
+  const data = rowToSharedTimeline(row)
+
   let isAuthor = false
   const auth = await getAuthUserId(request, env)
   if (auth && auth.userId === data.authorId) {
     isAuthor = true
   }
 
-  // 剥离 authorId，返回公开类型
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { authorId: _authorId, ...publicData } = data
 
@@ -177,18 +215,15 @@ export async function handleTimelines(request: Request, env: Env): Promise<Respo
   const url = new URL(request.url)
   const path = url.pathname
 
-  // POST /api/timelines
   if (path === '/api/timelines' && request.method === 'POST') {
     return handlePost(request, env)
   }
 
-  // PUT /api/timelines/:id
   const putMatch = path.match(/^\/api\/timelines\/([0-9A-Za-z]+)$/)
   if (putMatch && request.method === 'PUT') {
     return handlePut(request, env, putMatch[1])
   }
 
-  // GET /api/timelines/:id
   const getMatch = path.match(/^\/api\/timelines\/([0-9A-Za-z]+)$/)
   if (getMatch && request.method === 'GET') {
     return handleGet(request, env, getMatch[1])
