@@ -134,26 +134,24 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
         </button>
 
         {/* 右侧：分享按钮 或 在本地创建副本 */}
-        {timeline && !isReplayMode && !isReadOnly && (
+        {timeline && (
           <>
             <div className="flex-1" />
-            <SharePopover
-              timeline={timeline}
-              onPublished={(newId, publishedAt, version) => {
-                applyPublishResult(newId, publishedAt, version)
-                navigate(`/timeline/${newId}`, { replace: true })
-              }}
-              onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
-              onConflict={c => setConflict(c)}
-            />
-          </>
-        )}
-        {timeline && !isReplayMode && isReadOnly && onCreateCopy && (
-          <>
-            <div className="flex-1" />
-            <Button variant="outline" size="sm" onClick={onCreateCopy}>
-              在本地创建副本
-            </Button>
+            {onCreateCopy ? (
+              <Button variant="outline" size="sm" onClick={onCreateCopy}>
+                在本地创建副本
+              </Button>
+            ) : (
+              <SharePopover
+                timeline={timeline}
+                onPublished={(newId, publishedAt, version) => {
+                  applyPublishResult(newId, publishedAt, version)
+                  navigate(`/timeline/${newId}`, { replace: true })
+                }}
+                onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
+                onConflict={c => setConflict(c)}
+              />
+            )}
           </>
         )}
 
