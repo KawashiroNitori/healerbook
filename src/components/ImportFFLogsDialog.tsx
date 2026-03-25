@@ -83,7 +83,8 @@ export default function ImportFFLogsDialog({
     } else {
       setDescription('')
     }
-  }, [parsedInfo, url])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedInfo?.reportCode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
