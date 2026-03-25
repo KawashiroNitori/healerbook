@@ -22,16 +22,30 @@ import {
 } from '@/components/ui/alert-dialog'
 import AddEventDialog from './AddEventDialog'
 import CompositionPopover from './CompositionPopover'
+import SharePopover from './SharePopover'
+import ConflictDialog from './ConflictDialog'
+import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
+import { useAuthStore } from '@/store/authStore'
 
 export default function EditorToolbar() {
-  const { timeline, exitReplayMode, zoomLevel, setZoomLevel, setPendingScrollProgress } =
-    useTimelineStore()
+  const {
+    timeline,
+    exitReplayMode,
+    zoomLevel,
+    setZoomLevel,
+    setPendingScrollProgress,
+    applyPublishResult,
+    applyUpdateResult,
+    applyServerTimeline,
+  } = useTimelineStore()
   const { toggleReadOnly } = useUIStore()
   const [showAddEventDialog, setShowAddEventDialog] = useState(false)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
+  const [conflict, setConflict] = useState<ConflictError | null>(null)
 
   const isReplayMode = timeline?.isReplayMode || false
   const isReadOnly = useEditorReadOnly()
+  const accessToken = useAuthStore(s => s.accessToken)
 
   const handleExitReplayMode = () => {
     exitReplayMode()
@@ -49,87 +63,127 @@ export default function EditorToolbar() {
   }
 
   return (
-    <div className="h-12 border-b bg-background flex items-center px-4 gap-4">
-      {/* Zoom Controls */}
-      <div className="flex items-center gap-2">
-        <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-        <Slider
-          value={[zoomLevel]}
-          onValueChange={handleZoomChange}
-          min={10}
-          max={100}
-          className="w-24"
-        />
-        <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-      </div>
+    <>
+      <div className="h-12 border-b bg-background flex items-center px-4 gap-4">
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+          <Slider
+            value={[zoomLevel]}
+            onValueChange={handleZoomChange}
+            min={10}
+            max={100}
+            className="w-24"
+          />
+          <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+        </div>
 
-      <div className="w-px h-6 bg-border" />
+        <div className="w-px h-6 bg-border" />
 
-      {/* Replay Mode Indicator */}
-      {isReplayMode && (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-9 text-sm bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-            onClick={() => setShowExitReplayConfirm(true)}
-          >
-            <Play className="w-4 h-4" />
-            回放
-          </Button>
-          <div className="w-px h-6 bg-border" />
-        </>
-      )}
-
-      {/* Read-Only Toggle */}
-      <div className="flex items-center gap-2">
-        {isReadOnly ? (
-          <Lock className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <Unlock className="w-4 h-4 text-muted-foreground" />
-        )}
-        <span className="text-sm text-muted-foreground">只读</span>
-        <Switch checked={isReadOnly} onCheckedChange={toggleReadOnly} disabled={isReplayMode} />
-      </div>
-
-      <div className="w-px h-6 bg-border" />
-
-      {/* Party Composition */}
-      <CompositionPopover />
-
-      <div className="w-px h-6 bg-border" />
-      <button
-        onClick={() => setShowAddEventDialog(true)}
-        disabled={isReadOnly}
-        className="flex items-center gap-2 h-9 px-3 py-2 text-sm border rounded hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-      >
-        <Plus className="w-4 h-4" />
-        添加事件
-      </button>
-
-      {/* Add Event Dialog */}
-      {showAddEventDialog && (
-        <AddEventDialog open={showAddEventDialog} onClose={() => setShowAddEventDialog(false)} />
-      )}
-
-      {/* Exit Replay Mode Confirmation */}
-      <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>解除回放模式</AlertDialogTitle>
-            <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleExitReplayMode}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        {/* Replay Mode Indicator */}
+        {isReplayMode && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-9 text-sm bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+              onClick={() => setShowExitReplayConfirm(true)}
             >
-              确认解除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+              <Play className="w-4 h-4" />
+              回放
+            </Button>
+            <div className="w-px h-6 bg-border" />
+          </>
+        )}
+
+        {/* Read-Only Toggle */}
+        <div className="flex items-center gap-2">
+          {isReadOnly ? (
+            <Lock className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <Unlock className="w-4 h-4 text-muted-foreground" />
+          )}
+          <span className="text-sm text-muted-foreground">只读</span>
+          <Switch checked={isReadOnly} onCheckedChange={toggleReadOnly} disabled={isReplayMode} />
+        </div>
+
+        <div className="w-px h-6 bg-border" />
+
+        {/* Party Composition */}
+        <CompositionPopover />
+
+        <div className="w-px h-6 bg-border" />
+        <button
+          onClick={() => setShowAddEventDialog(true)}
+          disabled={isReadOnly}
+          className="flex items-center gap-2 h-9 px-3 py-2 text-sm border rounded hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        >
+          <Plus className="w-4 h-4" />
+          添加事件
+        </button>
+
+        {/* 分享按钮（有 timeline 且非回放模式时显示） */}
+        {timeline && !isReplayMode && (
+          <>
+            <div className="flex-1" />
+            <SharePopover
+              timeline={timeline}
+              onPublished={(newId, publishedAt, version) =>
+                applyPublishResult(newId, publishedAt, version)
+              }
+              onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
+              onConflict={c => setConflict(c)}
+            />
+          </>
+        )}
+
+        {/* Add Event Dialog */}
+        {showAddEventDialog && (
+          <AddEventDialog open={showAddEventDialog} onClose={() => setShowAddEventDialog(false)} />
+        )}
+
+        {/* Exit Replay Mode Confirmation */}
+        <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>解除回放模式</AlertDialogTitle>
+              <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleExitReplayMode}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                确认解除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {conflict && timeline && (
+        <ConflictDialog
+          open={true}
+          localUpdatedAt={timeline.updatedAt}
+          serverUpdatedAt={conflict.serverUpdatedAt}
+          onKeepLocal={async () => {
+            if (!accessToken) return
+            const { updateTimeline } = await import('@/api/timelineShareApi')
+            const result = await updateTimeline(timeline.id, timeline, accessToken)
+            if (!('type' in result)) {
+              applyUpdateResult(result.updatedAt, result.version)
+            }
+            setConflict(null)
+          }}
+          onUseServer={async () => {
+            if (!accessToken) return
+            const server = await fetchSharedTimeline(timeline.id, accessToken)
+            applyServerTimeline(server)
+            setConflict(null)
+          }}
+        />
+      )}
+    </>
   )
 }

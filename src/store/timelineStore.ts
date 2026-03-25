@@ -6,7 +6,7 @@ import { create } from 'zustand'
 import type { Timeline, DamageEvent, CastEvent, Composition } from '@/types/timeline'
 import type { PartyState, PlayerState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
-import { saveTimeline } from '@/utils/timelineStorage'
+import { saveTimeline, deleteTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 
 // 自动保存延迟时间 (毫秒)
@@ -87,6 +87,14 @@ interface TimelineState {
   exitReplayMode: () => void
   /** 触发自动保存 */
   triggerAutoSave: (delay?: number) => void
+  /** 将本地时间轴首次发布到服务器，更新 ID 和分享状态 */
+  applyPublishResult: (newId: string, publishedAt: number, version: number) => void
+  /** 将保存更新结果写入本地状态 */
+  applyUpdateResult: (updatedAt: number, version: number) => void
+  /** 从服务器版本覆盖本地（冲突解决 - 使用服务器版本） */
+  applyServerTimeline: (
+    serverTimeline: import('@/api/timelineShareApi').PublicSharedTimeline
+  ) => void
   /** 重置状态 */
   reset: () => void
 }
@@ -453,6 +461,67 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const timeline = get().timeline
     if (timeline?.composition) {
       get().initializePartyState(timeline.composition)
+    }
+  },
+
+  applyPublishResult: (newId, _publishedAt, version) => {
+    // 先捕获 oldId，再调用 set（set 之后 timeline.id 已变为 newId）
+    const oldId = get().timeline?.id
+    if (!oldId) return
+    const now = Math.floor(Date.now() / 1000)
+    const newTimeline = {
+      ...get().timeline!,
+      id: newId,
+      isShared: true,
+      hasLocalChanges: false,
+      serverVersion: version,
+      updatedAt: now,
+    }
+    set({ timeline: newTimeline })
+    // 先写新 key，再删旧 key，避免数据丢失
+    saveTimeline(newTimeline)
+    deleteTimeline(oldId)
+  },
+
+  applyUpdateResult: (updatedAt, version) => {
+    set(state => {
+      if (!state.timeline) return state
+      return {
+        timeline: {
+          ...state.timeline,
+          hasLocalChanges: false,
+          serverVersion: version,
+          updatedAt,
+        },
+      }
+    })
+    const { timeline } = get()
+    if (timeline) {
+      saveTimeline(timeline)
+    }
+  },
+
+  applyServerTimeline: serverTimeline => {
+    const now = Math.floor(Date.now() / 1000)
+    set(state => {
+      if (!state.timeline) return state
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { isAuthor: _isAuthor, ...rest } = serverTimeline
+      return {
+        timeline: {
+          ...state.timeline,
+          ...rest,
+          statusEvents: state.timeline.statusEvents,
+          isShared: true,
+          hasLocalChanges: false,
+          serverVersion: rest.version,
+          updatedAt: now,
+        },
+      }
+    })
+    const { timeline } = get()
+    if (timeline) {
+      saveTimeline(timeline)
     }
   },
 
