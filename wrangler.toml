@@ -11,6 +11,30 @@ directory = "dist/client"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
+[[kv_namespaces]]
+binding = "healerbook"
+id = "b2d47d0e3be342248906a82ea3a540d5"
+
+[[queues.producers]]
+queue = "top100-sync-queue"
+binding = "TOP100_SYNC_QUEUE"
+
+[[queues.producers]]
+queue = "statistics-extract-queue"
+binding = "STATISTICS_EXTRACT_QUEUE"
+
+[[queues.consumers]]
+queue = "top100-sync-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
+[[queues.consumers]]
+queue = "statistics-extract-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+
 # 开发环境
 [env.development]
 [env.development.vars]
