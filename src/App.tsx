@@ -9,6 +9,7 @@ import { AuthProvider } from './components/AuthProvider'
 const HomePage = lazy(() => import('./pages/HomePage'))
 const EditorPage = lazy(() => import('./pages/EditorPage'))
 const CallbackPage = lazy(() => import('./pages/CallbackPage'))
+const TimelineViewPage = lazy(() => import('./pages/TimelineViewPage'))
 
 const queryClient = new QueryClient()
 
@@ -23,6 +24,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/editor/:timelineId" element={<EditorPage />} />
                 <Route path="/callback" element={<CallbackPage />} />
+                <Route path="/timeline/:id" element={<TimelineViewPage />} />
               </Routes>
             </Suspense>
             <Toaster />
