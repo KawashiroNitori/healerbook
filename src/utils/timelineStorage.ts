@@ -18,8 +18,8 @@ export interface TimelineMetadata {
   name: string
   description?: string
   encounterId: string
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
 }
 
 /**
@@ -68,7 +68,7 @@ export function saveTimeline(timeline: Timeline): void {
       description: timeline.description,
       encounterId: timeline.encounter?.id?.toString() || 'unknown',
       createdAt: timeline.createdAt,
-      updatedAt: new Date().toISOString(),
+      updatedAt: timeline.updatedAt,
     }
 
     if (existingIndex >= 0) {
@@ -106,7 +106,7 @@ export function deleteTimeline(id: string): void {
  * 创建新时间轴
  */
 export function createNewTimeline(encounterId: string, name: string): Timeline {
-  const now = new Date().toISOString()
+  const now = Math.floor(Date.now() / 1000)
 
   return {
     id: generateId(),

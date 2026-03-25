@@ -17,6 +17,16 @@ describe('createNewTimeline', () => {
     const t2 = createNewTimeline('1001', '时间轴 B')
     expect(t1.id).not.toBe(t2.id)
   })
+
+  it('createdAt 和 updatedAt 应为 Unix 秒级时间戳（number）', () => {
+    const before = Math.floor(Date.now() / 1000)
+    const timeline = createNewTimeline('1001', '测试')
+    const after = Math.floor(Date.now() / 1000)
+    expect(typeof timeline.createdAt).toBe('number')
+    expect(typeof timeline.updatedAt).toBe('number')
+    expect(timeline.createdAt).toBeGreaterThanOrEqual(before)
+    expect(timeline.createdAt).toBeLessThanOrEqual(after)
+  })
 })
 
 describe('saveTimeline - description 元数据同步', () => {
@@ -57,5 +67,12 @@ describe('saveTimeline - description 元数据同步', () => {
     const metadata = getAllTimelineMetadata()
     expect(metadata).toHaveLength(1)
     expect(metadata[0].description).toBe('更新后的说明')
+  })
+
+  it('元数据中 updatedAt 应为 number 类型', () => {
+    const timeline = createNewTimeline('1001', '测试')
+    saveTimeline(timeline)
+    const metadata = getAllTimelineMetadata()
+    expect(typeof metadata[0].updatedAt).toBe('number')
   })
 })

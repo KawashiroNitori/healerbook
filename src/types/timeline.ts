@@ -45,10 +45,16 @@ export interface Timeline {
   statusEvents: StatusEvent[]
   /** 是否为回放模式 */
   isReplayMode?: boolean
-  /** 创建时间 */
-  createdAt: string
-  /** 更新时间 */
-  updatedAt: string
+  /** 是否已发布到服务器 */
+  isShared?: boolean
+  /** 发布后是否有本地未发布的修改 */
+  hasLocalChanges?: boolean
+  /** 最后一次与服务器同步的版本号 */
+  serverVersion?: number
+  /** 创建时间（Unix timestamp，秒） */
+  createdAt: number
+  /** 更新时间（Unix timestamp，秒），由客户端时钟写入 */
+  updatedAt: number
 }
 
 /**

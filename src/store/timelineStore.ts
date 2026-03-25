@@ -252,7 +252,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         timeline: {
           ...state.timeline,
           name,
-          updatedAt: new Date().toISOString(),
+          updatedAt: Math.floor(Date.now() / 1000),
         },
       }
     })
@@ -267,7 +267,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         timeline: {
           ...state.timeline,
           description: description || undefined,
-          updatedAt: new Date().toISOString(),
+          updatedAt: Math.floor(Date.now() / 1000),
         },
       }
     })
@@ -291,7 +291,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           ...state.timeline,
           composition,
           castEvents: filteredCastEvents,
-          updatedAt: new Date().toISOString(),
+          updatedAt: Math.floor(Date.now() / 1000),
         },
       }
     })
@@ -392,6 +392,14 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   triggerAutoSave: (delay = AUTO_SAVE_DELAY) => {
+    // 如果已发布，标记有本地未发布的修改
+    const { timeline } = get()
+    if (timeline?.isShared) {
+      set(state => ({
+        timeline: state.timeline ? { ...state.timeline, hasLocalChanges: true } : null,
+      }))
+    }
+
     const state = get()
 
     // 清除之前的定时器

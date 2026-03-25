@@ -29,12 +29,12 @@ export default function HomePage() {
 
   const data = getAllTimelineMetadata()
   const [timelines, setTimelines] = useState<TimelineMetadata[]>(
-    data.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    data.sort((a, b) => b.updatedAt - a.updatedAt)
   )
 
   const loadTimelines = () => {
     const data = getAllTimelineMetadata()
-    setTimelines(data.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))
+    setTimelines(data.sort((a, b) => b.updatedAt - a.updatedAt))
   }
 
   const handleCreateNew = () => {

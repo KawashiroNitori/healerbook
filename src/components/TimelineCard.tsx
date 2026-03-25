@@ -53,7 +53,7 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
 
       <p className="text-xs text-muted-foreground">
         更新于{' '}
-        {new Date(timeline.updatedAt).toLocaleString('zh-CN', {
+        {new Date(timeline.updatedAt * 1000).toLocaleString('zh-CN', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
