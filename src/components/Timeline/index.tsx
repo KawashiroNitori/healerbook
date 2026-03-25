@@ -534,7 +534,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           style={{ width: labelColumnWidth }}
           onWheel={e => {
             e.preventDefault()
-            setScrollTop(prev => Math.max(0, Math.min(prev + e.deltaY, maxScrollTop)))
+            const newScrollTop = Math.max(
+              0,
+              Math.min(scrollTopRef.current + e.deltaY, maxScrollTop)
+            )
+            setScrollTop(newScrollTop)
+            // 同步 useTimelinePanZoom 读取的 refs，避免下次垂直拖动从错误位置起跳
+            visualScrollTopRef.current = newScrollTop
+            clampedScrollRef.current = {
+              scrollLeft: clampedScrollRef.current.scrollLeft,
+              scrollTop: newScrollTop,
+            }
           }}
         >
           <div

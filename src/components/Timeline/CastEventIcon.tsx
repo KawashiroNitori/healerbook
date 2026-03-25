@@ -2,7 +2,7 @@
  * 技能使用事件图标组件
  */
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
@@ -48,6 +48,7 @@ export default function CastEventIcon({
   isReadOnly = false,
 }: CastEventIconProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const dragStartAbsYRef = useRef<number | null>(null)
   const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
   const effectiveDuration =
     nextCastTime === Infinity
@@ -59,19 +60,25 @@ export default function CastEventIcon({
       x={x}
       y={trackY}
       draggable={isSelected && !isReadOnly}
+      onDragStart={e => {
+        // 拖动开始时捕获节点真实绝对 y 坐标，避免因 scrollTop prop 过时导致瞬移
+        dragStartAbsYRef.current = e.target.absolutePosition().y
+      }}
       dragBoundFunc={pos => {
-        // pos 是 Stage 坐标，边界是 Layer 坐标，需要转换
+        // pos 是绝对坐标（Stage 坐标系）；边界是 Layer 坐标，需要减去 scrollLeft 转换
         const minX = leftBoundary * zoomLevel - scrollLeft
         const maxX = rightBoundary === Infinity ? pos.x : rightBoundary * zoomLevel - scrollLeft
+        const lockedY = dragStartAbsYRef.current ?? trackY - scrollTop
 
         return {
           x: Math.max(minX, Math.min(maxX, pos.x)),
-          y: trackY - scrollTop,
+          y: lockedY,
         }
       }}
       onClick={onSelect}
       onTap={onSelect}
       onDragEnd={e => {
+        dragStartAbsYRef.current = null
         onDragEnd(e.target.x())
       }}
       onContextMenu={onContextMenu}
