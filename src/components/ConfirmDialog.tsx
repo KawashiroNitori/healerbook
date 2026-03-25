@@ -20,6 +20,7 @@ interface ConfirmDialogProps {
   description?: string
   confirmText?: string
   cancelText?: string
+  variant?: 'default' | 'destructive'
   onConfirm: () => void
 }
 
@@ -30,6 +31,7 @@ export default function ConfirmDialog({
   description,
   confirmText = '确定',
   cancelText = '取消',
+  variant = 'default',
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -41,7 +43,16 @@ export default function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelText}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>{confirmText}</AlertDialogAction>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className={
+              variant === 'destructive'
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : undefined
+            }
+          >
+            {confirmText}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

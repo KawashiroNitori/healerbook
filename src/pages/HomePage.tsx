@@ -17,8 +17,8 @@ import TimelineCard from '@/components/TimelineCard'
 import AuthButton from '@/components/AuthButton'
 import { useAuth } from '@/hooks/useAuth'
 import { Globe } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchMyTimelines } from '@/api/timelineShareApi'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchMyTimelines, deleteSharedTimeline } from '@/api/timelineShareApi'
 
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
 const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
@@ -27,14 +27,16 @@ const Top100Section = lazy(() => import('@/components/Top100Section'))
 export default function HomePage() {
   const navigate = useNavigate()
   const { isLoggedIn } = useAuth()
+  const queryClient = useQueryClient()
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [timelineToDelete, setTimelineToDelete] = useState<string | null>(null)
+  const [deletePublishedConfirmOpen, setDeletePublishedConfirmOpen] = useState(false)
+  const [publishedTimelineToDelete, setPublishedTimelineToDelete] = useState<string | null>(null)
 
-  const data = getAllTimelineMetadata()
-  const [timelines, setTimelines] = useState<TimelineMetadata[]>(
-    data.sort((a, b) => b.updatedAt - a.updatedAt)
+  const [timelines, setTimelines] = useState<TimelineMetadata[]>(() =>
+    getAllTimelineMetadata().sort((a, b) => b.updatedAt - a.updatedAt)
   )
 
   const { data: myTimelines } = useQuery({
@@ -44,8 +46,7 @@ export default function HomePage() {
   })
 
   const loadTimelines = () => {
-    const data = getAllTimelineMetadata()
-    setTimelines(data.sort((a, b) => b.updatedAt - a.updatedAt))
+    setTimelines(getAllTimelineMetadata().sort((a, b) => b.updatedAt - a.updatedAt))
   }
 
   const handleCreateNew = () => {
@@ -107,15 +108,10 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Recent Timelines */}
-        <section className="mb-12">
-          <h2 className="text-xl font-semibold mb-4">最近的时间轴</h2>
-          {timelines.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>暂无时间轴</p>
-              <p className="text-sm mt-2">创建或导入一个时间轴开始使用</p>
-            </div>
-          ) : (
+        {/* Local Timelines */}
+        {timelines.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-xl font-semibold mb-4">本地时间轴</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {timelines.map(timeline => (
                 <TimelineCard
@@ -129,8 +125,8 @@ export default function HomePage() {
                 />
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* 已发布的时间轴 */}
         {isLoggedIn && myTimelines && myTimelines.length > 0 && (
@@ -149,8 +145,14 @@ export default function HomePage() {
                     encounterId: '',
                     createdAt: timeline.publishedAt,
                     updatedAt: timeline.updatedAt,
+                    composition: timeline.composition,
                   }}
                   onClick={() => navigate(`/timeline/${timeline.id}`)}
+                  onDelete={e => {
+                    e.stopPropagation()
+                    setPublishedTimelineToDelete(timeline.id)
+                    setDeletePublishedConfirmOpen(true)
+                  }}
                 />
               ))}
             </div>
@@ -181,12 +183,13 @@ export default function HomePage() {
         )}
       </Suspense>
 
-      {/* 删除确认对话框 */}
+      {/* 删除本地时间轴确认 */}
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title="删除时间轴"
         description="确定要删除这个时间轴吗？"
+        variant="destructive"
         onConfirm={() => {
           if (timelineToDelete) {
             deleteTimeline(timelineToDelete)
@@ -195,6 +198,28 @@ export default function HomePage() {
             toast.success('时间轴已删除')
           }
           setDeleteConfirmOpen(false)
+        }}
+      />
+
+      {/* 取消发布确认 */}
+      <ConfirmDialog
+        open={deletePublishedConfirmOpen}
+        onOpenChange={setDeletePublishedConfirmOpen}
+        title="取消发布"
+        description="取消发布后，获得链接的人将无法再访问该时间轴。确定要取消发布吗？"
+        variant="destructive"
+        onConfirm={async () => {
+          if (publishedTimelineToDelete) {
+            try {
+              await deleteSharedTimeline(publishedTimelineToDelete)
+              await queryClient.invalidateQueries({ queryKey: ['myTimelines'] })
+              toast.success('已取消发布')
+            } catch (err) {
+              toast.error(`删除失败：${err instanceof Error ? err.message : '未知错误'}`)
+            }
+            setPublishedTimelineToDelete(null)
+          }
+          setDeletePublishedConfirmOpen(false)
         }}
       />
     </div>

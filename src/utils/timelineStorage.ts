@@ -2,7 +2,7 @@
  * 时间轴本地存储工具
  */
 
-import type { Timeline } from '@/types/timeline'
+import type { Timeline, Composition } from '@/types/timeline'
 import { customAlphabet } from 'nanoid'
 
 // 使用纯字母数字字母表（排除默认的 _ 和 -），避免 ID 包含特殊字符
@@ -21,6 +21,7 @@ export interface TimelineMetadata {
   createdAt: number
   updatedAt: number
   isShared?: boolean
+  composition?: Composition | null
 }
 
 /**
@@ -71,6 +72,7 @@ export function saveTimeline(timeline: Timeline): void {
       createdAt: timeline.createdAt,
       updatedAt: timeline.updatedAt,
       ...(timeline.isShared && { isShared: true }),
+      composition: timeline.composition ?? null,
     }
 
     if (existingIndex >= 0) {

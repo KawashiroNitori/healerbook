@@ -4,7 +4,7 @@
 
 import { Trash2 } from 'lucide-react'
 import JobIcon from './JobIcon'
-import { getTimeline, type TimelineMetadata } from '@/utils/timelineStorage'
+import type { TimelineMetadata } from '@/utils/timelineStorage'
 import { sortJobsByOrder } from '@/data/jobs'
 
 interface TimelineCardProps {
@@ -14,9 +14,7 @@ interface TimelineCardProps {
 }
 
 export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCardProps) {
-  // 读取完整时间轴以获取阵容信息
-  const fullTimeline = getTimeline(timeline.id)
-  const composition = fullTimeline?.composition
+  const composition = timeline.composition
 
   // 按职业顺序排序
   const sortedJobs = composition?.players

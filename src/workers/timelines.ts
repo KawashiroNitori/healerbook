@@ -217,6 +217,7 @@ interface TimelineListItem {
   publishedAt: number
   updatedAt: number
   version: number
+  composition: unknown
 }
 
 async function handleList(request: Request, env: Env): Promise<Response> {
@@ -225,20 +226,50 @@ async function handleList(request: Request, env: Env): Promise<Response> {
 
   const result = await env.healerbook_timelines
     .prepare(
-      'SELECT id, name, published_at, updated_at, version FROM timelines WHERE author_id = ? ORDER BY updated_at DESC'
+      'SELECT id, name, published_at, updated_at, version, content FROM timelines WHERE author_id = ? ORDER BY updated_at DESC'
     )
     .bind(auth.userId)
-    .all<{ id: string; name: string; published_at: number; updated_at: number; version: number }>()
+    .all<{
+      id: string
+      name: string
+      published_at: number
+      updated_at: number
+      version: number
+      content: string
+    }>()
 
-  const items: TimelineListItem[] = result.results.map(r => ({
-    id: r.id,
-    name: r.name,
-    publishedAt: r.published_at,
-    updatedAt: r.updated_at,
-    version: r.version,
-  }))
+  const items: TimelineListItem[] = result.results.map(r => {
+    const content = JSON.parse(r.content) as Record<string, unknown>
+    return {
+      id: r.id,
+      name: r.name,
+      publishedAt: r.published_at,
+      updatedAt: r.updated_at,
+      version: r.version,
+      composition: content.composition ?? null,
+    }
+  })
 
   return jsonRes(items, 200, env.ALLOWED_ORIGIN)
+}
+
+async function handleDelete(request: Request, env: Env, id: string): Promise<Response> {
+  const auth = await getAuthUserId(request, env)
+  if (!auth) return jsonRes({ error: 'Unauthorized' }, 401, env.ALLOWED_ORIGIN)
+
+  const result = await env.healerbook_timelines
+    .prepare('DELETE FROM timelines WHERE id = ? AND author_id = ?')
+    .bind(id, auth.userId)
+    .run()
+
+  if (result.meta.changes === 0) {
+    return jsonRes({ error: 'Not found or forbidden' }, 404, env.ALLOWED_ORIGIN)
+  }
+
+  return new Response(null, {
+    status: 204,
+    headers: { 'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN ?? '*' },
+  })
 }
 
 /**
@@ -262,6 +293,9 @@ export async function handleTimelines(request: Request, env: Env): Promise<Respo
   }
   if (idMatch && request.method === 'GET') {
     return handleGet(request, env, idMatch[1])
+  }
+  if (idMatch && request.method === 'DELETE') {
+    return handleDelete(request, env, idMatch[1])
   }
 
   return jsonRes({ error: 'Not Found' }, 404, env.ALLOWED_ORIGIN)

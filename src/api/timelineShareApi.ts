@@ -4,7 +4,7 @@
 
 import { HTTPError } from 'ky'
 import { apiClient } from './apiClient'
-import type { Timeline } from '@/types/timeline'
+import type { Timeline, Composition } from '@/types/timeline'
 
 // 上传到服务器的字段（白名单）
 export interface UploadPayload {
@@ -118,6 +118,7 @@ export interface MyTimelineItem {
   publishedAt: number
   updatedAt: number
   version: number
+  composition: Composition | null
 }
 
 /**
@@ -128,6 +129,21 @@ export async function fetchMyTimelines(): Promise<MyTimelineItem[]> {
     return await apiClient.get('my/timelines').json<MyTimelineItem[]>()
   } catch (err) {
     if (err instanceof HTTPError && err.response.status === 401) return []
+    throw err
+  }
+}
+
+/**
+ * 删除已发布的时间轴（仅作者）
+ */
+export async function deleteSharedTimeline(id: string): Promise<void> {
+  try {
+    await apiClient.delete(`timelines/${id}`)
+  } catch (err) {
+    if (err instanceof HTTPError) {
+      const body = await err.response.json<{ error?: string }>().catch(() => ({ error: undefined }))
+      throw new Error(body.error ?? `HTTP ${err.response.status}`)
+    }
     throw err
   }
 }

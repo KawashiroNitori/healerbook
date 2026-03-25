@@ -629,6 +629,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         }}
         title="删除技能使用"
         description="确定要删除这个技能使用吗?"
+        variant="destructive"
       />
     </div>
   )

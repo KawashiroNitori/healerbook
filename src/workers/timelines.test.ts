@@ -96,6 +96,18 @@ function makeMockD1(initialRows: DbRow[] = []): D1Database {
           }
         }
 
+        if (sql.startsWith('DELETE')) {
+          return {
+            run: async () => {
+              const [id, authorId] = args
+              const row = store.get(id as string)
+              if (!row || row.author_id !== authorId) return { meta: { changes: 0 } }
+              store.delete(id as string)
+              return { meta: { changes: 1 } }
+            },
+          }
+        }
+
         throw new Error(`Unhandled SQL in mock: ${sql}`)
       },
     }),
@@ -386,5 +398,42 @@ describe('GET /api/timelines（列表）', () => {
       body.every(item => 'publishedAt' in item && 'updatedAt' in item && 'version' in item)
     ).toBe(true)
     expect(body.every(item => !('authorId' in item) && !('content' in item))).toBe(true)
+  })
+})
+
+describe('DELETE /api/timelines/:id', () => {
+  it('未登录时返回 401', async () => {
+    const db = makeMockD1([makeDbRow()])
+    const env = makeMockEnv(db)
+
+    const req = new Request('https://example.com/api/timelines/server123', { method: 'DELETE' })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(401)
+  })
+
+  it('非作者删除返回 404', async () => {
+    const db = makeMockD1([makeDbRow()])
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('other-user', 'Other', 'test-secret')
+
+    const req = new Request('https://example.com/api/timelines/server123', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(404)
+  })
+
+  it('作者删除成功返回 204', async () => {
+    const db = makeMockD1([makeDbRow()])
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('user1', 'User1', 'test-secret')
+
+    const req = new Request('https://example.com/api/timelines/server123', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(204)
   })
 })
