@@ -22,6 +22,7 @@ import {
 import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
 import { handleAuthCallback, handleAuthRefresh } from './auth'
+import { handleTimelines } from './timelines'
 
 interface QueueMessageBody {
   type: string
@@ -89,6 +90,8 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
       return await handleAuthCallback(request, env)
     } else if (path === '/api/auth/refresh' && request.method === 'POST') {
       return await handleAuthRefresh(request, env)
+    } else if (path === '/api/timelines' || path.match(/^\/api\/timelines\/[0-9A-Za-z]+$/)) {
+      return await handleTimelines(request, env)
     } else if (path.startsWith('/api/fflogs/report/')) {
       return await handleReport(request, env)
     } else if (path.startsWith('/api/fflogs/events/')) {
@@ -367,7 +370,7 @@ function handleCORS(): Response {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
     },
