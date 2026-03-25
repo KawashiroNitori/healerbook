@@ -122,8 +122,8 @@ export default function EditorToolbar() {
           添加事件
         </button>
 
-        {/* 分享按钮（有 timeline 且非回放模式时显示） */}
-        {timeline && !isReplayMode && (
+        {/* 分享按钮（有 timeline 且非回放模式且非只读时显示） */}
+        {timeline && !isReplayMode && !isReadOnly && (
           <>
             <div className="flex-1" />
             <SharePopover

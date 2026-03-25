@@ -300,8 +300,7 @@ export default function EditorPage({ source = 'local' }: EditorPageProps) {
         </div>
       </header>
 
-      {/* 工具栏（只读查看时隐藏） */}
-      {!isViewMode && <EditorToolbar />}
+      <EditorToolbar />
 
       {/* Main Content */}
       <DamageCalculationContext.Provider value={calculationResults}>
