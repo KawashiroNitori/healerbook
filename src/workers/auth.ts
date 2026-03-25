@@ -18,10 +18,7 @@ interface FFLogsUserResponse {
   }
 }
 
-async function exchangeCodeForToken(
-  code: string,
-  env: Env
-): Promise<FFLogsTokenResponse> {
+async function exchangeCodeForToken(code: string, env: Env): Promise<FFLogsTokenResponse> {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: env.FFLOGS_CLIENT_ID!,
@@ -43,9 +40,7 @@ async function exchangeCodeForToken(
   return response.json() as Promise<FFLogsTokenResponse>
 }
 
-async function fetchFFLogsUser(
-  accessToken: string
-): Promise<{ id: number; name: string }> {
+async function fetchFFLogsUser(accessToken: string): Promise<{ id: number; name: string }> {
   const response = await fetch('https://www.fflogs.com/api/v2/user', {
     method: 'POST',
     headers: {
@@ -97,7 +92,10 @@ export async function handleAuthCallback(request: Request, env: Env): Promise<Re
       signRefreshToken(userId, env.JWT_SECRET),
     ])
 
-    return jsonOk({ access_token: accessToken, refresh_token: refreshToken, name: user.name }, env.ALLOWED_ORIGIN)
+    return jsonOk(
+      { access_token: accessToken, refresh_token: refreshToken, name: user.name, user_id: userId },
+      env.ALLOWED_ORIGIN
+    )
   } catch (error) {
     console.error('[Auth] callback error:', error)
     return jsonError('OAuth callback failed', 400, env.ALLOWED_ORIGIN)

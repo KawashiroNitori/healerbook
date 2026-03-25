@@ -12,26 +12,29 @@ describe('authStore', () => {
   })
 
   it('初始状态为未登录', () => {
-    const { accessToken, refreshToken, username } = useAuthStore.getState()
+    const { accessToken, refreshToken, username, userId } = useAuthStore.getState()
     expect(accessToken).toBeNull()
     expect(refreshToken).toBeNull()
     expect(username).toBeNull()
+    expect(userId).toBeNull()
   })
 
-  it('setTokens 存储 token 和用户名', () => {
-    useAuthStore.getState().setTokens('access-jwt', 'refresh-jwt', 'TestUser')
-    const { accessToken, refreshToken, username } = useAuthStore.getState()
+  it('setTokens 存储 token、用户名和 userId', () => {
+    useAuthStore.getState().setTokens('access-jwt', 'refresh-jwt', 'TestUser', 'user-123')
+    const { accessToken, refreshToken, username, userId } = useAuthStore.getState()
     expect(accessToken).toBe('access-jwt')
     expect(refreshToken).toBe('refresh-jwt')
     expect(username).toBe('TestUser')
+    expect(userId).toBe('user-123')
   })
 
-  it('clearTokens 清除所有状态', () => {
-    useAuthStore.getState().setTokens('access-jwt', 'refresh-jwt', 'TestUser')
+  it('clearTokens 清除所有状态（含 userId）', () => {
+    useAuthStore.getState().setTokens('access-jwt', 'refresh-jwt', 'TestUser', 'user-123')
     useAuthStore.getState().clearTokens()
-    const { accessToken, refreshToken, username } = useAuthStore.getState()
+    const { accessToken, refreshToken, username, userId } = useAuthStore.getState()
     expect(accessToken).toBeNull()
     expect(refreshToken).toBeNull()
     expect(username).toBeNull()
+    expect(userId).toBeNull()
   })
 })

@@ -66,10 +66,11 @@ export default function CallbackPage() {
           access_token: string
           refresh_token: string
           name: string
+          user_id: string
         }>
       })
-      .then(({ access_token, refresh_token, name }) => {
-        setTokens(access_token, refresh_token, name)
+      .then(({ access_token, refresh_token, name, user_id }) => {
+        setTokens(access_token, refresh_token, name, user_id)
         navigate(returnTo, { replace: true })
       })
       .catch((err: unknown) => {

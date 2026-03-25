@@ -80,7 +80,7 @@ async function tryRefreshToken(): Promise<boolean> {
 }
 
 async function doRefreshToken(): Promise<boolean> {
-  const { refreshToken, setTokens, clearTokens, username } = useAuthStore.getState()
+  const { refreshToken, setTokens, clearTokens, username, userId } = useAuthStore.getState()
   if (!refreshToken) return false
 
   const controller = new AbortController()
@@ -106,8 +106,8 @@ async function doRefreshToken(): Promise<boolean> {
       toast.error('登录已过期，请重新登录')
       return false
     }
-    // refresh 接口不返回 name，保留 authStore 中缓存的 username
-    setTokens(access_token, refreshToken, username ?? '')
+    // refresh 接口不返回 name 和 userId，保留 authStore 中缓存的值
+    setTokens(access_token, refreshToken, username ?? '', userId ?? '')
     return true
   } catch {
     clearTokens()
