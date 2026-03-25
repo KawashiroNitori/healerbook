@@ -120,7 +120,7 @@ export default function EditorPage() {
       useUIStore.setState({ isReadOnly: false })
       setTimeline(null)
     }
-  }, [localTimeline, apiData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localTimeline, apiData, setTimeline])
 
   // ── 禁止浏览器原生缩放 ─────────────────────────────────────────────────────
   useEffect(() => {
