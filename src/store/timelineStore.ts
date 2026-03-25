@@ -420,7 +420,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       const currentState = get()
       if (currentState.timeline) {
         saveTimeline(currentState.timeline)
-        console.log('立即保存完成')
       }
       set({ autoSaveTimer: null })
       return
@@ -431,7 +430,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       const currentState = get()
       if (currentState.timeline) {
         saveTimeline(currentState.timeline)
-        console.log('自动保存完成')
       }
     }, delay)
 

@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -50,6 +51,8 @@ export default function ConflictDialog({
       } else {
         await onUseServer()
       }
+    } catch (err) {
+      toast.error(`操作失败：${err instanceof Error ? err.message : '未知错误'}`)
     } finally {
       setLoading(null)
     }
