@@ -152,7 +152,7 @@ export default function TimelineViewPage() {
     const newId = generateId()
     const now = Math.floor(Date.now() / 1000)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { isAuthor: _isAuthor, ...rest } = sharedData
+    const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = sharedData
     const copy: Timeline = {
       ...rest,
       id: newId,
