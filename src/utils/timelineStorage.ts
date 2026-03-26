@@ -89,6 +89,36 @@ export function saveTimeline(timeline: Timeline): void {
 }
 
 /**
+ * 将本地时间轴标记为未发布（取消发布后同步本地状态）
+ */
+export function unpublishTimeline(id: string): void {
+  try {
+    const data = localStorage.getItem(`${STORAGE_KEY}_${id}`)
+    if (!data) return
+    const timeline: Timeline = JSON.parse(data)
+    const updated: Timeline = {
+      ...timeline,
+      isShared: false,
+      hasLocalChanges: false,
+      serverVersion: undefined,
+    }
+    localStorage.setItem(`${STORAGE_KEY}_${id}`, JSON.stringify(updated))
+
+    // 同步元数据（移除 isShared 标记）
+    const metadata = getAllTimelineMetadata()
+    const idx = metadata.findIndex(m => m.id === id)
+    if (idx >= 0) {
+      const entry = { ...metadata[idx] }
+      delete entry.isShared
+      metadata[idx] = entry
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(metadata))
+    }
+  } catch (error) {
+    console.error('Failed to unpublish timeline:', error)
+  }
+}
+
+/**
  * 删除时间轴
  */
 export function deleteTimeline(id: string): void {

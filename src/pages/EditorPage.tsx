@@ -16,7 +16,7 @@ import { customAlphabet } from 'nanoid'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
-import { getTimeline, saveTimeline } from '@/utils/timelineStorage'
+import { getTimeline, saveTimeline, unpublishTimeline } from '@/utils/timelineStorage'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
@@ -57,9 +57,12 @@ export default function EditorPage() {
   } = useQuery({
     queryKey: ['shared-timeline', id, accessToken],
     queryFn: () => fetchSharedTimeline(id!),
-    enabled: !!id && localTimeline === null,
+    // isShared 的本地时间轴也查询，以便检测服务端已取消发布的情况
+    enabled: !!id && (localTimeline === null || !!localTimeline?.isShared),
     retry: false,
-    staleTime: 5 * 60 * 1000,
+    // isShared 验证请求不使用缓存，确保每次都拿最新状态
+    staleTime: localTimeline?.isShared ? 0 : 5 * 60 * 1000,
+    gcTime: localTimeline?.isShared ? 0 : 5 * 60 * 1000,
   })
 
   // 从 query 状态派生页面模式，无需额外 useState
@@ -86,7 +89,20 @@ export default function EditorPage() {
   // ── 副作用：将加载结果同步到 store ───────────────────────────────────────
   useEffect(() => {
     if (localTimeline) {
-      setTimeline(localTimeline)
+      // 本地标记为已发布，但服务端已不存在 → 同步清除发布状态
+      if (localTimeline.isShared && error instanceof Error && error.message === 'NOT_FOUND') {
+        unpublishTimeline(localTimeline.id)
+        const updated: Timeline = {
+          ...localTimeline,
+          isShared: false,
+          hasLocalChanges: false,
+          serverVersion: undefined,
+        }
+        saveTimeline(updated)
+        setTimeline(updated)
+      } else {
+        setTimeline(localTimeline)
+      }
       return () => setTimeline(null)
     }
 
@@ -122,7 +138,7 @@ export default function EditorPage() {
       useUIStore.setState({ isReadOnly: false })
       setTimeline(null)
     }
-  }, [localTimeline, apiData, setTimeline])
+  }, [localTimeline, apiData, error, setTimeline])
 
   // ── 禁止浏览器原生缩放 ─────────────────────────────────────────────────────
   useEffect(() => {
