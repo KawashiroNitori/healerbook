@@ -108,7 +108,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 ${isReadOnly ? 'text-red-600' : ''}`}
+                  className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
                   onClick={toggleReadOnly}
                   disabled={forceReadOnly}
                 >
