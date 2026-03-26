@@ -251,67 +251,44 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [timeline, zoomLevel, actions, hiddenPlayerIds])
 
-  // 十字准线：技能轨道区域鼠标移动（更新时间 + 轨道高亮）
-  const handleSkillTrackMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (isDraggingRef.current) {
-        if (hoverTimeRef.current !== null) {
-          hoverTimeRef.current = null
-          hoverTrackIndexRef.current = null
-          setHoverTime(null)
-          setHoverTrackIndex(null)
+  // 十字准线：鼠标移动事件（技能轨道区域计算轨道高亮，固定区域只更新时间）
+  const createCrosshairMoveHandler = useCallback(
+    (stageRef: React.RefObject<Konva.Stage | null>, withTrackHighlight: boolean) =>
+      (e: MouseEvent) => {
+        if (isDraggingRef.current) {
+          if (hoverTimeRef.current !== null) {
+            hoverTimeRef.current = null
+            hoverTrackIndexRef.current = null
+            setHoverTime(null)
+            setHoverTrackIndex(null)
+          }
+          return
         }
-        return
-      }
 
-      const stage = stageRef.current
-      if (!stage) return
+        const stage = stageRef.current
+        if (!stage) return
 
-      const rect = stage.container().getBoundingClientRect()
-      const pointerX = e.clientX - rect.left
-      const pointerY = e.clientY - rect.top
+        const rect = stage.container().getBoundingClientRect()
+        const pointerX = e.clientX - rect.left
+        const time = (pointerX + clampedScrollRef.current.scrollLeft) / zoomLevel
 
-      const time = (pointerX + clampedScrollRef.current.scrollLeft) / zoomLevel
-      const trackIndex = Math.floor((pointerY + visualScrollTopRef.current) / skillTrackHeight)
+        hoverTimeRef.current = time
 
-      hoverTimeRef.current = time
-      hoverTrackIndexRef.current =
-        trackIndex >= 0 && trackIndex < (layoutData?.skillTracks.length ?? 0) ? trackIndex : null
+        if (withTrackHighlight) {
+          const pointerY = e.clientY - rect.top
+          const trackIndex = Math.floor((pointerY + visualScrollTopRef.current) / skillTrackHeight)
+          hoverTrackIndexRef.current =
+            trackIndex >= 0 && trackIndex < (layoutData?.skillTracks.length ?? 0)
+              ? trackIndex
+              : null
+        } else {
+          hoverTrackIndexRef.current = null
+        }
 
-      setHoverTime(time)
-      setHoverTrackIndex(hoverTrackIndexRef.current)
-    },
+        setHoverTime(time)
+        setHoverTrackIndex(hoverTrackIndexRef.current)
+      },
     [zoomLevel, layoutData?.skillTracks.length]
-  )
-
-  // 十字准线：固定区域鼠标移动（只更新时间，不更新轨道高亮）
-  const handleFixedAreaMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (isDraggingRef.current) {
-        if (hoverTimeRef.current !== null) {
-          hoverTimeRef.current = null
-          hoverTrackIndexRef.current = null
-          setHoverTime(null)
-          setHoverTrackIndex(null)
-        }
-        return
-      }
-
-      const stage = fixedStageRef.current
-      if (!stage) return
-
-      const rect = stage.container().getBoundingClientRect()
-      const pointerX = e.clientX - rect.left
-
-      const time = (pointerX + clampedScrollRef.current.scrollLeft) / zoomLevel
-
-      hoverTimeRef.current = time
-      hoverTrackIndexRef.current = null
-
-      setHoverTime(time)
-      setHoverTrackIndex(null)
-    },
-    [zoomLevel]
   )
 
   // 十字准线：鼠标离开事件
@@ -341,18 +318,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const mainContainer = mainStage.container()
     const fixedContainer = fixedStage.container()
 
-    mainContainer.addEventListener('mousemove', handleSkillTrackMouseMove)
+    const handleMainMove = createCrosshairMoveHandler(stageRef, true)
+    const handleFixedMove = createCrosshairMoveHandler(fixedStageRef, false)
+
+    mainContainer.addEventListener('mousemove', handleMainMove)
     mainContainer.addEventListener('mouseleave', handleCrosshairLeave)
-    fixedContainer.addEventListener('mousemove', handleFixedAreaMouseMove)
+    fixedContainer.addEventListener('mousemove', handleFixedMove)
     fixedContainer.addEventListener('mouseleave', handleCrosshairLeave)
 
     return () => {
-      mainContainer.removeEventListener('mousemove', handleSkillTrackMouseMove)
+      mainContainer.removeEventListener('mousemove', handleMainMove)
       mainContainer.removeEventListener('mouseleave', handleCrosshairLeave)
-      fixedContainer.removeEventListener('mousemove', handleFixedAreaMouseMove)
+      fixedContainer.removeEventListener('mousemove', handleFixedMove)
       fixedContainer.removeEventListener('mouseleave', handleCrosshairLeave)
     }
-  }, [handleSkillTrackMouseMove, handleFixedAreaMouseMove, handleCrosshairLeave])
+  }, [createCrosshairMoveHandler, handleCrosshairLeave])
 
   // 视口宽度（Stage 实际宽度）
   const viewportWidth = Math.max(width - labelColumnWidth, 1)
