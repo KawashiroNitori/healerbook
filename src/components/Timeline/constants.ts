@@ -18,3 +18,11 @@ export const DAMAGE_TIME_LINE_STYLE = {
   strokeWidth: 1,
   opacity: 0.2,
 }
+
+// 鼠标十字准线样式
+export const CROSSHAIR_VERTICAL_LINE_STYLE = {
+  stroke: '#9ca3af',
+  strokeWidth: 1,
+}
+
+export const CROSSHAIR_TRACK_HIGHLIGHT_COLOR = 'rgba(59, 130, 246, 0.08)'
