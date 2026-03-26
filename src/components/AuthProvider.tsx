@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { nanoid } from 'nanoid'
 import { AuthContext, type AuthContextValue } from '@/contexts/AuthContext'
+import { track } from '@/utils/analytics'
 
 const FFLOGS_OAUTH_CLIENT_ID = import.meta.env.VITE_FFLOGS_CLIENT_ID as string
 const FFLOGS_AUTH_URL = 'https://www.fflogs.com/oauth/authorize'
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       state,
     })
 
+    track('login-start')
     window.location.href = `${FFLOGS_AUTH_URL}?${params.toString()}`
   }
 

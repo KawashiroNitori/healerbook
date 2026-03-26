@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Globe } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchMyTimelines, deleteSharedTimeline } from '@/api/timelineShareApi'
+import { track } from '@/utils/analytics'
 
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
 const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
@@ -50,10 +51,12 @@ export default function HomePage() {
   }
 
   const handleCreateNew = () => {
+    track('timeline-create-start')
     setShowCreateDialog(true)
   }
 
   const handleImportFromFFLogs = () => {
+    track('fflogs-import-start')
     setShowImportDialog(true)
   }
 
@@ -117,7 +120,10 @@ export default function HomePage() {
                 <TimelineCard
                   key={timeline.id}
                   timeline={timeline}
-                  onClick={() => navigate(`/timeline/${timeline.id}`)}
+                  onClick={() => {
+                    track('timeline-open', { source: 'local' })
+                    navigate(`/timeline/${timeline.id}`)
+                  }}
                   onDelete={e => {
                     e.stopPropagation()
                     handleDeleteTimeline(timeline.id)
@@ -147,7 +153,10 @@ export default function HomePage() {
                     updatedAt: timeline.updatedAt,
                     composition: timeline.composition,
                   }}
-                  onClick={() => navigate(`/timeline/${timeline.id}`)}
+                  onClick={() => {
+                    track('timeline-open', { source: 'published' })
+                    navigate(`/timeline/${timeline.id}`)
+                  }}
                   onDelete={e => {
                     e.stopPropagation()
                     setPublishedTimelineToDelete(timeline.id)

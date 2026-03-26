@@ -15,6 +15,7 @@ import { buildMitigationKey } from '@/utils/rosterUtils'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job } from '@/types/timeline'
+import { track } from '@/utils/analytics'
 import { getTankJobs, getHealerJobs, getDPSJobs, getJobRole, getJobName } from '@/data/jobs'
 
 // ---- 类型定义 ----
@@ -195,11 +196,13 @@ function EncounterTable({
   encounter,
   data,
   filterMitigationKey,
+  isFiltered,
   onImport,
 }: {
   encounter: RaidEncounter
   data: Top100Data | null | undefined
   filterMitigationKey: number[] | null
+  isFiltered: boolean
   onImport: (url: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -223,7 +226,10 @@ function EncounterTable({
       {/* 表头行（点击展开/收起） */}
       <button
         className="w-full flex items-center justify-between px-4 py-3 bg-muted/50 hover:bg-muted transition-colors text-left"
-        onClick={() => setIsOpen(v => !v)}
+        onClick={() => {
+          if (!isOpen) track('top100-expand', { encounterId: encounter.id })
+          setIsOpen(v => !v)
+        }}
       >
         <div className="flex items-center gap-3">
           <span className="font-mono font-bold text-sm">{encounter.shortName}</span>
@@ -308,9 +314,14 @@ function EncounterTable({
                         </td>
                         <td className="text-center px-3 py-2 align-middle">
                           <button
-                            onClick={() =>
+                            onClick={() => {
+                              track('top100-import', {
+                                encounterId: encounter.id,
+                                rank: entry.rank,
+                                filtered: isFiltered,
+                              })
                               onImport(buildFFLogsUrl(entry.reportCode, entry.fightID))
-                            }
+                            }}
                             className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
                           >
                             导入
@@ -361,6 +372,9 @@ export default function Top100Section() {
 
   // 保存到 LocalStorage
   const handleJobsChange = (jobs: Job[]) => {
+    if (selectedJobs.length === 0 && jobs.length > 0) {
+      track('top100-filter')
+    }
     setSelectedJobs(jobs)
     try {
       localStorage.setItem('top100_filter_jobs', JSON.stringify(jobs))
@@ -462,6 +476,7 @@ export default function Top100Section() {
               encounter={encounter}
               data={data?.[encounter.id]}
               filterMitigationKey={filterMitigationKey}
+              isFiltered={filterMitigationKey !== null}
               onImport={setImportUrl}
             />
           ))}

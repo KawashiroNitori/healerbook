@@ -30,6 +30,7 @@ import EditableDescription from '@/components/EditableDescription'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
 import type { Timeline } from '@/types/timeline'
+import { track } from '@/utils/analytics'
 
 type PageMode = 'local' | 'author' | 'view' | 'loading' | 'not_found' | 'network_error'
 
@@ -114,6 +115,7 @@ export default function EditorPage() {
       }
       setTimeline(viewTimeline)
       useUIStore.setState({ isReadOnly: true })
+      track('timeline-view-shared', { timelineId: rest.id, encounterId: rest.encounter?.id })
     }
 
     return () => {

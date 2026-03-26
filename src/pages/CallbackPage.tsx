@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
+import { track } from '@/utils/analytics'
 
 const AUTH_CALLBACK_URL = '/api/auth/callback'
 
@@ -71,6 +72,7 @@ export default function CallbackPage() {
       })
       .then(({ access_token, refresh_token, name, user_id }) => {
         setTokens(access_token, refresh_token, name, user_id)
+        track('login-success')
         navigate(returnTo, { replace: true })
       })
       .catch((err: unknown) => {

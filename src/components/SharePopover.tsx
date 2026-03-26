@@ -22,6 +22,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthStore } from '@/store/authStore'
 import type { Timeline } from '@/types/timeline'
 import { publishTimeline, updateTimeline, type ConflictError } from '@/api/timelineShareApi'
+import { track } from '@/utils/analytics'
 
 interface SharePopoverProps {
   timeline: Timeline
@@ -64,6 +65,7 @@ export default function SharePopover({
     try {
       const result = await publishTimeline(timeline)
       onPublished(result.id, result.publishedAt, result.version)
+      track('timeline-publish', { encounterId: timeline.encounter?.id })
       toast.success('发布成功')
     } catch (err) {
       toast.error(`发布失败：${err instanceof Error ? err.message : '未知错误'}`)
@@ -81,6 +83,7 @@ export default function SharePopover({
         onConflict(result)
       } else if ('updatedAt' in result) {
         onUpdated(result.updatedAt, result.version)
+        track('timeline-update', { encounterId: timeline.encounter?.id })
         toast.success('已保存更新')
       }
     } catch (err) {

@@ -11,6 +11,7 @@ import { parseComposition, parseDamageEvents, parseCastEvents } from '@/utils/ff
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
+import { track } from '@/utils/analytics'
 
 interface ImportFFLogsDialogProps {
   open: boolean
@@ -220,12 +221,14 @@ export default function ImportFFLogsDialog({
 
       // 保存时间轴
       saveTimeline(newTimeline)
+      track('fflogs-import', { success: true, encounterId: fight.encounterID ?? 0 })
 
       // 跳转到编辑器
       window.open(`/timeline/${newTimeline.id}`, '_blank')
       onImported()
       onClose()
     } catch (err) {
+      track('fflogs-import', { success: false })
       if (err instanceof Error) {
         // 友好的错误提示
         if (err.message.includes('API Token') || err.message.includes('API Key')) {

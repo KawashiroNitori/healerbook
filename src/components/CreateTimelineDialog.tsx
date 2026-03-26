@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RAID_TIERS } from '@/data/raidEncounters'
+import { track } from '@/utils/analytics'
 
 interface CreateTimelineDialogProps {
   open: boolean
@@ -41,6 +42,7 @@ export default function CreateTimelineDialog({
 
     const timeline = createNewTimeline(encounterId, name.trim())
     saveTimeline(timeline)
+    track('timeline-create', { method: 'manual', encounterId: Number(encounterId) })
     onCreated()
     window.open(`/timeline/${timeline.id}`, '_blank')
   }
