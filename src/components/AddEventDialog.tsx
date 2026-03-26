@@ -11,12 +11,13 @@ import type { DamageType } from '@/types/timeline'
 interface AddEventDialogProps {
   open: boolean
   onClose: () => void
+  defaultTime?: number
 }
 
-export default function AddEventDialog({ open, onClose }: AddEventDialogProps) {
+export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEventDialogProps) {
   const { addDamageEvent } = useTimelineStore()
   const [name, setName] = useState('')
-  const [time, setTime] = useState(0)
+  const [time, setTime] = useState(defaultTime)
   const [damage, setDamage] = useState(100000)
   const [type, setType] = useState<'aoe' | 'tankbuster'>('aoe')
   const [damageType, setDamageType] = useState<DamageType>('magical')

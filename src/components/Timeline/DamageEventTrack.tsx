@@ -22,6 +22,7 @@ interface DamageEventTrackProps {
   onDragStart: (eventId: string, x: number) => void
   onDragMove: (eventId: string, x: number) => void
   onDragEnd: (eventId: string, x: number) => void
+  onDblClick?: (time: number) => void
   isReadOnly?: boolean
 }
 
@@ -40,6 +41,7 @@ export default function DamageEventTrack({
   onDragStart,
   onDragMove,
   onDragEnd,
+  onDblClick,
   isReadOnly = false,
 }: DamageEventTrackProps) {
   // 生成时间刻度网格线（每10秒一条，实线）
@@ -85,6 +87,15 @@ export default function DamageEventTrack({
         height={trackHeight}
         fill="#e5e7eb"
         draggableBackground={true}
+        onDblClick={e => {
+          if (isReadOnly || !onDblClick) return
+          const layer = e.target.getLayer()
+          if (!layer) return
+          const pos = layer.getRelativePointerPosition()
+          if (!pos) return
+          const time = Math.max(TIMELINE_START_TIME, Math.round((pos.x / zoomLevel) * 10) / 10)
+          onDblClick(time)
+        }}
       />
 
       {/* 时间刻度网格线 */}

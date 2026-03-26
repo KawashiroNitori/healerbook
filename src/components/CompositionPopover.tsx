@@ -32,7 +32,7 @@ export default function CompositionPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 h-9 px-3 py-2 text-sm border rounded hover:bg-accent transition-colors">
+        <button className="flex items-center gap-2 h-7 px-2 py-1 text-xs border rounded hover:bg-accent transition-colors">
           <Users className="w-4 h-4" />
           小队阵容
           <span className="text-xs text-muted-foreground">
