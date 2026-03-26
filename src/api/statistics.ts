@@ -3,8 +3,7 @@
  */
 
 import type { EncounterStatistics } from '@/types/mitigation'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+import { apiClient } from './apiClient'
 
 /**
  * 获取指定副本的统计数据
@@ -15,9 +14,7 @@ export async function getEncounterStatistics(
   encounterId: number
 ): Promise<EncounterStatistics | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/statistics/${encounterId}`)
-    if (!response.ok) return null
-    return response.json()
+    return await apiClient.get(`statistics/${encounterId}`).json<EncounterStatistics>()
   } catch {
     return null
   }
