@@ -3,7 +3,8 @@
  * 提供快速浏览和跳转功能
  */
 
-import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { TIMELINE_START_TIME } from './constants'
@@ -35,11 +36,10 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
     { width, height = 60, scrollLeft, viewportWidth, totalWidth, zoomLevel, onScroll },
     ref
   ) {
-    const canvasRef = useRef<HTMLCanvasElement>(null)
+    const bgCanvasRef = useRef<HTMLCanvasElement>(null)
+    const viewportCanvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [isDragging, setIsDragging] = useState(false)
-    // 存储不含视口指示器的背景内容
-    const bgImageDataRef = useRef<ImageData | null>(null)
     // 缓存当前绘制参数供 updateViewport 使用
     const drawParamsRef = useRef({
       minimapScale: 1,
@@ -59,11 +59,11 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
     // 计算可视区域在缩略图中的位置和宽度
     const timelineOffset = -TIMELINE_START_TIME * zoomLevel
 
-    /** 在已绘制好的背景上绘制视口指示器 */
+    /** 在视口层绘制视口指示器 */
     const drawViewportRect = useCallback(
       (sl: number) => {
-        const canvas = canvasRef.current
-        if (!canvas || !bgImageDataRef.current) return
+        const canvas = viewportCanvasRef.current
+        if (!canvas) return
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
@@ -75,17 +75,10 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         } = drawParamsRef.current
         const dpr = window.devicePixelRatio || 1
 
-        // 恢复背景
-        ctx.putImageData(bgImageDataRef.current, 0, 0)
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-        // 计算视口位置（注意 DPR：putImageData 已经是设备像素，绘制时 ctx 有 scale 所以用逻辑像素）
-        // putImageData 绕过 transform，所以需要在 DPR 缩放后的坐标系里算
         const vl = (sl + to) * ms * dpr
         const vw = viewportWidth * ms * dpr
-
-        // 临时在设备像素坐标系绘制（putImageData 不受 transform 影响，所以需要手动缩放）
-        ctx.save()
-        ctx.setTransform(1, 0, 0, 1, 0, 0) // 重置 transform
 
         ctx.strokeStyle = '#2563eb'
         ctx.lineWidth = 2 * dpr
@@ -93,8 +86,6 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
 
         ctx.fillStyle = 'rgba(37, 99, 235, 0.08)'
         ctx.fillRect(vl, contentY * dpr, vw, contentHeight * dpr)
-
-        ctx.restore()
       },
       [viewportWidth]
     )
@@ -107,20 +98,25 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       [drawViewportRect]
     )
 
-    // 绘制缩略图（不含视口指示器，存入 bgImageDataRef）
+    // 绘制背景层（timeline/zoom 变化时重绘）
     useEffect(() => {
-      const canvas = canvasRef.current
-      if (!canvas || !timeline) return
+      const bgCanvas = bgCanvasRef.current
+      const viewportCanvas = viewportCanvasRef.current
+      if (!bgCanvas || !viewportCanvas || !timeline) return
 
-      const ctx = canvas.getContext('2d')
+      const ctx = bgCanvas.getContext('2d')
       if (!ctx) return
 
-      // 设置 canvas 实际分辨率
+      // 设置两层 canvas 实际分辨率
       const dpr = window.devicePixelRatio || 1
-      canvas.width = canvasWidth * dpr
-      canvas.height = height * dpr
-      canvas.style.width = `${canvasWidth}px`
-      canvas.style.height = `${height}px`
+      bgCanvas.width = canvasWidth * dpr
+      bgCanvas.height = height * dpr
+      bgCanvas.style.width = `${canvasWidth}px`
+      bgCanvas.style.height = `${height}px`
+      viewportCanvas.width = canvasWidth * dpr
+      viewportCanvas.height = height * dpr
+      viewportCanvas.style.width = `${canvasWidth}px`
+      viewportCanvas.style.height = `${height}px`
       ctx.scale(dpr, dpr)
 
       // 清空画布
@@ -243,9 +239,6 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         )
       })
 
-      // 存储背景内容（不含视口指示器）供后续快速更新使用
-      const bgImageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      bgImageDataRef.current = bgImageData
       drawParamsRef.current = { minimapScale, timelineOffset, contentY, contentHeight }
 
       // 画视口指示器
@@ -314,9 +307,14 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
           style={{ height }}
         >
           <canvas
-            ref={canvasRef}
+            ref={bgCanvasRef}
             style={{ width: '100%', height }}
             className="rounded border border-border"
+          />
+          <canvas
+            ref={viewportCanvasRef}
+            style={{ position: 'absolute', inset: 0, width: '100%', height }}
+            className="rounded"
           />
         </div>
       </div>
