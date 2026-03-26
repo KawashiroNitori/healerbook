@@ -15,6 +15,7 @@ import type { PanZoomRefs } from '@/hooks/useTimelinePanZoom'
 import { sortJobsByOrder } from '@/data/jobs'
 import { toast } from 'sonner'
 import ConfirmDialog from '../ConfirmDialog'
+import AddEventDialog from '../AddEventDialog'
 import TimeRuler from './TimeRuler'
 import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
@@ -45,6 +46,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     eventId: string
     x: number
   } | null>(null)
+  const [addEventAt, setAddEventAt] = useState<number | null>(null)
   // 虚拟滚动状态
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollTop, setScrollTop] = useState(0)
@@ -519,6 +521,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   setDraggingEventPosition({ eventId, x })
                 }}
                 onDragEnd={handleEventDragEnd}
+                onDblClick={time => setAddEventAt(time)}
                 isReadOnly={isReadOnly}
               />
             </Layer>
@@ -616,6 +619,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           setScrollLeft(newScrollLeft)
         }}
       />
+
+      {/* 添加伤害事件对话框 */}
+      {addEventAt !== null && (
+        <AddEventDialog open={true} onClose={() => setAddEventAt(null)} defaultTime={addEventAt} />
+      )}
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

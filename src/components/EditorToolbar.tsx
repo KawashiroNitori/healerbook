@@ -4,13 +4,13 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ZoomIn, ZoomOut, Plus, Lock, Unlock, Play } from 'lucide-react'
+import { ZoomIn, ZoomOut, Lock, Unlock, Play } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
-import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import AddEventDialog from './AddEventDialog'
 import CompositionPopover from './CompositionPopover'
 import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
@@ -46,7 +45,6 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
     applyServerTimeline,
   } = useTimelineStore()
   const { toggleReadOnly } = useUIStore()
-  const [showAddEventDialog, setShowAddEventDialog] = useState(false)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
 
@@ -71,115 +69,105 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
 
   return (
     <>
-      <div className="h-12 border-b bg-background flex items-center px-4 gap-4">
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-2">
-          <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-          <Slider
-            value={[zoomLevel]}
-            onValueChange={handleZoomChange}
-            min={10}
-            max={100}
-            className="w-24"
-          />
-          <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-        </div>
+      <TooltipProvider>
+        <div className="h-12 border-b bg-background flex items-center px-4 gap-2">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-2">
+            <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+            <Slider
+              value={[zoomLevel]}
+              onValueChange={handleZoomChange}
+              min={10}
+              max={100}
+              className="w-24"
+            />
+            <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+          </div>
 
-        <div className="w-px h-6 bg-border" />
+          <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Replay Mode Indicator */}
-        {isReplayMode && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-9 text-sm bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-              onClick={() => setShowExitReplayConfirm(true)}
-              disabled={forceReadOnly}
-            >
-              <Play className="w-4 h-4" />
-              回放
-            </Button>
-            <div className="w-px h-6 bg-border" />
-          </>
-        )}
-
-        {/* Read-Only Toggle */}
-        <div className="flex items-center gap-2">
-          {isReadOnly ? (
-            <Lock className="w-4 h-4 text-muted-foreground" />
+          {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
+          {isReplayMode ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                  onClick={() => setShowExitReplayConfirm(true)}
+                  disabled={forceReadOnly}
+                >
+                  <Play className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">退出回放模式</TooltipContent>
+            </Tooltip>
           ) : (
-            <Unlock className="w-4 h-4 text-muted-foreground" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-7 w-7 ${isReadOnly ? 'text-red-600' : ''}`}
+                  onClick={toggleReadOnly}
+                  disabled={forceReadOnly}
+                >
+                  {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {isReadOnly ? '切换为编辑模式' : '切换为只读模式'}
+              </TooltipContent>
+            </Tooltip>
           )}
-          <span className="text-sm text-muted-foreground">只读</span>
-          <Switch
-            checked={isReadOnly}
-            onCheckedChange={toggleReadOnly}
-            disabled={isReplayMode || forceReadOnly}
-          />
+
+          <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Party Composition */}
+          <CompositionPopover />
+
+          {/* 共享按钮 或 在本地创建副本 */}
+          {timeline && (
+            <>
+              <div className="w-px h-6 bg-border mx-1" />
+              {onCreateCopy ? (
+                <Button variant="outline" size="sm" className="h-7" onClick={onCreateCopy}>
+                  在本地创建副本
+                </Button>
+              ) : (
+                <SharePopover
+                  timeline={timeline}
+                  onPublished={(newId, publishedAt, version) => {
+                    applyPublishResult(newId, publishedAt, version)
+                    navigate(`/timeline/${newId}`, { replace: true })
+                  }}
+                  onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
+                  onConflict={c => setConflict(c)}
+                />
+              )}
+            </>
+          )}
+
+          {/* Exit Replay Mode Confirmation */}
+          <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>解除回放模式</AlertDialogTitle>
+                <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>取消</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleExitReplayMode}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  确认解除
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-
-        <div className="w-px h-6 bg-border" />
-
-        {/* Party Composition */}
-        <CompositionPopover />
-
-        <div className="w-px h-6 bg-border" />
-        <button
-          onClick={() => setShowAddEventDialog(true)}
-          disabled={isReadOnly}
-          className="flex items-center gap-2 h-9 px-3 py-2 text-sm border rounded hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-        >
-          <Plus className="w-4 h-4" />
-          添加事件
-        </button>
-
-        {/* 右侧：共享按钮 或 在本地创建副本 */}
-        {timeline && (
-          <>
-            <div className="flex-1" />
-            {onCreateCopy ? (
-              <Button variant="outline" size="sm" onClick={onCreateCopy}>
-                在本地创建副本
-              </Button>
-            ) : (
-              <SharePopover
-                timeline={timeline}
-                onPublished={(newId, publishedAt, version) => {
-                  applyPublishResult(newId, publishedAt, version)
-                  navigate(`/timeline/${newId}`, { replace: true })
-                }}
-                onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
-                onConflict={c => setConflict(c)}
-              />
-            )}
-          </>
-        )}
-
-        {/* Add Event Dialog */}
-        {showAddEventDialog && (
-          <AddEventDialog open={showAddEventDialog} onClose={() => setShowAddEventDialog(false)} />
-        )}
-
-        {/* Exit Replay Mode Confirmation */}
-        <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>解除回放模式</AlertDialogTitle>
-              <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleExitReplayMode}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                确认解除
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+      </TooltipProvider>
 
       {conflict && timeline && (
         <ConflictDialog

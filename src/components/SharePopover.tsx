@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react'
-import { Copy, Check, Loader2, Globe, Upload, Lock, Save } from 'lucide-react'
+import { Copy, Check, Loader2, Globe, Upload, CloudUpload, Lock, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -108,8 +108,8 @@ export default function SharePopover({
       </AlertDialog>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1">
-            {isShared ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+          <Button variant="outline" size="sm" className="h-7 gap-1 font-normal">
+            {isShared ? <Globe className="w-4 h-4" /> : <CloudUpload className="w-4 h-4" />}
             共享
             {hasChanges && <span className="text-orange-500">●</span>}
           </Button>
