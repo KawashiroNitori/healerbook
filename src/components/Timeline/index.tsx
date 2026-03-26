@@ -3,7 +3,7 @@
  */
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
-import { Stage, Layer } from 'react-konva'
+import { Stage, Layer, Line } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
@@ -71,6 +71,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const fixedLayerRef = useRef<Konva.Layer | null>(null)
   const mainBgLayerRef = useRef<Konva.Layer | null>(null)
   const mainEventLayerRef = useRef<Konva.Layer | null>(null)
+  // 十字准线状态
+  const hoverTimeRef = useRef<number | null>(null)
+  const hoverTrackIndexRef = useRef<number | null>(null)
+  const [hoverTime, setHoverTime] = useState<number | null>(null)
+  const [hoverTrackIndex, setHoverTrackIndex] = useState<number | null>(null)
+  // overlay Layer refs
+  const mainOverlayLayerRef = useRef<Konva.Layer | null>(null)
+  const fixedOverlayLayerRef = useRef<Konva.Layer | null>(null)
   const minimapRef = useRef<TimelineMinimapHandle | null>(null)
 
   const {
@@ -134,6 +142,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       mainEventLayerRef.current.x(-newScrollLeft)
       mainEventLayerRef.current.y(-newScrollTop)
       mainEventLayerRef.current.getStage()?.batchDraw()
+    }
+    // 十字准线 overlay Layer 同步
+    if (mainOverlayLayerRef.current) {
+      mainOverlayLayerRef.current.x(-newScrollLeft)
+      mainOverlayLayerRef.current.y(-newScrollTop)
+    }
+    // 固定区域十字准线 overlay
+    if (fixedOverlayLayerRef.current) {
+      fixedOverlayLayerRef.current.x(-newScrollLeft)
+      fixedOverlayLayerRef.current.getStage()?.batchDraw()
     }
     // 标签列垂直滚动
     if (labelColumnContainerRef.current) {
@@ -232,6 +250,62 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       LANE_ROW_HEIGHT,
     }
   }, [timeline, zoomLevel, actions, hiddenPlayerIds])
+
+  // 十字准线：鼠标移动事件
+  const handleCrosshairMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDraggingRef.current) {
+        if (hoverTimeRef.current !== null) {
+          hoverTimeRef.current = null
+          hoverTrackIndexRef.current = null
+          setHoverTime(null)
+          setHoverTrackIndex(null)
+        }
+        return
+      }
+
+      const stage = stageRef.current
+      if (!stage) return
+
+      const rect = stage.container().getBoundingClientRect()
+      const pointerX = e.clientX - rect.left
+      const pointerY = e.clientY - rect.top
+
+      const time = (pointerX + clampedScrollRef.current.scrollLeft) / zoomLevel
+      const trackIndex = Math.floor((pointerY + visualScrollTopRef.current) / skillTrackHeight)
+
+      hoverTimeRef.current = time
+      hoverTrackIndexRef.current =
+        trackIndex >= 0 && trackIndex < (layoutData?.skillTracks.length ?? 0) ? trackIndex : null
+
+      setHoverTime(time)
+      setHoverTrackIndex(hoverTrackIndexRef.current)
+    },
+    [zoomLevel, layoutData?.skillTracks.length]
+  )
+
+  // 十字准线：鼠标离开事件
+  const handleCrosshairLeave = useCallback(() => {
+    hoverTimeRef.current = null
+    hoverTrackIndexRef.current = null
+    setHoverTime(null)
+    setHoverTrackIndex(null)
+  }, [])
+
+  // 绑定十字准线鼠标事件到技能轨道 Stage
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const container = stage.container()
+    container.addEventListener('mousemove', handleCrosshairMove)
+    container.addEventListener('mouseleave', handleCrosshairLeave)
+
+    return () => {
+      container.removeEventListener('mousemove', handleCrosshairMove)
+      container.removeEventListener('mouseleave', handleCrosshairLeave)
+    }
+  }, [handleCrosshairMove, handleCrosshairLeave])
 
   // 视口宽度（Stage 实际宽度）
   const viewportWidth = Math.max(width - labelColumnWidth, 1)
@@ -502,6 +576,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}
                 height={timeRulerHeight}
+                hoverTime={hoverTime}
               />
 
               <DamageEventTrack
@@ -524,6 +599,18 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onDblClick={time => setAddEventAt(time)}
                 isReadOnly={isReadOnly}
               />
+            </Layer>
+            {/* 固定区域十字准线纵线 */}
+            <Layer ref={fixedOverlayLayerRef} x={-clampedScrollLeft} listening={false}>
+              {hoverTime != null && (
+                <Line
+                  points={[hoverTime * zoomLevel, 0, hoverTime * zoomLevel, fixedAreaHeight]}
+                  stroke="#9ca3af"
+                  strokeWidth={1}
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+              )}
             </Layer>
           </Stage>
         </div>
@@ -586,8 +673,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               scrollTop={clampedScrollTop}
               bgLayerRef={mainBgLayerRef}
               eventLayerRef={mainEventLayerRef}
-              hoverTrackIndex={null}
-              hoverTimeX={null}
+              overlayLayerRef={mainOverlayLayerRef}
+              hoverTrackIndex={hoverTrackIndex}
+              hoverTimeX={hoverTime != null ? hoverTime * zoomLevel : null}
               onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
               onContextMenu={castEventId => {
