@@ -251,8 +251,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [timeline, zoomLevel, actions, hiddenPlayerIds])
 
-  // 十字准线：鼠标移动事件
-  const handleCrosshairMove = useCallback(
+  // 十字准线：技能轨道区域鼠标移动（更新时间 + 轨道高亮）
+  const handleSkillTrackMouseMove = useCallback(
     (e: MouseEvent) => {
       if (isDraggingRef.current) {
         if (hoverTimeRef.current !== null) {
@@ -284,28 +284,75 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [zoomLevel, layoutData?.skillTracks.length]
   )
 
+  // 十字准线：固定区域鼠标移动（只更新时间，不更新轨道高亮）
+  const handleFixedAreaMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDraggingRef.current) {
+        if (hoverTimeRef.current !== null) {
+          hoverTimeRef.current = null
+          hoverTrackIndexRef.current = null
+          setHoverTime(null)
+          setHoverTrackIndex(null)
+        }
+        return
+      }
+
+      const stage = fixedStageRef.current
+      if (!stage) return
+
+      const rect = stage.container().getBoundingClientRect()
+      const pointerX = e.clientX - rect.left
+
+      const time = (pointerX + clampedScrollRef.current.scrollLeft) / zoomLevel
+
+      hoverTimeRef.current = time
+      hoverTrackIndexRef.current = null
+
+      setHoverTime(time)
+      setHoverTrackIndex(null)
+    },
+    [zoomLevel]
+  )
+
   // 十字准线：鼠标离开事件
-  const handleCrosshairLeave = useCallback(() => {
+  const handleCrosshairLeave = useCallback((e: MouseEvent) => {
+    // 检查鼠标是否移到了另一个 Stage 容器，如果是则不清除
+    const relatedTarget = e.relatedTarget as Element | null
+    const fixedContainer = fixedStageRef.current?.container()
+    const mainContainer = stageRef.current?.container()
+    if (
+      relatedTarget &&
+      (fixedContainer?.contains(relatedTarget) || mainContainer?.contains(relatedTarget))
+    ) {
+      return
+    }
     hoverTimeRef.current = null
     hoverTrackIndexRef.current = null
     setHoverTime(null)
     setHoverTrackIndex(null)
   }, [])
 
-  // 绑定十字准线鼠标事件到技能轨道 Stage
+  // 绑定十字准线鼠标事件
   useEffect(() => {
-    const stage = stageRef.current
-    if (!stage) return
+    const mainStage = stageRef.current
+    const fixedStage = fixedStageRef.current
+    if (!mainStage || !fixedStage) return
 
-    const container = stage.container()
-    container.addEventListener('mousemove', handleCrosshairMove)
-    container.addEventListener('mouseleave', handleCrosshairLeave)
+    const mainContainer = mainStage.container()
+    const fixedContainer = fixedStage.container()
+
+    mainContainer.addEventListener('mousemove', handleSkillTrackMouseMove)
+    mainContainer.addEventListener('mouseleave', handleCrosshairLeave)
+    fixedContainer.addEventListener('mousemove', handleFixedAreaMouseMove)
+    fixedContainer.addEventListener('mouseleave', handleCrosshairLeave)
 
     return () => {
-      container.removeEventListener('mousemove', handleCrosshairMove)
-      container.removeEventListener('mouseleave', handleCrosshairLeave)
+      mainContainer.removeEventListener('mousemove', handleSkillTrackMouseMove)
+      mainContainer.removeEventListener('mouseleave', handleCrosshairLeave)
+      fixedContainer.removeEventListener('mousemove', handleFixedAreaMouseMove)
+      fixedContainer.removeEventListener('mouseleave', handleCrosshairLeave)
     }
-  }, [handleCrosshairMove, handleCrosshairLeave])
+  }, [handleSkillTrackMouseMove, handleFixedAreaMouseMove, handleCrosshairLeave])
 
   // 视口宽度（Stage 实际宽度）
   const viewportWidth = Math.max(width - labelColumnWidth, 1)
