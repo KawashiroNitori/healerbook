@@ -82,21 +82,12 @@ export default function TimeRuler({
           return (
             <Group>
               <Line points={[x, 0, x, height]} stroke="#9ca3af" strokeWidth={1} listening={false} />
-              <Rect
-                x={x - 1}
-                y={0}
-                width={50}
-                height={18}
-                fill="#374151"
-                cornerRadius={2}
-                listening={false}
-              />
               <Text
-                x={x + 3}
-                y={3}
+                x={x + 4}
+                y={8}
                 text={formatTimeWithDecimal(hoverTime)}
-                fontSize={11}
-                fill="#ffffff"
+                fontSize={12}
+                fill="#6b7280"
                 fontFamily="Arial, sans-serif"
                 perfectDrawEnabled={false}
                 listening={false}
