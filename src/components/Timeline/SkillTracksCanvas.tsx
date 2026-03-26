@@ -6,7 +6,12 @@ import type { ReactElement, RefObject } from 'react'
 import { Group, Layer, Line, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import CastEventIcon from './CastEventIcon'
-import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME } from './constants'
+import {
+  CROSSHAIR_VERTICAL_LINE_STYLE,
+  CROSSHAIR_TRACK_HIGHLIGHT_COLOR,
+  DAMAGE_TIME_LINE_STYLE,
+  TIMELINE_START_TIME,
+} from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -33,6 +38,9 @@ interface SkillTracksCanvasProps {
   isReadOnly?: boolean
   bgLayerRef?: RefObject<Konva.Layer | null>
   eventLayerRef?: RefObject<Konva.Layer | null>
+  overlayLayerRef?: RefObject<Konva.Layer | null>
+  hoverTrackIndex: number | null
+  hoverTimeX: number | null // 鼠标时间对应的像素 X 坐标（Layer 坐标系）
 }
 
 export default function SkillTracksCanvas({
@@ -56,6 +64,9 @@ export default function SkillTracksCanvas({
   isReadOnly = false,
   bgLayerRef,
   eventLayerRef,
+  overlayLayerRef,
+  hoverTrackIndex,
+  hoverTimeX,
 }: SkillTracksCanvasProps) {
   const skillTracksHeight = skillTracks.length * trackHeight
 
@@ -96,6 +107,21 @@ export default function SkillTracksCanvas({
             }}
           />
         ))}
+
+        {/* 鼠标悬浮轨道高亮 */}
+        {hoverTrackIndex != null &&
+          hoverTrackIndex >= 0 &&
+          hoverTrackIndex < skillTracks.length && (
+            <Rect
+              x={TIMELINE_START_TIME * zoomLevel}
+              y={hoverTrackIndex * trackHeight}
+              width={timelineWidth}
+              height={trackHeight}
+              fill={CROSSHAIR_TRACK_HIGHLIGHT_COLOR}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          )}
 
         {/* 技能轨道分隔线 */}
         {skillTracks.map((track, index) => (
@@ -361,6 +387,18 @@ export default function SkillTracksCanvas({
             />
           )
         })}
+      </Layer>
+
+      {/* 十字准线叠加层 */}
+      <Layer ref={overlayLayerRef} x={-scrollLeft} y={-scrollTop} listening={false}>
+        {hoverTimeX != null && (
+          <Line
+            points={[hoverTimeX, 0, hoverTimeX, skillTracksHeight]}
+            {...CROSSHAIR_VERTICAL_LINE_STYLE}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        )}
       </Layer>
     </>
   )

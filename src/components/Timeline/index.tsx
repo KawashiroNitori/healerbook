@@ -586,6 +586,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               scrollTop={clampedScrollTop}
               bgLayerRef={mainBgLayerRef}
               eventLayerRef={mainEventLayerRef}
+              hoverTrackIndex={null}
+              hoverTimeX={null}
               onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
               onContextMenu={castEventId => {
