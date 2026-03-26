@@ -276,9 +276,21 @@ export function useTimelinePanZoom(
       } else {
         e.preventDefault()
         const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY
-        setScrollLeft(prev =>
-          Math.min(maxScrollLeftRef.current, Math.max(minScrollLeftRef.current, prev + scrollDelta))
-        )
+        if (onDirectScroll) {
+          // 以 clampedScrollRef 为基准（惯性期间与视觉位置同步），避免跳回旧 React state
+          localScrollLeft = clampScrollLeft(clampedScrollRef.current.scrollLeft + scrollDelta)
+          const effectiveScrollTop = clampedScrollRef.current.scrollTop
+          clampedScrollRef.current = { scrollLeft: localScrollLeft, scrollTop: effectiveScrollTop }
+          onDirectScroll(localScrollLeft, effectiveScrollTop)
+          setScrollLeft(localScrollLeft)
+        } else {
+          setScrollLeft(prev =>
+            Math.min(
+              maxScrollLeftRef.current,
+              Math.max(minScrollLeftRef.current, prev + scrollDelta)
+            )
+          )
+        }
       }
     }
 

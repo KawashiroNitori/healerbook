@@ -7,6 +7,7 @@ import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 
 import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import { getNonTankMinHP } from '@/utils/stats'
 import { TIMELINE_START_TIME } from './constants'
 
 interface TimelineMinimapProps {
@@ -48,7 +49,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       contentHeight: 36,
     })
 
-    const { timeline } = useTimelineStore()
+    const { timeline, statistics } = useTimelineStore()
     const eventResults = useDamageCalculationResults()
 
     // 计算缩略图的缩放比例（减去内边距）
@@ -197,38 +198,46 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         1
       )
 
+      // 致死线：非T职业最低HP / 最大伤害，限制在 60%–100%
+      const referenceMaxHP = getNonTankMinHP(statistics)
+      const rawLineRatio = referenceMaxHP / maxDamage
+      const shouldDrawFatalLine = rawLineRatio < 1
+      const lineDisplayRatio = Math.max(rawLineRatio, 0.75)
+      const lineHeightFromBottom = lineDisplayRatio * contentHeight
+
       timeline.damageEvents.forEach(event => {
         const x = (event.time - TIMELINE_START_TIME) * zoomLevel * minimapScale
         const eventWidth = Math.max(3, 5 * minimapScale)
 
-        // 根据伤害结果着色
+        // 根据距致死线的距离着色（死刑使用固定灰色，不参与距离计算）
         const result = eventResults.get(event.id)
         const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0)
-        let color = '#94a3b8' // 默认灰色
+        const finalDamageForColor = result?.finalDamage ?? event.damage
+        const ratio = finalDamageForColor / referenceMaxHP
+        let color: string
 
-        if (hasOverkill) {
+        if (event.type === 'tankbuster') {
+          color = '#94a3b8' // 死刑 - 灰色
+        } else if (hasOverkill) {
           color = '#373737' // 有死亡 - 深灰黑
-        } else if (result?.referenceMaxHP && result.finalDamage >= result.referenceMaxHP) {
-          color = '#dc2626' // 致死 - 深红
-        } else if (result?.referenceMaxHP && result.finalDamage >= result.referenceMaxHP * 0.9) {
-          color = '#f59e0b' // 危险 - 琥珀
-        } else if (result) {
-          const damageReduction = 1 - result.finalDamage / result.originalDamage
-          if (damageReduction >= 0.5) {
-            color = '#22c55e' // 高减伤 - 绿色
-          } else if (damageReduction >= 0.3) {
-            color = '#eab308' // 中减伤 - 黄色
-          } else if (damageReduction > 0) {
-            color = '#f97316' // 低减伤 - 橙色
-          } else {
-            color = '#ef4444' // 无减伤 - 红色
-          }
+        } else if (ratio >= 1) {
+          color = '#dc2626' // >= 100% HP - 致死红
+        } else if (ratio >= 0.9) {
+          color = '#f59e0b' // 90–100% HP - 琥珀
+        } else if (ratio >= 0.7) {
+          color = '#f97316' // 70–90% HP - 橙色
+        } else if (ratio >= 0.5) {
+          color = '#eab308' // 50–70% HP - 黄色
+        } else {
+          color = '#22c55e' // < 50% HP - 绿色
         }
 
-        // 计算柱子高度（基于最终伤害）
-        const finalDamage = result?.finalDamage ?? event.damage
-        const normalizedHeight = (finalDamage / maxDamage) * contentHeight
-        const barHeight = Math.max(3, normalizedHeight) // 最小高度 3px
+        // 计算柱子高度：有致死线时以 referenceMaxHP 为基准（使线正好对应该值）
+        // 无致死线时以 maxDamage 为基准填满内容区域
+        const normalizedHeight = shouldDrawFatalLine
+          ? (finalDamageForColor / referenceMaxHP) * lineHeightFromBottom
+          : (finalDamageForColor / maxDamage) * contentHeight
+        const barHeight = Math.max(3, Math.min(normalizedHeight, contentHeight))
 
         ctx.fillStyle = color
         ctx.fillRect(
@@ -239,12 +248,32 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         )
       })
 
+      // 绘制致死线（有事件超过非T生命值时才画）
+      if (shouldDrawFatalLine) {
+        const lineY = contentY + contentHeight - lineHeightFromBottom
+        ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([4, 3])
+        ctx.beginPath()
+        ctx.moveTo(0, lineY)
+        ctx.lineTo(canvasWidth, lineY)
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        // 致死线标签
+        ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'top'
+        ctx.fillStyle = 'rgba(220, 38, 38, 0.8)'
+        ctx.fillText('致死', 2, lineY + 3)
+      }
+
       drawParamsRef.current = { minimapScale, timelineOffset, contentY, contentHeight }
 
       // 画视口指示器
       drawViewportRect(scrollLeft)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeline, eventResults, canvasWidth, height, zoomLevel, minimapScale])
+    }, [timeline, eventResults, statistics, canvasWidth, height, zoomLevel, minimapScale])
 
     // React 驱动的视口更新（drag 结束 / zoom 后同步）
     useEffect(() => {

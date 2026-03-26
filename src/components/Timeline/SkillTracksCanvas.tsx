@@ -3,7 +3,7 @@
  */
 
 import type { ReactElement, RefObject } from 'react'
-import { Group, Layer, Line, Rect, Text } from 'react-konva'
+import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
 import CastEventIcon from './CastEventIcon'
 import {
@@ -107,6 +107,64 @@ export default function SkillTracksCanvas({
             }}
           />
         ))}
+
+        {/* 技能冷却阴影（冷却 >= 30s，仅编辑模式） */}
+        {!isReadOnly &&
+          skillTracks.map((track, trackIndex) => {
+            const action = actions.find(a => a.id === track.actionId)
+            if (!action || action.cooldown < 30) return null
+
+            const trackCastEvents = timeline.castEvents
+              .filter(ce => ce.playerId === track.playerId && ce.actionId === track.actionId)
+              .sort((a, b) => a.timestamp - b.timestamp)
+
+            return trackCastEvents.map((castEvent, idx) => {
+              const prevCast = idx > 0 ? trackCastEvents[idx - 1] : null
+              const castX = castEvent.timestamp * zoomLevel
+              const cooldownW = action.cooldown * zoomLevel
+              // 左边界止于上一个技能时间条的末尾（timestamp + cooldown）
+              const prevBarEnd =
+                prevCast !== null
+                  ? (prevCast.timestamp + action.cooldown) * zoomLevel
+                  : castX - cooldownW
+              const shadowLeft = Math.max(castX - cooldownW, prevBarEnd)
+              const shadowWidth = castX - shadowLeft
+
+              if (shadowWidth <= 0) return null
+
+              return (
+                <Shape
+                  key={`cooldown-shadow-${castEvent.id}`}
+                  x={shadowLeft}
+                  y={trackIndex * trackHeight}
+                  width={shadowWidth}
+                  height={trackHeight}
+                  sceneFunc={(kCtx, shape) => {
+                    const ctx = kCtx._context
+                    const w = shape.width()
+                    const h = shape.height()
+                    ctx.save()
+                    ctx.beginPath()
+                    ctx.rect(0, 0, w, h)
+                    ctx.clip()
+                    const step = 7
+                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.22)'
+                    ctx.lineWidth = 1
+                    for (let i = -h; i < w + h; i += step) {
+                      ctx.beginPath()
+                      ctx.moveTo(i, 0)
+                      ctx.lineTo(i + h, h)
+                      ctx.stroke()
+                    }
+                    ctx.restore()
+                  }}
+                  shadowEnabled={false}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+              )
+            })
+          })}
 
         {/* 鼠标悬浮轨道高亮 */}
         {hoverTrackIndex != null &&
