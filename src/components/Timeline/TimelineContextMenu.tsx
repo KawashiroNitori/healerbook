@@ -10,6 +10,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { MousePointerClick } from 'lucide-react'
 import type { DamageEvent } from '@/types/timeline'
 
 export type ContextMenuState =
@@ -110,7 +111,9 @@ export default function TimelineContextMenu({
             }}
           >
             添加
-            <DropdownMenuShortcut>双击</DropdownMenuShortcut>
+            <DropdownMenuShortcut>
+              <MousePointerClick className="size-3" />
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
         )}
 
@@ -156,7 +159,9 @@ export default function TimelineContextMenu({
               }}
             >
               添加
-              <DropdownMenuShortcut>双击</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <MousePointerClick className="size-3" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             {clipboard && (
               <DropdownMenuItem
