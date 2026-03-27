@@ -283,8 +283,6 @@ export function useTimelinePanZoom(
           clampedScrollRef.current = { scrollLeft: localScrollLeft, scrollTop: effectiveScrollTop }
           onDirectScroll(localScrollLeft, effectiveScrollTop)
           setScrollLeft(localScrollLeft)
-          // 同步 scrollTop 到 React state，避免 re-render 时 clampedScrollTop 用过时值覆盖
-          setScrollTop(effectiveScrollTop)
         } else {
           setScrollLeft(prev =>
             Math.min(
