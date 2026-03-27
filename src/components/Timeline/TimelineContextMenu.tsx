@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { DamageEvent } from '@/types/timeline'
@@ -92,6 +93,7 @@ export default function TimelineContextMenu({
             }}
           >
             删除
+            <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
           </DropdownMenuItem>
         )}
 
@@ -133,6 +135,7 @@ export default function TimelineContextMenu({
               }}
             >
               删除
+              <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
             </DropdownMenuItem>
           </>
         )}
