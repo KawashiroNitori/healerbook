@@ -23,6 +23,12 @@ interface DamageEventTrackProps {
   onDragMove: (eventId: string, x: number) => void
   onDragEnd: (eventId: string, x: number) => void
   onDblClick?: (time: number) => void
+  onContextMenu?: (
+    e: { type: 'damageEvent'; eventId: string } | { type: 'damageTrackEmpty' },
+    clientX: number,
+    clientY: number,
+    time: number
+  ) => void
   isReadOnly?: boolean
 }
 
@@ -42,6 +48,7 @@ export default function DamageEventTrack({
   onDragMove,
   onDragEnd,
   onDblClick,
+  onContextMenu,
   isReadOnly = false,
 }: DamageEventTrackProps) {
   // 生成时间刻度网格线（每10秒一条，实线）
@@ -96,6 +103,16 @@ export default function DamageEventTrack({
           const time = Math.max(TIMELINE_START_TIME, Math.round((pos.x / zoomLevel) * 10) / 10)
           onDblClick(time)
         }}
+        onContextMenu={e => {
+          if (isReadOnly || !onContextMenu) return
+          e.evt.preventDefault()
+          const layer = e.target.getLayer()
+          if (!layer) return
+          const pos = layer.getRelativePointerPosition()
+          if (!pos) return
+          const time = Math.max(TIMELINE_START_TIME, Math.round((pos.x / zoomLevel) * 10) / 10)
+          onContextMenu({ type: 'damageTrackEmpty' }, e.evt.clientX, e.evt.clientY, time)
+        }}
       />
 
       {/* 时间刻度网格线 */}
@@ -128,6 +145,16 @@ export default function DamageEventTrack({
               onDragMove={x => onDragMove(event.id, x)}
               onDragEnd={x => onDragEnd(event.id, x)}
               isReadOnly={isReadOnly}
+              onContextMenu={e => {
+                if (isReadOnly || !onContextMenu) return
+                e.evt.preventDefault()
+                onContextMenu(
+                  { type: 'damageEvent', eventId: event.id },
+                  e.evt.clientX,
+                  e.evt.clientY,
+                  event.time
+                )
+              }}
             />
           )
         })}
