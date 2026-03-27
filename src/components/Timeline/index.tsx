@@ -762,7 +762,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           const afterHP = calc.referenceMaxHP - calc.finalDamage
           const dead = afterHP <= 0
           lines.push(
-            `  HP: ${calc.referenceMaxHP.toLocaleString()} → ${dead ? `${afterHP.toLocaleString()} (死亡)` : afterHP.toLocaleString()}`
+            `  HP: ${calc.referenceMaxHP.toLocaleString()} → ${dead ? `${afterHP.toLocaleString()} (会死)` : afterHP.toLocaleString()}`
           )
         }
       } else {
