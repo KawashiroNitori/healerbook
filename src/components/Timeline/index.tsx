@@ -2,7 +2,7 @@
  * 时间轴 Canvas 主组件（重构版）
  */
 
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react'
 import { Stage, Layer, Line } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -392,6 +392,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     scrollLeft,
     scrollTop,
   ])
+
+  // React re-render 后立即重新应用 Layer 位置，防止 React-Konva props 覆盖 handleDirectScroll 的 imperative 定位
+  useLayoutEffect(() => {
+    handleDirectScroll(clampedScrollLeft, clampedScrollTop)
+  }, [clampedScrollLeft, clampedScrollTop, handleDirectScroll])
 
   // 检查技能是否与同轨道的其他技能重叠
   const checkOverlap = (
