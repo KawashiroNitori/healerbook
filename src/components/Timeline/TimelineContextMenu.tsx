@@ -110,6 +110,7 @@ export default function TimelineContextMenu({
             }}
           >
             添加
+            <DropdownMenuShortcut>双击</DropdownMenuShortcut>
           </DropdownMenuItem>
         )}
 
@@ -155,6 +156,7 @@ export default function TimelineContextMenu({
               }}
             >
               添加
+              <DropdownMenuShortcut>双击</DropdownMenuShortcut>
             </DropdownMenuItem>
             {clipboard && (
               <DropdownMenuItem
