@@ -380,7 +380,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     maxScrollLeftRef.current = maxScrollLeft
     minScrollLeftRef.current = minScrollLeft
     maxScrollTopRef.current = maxScrollTop
-    clampedScrollRef.current = { scrollLeft: clampedScrollLeft, scrollTop: clampedScrollTop }
+    // 只同步 scrollLeft；scrollTop 由 direct scroll 路径管理（inertia/drag/wheel），
+    // 避免惯性动画期间用 stale 的 React state 覆盖正确的 ref 值
+    clampedScrollRef.current.scrollLeft = clampedScrollLeft
     scrollLeftRef.current = scrollLeft
     scrollTopRef.current = scrollTop
   }, [

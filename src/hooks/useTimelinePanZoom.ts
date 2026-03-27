@@ -279,10 +279,14 @@ export function useTimelinePanZoom(
         if (onDirectScroll) {
           // 以 clampedScrollRef 为基准（惯性期间与视觉位置同步），避免跳回旧 React state
           localScrollLeft = clampScrollLeft(clampedScrollRef.current.scrollLeft + scrollDelta)
-          const effectiveScrollTop = clampedScrollRef.current.scrollTop
+          // 用 visualScrollTopRef（由 handleDirectScroll 维护，始终正确），
+          // 而非 clampedScrollRef.scrollTop（可能被 sync effect 用 stale React state 覆盖）
+          const effectiveScrollTop = visualScrollTopRef.current
           clampedScrollRef.current = { scrollLeft: localScrollLeft, scrollTop: effectiveScrollTop }
           onDirectScroll(localScrollLeft, effectiveScrollTop)
           setScrollLeft(localScrollLeft)
+          // 同步 scrollTop React state，防止后续 re-render 时 clampedScrollTop 用过时值
+          setScrollTop(effectiveScrollTop)
         } else {
           setScrollLeft(prev =>
             Math.min(
