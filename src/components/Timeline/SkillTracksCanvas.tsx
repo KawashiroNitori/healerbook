@@ -31,7 +31,14 @@ interface SkillTracksCanvasProps {
   scrollTop: number
   onSelectCastEvent: (id: string) => void
   onUpdateCastEvent: (id: string, x: number) => void
-  onContextMenu: (castEventId: string) => void
+  onContextMenu: (
+    payload:
+      | { type: 'castEvent'; castEventId: string; actionId: number }
+      | { type: 'skillTrackEmpty'; actionId: number },
+    clientX: number,
+    clientY: number,
+    time: number
+  ) => void
   onDoubleClickTrack: (track: SkillTrack, time: number) => void
   onHoverAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
   onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
@@ -104,6 +111,21 @@ export default function SkillTracksCanvas({
 
               const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
               onDoubleClickTrack(track, time)
+            }}
+            onContextMenu={e => {
+              if (isReadOnly) return
+              e.evt.preventDefault()
+              const stage = e.target.getStage()
+              if (!stage) return
+              const pointerPos = stage.getPointerPosition()
+              if (!pointerPos) return
+              const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
+              onContextMenu(
+                { type: 'skillTrackEmpty', actionId: track.actionId },
+                e.evt.clientX,
+                e.evt.clientY,
+                time
+              )
             }}
           />
         ))}
@@ -437,7 +459,12 @@ export default function SkillTracksCanvas({
               onContextMenu={e => {
                 if (isReadOnly) return
                 e.evt.preventDefault()
-                onContextMenu(castEvent.id)
+                onContextMenu(
+                  { type: 'castEvent', castEventId: castEvent.id, actionId: castEvent.actionId },
+                  e.evt.clientX,
+                  e.evt.clientY,
+                  castEvent.timestamp
+                )
               }}
               onHover={onHoverAction}
               onClickIcon={onClickAction}

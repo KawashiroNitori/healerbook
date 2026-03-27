@@ -728,9 +728,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               hoverTimeX={hoverTime != null ? hoverTime * zoomLevel : null}
               onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
-              onContextMenu={castEventId => {
-                setCastEventToDelete(castEventId)
-                setDeleteConfirmOpen(true)
+              onContextMenu={payload => {
+                if (payload.type === 'castEvent') {
+                  setCastEventToDelete(payload.castEventId)
+                  setDeleteConfirmOpen(true)
+                }
               }}
               onDoubleClickTrack={handleDoubleClickTrack}
               onHoverAction={handleHoverAction}
