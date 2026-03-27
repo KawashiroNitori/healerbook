@@ -88,7 +88,7 @@ export default function TimelineContextMenu({
           style={{ left: menu.x, top: menu.y, width: 1, height: 1 }}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="bottom" className="min-w-[140px] text-xs">
+      <DropdownMenuContent align="start" side="bottom" className="min-w-[120px] text-[11px]">
         {menu.type === 'castEvent' && (
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
