@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand'
+import { temporal } from 'zundo'
 import type { Timeline, DamageEvent, CastEvent, Composition } from '@/types/timeline'
 import type { PartyState, PlayerState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
@@ -114,420 +115,436 @@ const initialState = {
   autoSaveTimer: null,
 }
 
-export const useTimelineStore = create<TimelineState>((set, get) => ({
-  ...initialState,
+export const useTimelineStore = create<TimelineState>()(
+  temporal(
+    (set, get) => ({
+      ...initialState,
 
-  setTimeline: timeline => {
-    set({
-      timeline,
-      selectedEventId: null,
-      selectedCastEventId: null,
-      currentTime: 0,
-    })
-    // 初始化小队状态
-    if (timeline?.composition) {
-      get().initializePartyState(timeline.composition)
-    }
-  },
+      setTimeline: timeline => {
+        set({
+          timeline,
+          selectedEventId: null,
+          selectedCastEventId: null,
+          currentTime: 0,
+        })
+        // 加载新时间轴时清空撤销/重做历史
+        useTimelineStore.temporal.getState().clear()
+        // 初始化小队状态
+        if (timeline?.composition) {
+          get().initializePartyState(timeline.composition)
+        }
+      },
 
-  initializePartyState: composition => {
-    const { statistics } = get()
-    if (!composition.players || composition.players.length === 0) {
-      set({ partyState: null })
-      return
-    }
+      initializePartyState: composition => {
+        const { statistics } = get()
+        if (!composition.players || composition.players.length === 0) {
+          set({ partyState: null })
+          return
+        }
 
-    // 将所有玩家转换为 PlayerState
-    const players: PlayerState[] = composition.players.map(p => ({
-      id: p.id,
-      job: p.job,
-      maxHP: statistics?.maxHPByJob[p.job] ?? 100000,
-    }))
+        // 将所有玩家转换为 PlayerState
+        const players: PlayerState[] = composition.players.map(p => ({
+          id: p.id,
+          job: p.job,
+          maxHP: statistics?.maxHPByJob[p.job] ?? 100000,
+        }))
 
-    const partyState: PartyState = {
-      players,
-      statuses: [],
-      timestamp: 0,
-    }
+        const partyState: PartyState = {
+          players,
+          statuses: [],
+          timestamp: 0,
+        }
 
-    set({ partyState })
-  },
+        set({ partyState })
+      },
 
-  setStatistics: statistics => {
-    set({ statistics })
-    // 统计数据到位后用真实 HP 重新初始化小队状态
-    const { timeline } = get()
-    if (statistics && timeline?.composition) {
-      get().initializePartyState(timeline.composition)
-    }
-  },
+      setStatistics: statistics => {
+        set({ statistics })
+        // 统计数据到位后用真实 HP 重新初始化小队状态
+        const { timeline } = get()
+        if (statistics && timeline?.composition) {
+          get().initializePartyState(timeline.composition)
+        }
+      },
 
-  executeAction: (actionId, time, sourcePlayerId) => {
-    const state = get()
-    if (!state.partyState) return
+      executeAction: (actionId, time, sourcePlayerId) => {
+        const state = get()
+        if (!state.partyState) return
 
-    // 查找技能
-    const action = MITIGATION_DATA.actions.find(a => a.id === actionId)
-    if (!action) {
-      console.error(`技能 ${actionId} 不存在`)
-      return
-    }
+        // 查找技能
+        const action = MITIGATION_DATA.actions.find(a => a.id === actionId)
+        if (!action) {
+          console.error(`技能 ${actionId} 不存在`)
+          return
+        }
 
-    // 创建执行上下文
-    const context: ActionExecutionContext = {
-      actionId,
-      useTime: time,
-      partyState: state.partyState,
-      sourcePlayerId,
-      statistics: state.statistics ?? undefined,
-    }
+        // 创建执行上下文
+        const context: ActionExecutionContext = {
+          actionId,
+          useTime: time,
+          partyState: state.partyState,
+          sourcePlayerId,
+          statistics: state.statistics ?? undefined,
+        }
 
-    // 执行技能并更新状态
-    const newPartyState = action.executor(context)
-    set({ partyState: newPartyState })
-  },
+        // 执行技能并更新状态
+        const newPartyState = action.executor(context)
+        set({ partyState: newPartyState })
+      },
 
-  updatePartyState: partyState => {
-    set({ partyState })
-  },
+      updatePartyState: partyState => {
+        set({ partyState })
+      },
 
-  cleanupExpiredStatuses: currentTime => {
-    const state = get()
-    if (!state.partyState) return
+      cleanupExpiredStatuses: currentTime => {
+        const state = get()
+        if (!state.partyState) return
 
-    const newPartyState: PartyState = {
-      ...state.partyState,
-      statuses: state.partyState.statuses.filter(s => s.endTime >= currentTime),
-      timestamp: currentTime,
-    }
+        const newPartyState: PartyState = {
+          ...state.partyState,
+          statuses: state.partyState.statuses.filter(s => s.endTime >= currentTime),
+          timestamp: currentTime,
+        }
 
-    set({ partyState: newPartyState })
-  },
+        set({ partyState: newPartyState })
+      },
 
-  selectEvent: eventId =>
-    set({
-      selectedEventId: eventId,
-      selectedCastEventId: null,
-    }),
+      selectEvent: eventId =>
+        set({
+          selectedEventId: eventId,
+          selectedCastEventId: null,
+        }),
 
-  selectCastEvent: castEventId =>
-    set({
-      selectedCastEventId: castEventId,
-      selectedEventId: null,
-    }),
+      selectCastEvent: castEventId =>
+        set({
+          selectedCastEventId: castEventId,
+          selectedEventId: null,
+        }),
 
-  setCurrentTime: time =>
-    set({
-      currentTime: Math.max(0, time),
-    }),
+      setCurrentTime: time =>
+        set({
+          currentTime: Math.max(0, time),
+        }),
 
-  setZoomLevel: level =>
-    set({
-      zoomLevel: Math.max(10, Math.min(200, level)),
-    }),
+      setZoomLevel: level =>
+        set({
+          zoomLevel: Math.max(10, Math.min(200, level)),
+        }),
 
-  setPendingScrollProgress: progress =>
-    set({
-      pendingScrollProgress: progress,
-    }),
+      setPendingScrollProgress: progress =>
+        set({
+          pendingScrollProgress: progress,
+        }),
 
-  updateScrollState: (scrollLeft, timelineWidth, viewportWidth) =>
-    set({
-      currentScrollLeft: scrollLeft,
-      currentTimelineWidth: timelineWidth,
-      currentViewportWidth: viewportWidth,
-    }),
+      updateScrollState: (scrollLeft, timelineWidth, viewportWidth) =>
+        set({
+          currentScrollLeft: scrollLeft,
+          currentTimelineWidth: timelineWidth,
+          currentViewportWidth: viewportWidth,
+        }),
 
-  zoomWithScrollPreservation: delta => {
-    const state = get()
-    const currentZoom = state.zoomLevel
-    const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
+      zoomWithScrollPreservation: delta => {
+        const state = get()
+        const currentZoom = state.zoomLevel
+        const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
 
-    // 保存视口中央对应的时间（秒），缩放后据此还原位置
-    const timeAtCenter = (state.currentScrollLeft + state.currentViewportWidth / 2) / currentZoom
+        // 保存视口中央对应的时间（秒），缩放后据此还原位置
+        const timeAtCenter =
+          (state.currentScrollLeft + state.currentViewportWidth / 2) / currentZoom
 
-    set({ pendingScrollProgress: timeAtCenter })
+        set({ pendingScrollProgress: timeAtCenter })
 
-    // 更新缩放级别
-    set({ zoomLevel: newZoomLevel })
-  },
+        // 更新缩放级别
+        set({ zoomLevel: newZoomLevel })
+      },
 
-  updateTimelineName: name => {
-    set(state => {
-      if (!state.timeline) return state
+      updateTimelineName: name => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          name,
-          updatedAt: Math.floor(Date.now() / 1000),
-        },
-      }
-    })
-    get().triggerAutoSave(0)
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              name,
+              updatedAt: Math.floor(Date.now() / 1000),
+            },
+          }
+        })
+        get().triggerAutoSave(0)
+      },
 
-  updateTimelineDescription: description => {
-    set(state => {
-      if (!state.timeline) return state
+      updateTimelineDescription: description => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          description: description || undefined,
-          updatedAt: Math.floor(Date.now() / 1000),
-        },
-      }
-    })
-    get().triggerAutoSave(0)
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              description: description || undefined,
+              updatedAt: Math.floor(Date.now() / 1000),
+            },
+          }
+        })
+        get().triggerAutoSave(0)
+      },
 
-  updateComposition: composition => {
-    set(state => {
-      if (!state.timeline) return state
+      updateComposition: composition => {
+        set(state => {
+          if (!state.timeline) return state
 
-      // 获取新阵容中的所有玩家 ID
-      const newPlayerIds = composition.players.map(p => p.id)
+          // 获取新阵容中的所有玩家 ID
+          const newPlayerIds = composition.players.map(p => p.id)
 
-      // 过滤掉不在新阵容中的玩家的技能使用事件
-      const filteredCastEvents = state.timeline.castEvents.filter(castEvent =>
-        newPlayerIds.includes(castEvent.playerId)
-      )
+          // 过滤掉不在新阵容中的玩家的技能使用事件
+          const filteredCastEvents = state.timeline.castEvents.filter(castEvent =>
+            newPlayerIds.includes(castEvent.playerId)
+          )
 
-      return {
-        timeline: {
-          ...state.timeline,
-          composition,
-          castEvents: filteredCastEvents,
-          updatedAt: Math.floor(Date.now() / 1000),
-        },
-      }
-    })
-    get().triggerAutoSave()
-    // 重新初始化小队状态
-    get().initializePartyState(composition)
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              composition,
+              castEvents: filteredCastEvents,
+              updatedAt: Math.floor(Date.now() / 1000),
+            },
+          }
+        })
+        get().triggerAutoSave()
+        // 重新初始化小队状态
+        get().initializePartyState(composition)
+      },
 
-  addDamageEvent: event => {
-    set(state => {
-      if (!state.timeline) return state
+      addDamageEvent: event => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          damageEvents: [...state.timeline.damageEvents, event],
-        },
-      }
-    })
-    get().triggerAutoSave()
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              damageEvents: [...state.timeline.damageEvents, event],
+            },
+          }
+        })
+        get().triggerAutoSave()
+      },
 
-  updateDamageEvent: (eventId, updates) => {
-    set(state => {
-      if (!state.timeline) return state
+      updateDamageEvent: (eventId, updates) => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          damageEvents: state.timeline.damageEvents.map(event =>
-            event.id === eventId ? { ...event, ...updates } : event
-          ),
-        },
-      }
-    })
-    get().triggerAutoSave()
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              damageEvents: state.timeline.damageEvents.map(event =>
+                event.id === eventId ? { ...event, ...updates } : event
+              ),
+            },
+          }
+        })
+        get().triggerAutoSave()
+      },
 
-  removeDamageEvent: eventId => {
-    set(state => {
-      if (!state.timeline) return state
+      removeDamageEvent: eventId => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          damageEvents: state.timeline.damageEvents.filter(event => event.id !== eventId),
-        },
-        selectedEventId: state.selectedEventId === eventId ? null : state.selectedEventId,
-      }
-    })
-    get().triggerAutoSave()
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              damageEvents: state.timeline.damageEvents.filter(event => event.id !== eventId),
+            },
+            selectedEventId: state.selectedEventId === eventId ? null : state.selectedEventId,
+          }
+        })
+        get().triggerAutoSave()
+      },
 
-  addCastEvent: castEvent => {
-    set(state => {
-      if (!state.timeline) return state
+      addCastEvent: castEvent => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          castEvents: [...state.timeline.castEvents, castEvent],
-        },
-      }
-    })
-    get().triggerAutoSave()
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              castEvents: [...state.timeline.castEvents, castEvent],
+            },
+          }
+        })
+        get().triggerAutoSave()
+      },
 
-  updateCastEvent: (castEventId, updates) => {
-    set(state => {
-      if (!state.timeline) return state
+      updateCastEvent: (castEventId, updates) => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          castEvents: state.timeline.castEvents.map(castEvent =>
-            castEvent.id === castEventId ? { ...castEvent, ...updates } : castEvent
-          ),
-        },
-      }
-    })
-    get().triggerAutoSave()
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              castEvents: state.timeline.castEvents.map(castEvent =>
+                castEvent.id === castEventId ? { ...castEvent, ...updates } : castEvent
+              ),
+            },
+          }
+        })
+        get().triggerAutoSave()
+      },
 
-  removeCastEvent: castEventId => {
-    set(state => {
-      if (!state.timeline) return state
+      removeCastEvent: castEventId => {
+        set(state => {
+          if (!state.timeline) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          castEvents: state.timeline.castEvents.filter(castEvent => castEvent.id !== castEventId),
-        },
-        selectedCastEventId:
-          state.selectedCastEventId === castEventId ? null : state.selectedCastEventId,
-      }
-    })
-    get().triggerAutoSave()
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              castEvents: state.timeline.castEvents.filter(
+                castEvent => castEvent.id !== castEventId
+              ),
+            },
+            selectedCastEventId:
+              state.selectedCastEventId === castEventId ? null : state.selectedCastEventId,
+          }
+        })
+        get().triggerAutoSave()
+      },
 
-  triggerAutoSave: (delay = AUTO_SAVE_DELAY) => {
-    // 如果已发布，标记有本地未发布的修改
-    const { timeline } = get()
-    if (timeline?.isShared) {
-      set(state => ({
-        timeline: state.timeline ? { ...state.timeline, hasLocalChanges: true } : null,
-      }))
-    }
+      triggerAutoSave: (delay = AUTO_SAVE_DELAY) => {
+        // 如果已发布，标记有本地未发布的修改
+        const { timeline } = get()
+        if (timeline?.isShared) {
+          set(state => ({
+            timeline: state.timeline ? { ...state.timeline, hasLocalChanges: true } : null,
+          }))
+        }
 
-    const state = get()
+        const state = get()
 
-    // 清除之前的定时器
-    if (state.autoSaveTimer) {
-      clearTimeout(state.autoSaveTimer)
-    }
+        // 清除之前的定时器
+        if (state.autoSaveTimer) {
+          clearTimeout(state.autoSaveTimer)
+        }
 
-    // 如果 delay 为 0，立即保存
-    if (delay === 0) {
-      const currentState = get()
-      if (currentState.timeline) {
-        saveTimeline(currentState.timeline)
-      }
-      set({ autoSaveTimer: null })
-      return
-    }
+        // 如果 delay 为 0，立即保存
+        if (delay === 0) {
+          const currentState = get()
+          if (currentState.timeline) {
+            saveTimeline(currentState.timeline)
+          }
+          set({ autoSaveTimer: null })
+          return
+        }
 
-    // 设置新的定时器
-    const timer = setTimeout(() => {
-      const currentState = get()
-      if (currentState.timeline) {
-        saveTimeline(currentState.timeline)
-      }
-    }, delay)
+        // 设置新的定时器
+        const timer = setTimeout(() => {
+          const currentState = get()
+          if (currentState.timeline) {
+            saveTimeline(currentState.timeline)
+          }
+        }, delay)
 
-    set({ autoSaveTimer: timer })
-  },
+        set({ autoSaveTimer: timer })
+      },
 
-  exitReplayMode: () => {
-    set(state => {
-      if (!state.timeline || !state.timeline.isReplayMode) return state
+      exitReplayMode: () => {
+        set(state => {
+          if (!state.timeline || !state.timeline.isReplayMode) return state
 
-      return {
-        timeline: {
-          ...state.timeline,
-          isReplayMode: false,
-          // 保留 statusEvents，因为编辑模式也可能有 statusEvents
-          // 清除原始 FFLogs 伤害明细，编辑模式不再需要这些数据
-          damageEvents: state.timeline.damageEvents.map(e => {
-            const copy = { ...e }
-            delete copy.playerDamageDetails
-            return copy
-          }),
-        },
-      }
-    })
-    get().triggerAutoSave()
-    // 重新初始化小队状态（使用 executor）
-    const timeline = get().timeline
-    if (timeline?.composition) {
-      get().initializePartyState(timeline.composition)
-    }
-  },
+          return {
+            timeline: {
+              ...state.timeline,
+              isReplayMode: false,
+              // 保留 statusEvents，因为编辑模式也可能有 statusEvents
+              // 清除原始 FFLogs 伤害明细，编辑模式不再需要这些数据
+              damageEvents: state.timeline.damageEvents.map(e => {
+                const copy = { ...e }
+                delete copy.playerDamageDetails
+                return copy
+              }),
+            },
+          }
+        })
+        get().triggerAutoSave()
+        // 重新初始化小队状态（使用 executor）
+        const timeline = get().timeline
+        if (timeline?.composition) {
+          get().initializePartyState(timeline.composition)
+        }
+      },
 
-  applyPublishResult: (newId, _publishedAt, version) => {
-    // 先捕获 oldId，再调用 set（set 之后 timeline.id 已变为 newId）
-    const oldId = get().timeline?.id
-    if (!oldId) return
-    const now = Math.floor(Date.now() / 1000)
-    const newTimeline = {
-      ...get().timeline!,
-      id: newId,
-      isShared: true,
-      hasLocalChanges: false,
-      serverVersion: version,
-      updatedAt: now,
-    }
-    set({ timeline: newTimeline })
-    // 先写新 key，再删旧 key，避免数据丢失
-    saveTimeline(newTimeline)
-    deleteTimeline(oldId)
-  },
-
-  applyUpdateResult: (updatedAt, version) => {
-    set(state => {
-      if (!state.timeline) return state
-      return {
-        timeline: {
-          ...state.timeline,
-          hasLocalChanges: false,
-          serverVersion: version,
-          updatedAt,
-        },
-      }
-    })
-    const { timeline } = get()
-    if (timeline) {
-      saveTimeline(timeline)
-    }
-  },
-
-  applyServerTimeline: serverTimeline => {
-    const now = Math.floor(Date.now() / 1000)
-    set(state => {
-      if (!state.timeline) return state
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { isAuthor: _isAuthor, ...rest } = serverTimeline
-      return {
-        timeline: {
-          ...state.timeline,
-          ...rest,
-          statusEvents: state.timeline.statusEvents,
+      applyPublishResult: (newId, _publishedAt, version) => {
+        // 先捕获 oldId，再调用 set（set 之后 timeline.id 已变为 newId）
+        const oldId = get().timeline?.id
+        if (!oldId) return
+        const now = Math.floor(Date.now() / 1000)
+        const newTimeline = {
+          ...get().timeline!,
+          id: newId,
           isShared: true,
           hasLocalChanges: false,
-          serverVersion: rest.version,
+          serverVersion: version,
           updatedAt: now,
-        },
-      }
-    })
-    const { timeline } = get()
-    if (timeline) {
-      saveTimeline(timeline)
-    }
-  },
+        }
+        set({ timeline: newTimeline })
+        // 先写新 key，再删旧 key，避免数据丢失
+        saveTimeline(newTimeline)
+        deleteTimeline(oldId)
+      },
 
-  reset: () => {
-    const state = get()
-    if (state.autoSaveTimer) {
-      clearTimeout(state.autoSaveTimer)
+      applyUpdateResult: (updatedAt, version) => {
+        set(state => {
+          if (!state.timeline) return state
+          return {
+            timeline: {
+              ...state.timeline,
+              hasLocalChanges: false,
+              serverVersion: version,
+              updatedAt,
+            },
+          }
+        })
+        const { timeline } = get()
+        if (timeline) {
+          saveTimeline(timeline)
+        }
+      },
+
+      applyServerTimeline: serverTimeline => {
+        const now = Math.floor(Date.now() / 1000)
+        set(state => {
+          if (!state.timeline) return state
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { isAuthor: _isAuthor, ...rest } = serverTimeline
+          return {
+            timeline: {
+              ...state.timeline,
+              ...rest,
+              statusEvents: state.timeline.statusEvents,
+              isShared: true,
+              hasLocalChanges: false,
+              serverVersion: rest.version,
+              updatedAt: now,
+            },
+          }
+        })
+        const { timeline } = get()
+        if (timeline) {
+          saveTimeline(timeline)
+        }
+      },
+
+      reset: () => {
+        const state = get()
+        if (state.autoSaveTimer) {
+          clearTimeout(state.autoSaveTimer)
+        }
+        set(initialState)
+      },
+    }),
+    {
+      partialize: (state): Pick<TimelineState, 'timeline'> => ({
+        timeline: state.timeline,
+      }),
+      equality: (pastState, currentState) => pastState.timeline === currentState.timeline,
+      limit: 50,
     }
-    set(initialState)
-  },
-}))
+  )
+)
