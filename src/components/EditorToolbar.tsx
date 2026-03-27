@@ -4,7 +4,8 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ZoomIn, ZoomOut, Lock, Unlock, Play } from 'lucide-react'
+import { ZoomIn, ZoomOut, Lock, Unlock, Play, Undo2, Redo2 } from 'lucide-react'
+import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -43,10 +44,16 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
     applyPublishResult,
     applyUpdateResult,
     applyServerTimeline,
+    triggerAutoSave,
+    selectEvent,
+    selectCastEvent,
   } = useTimelineStore()
   const { toggleReadOnly } = useUIStore()
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
+
+  const canUndo = useStore(useTimelineStore.temporal, s => s.pastStates.length > 0)
+  const canRedo = useStore(useTimelineStore.temporal, s => s.futureStates.length > 0)
 
   const isReplayMode = timeline?.isReplayMode || false
   const isReadOnly = useEditorReadOnly()
@@ -55,6 +62,20 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
   const handleExitReplayMode = () => {
     exitReplayMode()
     setShowExitReplayConfirm(false)
+  }
+
+  const handleUndo = () => {
+    useTimelineStore.temporal.getState().undo()
+    selectEvent(null)
+    selectCastEvent(null)
+    triggerAutoSave()
+  }
+
+  const handleRedo = () => {
+    useTimelineStore.temporal.getState().redo()
+    selectEvent(null)
+    selectCastEvent(null)
+    triggerAutoSave()
   }
 
   const handleZoomChange = (values: number[]) => {
@@ -85,6 +106,41 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           </div>
 
           <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Undo / Redo */}
+          {!isReadOnly && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">撤销</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                  >
+                    <Redo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">重做</TooltipContent>
+              </Tooltip>
+              <div className="w-px h-6 bg-border mx-1" />
+            </>
+          )}
 
           {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
           {isReplayMode ? (
