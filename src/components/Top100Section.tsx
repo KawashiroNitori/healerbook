@@ -383,7 +383,7 @@ export default function Top100Section() {
     }
   }
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['top100'],
     queryFn: fetchTop100All,
     staleTime: 5 * 60 * 1000, // 5 分钟前端缓存
@@ -397,20 +397,15 @@ export default function Top100Section() {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <h2 className="text-xl font-semibold">TOP100 参考方案</h2>
-          <p className="text-sm text-muted-foreground">
-            来自 FFLogs 的治疗合计 DPS 前 100 战斗记录
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setShowFilterDialog(true)}
-                  className={`flex items-center gap-1.5 text-sm p-2 rounded transition-colors ${
+                  className={`flex items-center gap-1.5 text-sm p-1.5 rounded transition-colors ${
                     selectedJobs.length > 0
                       ? 'text-primary bg-primary/10'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -424,21 +419,9 @@ export default function Top100Section() {
               </TooltipTrigger>
               <TooltipContent>阵容过滤</TooltipContent>
             </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => refetch()}
-                  disabled={isFetching}
-                  className="flex items-center justify-center text-sm text-muted-foreground hover:text-foreground p-2 rounded hover:bg-accent transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>刷新</TooltipContent>
-            </Tooltip>
           </TooltipProvider>
         </div>
+        <p className="text-sm text-muted-foreground">来自 FFLogs 的治疗合计 DPS 前 100 战斗记录</p>
       </div>
 
       {/* 赛季 Tab */}
