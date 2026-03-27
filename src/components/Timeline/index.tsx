@@ -13,6 +13,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { useTimelinePanZoom } from '@/hooks/useTimelinePanZoom'
 import type { PanZoomRefs } from '@/hooks/useTimelinePanZoom'
 import { sortJobsByOrder } from '@/data/jobs'
+import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
 import ConfirmDialog from '../ConfirmDialog'
 import AddEventDialog from '../AddEventDialog'
@@ -95,6 +96,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setZoomLevel,
     setPendingScrollProgress,
     updateScrollState,
+    triggerAutoSave,
   } = useTimelineStore()
   const { actions, loadActions } = useMitigationStore()
   const { hiddenPlayerIds } = useUIStore()
@@ -429,22 +431,43 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [width, zoomLevel, setZoomLevel])
 
-  // 处理键盘删除
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isReadOnly) return
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedEventId) {
-          removeDamageEvent(selectedEventId)
-        } else if (selectedCastEventId) {
-          removeCastEvent(selectedCastEventId)
-        }
-      }
-    }
+  // 撤销
+  useHotkeys(
+    'mod+z',
+    () => {
+      useTimelineStore.temporal.getState().undo()
+      selectEvent(null)
+      selectCastEvent(null)
+      triggerAutoSave()
+    },
+    { enabled: !isReadOnly, preventDefault: true }
+  )
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedEventId, selectedCastEventId, removeDamageEvent, removeCastEvent, isReadOnly])
+  // 重做
+  useHotkeys(
+    'mod+shift+z',
+    () => {
+      useTimelineStore.temporal.getState().redo()
+      selectEvent(null)
+      selectCastEvent(null)
+      triggerAutoSave()
+    },
+    { enabled: !isReadOnly, preventDefault: true }
+  )
+
+  // 删除选中的事件
+  useHotkeys(
+    'delete, backspace',
+    () => {
+      if (selectedEventId) {
+        removeDamageEvent(selectedEventId)
+      } else if (selectedCastEventId) {
+        removeCastEvent(selectedCastEventId)
+      }
+    },
+    { enabled: !isReadOnly },
+    [selectedEventId, selectedCastEventId]
+  )
 
   // 处理技能悬浮提示
   const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
