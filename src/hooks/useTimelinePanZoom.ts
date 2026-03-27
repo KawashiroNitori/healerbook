@@ -144,6 +144,9 @@ export function useTimelinePanZoom(
       // 已有活跃指针时忽略额外的触摸点
       if (activePointerIdRef.current !== null) return
 
+      // 右键不触发拖动
+      if (evt.button === 2) return
+
       // 停止正在进行的惯性动画
       const wasInertiaRunning = inertiaRafIdRef.current !== null
       stopInertia()
