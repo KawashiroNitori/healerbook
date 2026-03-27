@@ -108,39 +108,36 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           <div className="w-px h-6 bg-border mx-1" />
 
           {/* Undo / Redo */}
-          {!isReadOnly && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={handleUndo}
-                    disabled={!canUndo}
-                  >
-                    <Undo2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">撤销</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={handleRedo}
-                    disabled={!canRedo}
-                  >
-                    <Redo2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">重做</TooltipContent>
-              </Tooltip>
-              <div className="w-px h-6 bg-border mx-1" />
-            </>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleUndo}
+                disabled={isReadOnly || !canUndo}
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">撤销</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleRedo}
+                disabled={isReadOnly || !canRedo}
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">重做</TooltipContent>
+          </Tooltip>
+
+          <div className="w-px h-6 bg-border mx-1" />
 
           {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
           {isReplayMode ? (

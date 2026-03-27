@@ -408,12 +408,15 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       triggerAutoSave: (delay = AUTO_SAVE_DELAY) => {
-        // 如果已发布，标记有本地未发布的修改
+        // 如果已发布，标记有本地未发布的修改（不记录历史）
         const { timeline } = get()
         if (timeline?.isShared) {
+          const { pause, resume } = useTimelineStore.temporal.getState()
+          pause()
           set(state => ({
             timeline: state.timeline ? { ...state.timeline, hasLocalChanges: true } : null,
           }))
+          resume()
         }
 
         const state = get()
@@ -445,6 +448,8 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       exitReplayMode: () => {
+        // 退出回放模式不可撤销，暂停历史记录
+        useTimelineStore.temporal.getState().pause()
         set(state => {
           if (!state.timeline || !state.timeline.isReplayMode) return state
 
@@ -468,12 +473,21 @@ export const useTimelineStore = create<TimelineState>()(
         if (timeline?.composition) {
           get().initializePartyState(timeline.composition)
         }
+        // 恢复历史记录并清空（退出回放后之前的历史无意义）
+        useTimelineStore.temporal.getState().resume()
+        useTimelineStore.temporal.getState().clear()
       },
 
       applyPublishResult: (newId, _publishedAt, version) => {
+        // 发布操作不可撤销
+        const { pause, resume } = useTimelineStore.temporal.getState()
+        pause()
         // 先捕获 oldId，再调用 set（set 之后 timeline.id 已变为 newId）
         const oldId = get().timeline?.id
-        if (!oldId) return
+        if (!oldId) {
+          resume()
+          return
+        }
         const now = Math.floor(Date.now() / 1000)
         const newTimeline = {
           ...get().timeline!,
@@ -487,9 +501,13 @@ export const useTimelineStore = create<TimelineState>()(
         // 先写新 key，再删旧 key，避免数据丢失
         saveTimeline(newTimeline)
         deleteTimeline(oldId)
+        resume()
       },
 
       applyUpdateResult: (updatedAt, version) => {
+        // 同步操作不可撤销
+        const { pause, resume } = useTimelineStore.temporal.getState()
+        pause()
         set(state => {
           if (!state.timeline) return state
           return {
@@ -505,9 +523,13 @@ export const useTimelineStore = create<TimelineState>()(
         if (timeline) {
           saveTimeline(timeline)
         }
+        resume()
       },
 
       applyServerTimeline: serverTimeline => {
+        // 使用服务器版本覆盖本地不可撤销，清空历史栈
+        const temporal = useTimelineStore.temporal.getState()
+        temporal.pause()
         const now = Math.floor(Date.now() / 1000)
         set(state => {
           if (!state.timeline) return state
@@ -529,6 +551,8 @@ export const useTimelineStore = create<TimelineState>()(
         if (timeline) {
           saveTimeline(timeline)
         }
+        temporal.resume()
+        temporal.clear()
       },
 
       reset: () => {
