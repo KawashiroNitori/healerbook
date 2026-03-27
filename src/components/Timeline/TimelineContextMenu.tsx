@@ -57,6 +57,11 @@ interface TimelineContextMenuProps {
   onPasteDamageEvent: (time: number) => void
 }
 
+const isMac =
+  // @ts-expect-error userAgentData is not yet in all TS lib types
+  navigator.userAgentData?.platform === 'macOS' || /Mac/.test(navigator.platform)
+const modKey = isMac ? '⌘' : 'Ctrl+'
+
 export default function TimelineContextMenu({
   menu,
   clipboard,
@@ -125,7 +130,7 @@ export default function TimelineContextMenu({
               }}
             >
               复制
-              <DropdownMenuShortcut>⌘C</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{modKey}C</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -159,7 +164,7 @@ export default function TimelineContextMenu({
                 }}
               >
                 粘贴伤害事件
-                <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
           </>
