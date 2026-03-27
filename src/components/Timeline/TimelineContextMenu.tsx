@@ -154,7 +154,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加伤害事件
+              添加
             </DropdownMenuItem>
             {clipboard && (
               <DropdownMenuItem
@@ -163,7 +163,7 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                粘贴伤害事件
+                粘贴
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
