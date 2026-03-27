@@ -125,6 +125,7 @@ export default function TimelineContextMenu({
               }}
             >
               复制
+              <DropdownMenuShortcut>⌘C</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -158,6 +159,7 @@ export default function TimelineContextMenu({
                 }}
               >
                 粘贴伤害事件
+                <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
           </>

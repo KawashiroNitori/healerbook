@@ -470,6 +470,42 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [selectedEventId, selectedCastEventId]
   )
 
+  // 复制选中的伤害事件
+  useHotkeys(
+    'mod+c',
+    () => {
+      if (!selectedEventId || !timeline) return
+      const event = timeline.damageEvents.find(e => e.id === selectedEventId)
+      if (!event) return
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, time: _time, ...rest } = event
+      setClipboard(rest)
+      toast.success('已复制伤害事件')
+    },
+    { enabled: !isReadOnly },
+    [selectedEventId, timeline]
+  )
+
+  // 粘贴伤害事件（在鼠标悬浮位置，若无则在视口中央）
+  useHotkeys(
+    'mod+v',
+    () => {
+      if (!clipboard) return
+      const pasteTime =
+        hoverTimeRef.current ??
+        (clampedScrollRef.current.scrollLeft + viewportWidth / 2) / zoomLevel
+      const { addDamageEvent } = useTimelineStore.getState()
+      addDamageEvent({
+        ...clipboard,
+        id: `event-${Date.now()}`,
+        time: Math.round(pasteTime * 10) / 10,
+      })
+      toast.success('已粘贴伤害事件')
+    },
+    { enabled: !isReadOnly, preventDefault: true },
+    [clipboard, viewportWidth, zoomLevel]
+  )
+
   // 处理技能悬浮提示
   const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
     if (isDraggingRef.current) return
