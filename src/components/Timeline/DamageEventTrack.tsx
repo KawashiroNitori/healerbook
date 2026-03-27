@@ -104,8 +104,8 @@ export default function DamageEventTrack({
           onDblClick(time)
         }}
         onContextMenu={e => {
-          if (isReadOnly || !onContextMenu) return
           e.evt.preventDefault()
+          if (isReadOnly || !onContextMenu) return
           const layer = e.target.getLayer()
           if (!layer) return
           const pos = layer.getRelativePointerPosition()
@@ -146,8 +146,8 @@ export default function DamageEventTrack({
               onDragEnd={x => onDragEnd(event.id, x)}
               isReadOnly={isReadOnly}
               onContextMenu={e => {
-                if (isReadOnly || !onContextMenu) return
                 e.evt.preventDefault()
+                if (!onContextMenu) return
                 onContextMenu(
                   { type: 'damageEvent', eventId: event.id },
                   e.evt.clientX,

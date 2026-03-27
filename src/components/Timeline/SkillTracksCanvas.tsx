@@ -113,8 +113,8 @@ export default function SkillTracksCanvas({
               onDoubleClickTrack(track, time)
             }}
             onContextMenu={e => {
-              if (isReadOnly) return
               e.evt.preventDefault()
+              if (isReadOnly) return
               const stage = e.target.getStage()
               if (!stage) return
               const pointerPos = stage.getPointerPosition()
@@ -457,8 +457,8 @@ export default function SkillTracksCanvas({
               onSelect={() => onSelectCastEvent(castEvent.id)}
               onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
               onContextMenu={e => {
-                if (isReadOnly) return
                 e.evt.preventDefault()
+                if (isReadOnly) return
                 onContextMenu(
                   { type: 'castEvent', castEventId: castEvent.id, actionId: castEvent.actionId },
                   e.evt.clientX,

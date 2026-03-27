@@ -48,6 +48,7 @@ export type DamageEventClipboard = Omit<DamageEvent, 'id' | 'time'> | null
 interface TimelineContextMenuProps {
   menu: ContextMenuState | null
   clipboard: DamageEventClipboard
+  isReadOnly: boolean
   onClose: () => void
   onDeleteCast: (castEventId: string) => void
   onAddCast: (actionId: number, time: number) => void
@@ -66,6 +67,7 @@ const modKey = isMac ? '⌘' : 'Ctrl+'
 export default function TimelineContextMenu({
   menu,
   clipboard,
+  isReadOnly,
   onClose,
   onDeleteCast,
   onAddCast,
@@ -76,6 +78,9 @@ export default function TimelineContextMenu({
   onPasteDamageEvent,
 }: TimelineContextMenuProps) {
   if (!menu) return null
+
+  // 只读模式下，只有伤害事件有可用菜单项（复制文本、复制）
+  if (isReadOnly && menu.type !== 'damageEvent') return null
 
   const handleOpenChange = (open: boolean) => {
     if (!open) onClose()
@@ -136,17 +141,21 @@ export default function TimelineContextMenu({
               复制
               <DropdownMenuShortcut>{modKey}C</DropdownMenuShortcut>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => {
-                onDeleteDamageEvent(menu.eventId)
-                onClose()
-              }}
-            >
-              删除
-              <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
-            </DropdownMenuItem>
+            {!isReadOnly && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    onDeleteDamageEvent(menu.eventId)
+                    onClose()
+                  }}
+                >
+                  删除
+                  <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
 

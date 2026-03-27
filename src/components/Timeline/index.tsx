@@ -1008,6 +1008,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       <TimelineContextMenu
         menu={contextMenu}
         clipboard={clipboard}
+        isReadOnly={isReadOnly}
         onClose={handleContextMenuClose}
         onDeleteCast={removeCastEvent}
         onAddCast={handleContextMenuAddCast}
