@@ -3,6 +3,7 @@
  */
 
 import { Group, Rect, Text } from 'react-konva'
+import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 
@@ -18,6 +19,7 @@ interface DamageEventCardProps {
   onDragMove: (x: number) => void
   onDragEnd: (x: number) => void
   isReadOnly?: boolean
+  onContextMenu?: (e: KonvaEventObject<PointerEvent>) => void
 }
 
 export default function DamageEventCard({
@@ -32,6 +34,7 @@ export default function DamageEventCard({
   onDragMove,
   onDragEnd,
   isReadOnly = false,
+  onContextMenu,
 }: DamageEventCardProps) {
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
@@ -91,6 +94,7 @@ export default function DamageEventCard({
       onDragEnd={e => {
         onDragEnd(e.target.x())
       }}
+      onContextMenu={onContextMenu}
     >
       {/* 背景矩形 */}
       <Rect
