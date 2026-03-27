@@ -12,9 +12,12 @@ import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { useTimelinePanZoom } from '@/hooks/useTimelinePanZoom'
 import type { PanZoomRefs } from '@/hooks/useTimelinePanZoom'
-import { sortJobsByOrder } from '@/data/jobs'
+import { sortJobsByOrder, getJobName } from '@/data/jobs'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
+import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import { getStatusById } from '@/utils/statusRegistry'
+import { getStatusName } from '@/utils/statusIconUtils'
 import AddEventDialog from '../AddEventDialog'
 import TimelineContextMenu from './TimelineContextMenu'
 import type { ContextMenuState, DamageEventClipboard } from './TimelineContextMenu'
@@ -101,6 +104,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   } = useTimelineStore()
   const { actions, loadActions } = useMitigationStore()
   const { hiddenPlayerIds } = useUIStore()
+  const calculationResults = useDamageCalculationResults()
 
   useEffect(() => {
     if (actions.length === 0) {
@@ -654,11 +658,122 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [timeline, layoutData?.skillTracks, addCastEvent]
   )
 
-  const handleContextMenuEditDamageEvent = useCallback(
+  const handleCopyDamageEventText = useCallback(
     (eventId: string) => {
-      selectEvent(eventId)
+      if (!timeline) return
+      const event = timeline.damageEvents.find(e => e.id === eventId)
+      if (!event) return
+      const calc = calculationResults.get(eventId)
+
+      const lines: string[] = []
+      const header = `${event.name} (${event.time.toFixed(1)}s)`
+
+      if (timeline.isReplayMode && event.playerDamageDetails?.length) {
+        // 回放模式：每个玩家的实际伤害
+        lines.push(header)
+        const sorted = sortJobsByOrder(event.playerDamageDetails, d => d.job)
+        for (const detail of sorted) {
+          if (detail.unmitigatedDamage === 0) continue
+          const dead = (detail.overkill ?? 0) > 0
+          const hpText =
+            detail.maxHitPoints != null
+              ? `HP: ${detail.maxHitPoints.toLocaleString()} → ${dead ? `${(detail.hitPoints ?? 0).toLocaleString()} (死亡)` : (detail.hitPoints ?? 0).toLocaleString()}`
+              : ''
+          lines.push(
+            `  ${getJobName(detail.job)}: ${detail.unmitigatedDamage.toLocaleString()} → ${detail.finalDamage.toLocaleString()}${hpText ? `  ${hpText}` : ''}`
+          )
+
+          // 减伤状态
+          const statuses = detail.statuses || []
+          const multipliers = statuses.filter(s => getStatusById(s.statusId)?.type === 'multiplier')
+          const shields = statuses.filter(
+            s => getStatusById(s.statusId)?.type === 'absorbed' && (s.absorb || 0) > 0
+          )
+
+          if (multipliers.length > 0) {
+            const damageType = event.damageType || 'physical'
+            const parts = multipliers.map(s => {
+              const meta = getStatusById(s.statusId)!
+              const perf =
+                damageType === 'physical'
+                  ? meta.performance.physics
+                  : damageType === 'magical'
+                    ? meta.performance.magic
+                    : meta.performance.darkness
+              return `${getStatusName(s.statusId) || meta.name}(${((1 - perf) * 100).toFixed(0)}%)`
+            })
+            const totalMult = multipliers.reduce((acc, s) => {
+              const meta = getStatusById(s.statusId)!
+              const perf =
+                damageType === 'physical'
+                  ? meta.performance.physics
+                  : damageType === 'magical'
+                    ? meta.performance.magic
+                    : meta.performance.darkness
+              return acc * perf
+            }, 1)
+            lines.push(`    减伤: ${parts.join(' + ')} = ${((1 - totalMult) * 100).toFixed(1)}%`)
+          }
+          if (shields.length > 0) {
+            const shieldParts = shields.map(
+              s =>
+                `${getStatusName(s.statusId) || getStatusById(s.statusId)?.name || ''}(${(s.absorb || 0).toLocaleString()})`
+            )
+            lines.push(`    盾值: ${shieldParts.join(' + ')}`)
+          }
+        }
+      } else if (calc) {
+        // 编辑模式
+        lines.push(
+          `${header} 原始伤害: ${calc.originalDamage.toLocaleString()} → 最终伤害: ${calc.finalDamage.toLocaleString()}`
+        )
+
+        const damageType = event.damageType || 'physical'
+        const multipliers = calc.appliedStatuses.filter(
+          s => getStatusById(s.statusId)?.type === 'multiplier'
+        )
+        if (multipliers.length > 0) {
+          const parts = multipliers.map(s => {
+            const meta = getStatusById(s.statusId)!
+            const perf =
+              damageType === 'physical'
+                ? meta.performance.physics
+                : damageType === 'magical'
+                  ? meta.performance.magic
+                  : meta.performance.darkness
+            return `${getStatusName(s.statusId) || meta.name}(${((1 - perf) * 100).toFixed(0)}%)`
+          })
+          lines.push(`  减伤: ${parts.join(' + ')} = ${calc.mitigationPercentage.toFixed(1)}%`)
+        }
+
+        // 盾值：从 appliedStatuses 中找 absorbed 类型
+        const shieldStatuses = calc.appliedStatuses.filter(
+          s => getStatusById(s.statusId)?.type === 'absorbed'
+        )
+        if (shieldStatuses.length > 0) {
+          const shieldParts = shieldStatuses.map(s => {
+            const name = getStatusName(s.statusId) || getStatusById(s.statusId)?.name || ''
+            return `${name}(${(s.initialBarrier ?? 0).toLocaleString()})`
+          })
+          lines.push(`  盾值: ${shieldParts.join(' + ')}`)
+        }
+
+        if (calc.referenceMaxHP != null) {
+          const afterHP = calc.referenceMaxHP - calc.finalDamage
+          const dead = afterHP <= 0
+          lines.push(
+            `  HP: ${calc.referenceMaxHP.toLocaleString()} → ${dead ? `${afterHP.toLocaleString()} (死亡)` : afterHP.toLocaleString()}`
+          )
+        }
+      } else {
+        lines.push(`${header} 伤害: ${event.damage.toLocaleString()}`)
+      }
+
+      const text = lines.join('\n')
+      navigator.clipboard.writeText(text)
+      toast.success('已复制伤害事件文本')
     },
-    [selectEvent]
+    [timeline, calculationResults]
   )
 
   const handleContextMenuCopyDamageEvent = useCallback(
@@ -896,7 +1011,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onClose={handleContextMenuClose}
         onDeleteCast={removeCastEvent}
         onAddCast={handleContextMenuAddCast}
-        onEditDamageEvent={handleContextMenuEditDamageEvent}
+        onCopyDamageEventText={handleCopyDamageEventText}
         onCopyDamageEvent={handleContextMenuCopyDamageEvent}
         onDeleteDamageEvent={removeDamageEvent}
         onAddDamageEvent={handleContextMenuAddDamageEvent}

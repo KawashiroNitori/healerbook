@@ -51,7 +51,7 @@ interface TimelineContextMenuProps {
   onClose: () => void
   onDeleteCast: (castEventId: string) => void
   onAddCast: (actionId: number, time: number) => void
-  onEditDamageEvent: (eventId: string) => void
+  onCopyDamageEventText: (eventId: string) => void
   onCopyDamageEvent: (eventId: string) => void
   onDeleteDamageEvent: (eventId: string) => void
   onAddDamageEvent: (time: number) => void
@@ -69,7 +69,7 @@ export default function TimelineContextMenu({
   onClose,
   onDeleteCast,
   onAddCast,
-  onEditDamageEvent,
+  onCopyDamageEventText,
   onCopyDamageEvent,
   onDeleteDamageEvent,
   onAddDamageEvent,
@@ -121,11 +121,11 @@ export default function TimelineContextMenu({
           <>
             <DropdownMenuItem
               onClick={() => {
-                onEditDamageEvent(menu.eventId)
+                onCopyDamageEventText(menu.eventId)
                 onClose()
               }}
             >
-              编辑属性
+              复制文本
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
