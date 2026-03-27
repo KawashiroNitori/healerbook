@@ -24,98 +24,29 @@
 
 ---
 
-### Task 1: 安装 DropdownMenu 依赖并添加 shadcn/ui 组件
+### Task 1: 使用 shadcn CLI 添加 DropdownMenu 组件
 
 **Files:**
 
-- Create: `src/components/ui/dropdown-menu.tsx`
+- Create: `src/components/ui/dropdown-menu.tsx`（由 CLI 自动生成）
 
-- [ ] **Step 1: 安装 @radix-ui/react-dropdown-menu**
-
-```bash
-pnpm add @radix-ui/react-dropdown-menu
-```
-
-- [ ] **Step 2: 创建 shadcn/ui dropdown-menu 组件**
-
-创建 `src/components/ui/dropdown-menu.tsx`，使用 shadcn/ui New York 风格：
-
-```tsx
-import * as React from 'react'
-import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
-
-import { cn } from '@/lib/utils'
-
-const DropdownMenu = DropdownMenuPrimitive.Root
-const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
-
-const DropdownMenuContent = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
-    <DropdownMenuPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-        className
-      )}
-      {...props}
-    />
-  </DropdownMenuPrimitive.Portal>
-))
-DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
-
-const DropdownMenuItem = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
-    inset?: boolean
-  }
->(({ className, inset, ...props }, ref) => (
-  <DropdownMenuPrimitive.Item
-    ref={ref}
-    className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0',
-      inset && 'pl-8',
-      className
-    )}
-    {...props}
-  />
-))
-DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
-
-const DropdownMenuSeparator = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
->(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.Separator
-    ref={ref}
-    className={cn('-mx-1 my-1 h-px bg-muted', className)}
-    {...props}
-  />
-))
-DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName
-
-export {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-}
-```
-
-- [ ] **Step 3: 验证 cn 工具函数存在**
+- [ ] **Step 1: 使用 shadcn CLI 安装 dropdown-menu 组件**
 
 ```bash
-ls src/lib/utils.ts
+pnpm dlx shadcn@latest add dropdown-menu
 ```
 
-如果不存在，检查项目中 `cn` 的来源路径并调整 import。
+该命令会自动安装 `@radix-ui/react-dropdown-menu` 依赖并生成 `src/components/ui/dropdown-menu.tsx`。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 2: 验证生成的文件存在**
+
+```bash
+ls src/components/ui/dropdown-menu.tsx
+```
+
+Expected: 文件存在
+
+- [ ] **Step 3: 提交**
 
 ```bash
 git add src/components/ui/dropdown-menu.tsx package.json pnpm-lock.yaml
