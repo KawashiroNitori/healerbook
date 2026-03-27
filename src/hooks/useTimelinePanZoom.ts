@@ -145,7 +145,12 @@ export function useTimelinePanZoom(
       if (activePointerIdRef.current !== null) return
 
       // 停止正在进行的惯性动画
+      const wasInertiaRunning = inertiaRafIdRef.current !== null
       stopInertia()
+      // 若惯性动画被中断，重置平移结束时间，避免 Konva 把拖动尾帧与本次点击合并判定为双击
+      if (wasInertiaRunning) {
+        lastPanEndTimeRef.current = Date.now()
+      }
 
       // 鼠标按下时立即隐藏悬浮窗
       useTooltipStore.getState().clearTooltip()
