@@ -15,8 +15,9 @@ import type { PanZoomRefs } from '@/hooks/useTimelinePanZoom'
 import { sortJobsByOrder } from '@/data/jobs'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
-import ConfirmDialog from '../ConfirmDialog'
 import AddEventDialog from '../AddEventDialog'
+import TimelineContextMenu from './TimelineContextMenu'
+import type { ContextMenuState, DamageEventClipboard } from './TimelineContextMenu'
 import TimeRuler from './TimeRuler'
 import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
@@ -41,8 +42,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const hasInitializedZoom = useRef(false)
   const scrollLeftRef = useRef(0)
   const scrollTopRef = useRef(0)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [castEventToDelete, setCastEventToDelete] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [clipboard, setClipboard] = useState<DamageEventClipboard>(null)
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
     eventId: string
     x: number
@@ -566,6 +567,93 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     selectCastEvent(id)
   }
 
+  const handleContextMenu = useCallback(
+    (
+      payload:
+        | { type: 'castEvent'; castEventId: string; actionId: number }
+        | { type: 'skillTrackEmpty'; actionId: number }
+        | { type: 'damageEvent'; eventId: string }
+        | { type: 'damageTrackEmpty' },
+      clientX: number,
+      clientY: number,
+      time: number
+    ) => {
+      if (payload.type === 'castEvent') {
+        selectCastEvent(payload.castEventId)
+      } else if (payload.type === 'damageEvent') {
+        selectEvent(payload.eventId)
+      }
+
+      setContextMenu({ ...payload, x: clientX, y: clientY, time })
+    },
+    [selectCastEvent, selectEvent]
+  )
+
+  const handleContextMenuClose = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  const handleContextMenuAddCast = useCallback(
+    (actionId: number, time: number) => {
+      if (!timeline) return
+      const track = layoutData?.skillTracks.find(t => t.actionId === actionId)
+      if (!track) return
+
+      if (checkOverlap(time, track.playerId, actionId)) {
+        toast.error('无法添加技能', { description: '该技能与已有技能重叠' })
+        return
+      }
+
+      addCastEvent({
+        id: `cast-${Date.now()}`,
+        actionId,
+        timestamp: time,
+        playerId: track.playerId,
+        job: track.job,
+      })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [timeline, layoutData?.skillTracks, addCastEvent]
+  )
+
+  const handleContextMenuEditDamageEvent = useCallback(
+    (eventId: string) => {
+      selectEvent(eventId)
+    },
+    [selectEvent]
+  )
+
+  const handleContextMenuCopyDamageEvent = useCallback(
+    (eventId: string) => {
+      if (!timeline) return
+      const event = timeline.damageEvents.find(e => e.id === eventId)
+      if (!event) return
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, time: _time, ...rest } = event
+      setClipboard(rest)
+      toast.success('已复制伤害事件')
+    },
+    [timeline]
+  )
+
+  const handleContextMenuAddDamageEvent = useCallback((time: number) => {
+    setAddEventAt(time)
+  }, [])
+
+  const handleContextMenuPasteDamageEvent = useCallback(
+    (time: number) => {
+      if (!clipboard) return
+      const { addDamageEvent } = useTimelineStore.getState()
+      addDamageEvent({
+        ...clipboard,
+        id: `event-${Date.now()}`,
+        time,
+      })
+      toast.success('已粘贴伤害事件')
+    },
+    [clipboard]
+  )
+
   if (!timeline || !layoutData) {
     return (
       <div className="flex items-center justify-center bg-muted/20" style={{ width, height }}>
@@ -647,6 +735,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 }}
                 onDragEnd={handleEventDragEnd}
                 onDblClick={time => setAddEventAt(time)}
+                onContextMenu={handleContextMenu}
                 isReadOnly={isReadOnly}
               />
             </Layer>
@@ -728,12 +817,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               hoverTimeX={hoverTime != null ? hoverTime * zoomLevel : null}
               onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
-              onContextMenu={payload => {
-                if (payload.type === 'castEvent') {
-                  setCastEventToDelete(payload.castEventId)
-                  setDeleteConfirmOpen(true)
-                }
-              }}
+              onContextMenu={handleContextMenu}
               onDoubleClickTrack={handleDoubleClickTrack}
               onHoverAction={handleHoverAction}
               onClickAction={handleClickAction}
@@ -767,19 +851,18 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         <AddEventDialog open={true} onClose={() => setAddEventAt(null)} defaultTime={addEventAt} />
       )}
 
-      {/* 删除确认对话框 */}
-      <ConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        onConfirm={() => {
-          if (castEventToDelete) {
-            removeCastEvent(castEventToDelete)
-            setCastEventToDelete(null)
-          }
-        }}
-        title="删除技能使用"
-        description="确定要删除这个技能使用吗?"
-        variant="destructive"
+      {/* 右键上下文菜单 */}
+      <TimelineContextMenu
+        menu={contextMenu}
+        clipboard={clipboard}
+        onClose={handleContextMenuClose}
+        onDeleteCast={removeCastEvent}
+        onAddCast={handleContextMenuAddCast}
+        onEditDamageEvent={handleContextMenuEditDamageEvent}
+        onCopyDamageEvent={handleContextMenuCopyDamageEvent}
+        onDeleteDamageEvent={removeDamageEvent}
+        onAddDamageEvent={handleContextMenuAddDamageEvent}
+        onPasteDamageEvent={handleContextMenuPasteDamageEvent}
       />
     </div>
   )
