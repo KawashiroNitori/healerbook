@@ -90,36 +90,32 @@ export default function SkillTracksCanvas({
             height={trackHeight}
             fill={index % 2 === 0 ? '#fafafa' : '#ffffff'}
             draggableBackground={true}
-            onDblClick={e => {
+            onDblClick={() => {
               if (isReadOnly) return
-              const stage = e.target.getStage()
-              if (!stage) return
-
-              const pointerPos = stage.getPointerPosition()
-              if (!pointerPos) return
-
-              const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
+              const layer = bgLayerRef?.current
+              if (!layer) return
+              const pos = layer.getRelativePointerPosition()
+              if (!pos) return
+              const time = Math.round((pos.x / zoomLevel) * 10) / 10
               onDoubleClickTrack(track, time)
             }}
-            onDblTap={e => {
+            onDblTap={() => {
               if (isReadOnly) return
-              const stage = e.target.getStage()
-              if (!stage) return
-
-              const pointerPos = stage.getPointerPosition()
-              if (!pointerPos) return
-
-              const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
+              const layer = bgLayerRef?.current
+              if (!layer) return
+              const pos = layer.getRelativePointerPosition()
+              if (!pos) return
+              const time = Math.round((pos.x / zoomLevel) * 10) / 10
               onDoubleClickTrack(track, time)
             }}
             onContextMenu={e => {
               e.evt.preventDefault()
               if (isReadOnly) return
-              const stage = e.target.getStage()
-              if (!stage) return
-              const pointerPos = stage.getPointerPosition()
-              if (!pointerPos) return
-              const time = Math.round(((pointerPos.x + scrollLeft) / zoomLevel) * 10) / 10
+              const layer = bgLayerRef?.current
+              if (!layer) return
+              const pos = layer.getRelativePointerPosition()
+              if (!pos) return
+              const time = Math.round((pos.x / zoomLevel) * 10) / 10
               onContextMenu(
                 { type: 'skillTrackEmpty', actionId: track.actionId },
                 e.evt.clientX,

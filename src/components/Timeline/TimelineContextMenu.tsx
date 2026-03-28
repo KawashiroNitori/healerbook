@@ -104,7 +104,7 @@ export default function TimelineContextMenu({
             }}
           >
             删除
-            <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+            <DropdownMenuShortcut>{isMac ? '⌫' : 'Del'}</DropdownMenuShortcut>
           </DropdownMenuItem>
         )}
 
@@ -152,7 +152,7 @@ export default function TimelineContextMenu({
                   }}
                 >
                   删除
-                  <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+                  <DropdownMenuShortcut>{isMac ? '⌫' : 'Del'}</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </>
             )}

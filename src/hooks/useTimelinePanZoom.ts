@@ -144,16 +144,16 @@ export function useTimelinePanZoom(
       // 已有活跃指针时忽略额外的触摸点
       if (activePointerIdRef.current !== null) return
 
-      // 右键不触发拖动
-      if (evt.button === 2) return
-
-      // 停止正在进行的惯性动画
+      // 任意键按下都停止惯性动画，并重置平移时间戳
+      // 必须在右键 return 之前执行，否则右键无法中断惯性，且 Konva 会将拖动尾帧与右键合并判定为双击
       const wasInertiaRunning = inertiaRafIdRef.current !== null
       stopInertia()
-      // 若惯性动画被中断，重置平移结束时间，避免 Konva 把拖动尾帧与本次点击合并判定为双击
       if (wasInertiaRunning) {
         lastPanEndTimeRef.current = Date.now()
       }
+
+      // 右键不触发拖动
+      if (evt.button === 2) return
 
       // 鼠标按下时立即隐藏悬浮窗
       useTooltipStore.getState().clearTooltip()
