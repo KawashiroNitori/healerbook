@@ -47,6 +47,8 @@ interface UIState {
   toggleReadOnly: () => void
   /** 切换玩家轨道可见性 */
   togglePlayerVisibility: (playerId: number) => void
+  /** 隐藏除指定玩家外的所有玩家（独奏模式），若已是独奏则全部显示 */
+  isolatePlayer: (playerId: number, allPlayerIds: number[]) => void
 }
 
 export const useUIStore = create<UIState>(set => ({
@@ -119,5 +121,16 @@ export const useUIStore = create<UIState>(set => ({
         next.add(playerId)
       }
       return { hiddenPlayerIds: next }
+    }),
+
+  isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
+    set(state => {
+      const others = allPlayerIds.filter(id => id !== playerId)
+      const alreadyIsolated =
+        others.every(id => state.hiddenPlayerIds.has(id)) && !state.hiddenPlayerIds.has(playerId)
+      if (alreadyIsolated) {
+        return { hiddenPlayerIds: new Set<number>() }
+      }
+      return { hiddenPlayerIds: new Set(others) }
     }),
 }))

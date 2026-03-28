@@ -1,127 +1,163 @@
 import { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+import { Users, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Plus } from 'lucide-react'
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job, Composition } from '@/types/timeline'
-import { JOB_ORDER, getJobName, ROLE_LABELS, ROLE_ORDER, groupJobsByRole } from '@/data/jobs'
+import {
+  getJobName,
+  getTankJobs,
+  getHealerJobs,
+  getDPSJobs,
+  getJobRole,
+  sortJobsByOrder,
+} from '@/data/jobs'
+import { MAX_PARTY_SIZE } from '@/types/timeline'
 import JobIcon from './JobIcon'
 
 interface CompositionDialogProps {
   composition: Composition
   onSave: (composition: Composition) => void
-  disabled?: boolean
 }
 
-export default function CompositionDialog({
-  composition,
-  onSave,
-  disabled = false,
-}: CompositionDialogProps) {
+const dpsJobs = getDPSJobs()
+const JOB_ROWS: Array<{ label: string; jobs: Job[] }> = [
+  { label: '坦克', jobs: getTankJobs() },
+  { label: '治疗', jobs: getHealerJobs() },
+  { label: '近战', jobs: dpsJobs.filter(j => getJobRole(j) === 'melee') },
+  { label: '远敏', jobs: dpsJobs.filter(j => getJobRole(j) === 'ranged') },
+  { label: '法系', jobs: dpsJobs.filter(j => getJobRole(j) === 'caster') },
+]
+
+export default function CompositionDialog({ composition, onSave }: CompositionDialogProps) {
   const [open, setOpen] = useState(false)
-  const [selectedJob, setSelectedJob] = useState<Job | ''>('')
+  const [localPlayers, setLocalPlayers] = useState(composition.players)
 
-  // 按职业类别分组所有职业（允许重复职业）
-  const jobsByRole = groupJobsByRole(JOB_ORDER)
+  const canAddMore = localPlayers.length < MAX_PARTY_SIZE
+  const sortedLocalPlayers = [...localPlayers].sort((a, b) => {
+    const jobs = sortJobsByOrder([a.job, b.job])
+    return jobs.indexOf(a.job) - jobs.indexOf(b.job)
+  })
 
-  const handleSave = () => {
-    if (!selectedJob) {
-      setOpen(false)
-      return
-    }
-
-    // 生成新的玩家 ID（使用时间戳 + 随机数）
-    const newPlayerId = Date.now() + Math.floor(Math.random() * 1000)
-
-    const newComposition = {
-      players: [
-        ...composition.players,
-        {
-          id: newPlayerId,
-          job: selectedJob,
-          name: `${selectedJob} Player`,
-        },
-      ],
-    }
-
-    onSave(newComposition)
-    setSelectedJob('')
-    setOpen(false)
+  const handleAddJob = (job: Job) => {
+    if (!canAddMore) return
+    setLocalPlayers(prev => [
+      ...prev,
+      { id: Date.now() + Math.floor(Math.random() * 1000), job, name: `${job} Player` },
+    ])
   }
 
-  const handleCancel = () => {
-    setSelectedJob('')
+  const handleRemove = (playerId: number) => {
+    setLocalPlayers(prev => prev.filter(p => p.id !== playerId))
+  }
+
+  const handleConfirm = () => {
+    onSave({ players: localPlayers })
     setOpen(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full" disabled={disabled}>
-          <Plus className="w-4 h-4 mr-2" />
-          新增队员
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>新增队员</DialogTitle>
-          <DialogDescription>选择职业添加到小队</DialogDescription>
-        </DialogHeader>
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={() => {
+          setLocalPlayers(composition.players)
+          setOpen(true)
+        }}
+      >
+        <Users className="w-4 h-4 mr-2" />
+        调整阵容
+      </Button>
 
-        <div className="space-y-4">
-          <Select value={selectedJob} onValueChange={value => setSelectedJob(value as Job)}>
-            <SelectTrigger>
-              <SelectValue placeholder="选择职业" />
-            </SelectTrigger>
-            <SelectContent>
-              {ROLE_ORDER.map(role => {
-                const jobs = jobsByRole[role]
-                if (jobs.length === 0) return null
+      <Modal open={open} onClose={() => setOpen(false)}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>调整阵容</ModalTitle>
+          </ModalHeader>
 
-                return (
-                  <SelectGroup key={role}>
-                    <SelectLabel className="text-xs text-muted-foreground font-normal">
-                      {ROLE_LABELS[role]}
-                    </SelectLabel>
-                    {jobs.map(job => (
-                      <SelectItem key={job} value={job}>
-                        <div className="flex items-center gap-2">
-                          <JobIcon job={job} size="sm" />
-                          {getJobName(job)}
-                        </div>
-                      </SelectItem>
+          <TooltipProvider>
+            <div className="space-y-4">
+              {/* 当前阵容 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-muted-foreground">当前阵容</h4>
+                  <span className="text-xs text-muted-foreground">
+                    {localPlayers.length}/{MAX_PARTY_SIZE}
+                  </span>
+                </div>
+                {sortedLocalPlayers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2 text-center">暂无队员</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {sortedLocalPlayers.map(player => (
+                      <Tooltip key={player.id}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleRemove(player.id)}
+                            className="relative group"
+                          >
+                            <JobIcon job={player.job} size="md" />
+                            <span className="absolute inset-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 bg-black/40 transition-opacity">
+                              <X className="w-3 h-3 text-white" />
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{getJobName(player.job)}（点击移除）</TooltipContent>
+                      </Tooltip>
                     ))}
-                  </SelectGroup>
-                )
-              })}
-            </SelectContent>
-          </Select>
+                  </div>
+                )}
+              </div>
 
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={handleCancel}>
+              <div className="border-t" />
+
+              {/* 添加职业 */}
+              <div>
+                <h4 className="text-xs font-medium text-muted-foreground mb-3">添加职业</h4>
+                <div className="space-y-2">
+                  {JOB_ROWS.map(({ label, jobs }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-6 shrink-0">{label}</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {jobs.map(job => (
+                          <Tooltip key={job}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => handleAddJob(job)}
+                                disabled={!canAddMore}
+                                className={`transition-all ${
+                                  canAddMore
+                                    ? 'opacity-60 hover:opacity-100 hover:scale-105'
+                                    : 'opacity-20 cursor-not-allowed'
+                                }`}
+                              >
+                                <JobIcon job={job} size="md" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>{getJobName(job)}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </TooltipProvider>
+
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSave} disabled={!selectedJob}>
+            <Button onClick={handleConfirm}>
+              <Check className="w-4 h-4 mr-1" />
               完成
             </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   )
 }

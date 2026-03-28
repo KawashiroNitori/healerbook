@@ -12,7 +12,7 @@ import type { Composition } from '@/types/timeline'
 
 export default function CompositionPopover() {
   const { timeline, updateComposition } = useTimelineStore()
-  const { hiddenPlayerIds, togglePlayerVisibility } = useUIStore()
+  const { hiddenPlayerIds, togglePlayerVisibility, isolatePlayer } = useUIStore()
   const isReadOnly = useEditorReadOnly()
   const [hoveredPlayerId, setHoveredPlayerId] = useState<number | null>(null)
 
@@ -21,8 +21,6 @@ export default function CompositionPopover() {
     const jobs = sortJobsByOrder([a.job, b.job])
     return jobs.indexOf(a.job) - jobs.indexOf(b.job)
   })
-  const canAddMore = sortedPlayers.length < MAX_PARTY_SIZE
-
   const handleSave = (newComposition: Composition) => updateComposition(newComposition)
 
   const handleRemove = (playerId: number) => {
@@ -61,7 +59,16 @@ export default function CompositionPopover() {
                 {(hoveredPlayerId === player.id || hiddenPlayerIds.has(player.id)) && (
                   <>
                     <button
-                      onClick={() => togglePlayerVisibility(player.id)}
+                      onClick={e => {
+                        if (e.shiftKey) {
+                          isolatePlayer(
+                            player.id,
+                            composition.players.map(p => p.id)
+                          )
+                        } else {
+                          togglePlayerVisibility(player.id)
+                        }
+                      }}
                       className="p-0.5 hover:bg-muted rounded"
                     >
                       {hiddenPlayerIds.has(player.id) ? (
@@ -84,11 +91,7 @@ export default function CompositionPopover() {
             ))
           )}
         </div>
-        <CompositionDialog
-          composition={composition}
-          onSave={handleSave}
-          disabled={!canAddMore || isReadOnly}
-        />
+        {!isReadOnly && <CompositionDialog composition={composition} onSave={handleSave} />}
       </PopoverContent>
     </Popover>
   )

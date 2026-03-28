@@ -4,6 +4,7 @@
  */
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 interface ModalProps {
@@ -55,7 +56,7 @@ export function Modal({
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={handleBackdropClick}
@@ -69,7 +70,8 @@ export function Modal({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
