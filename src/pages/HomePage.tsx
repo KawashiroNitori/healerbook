@@ -4,7 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Upload, FileText } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import {
   getAllTimelineMetadata,
   deleteTimeline,
@@ -82,7 +82,7 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <button
             onClick={handleCreateNew}
             className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
@@ -99,15 +99,6 @@ export default function HomePage() {
             <Upload className="w-12 h-12 mb-2 text-muted-foreground" />
             <span className="font-medium">从 FFLogs 导入</span>
             <span className="text-sm text-muted-foreground">导入战斗记录</span>
-          </button>
-
-          <button
-            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
-            disabled
-          >
-            <FileText className="w-12 h-12 mb-2 text-muted-foreground" />
-            <span className="font-medium">导入 JSON</span>
-            <span className="text-sm text-muted-foreground">从文件导入</span>
           </button>
         </div>
 
