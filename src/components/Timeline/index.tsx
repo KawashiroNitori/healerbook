@@ -248,6 +248,31 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const fixedAreaHeight = timeRulerHeight + eventTrackHeight
     const skillTracksHeight = skillTracks.length * skillTrackHeight
 
+    // 计算技能显示覆盖表：key 为 castEvent.id，value 为覆盖显示的 action
+    // 当前规则：意气轩昂之策（37013）在炽天附体（37014）持续期间显示为降临之章（37016）
+    const displayActionOverrides = new Map<string, MitigationAction>()
+    const seraphAction = actions.find(a => a.id === 37014)
+    const jianglinAction = actions.find(a => a.id === 37016)
+    if (seraphAction && jianglinAction) {
+      const seraphWindows = timeline.castEvents
+        .filter(e => e.actionId === 37014)
+        .map(e => ({
+          playerId: e.playerId,
+          start: e.timestamp,
+          end: e.timestamp + seraphAction.duration,
+        }))
+      for (const castEvent of timeline.castEvents) {
+        if (castEvent.actionId !== 37013) continue
+        const active = seraphWindows.some(
+          w =>
+            w.playerId === castEvent.playerId &&
+            castEvent.timestamp >= w.start &&
+            castEvent.timestamp < w.end
+        )
+        if (active) displayActionOverrides.set(castEvent.id, jianglinAction)
+      }
+    }
+
     return {
       skillTracks,
       damageEventRowMap,
@@ -257,6 +282,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       skillTracksHeight,
       laneCount,
       LANE_ROW_HEIGHT,
+      displayActionOverrides,
     }
   }, [timeline, zoomLevel, actions, hiddenPlayerIds])
 
@@ -825,6 +851,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     fixedAreaHeight,
     skillTracksHeight,
     LANE_ROW_HEIGHT,
+    displayActionOverrides,
   } = layoutData
 
   // 计算时间轴总长度
@@ -957,6 +984,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               timeline={timeline}
               skillTracks={skillTracks}
               actions={actions}
+              displayActionOverrides={displayActionOverrides}
               zoomLevel={zoomLevel}
               timelineWidth={timelineWidth}
               trackHeight={skillTrackHeight}

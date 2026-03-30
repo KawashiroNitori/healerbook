@@ -21,6 +21,7 @@ interface SkillTracksCanvasProps {
   timeline: Timeline
   skillTracks: SkillTrack[]
   actions: MitigationAction[]
+  displayActionOverrides: Map<string, MitigationAction>
   zoomLevel: number
   timelineWidth: number
   trackHeight: number
@@ -54,6 +55,7 @@ export default function SkillTracksCanvas({
   timeline,
   skillTracks,
   actions,
+  displayActionOverrides,
   zoomLevel,
   timelineWidth,
   trackHeight,
@@ -390,114 +392,87 @@ export default function SkillTracksCanvas({
           return idleWarnings
         })}
 
-        {(() => {
-          // 预计算炽天附体（37014）的活跃窗口，避免在 castEvents.map 内做 O(N) 扫描
-          const seraphAction = actions.find(a => a.id === 37014)
-          const seraphWindows = seraphAction
-            ? timeline.castEvents
-                .filter(e => e.actionId === 37014)
-                .map(e => ({
-                  playerId: e.playerId,
-                  start: e.timestamp,
-                  end: e.timestamp + seraphAction.duration,
-                }))
-            : []
-          const jianglinAction = actions.find(a => a.id === 37016)
+        {timeline.castEvents.map(castEvent => {
+          const trackIndex = skillTracks.findIndex(
+            t => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
+          )
 
-          return timeline.castEvents.map(castEvent => {
-            const trackIndex = skillTracks.findIndex(
-              t => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
+          if (trackIndex === -1) return null
+
+          const trackY = trackIndex * trackHeight + trackHeight / 2
+          const isSelected = castEvent.id === selectedCastEventId
+
+          const action = actions.find(a => a.id === castEvent.actionId)
+          if (!action) return null
+
+          const displayAction = displayActionOverrides.get(castEvent.id)
+
+          const castEventTimeSeconds = castEvent.timestamp // timestamp 已经是秒
+
+          // 计算拖动边界
+          const sameTrackCastEvents = timeline.castEvents
+            .filter(
+              other =>
+                other.id !== castEvent.id &&
+                other.playerId === castEvent.playerId &&
+                other.actionId === castEvent.actionId
             )
-
-            if (trackIndex === -1) return null
-
-            const trackY = trackIndex * trackHeight + trackHeight / 2
-            const isSelected = castEvent.id === selectedCastEventId
-
-            const action = actions.find(a => a.id === castEvent.actionId)
-            if (!action) return null
-
-            // 意气轩昂之策（37013）在炽天附体（37014）持续期间显示降临之章（37016）图标
-            let displayAction: MitigationAction | undefined
-            if (castEvent.actionId === 37013 && jianglinAction) {
-              const seraphActive = seraphWindows.some(
-                w =>
-                  w.playerId === castEvent.playerId &&
-                  castEvent.timestamp >= w.start &&
-                  castEvent.timestamp < w.end
-              )
-              if (seraphActive) {
-                displayAction = jianglinAction
+            .map(other => {
+              const otherAction = actions.find(a => a.id === other.actionId)
+              const otherTimeSeconds = other.timestamp // timestamp 已经是秒
+              return {
+                startTime: otherTimeSeconds,
+                endTime: otherTimeSeconds + (otherAction?.cooldown || 0),
               }
-            }
+            })
+            .sort((a, b) => a.startTime - b.startTime)
 
-            const castEventTimeSeconds = castEvent.timestamp // timestamp 已经是秒
+          const currentDuration = action.cooldown
 
-            // 计算拖动边界
-            const sameTrackCastEvents = timeline.castEvents
-              .filter(
-                other =>
-                  other.id !== castEvent.id &&
-                  other.playerId === castEvent.playerId &&
-                  other.actionId === castEvent.actionId
-              )
-              .map(other => {
-                const otherAction = actions.find(a => a.id === other.actionId)
-                const otherTimeSeconds = other.timestamp // timestamp 已经是秒
-                return {
-                  startTime: otherTimeSeconds,
-                  endTime: otherTimeSeconds + (otherAction?.cooldown || 0),
-                }
-              })
-              .sort((a, b) => a.startTime - b.startTime)
+          const leftBoundary = sameTrackCastEvents
+            .filter(other => other.endTime <= castEventTimeSeconds)
+            .reduce((max, other) => Math.max(max, other.endTime), TIMELINE_START_TIME)
 
-            const currentDuration = action.cooldown
+          const rightBoundary = sameTrackCastEvents
+            .filter(other => other.startTime >= castEventTimeSeconds + currentDuration)
+            .reduce((min, other) => Math.min(min, other.startTime - currentDuration), Infinity)
 
-            const leftBoundary = sameTrackCastEvents
-              .filter(other => other.endTime <= castEventTimeSeconds)
-              .reduce((max, other) => Math.max(max, other.endTime), TIMELINE_START_TIME)
+          const nextCastTime = sameTrackCastEvents
+            .filter(other => other.startTime > castEventTimeSeconds)
+            .reduce((min, other) => Math.min(min, other.startTime), Infinity)
 
-            const rightBoundary = sameTrackCastEvents
-              .filter(other => other.startTime >= castEventTimeSeconds + currentDuration)
-              .reduce((min, other) => Math.min(min, other.startTime - currentDuration), Infinity)
-
-            const nextCastTime = sameTrackCastEvents
-              .filter(other => other.startTime > castEventTimeSeconds)
-              .reduce((min, other) => Math.min(min, other.startTime), Infinity)
-
-            return (
-              <CastEventIcon
-                key={castEvent.id}
-                castEvent={castEvent}
-                action={action}
-                displayAction={displayAction}
-                isSelected={isSelected}
-                zoomLevel={zoomLevel}
-                trackY={trackY}
-                leftBoundary={leftBoundary}
-                rightBoundary={rightBoundary}
-                nextCastTime={nextCastTime}
-                scrollLeft={scrollLeft}
-                scrollTop={scrollTop}
-                onSelect={() => onSelectCastEvent(castEvent.id)}
-                onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
-                onContextMenu={e => {
-                  e.evt.preventDefault()
-                  if (isReadOnly) return
-                  onContextMenu(
-                    { type: 'castEvent', castEventId: castEvent.id, actionId: castEvent.actionId },
-                    e.evt.clientX,
-                    e.evt.clientY,
-                    castEvent.timestamp
-                  )
-                }}
-                onHover={onHoverAction}
-                onClickIcon={onClickAction}
-                isReadOnly={isReadOnly}
-              />
-            )
-          })
-        })()}
+          return (
+            <CastEventIcon
+              key={castEvent.id}
+              castEvent={castEvent}
+              action={action}
+              displayAction={displayAction}
+              isSelected={isSelected}
+              zoomLevel={zoomLevel}
+              trackY={trackY}
+              leftBoundary={leftBoundary}
+              rightBoundary={rightBoundary}
+              nextCastTime={nextCastTime}
+              scrollLeft={scrollLeft}
+              scrollTop={scrollTop}
+              onSelect={() => onSelectCastEvent(castEvent.id)}
+              onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
+              onContextMenu={e => {
+                e.evt.preventDefault()
+                if (isReadOnly) return
+                onContextMenu(
+                  { type: 'castEvent', castEventId: castEvent.id, actionId: castEvent.actionId },
+                  e.evt.clientX,
+                  e.evt.clientY,
+                  castEvent.timestamp
+                )
+              }}
+              onHover={onHoverAction}
+              onClickIcon={onClickAction}
+              isReadOnly={isReadOnly}
+            />
+          )
+        })}
       </Layer>
 
       {/* 十字准线叠加层 */}
