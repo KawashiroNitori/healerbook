@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ZoomIn, ZoomOut, Lock, Unlock, Play, Undo2, Redo2 } from 'lucide-react'
+import { ZoomIn, ZoomOut, Lock, Unlock, BugPlay, Undo2, Redo2 } from 'lucide-react'
 import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -12,6 +12,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -141,20 +142,39 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
 
           {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
           {isReplayMode ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <Popover>
+              <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-                  onClick={() => setShowExitReplayConfirm(true)}
                   disabled={forceReadOnly}
                 >
-                  <Play className="w-4 h-4" />
+                  <BugPlay className="w-4 h-4" />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">退出回放模式</TooltipContent>
-            </Tooltip>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="w-80">
+                <div className="space-y-3">
+                  <p className="font-semibold text-sm">回放模式</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    当前正处于 FFLogs
+                    回放模式下，记录并再现了本次战斗中玩家所受到的所有伤害与当时的减伤情况。你可以快速寻找并分析某处的减伤是否欠缺，并检查队友的减伤执行情况。
+                    <br />
+                    在该模式下，时间轴不可被修改。若要在此基础上修改时间轴，请点击
+                    <b>解除回放模式</b>。
+                  </p>
+                  <div className="flex justify-end">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowExitReplayConfirm(true)}
+                    >
+                      解除回放模式
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>

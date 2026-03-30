@@ -2,19 +2,22 @@
  * 属性面板组件
  */
 
+import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
-import { Trash2, TriangleAlert, Skull } from 'lucide-react'
+import { Trash2, TriangleAlert, Skull, HelpCircle } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { DamageType } from '@/types/timeline'
 
 export default function PropertyPanel() {
   const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent } = useTimelineStore()
   const isReadOnly = useEditorReadOnly()
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // 使用新的伤害计算 Hook（基于状态）
   const eventResults = useDamageCalculation(timeline)
@@ -127,7 +130,32 @@ export default function PropertyPanel() {
         )}
         {!timeline.isReplayMode && event.type !== 'tankbuster' && result && (
           <div className="pt-3 border-t space-y-3">
-            <h3 className="text-sm font-semibold">预估减伤效果</h3>
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-semibold">预估减伤效果</h3>
+              <Popover open={helpOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    onMouseEnter={() => setHelpOpen(true)}
+                    onMouseLeave={() => setHelpOpen(false)}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="bottom"
+                  align="start"
+                  className="w-72"
+                  onMouseEnter={() => setHelpOpen(true)}
+                  onMouseLeave={() => setHelpOpen(false)}
+                >
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    该计算结果为基于部分统计数据的<b>估算效果</b>
+                    ，除部分技能（如秘策）外并未计算暴击、增疗等因素，与游戏中的实际伤害可能会有较大差异，仅供参考。
+                  </p>
+                </PopoverContent>
+              </Popover>
+            </div>
 
             {/* HP 条（编辑模式） */}
             {(() => {
