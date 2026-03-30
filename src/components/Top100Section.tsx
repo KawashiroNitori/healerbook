@@ -131,7 +131,7 @@ function CompositionFilter({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">选择你小队的阵容</p>
+            <p className="text-sm text-muted-foreground">只看你们小队有的减伤</p>
             <div className="flex items-center gap-2">
               {selectedJobs.length > 0 && (
                 <>
@@ -421,7 +421,7 @@ export default function Top100Section() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <p className="text-sm text-muted-foreground">来自 FFLogs 的治疗合计 DPS 前 100 战斗记录</p>
+        <p className="text-sm text-muted-foreground">拿不定主意？看看别人怎么做的</p>
       </div>
 
       {/* 赛季 Tab */}

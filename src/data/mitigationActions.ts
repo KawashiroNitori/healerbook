@@ -220,6 +220,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
     },
 
     {
+      id: 37014,
+      name: '炽天附体',
+      icon: '/i/002000/002881.png',
+      jobs: ['SCH'],
+      duration: 30,
+      cooldown: 180,
+      executor: createBuffExecutor(3885, 30),
+    },
+
+    {
       id: 37016,
       name: '降临之章',
       icon: '/i/002000/002883.png',
@@ -306,16 +316,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 1,
       executor: createShieldExecutor(1917, 30),
-    },
-
-    {
-      id: 37014,
-      name: '炽天附体',
-      icon: '/i/002000/002881.png',
-      jobs: ['SCH'],
-      duration: 30,
-      cooldown: 180,
-      executor: createBuffExecutor(3885, 30),
     },
 
     // 占星术士 (AST)
