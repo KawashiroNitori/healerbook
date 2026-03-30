@@ -171,15 +171,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2.5,
       executor: (ctx: ActionExecutionContext) => {
-        const seraphId = 3885 // 炽天附体
+        const seraphismId = 3885 // 炽天附体
         const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
 
-        const hasSeraph = ctx.partyState.statuses.some(s => s.statusId === seraphId)
+        const hasSeraphism = ctx.partyState.statuses.some(s => s.statusId === seraphismId)
 
         let baseHeal: number
-        if (hasSeraph) {
+        if (hasSeraphism) {
           // 炽天附体激活：等效降临之章，使用 37016 基础恢复力，秘策无效
           baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
         } else {
@@ -192,7 +192,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
 
         const barrier = Math.round(baseHeal * 1.8)
 
-        const statusesToRemove = hasSeraph
+        const statusesToRemove = hasSeraphism
           ? [baseShieldId, sageShieldId]
           : [recitationId, baseShieldId, sageShieldId]
 
@@ -215,6 +215,45 @@ export const MITIGATION_DATA: MitigationDataSource = {
               sourcePlayerId: ctx.sourcePlayerId,
             },
           ],
+        }
+      },
+    },
+
+    {
+      id: 37016,
+      name: '降临之章',
+      icon: '/i/002000/002883.png',
+      jobs: ['SCH'],
+      duration: 30,
+      cooldown: 1,
+      hidden: true,
+      executor: (ctx: ActionExecutionContext) => {
+        const baseShieldId = 297 // 鼓舞
+        const sageShieldId = 2609 // 贤者群盾
+        // 降临之章的鼓舞盾是 240 恢复力，而且秘策无效
+        const baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
+        const barrier = Math.round(baseHeal * 1.8)
+
+        const newStatuses: MitigationStatus[] = []
+
+        newStatuses.push({
+          instanceId: generateId(),
+          statusId: baseShieldId,
+          startTime: ctx.useTime,
+          endTime: ctx.useTime + 30,
+          remainingBarrier: barrier,
+          initialBarrier: barrier,
+          sourceActionId: ctx.actionId,
+          sourcePlayerId: ctx.sourcePlayerId,
+        })
+
+        const filteredStatuses = ctx.partyState.statuses.filter(
+          s => ![baseShieldId, sageShieldId].includes(s.statusId)
+        )
+
+        return {
+          ...ctx.partyState,
+          statuses: [...filteredStatuses, ...newStatuses],
         }
       },
     },
@@ -277,45 +316,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 180,
       executor: createBuffExecutor(3885, 30),
-    },
-
-    {
-      id: 37016,
-      name: '降临之章',
-      icon: '/i/002000/002883.png',
-      jobs: ['SCH'],
-      duration: 30,
-      cooldown: 1,
-      hidden: true,
-      executor: (ctx: ActionExecutionContext) => {
-        const baseShieldId = 297 // 鼓舞
-        const sageShieldId = 2609 // 贤者群盾
-        // 降临之章的鼓舞盾是 240 恢复力，而且秘策无效
-        const baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
-        const barrier = Math.round(baseHeal * 1.8)
-
-        const newStatuses: MitigationStatus[] = []
-
-        newStatuses.push({
-          instanceId: generateId(),
-          statusId: baseShieldId,
-          startTime: ctx.useTime,
-          endTime: ctx.useTime + 30,
-          remainingBarrier: barrier,
-          initialBarrier: barrier,
-          sourceActionId: ctx.actionId,
-          sourcePlayerId: ctx.sourcePlayerId,
-        })
-
-        const filteredStatuses = ctx.partyState.statuses.filter(
-          s => ![baseShieldId, sageShieldId].includes(s.statusId)
-        )
-
-        return {
-          ...ctx.partyState,
-          statuses: [...filteredStatuses, ...newStatuses],
-        }
-      },
     },
 
     // 占星术士 (AST)

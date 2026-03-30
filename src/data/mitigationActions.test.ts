@@ -149,7 +149,7 @@ describe('mitigationActions', () => {
         players: [{ id: 1, job: 'SCH', maxHP: 100000 }],
         statuses: [
           {
-            instanceId: 'seraph-1',
+            instanceId: 'seraphism-1',
             statusId: 3885,
             startTime: 0,
             endTime: 30,
