@@ -1,6 +1,6 @@
 /**
  * 通用模态框组件
- * 提供点击空白处关闭的能力
+ * 提供点击空白处关闭的能力，带出入动画和背景模糊
  */
 
 import * as React from 'react'
@@ -38,8 +38,25 @@ export function Modal({
   maxWidth = 'md',
   className,
 }: ModalProps) {
+  const [mounted, setMounted] = React.useState(false)
+  const [visible, setVisible] = React.useState(false)
+
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setVisible(true))
+      })
+    } else {
+      setVisible(false)
+    }
+  }, [open])
+
+  const handleTransitionEnd = () => {
+    if (!visible) setMounted(false)
+  }
+
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // 只在点击背景层时关闭
     if (e.target === e.currentTarget && !disableBackdropClick) {
       onClose()
     }
@@ -54,16 +71,21 @@ export function Modal({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!mounted) return null
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className={cn(
+        'fixed inset-0 flex items-center justify-center z-50 transition-all duration-200',
+        visible ? 'bg-black/80 backdrop-blur-sm' : 'bg-black/0 backdrop-blur-none'
+      )}
       onClick={handleBackdropClick}
+      onTransitionEnd={handleTransitionEnd}
     >
       <div
         className={cn(
-          'bg-background rounded-lg shadow-lg w-full mx-4',
+          'bg-background rounded-lg shadow-lg w-full mx-4 transition-all duration-200',
+          visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
           maxWidthClasses[maxWidth],
           className
         )}

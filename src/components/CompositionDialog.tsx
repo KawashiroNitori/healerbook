@@ -119,7 +119,7 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
                 <div className="space-y-2">
                   {JOB_ROWS.map(({ label, jobs }) => (
                     <div key={label} className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-6 shrink-0">{label}</span>
+                      <span className="text-xs text-muted-foreground w-8 shrink-0">{label}</span>
                       <div className="flex flex-wrap gap-1.5">
                         {jobs.map(job => (
                           <Tooltip key={job}>
