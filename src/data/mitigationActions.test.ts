@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest'
 import { MITIGATION_DATA } from './mitigationActions'
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
+import type { Job } from '@/data/jobs'
 
 describe('mitigationActions', () => {
   const mockPartyState: PartyState = {
@@ -140,6 +141,76 @@ describe('mitigationActions', () => {
 
       expect(newState.statuses.length).toBeGreaterThan(0)
       expect(newState.statuses.some(s => s.statusId === 297)).toBe(true)
+    })
+
+    it('意气轩昂之策在炽天附体（buff 3885）激活时应使用 37016 的治疗量基础值', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37013)!
+      const stateWithSeraph: PartyState = {
+        players: [{ id: 1, job: 'SCH', maxHP: 100000 }],
+        statuses: [
+          {
+            instanceId: 'seraph-1',
+            statusId: 3885,
+            startTime: 0,
+            endTime: 30,
+          },
+        ],
+        timestamp: 5,
+      }
+      const ctx: ActionExecutionContext = {
+        actionId: 37013,
+        useTime: 5,
+        partyState: stateWithSeraph,
+        sourcePlayerId: 1,
+        statistics: {
+          encounterId: 1,
+          encounterName: 'test',
+          damageByAbility: {},
+          maxHPByJob: {} as Record<Job, number>,
+          shieldByAbility: {},
+          critShieldByAbility: {},
+          healByAbility: { 37013: 8000, 37016: 12000 },
+          critHealByAbility: { 37013: 16000 },
+          sampleSize: 100,
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      // 炽天附体激活时应使用 37016 的 healByAbility（12000），而非 37013
+      const shield = newState.statuses.find(s => s.statusId === 297)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(Math.round(12000 * 1.8)) // 21600
+    })
+
+    it('意气轩昂之策在无炽天附体时应继续使用 37013 的治疗量（含秘策判断）', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37013)!
+      const ctx: ActionExecutionContext = {
+        actionId: 37013,
+        useTime: 10,
+        partyState: mockPartyState,
+        sourcePlayerId: 1,
+        statistics: {
+          encounterId: 1,
+          encounterName: 'test',
+          damageByAbility: {},
+          maxHPByJob: {} as Record<Job, number>,
+          shieldByAbility: {},
+          critShieldByAbility: {},
+          healByAbility: { 37013: 8000, 37016: 12000 },
+          critHealByAbility: { 37013: 16000 },
+          sampleSize: 100,
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      // 无炽天附体时应使用 37013 的 healByAbility（8000）
+      const shield = newState.statuses.find(s => s.statusId === 297)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(Math.round(8000 * 1.8)) // 14400
     })
   })
 })

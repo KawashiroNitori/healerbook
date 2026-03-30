@@ -171,36 +171,50 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2.5,
       executor: (ctx: ActionExecutionContext) => {
+        const seraphId = 3885 // 炽天附体
         const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
-        // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用技能描述中的技能基础恢复力 * 180%
-        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
-        const baseHeal = hasRecitation
-          ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
-          : (ctx.statistics?.healByAbility[37013] ?? 10000)
+
+        const hasSeraph = ctx.partyState.statuses.some(s => s.statusId === seraphId)
+
+        let baseHeal: number
+        if (hasSeraph) {
+          // 炽天附体激活：等效降临之章，使用 37016 基础恢复力，秘策无效
+          baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
+        } else {
+          // 普通意气轩昂之策：检测秘策决定是否用暴击治疗量
+          const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
+          baseHeal = hasRecitation
+            ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
+            : (ctx.statistics?.healByAbility[37013] ?? 10000)
+        }
+
         const barrier = Math.round(baseHeal * 1.8)
 
-        const newStatuses: MitigationStatus[] = []
-
-        newStatuses.push({
-          instanceId: generateId(),
-          statusId: baseShieldId,
-          startTime: ctx.useTime,
-          endTime: ctx.useTime + 30,
-          remainingBarrier: barrier,
-          initialBarrier: barrier,
-          sourceActionId: ctx.actionId,
-          sourcePlayerId: ctx.sourcePlayerId,
-        })
+        const statusesToRemove = hasSeraph
+          ? [baseShieldId, sageShieldId]
+          : [recitationId, baseShieldId, sageShieldId]
 
         const filteredStatuses = ctx.partyState.statuses.filter(
-          s => ![recitationId, baseShieldId, sageShieldId].includes(s.statusId)
+          s => !statusesToRemove.includes(s.statusId)
         )
 
         return {
           ...ctx.partyState,
-          statuses: [...filteredStatuses, ...newStatuses],
+          statuses: [
+            ...filteredStatuses,
+            {
+              instanceId: generateId(),
+              statusId: baseShieldId,
+              startTime: ctx.useTime,
+              endTime: ctx.useTime + 30,
+              remainingBarrier: barrier,
+              initialBarrier: barrier,
+              sourceActionId: ctx.actionId,
+              sourcePlayerId: ctx.sourcePlayerId,
+            },
+          ],
         }
       },
     },
