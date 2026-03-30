@@ -272,6 +272,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       duration: 30,
       cooldown: 1,
+      hidden: true,
       executor: (ctx: ActionExecutionContext) => {
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾

@@ -83,4 +83,6 @@ export interface MitigationAction {
   cooldown: number
   /** 技能执行器 */
   executor: ActionExecutor
+  /** 隐藏技能（不在技能轨道中显示，仅供内部数据引用） */
+  hidden?: boolean
 }
