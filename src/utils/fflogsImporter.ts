@@ -319,7 +319,10 @@ export function parseCastEvents(
     const abilityGameID = event.abilityGameID
     if (!abilityGameID) continue
 
-    if (!validActionIds.has(abilityGameID)) continue
+    // 降临之章（37016）是意气轩昂之策（37013）在炽天附体激活时的变体，导入时统一归并为 37013
+    const effectiveAbilityId = abilityGameID === 37016 ? 37013 : abilityGameID
+
+    if (!validActionIds.has(effectiveAbilityId)) continue
 
     if (!event.sourceID) continue
     const player = playerMap.get(event.sourceID)
@@ -330,7 +333,7 @@ export function parseCastEvents(
 
     castEventsResult.push({
       id: `cast-${castEventsResult.length}`,
-      actionId: abilityGameID,
+      actionId: effectiveAbilityId,
       timestamp: (event.timestamp - fightStartTime) / 1000,
       playerId: event.sourceID,
       job,

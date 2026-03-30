@@ -205,6 +205,21 @@ describe('parseCastEvents', () => {
     expect(result).toHaveLength(1)
     expect(result[0].timestamp).toBe(5)
   })
+
+  it('应该将 37016（降临之章）的 cast 事件转换为 37013（意气轩昂之策）', () => {
+    const mockPlayerMapSCH = new Map<number, V2Actor>([
+      [3, { id: 3, name: 'Scholar', type: 'Scholar' }],
+    ])
+    const events = [
+      { type: 'cast', abilityGameID: 37016, sourceID: 3, timestamp: fightStartTime + 5000 },
+    ]
+
+    const result = parseCastEvents(events, fightStartTime, mockPlayerMapSCH)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].actionId).toBe(37013)
+    expect(result[0].timestamp).toBe(5)
+  })
 })
 
 describe('parseDamageEvents', () => {
