@@ -49,7 +49,10 @@ export default function DamageEventCard({
   }
   const nameColor = damageTypeColorMap[event.damageType || 'physical'] || '#ef4444'
 
-  const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0) ?? false
+  const hasOverkill =
+    event.playerDamageDetails?.some(
+      d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
+    ) ?? false
 
   // 编辑模式警示（referenceMaxHP 仅编辑模式存在）
   const refHP = calculatedEvent?.referenceMaxHP

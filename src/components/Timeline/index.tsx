@@ -702,7 +702,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         const sorted = sortJobsByOrder(event.playerDamageDetails, d => d.job)
         for (const detail of sorted) {
           if (detail.unmitigatedDamage === 0) continue
-          const dead = (detail.overkill ?? 0) > 0
+          const dead = (detail.overkill ?? 0) > 0 && !detail.statuses.some(s => s.statusId === 810)
           const hpText =
             detail.maxHitPoints != null
               ? `HP: ${detail.maxHitPoints.toLocaleString()} → ${dead ? `${(detail.hitPoints ?? 0).toLocaleString()} (死亡)` : (detail.hitPoints ?? 0).toLocaleString()}`

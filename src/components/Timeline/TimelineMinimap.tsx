@@ -211,7 +211,9 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
 
         // 根据距致死线的距离着色（死刑使用固定灰色，不参与距离计算）
         const result = eventResults.get(event.id)
-        const hasOverkill = event.playerDamageDetails?.some(d => (d.overkill ?? 0) > 0)
+        const hasOverkill = event.playerDamageDetails?.some(
+          d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
+        )
         const finalDamageForColor = result?.finalDamage ?? event.damage
         const ratio = finalDamageForColor / referenceMaxHP
         let color: string

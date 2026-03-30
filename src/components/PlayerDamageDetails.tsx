@@ -49,7 +49,7 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
             <div className="flex items-center gap-2">
               <JobIcon job={detail.job} size="sm" />
               <span className="text-sm font-medium">{getJobName(detail.job)}</span>
-              {(detail.overkill ?? 0) > 0 && (
+              {(detail.overkill ?? 0) > 0 && !detail.statuses.some(s => s.statusId === 810) && (
                 <span className="ml-auto text-xs text-gray-500 font-medium">💀 死亡</span>
               )}
             </div>
