@@ -202,7 +202,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const skillTracks: SkillTrack[] = []
     sortedPlayers.forEach(player => {
       if (hiddenPlayerIds.has(player.id)) return
-      const jobActions = actions.filter(action => action.jobs.includes(player.job))
+      const jobActions = actions.filter(
+        action => action.jobs.includes(player.job) && !action.hidden
+      )
       jobActions.forEach(action => {
         skillTracks.push({
           job: player.job,

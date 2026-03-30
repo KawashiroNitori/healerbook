@@ -59,8 +59,9 @@ export const useMitigationStore = create<MitigationState>((set, get) => ({
 
   getFilteredActions: () => {
     const { actions, filters } = get()
-    if (filters.jobs.length === 0) return actions
-    return actions.filter(action => filters.jobs.some(job => action.jobs.includes(job)))
+    const visible = actions.filter(action => !action.hidden)
+    if (filters.jobs.length === 0) return visible
+    return visible.filter(action => filters.jobs.some(job => action.jobs.includes(job)))
   },
 
   resetFilters: () =>
