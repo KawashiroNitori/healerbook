@@ -1,10 +1,6 @@
-# Healerbook
+# [Healerbook](https://xivhealer.com)
 
 FF14 减伤规划工具，帮助治疗和坦克职业可视化地安排副本中的减伤技能。
-
-## 使用方法
-
-访问 **https://xivhealer.com**，无需安装。
 
 ### 创建时间轴
 
