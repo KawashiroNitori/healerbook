@@ -403,6 +403,24 @@ export default function SkillTracksCanvas({
           const action = actions.find(a => a.id === castEvent.actionId)
           if (!action) return null
 
+          // 意气轩昂之策（37013）在炽天附体（37014）持续期间显示降临之章（37016）图标
+          let displayAction: MitigationAction | undefined
+          if (castEvent.actionId === 37013) {
+            const seraphAction = actions.find(a => a.id === 37014)
+            if (seraphAction) {
+              const seraphActive = timeline.castEvents.some(
+                other =>
+                  other.playerId === castEvent.playerId &&
+                  other.actionId === 37014 &&
+                  castEvent.timestamp >= other.timestamp &&
+                  castEvent.timestamp < other.timestamp + seraphAction.duration
+              )
+              if (seraphActive) {
+                displayAction = actions.find(a => a.id === 37016)
+              }
+            }
+          }
+
           const castEventTimeSeconds = castEvent.timestamp // timestamp 已经是秒
 
           // 计算拖动边界
@@ -442,6 +460,7 @@ export default function SkillTracksCanvas({
               key={castEvent.id}
               castEvent={castEvent}
               action={action}
+              displayAction={displayAction}
               isSelected={isSelected}
               zoomLevel={zoomLevel}
               trackY={trackY}

@@ -13,6 +13,8 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 interface CastEventIconProps {
   castEvent: CastEvent
   action: MitigationAction
+  /** 覆盖显示用的技能（仅影响图标和悬浮窗，不影响持续/冷却时间条） */
+  displayAction?: MitigationAction
   isSelected: boolean
   zoomLevel: number
   trackY: number
@@ -32,6 +34,7 @@ interface CastEventIconProps {
 export default function CastEventIcon({
   castEvent,
   action,
+  displayAction,
   isSelected,
   zoomLevel,
   trackY,
@@ -176,7 +179,7 @@ export default function CastEventIcon({
 
       {/* 技能图标（最后渲染，确保在最上层，左边缘对齐生效时刻） */}
       {action ? (
-        <SkillIcon iconPath={action.icon} isSelected={isSelected} />
+        <SkillIcon iconPath={(displayAction ?? action).icon} isSelected={isSelected} />
       ) : (
         <>
           {/* 降级方案 */}
@@ -232,8 +235,8 @@ export default function CastEventIcon({
         width={30}
         height={30}
         fill="transparent"
-        onMouseEnter={e => onHover(action, e)}
-        onTap={e => onClickIcon(action, e)}
+        onMouseEnter={e => onHover(displayAction ?? action, e)}
+        onTap={e => onClickIcon(displayAction ?? action, e)}
       />
     </Group>
   )
