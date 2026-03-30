@@ -28,7 +28,9 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
     >
       <div className="flex items-start justify-between mb-2">
         <div>
-          <h3 className="font-medium group-hover:text-primary">{timeline.name}</h3>
+          <h3 className="font-medium group-hover:text-primary line-clamp-1" title={timeline.name}>
+            {timeline.name}
+          </h3>
         </div>
         {onDelete && (
           <button
