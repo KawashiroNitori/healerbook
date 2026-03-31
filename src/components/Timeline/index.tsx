@@ -19,6 +19,7 @@ import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import AddEventDialog from '../AddEventDialog'
+import AnnotationPopover from './AnnotationPopover'
 import TimelineContextMenu from './TimelineContextMenu'
 import type { ContextMenuState, DamageEventClipboard } from './TimelineContextMenu'
 import TimeRuler from './TimeRuler'
@@ -47,15 +48,18 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const scrollTopRef = useRef(0)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [clipboard, setClipboard] = useState<DamageEventClipboard>(null)
-  // Task 9 会读取 editingAnnotation 并渲染 AnnotationPopover
-  const annotationEditState = useState<{
+  const [editingAnnotation, setEditingAnnotation] = useState<{
     annotation: { id: string; text: string; time: number; anchor: AnnotationAnchor } | null
     time: number
     anchor: AnnotationAnchor
     screenX: number
     screenY: number
   } | null>(null)
-  const setEditingAnnotation = annotationEditState[1]
+  const [hoverAnnotation, setHoverAnnotation] = useState<{
+    annotation: { id: string; text: string }
+    screenX: number
+    screenY: number
+  } | null>(null)
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
     eventId: string
     x: number
@@ -110,6 +114,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setPendingScrollProgress,
     updateScrollState,
     triggerAutoSave,
+    addAnnotation,
+    updateAnnotation,
     removeAnnotation,
   } = useTimelineStore()
   const { actions, loadActions } = useMitigationStore()
@@ -868,6 +874,66 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [removeAnnotation]
   )
 
+  const handleAnnotationHover = useCallback(
+    (annotation: { id: string; text: string }, screenX: number, screenY: number) => {
+      if (editingAnnotation) return
+      setHoverAnnotation({ annotation, screenX, screenY })
+    },
+    [editingAnnotation]
+  )
+
+  const handleAnnotationHoverEnd = useCallback(() => {
+    setHoverAnnotation(null)
+  }, [])
+
+  const handleAnnotationClick = useCallback(
+    (
+      annotation: { id: string; text: string; time: number; anchor: AnnotationAnchor },
+      screenX: number,
+      screenY: number
+    ) => {
+      if (isReadOnly) {
+        setHoverAnnotation({ annotation, screenX, screenY })
+        return
+      }
+      setHoverAnnotation(null)
+      setEditingAnnotation({
+        annotation,
+        time: annotation.time,
+        anchor: annotation.anchor,
+        screenX,
+        screenY,
+      })
+    },
+    [isReadOnly]
+  )
+
+  const handleAnnotationContextMenu = useCallback(
+    (annotationId: string, clientX: number, clientY: number, time: number) => {
+      if (isReadOnly) return
+      setContextMenu({ type: 'annotation', annotationId, x: clientX, y: clientY, time })
+    },
+    [isReadOnly]
+  )
+
+  const handleAnnotationConfirm = useCallback(
+    (text: string) => {
+      if (!editingAnnotation) return
+      if (editingAnnotation.annotation) {
+        updateAnnotation(editingAnnotation.annotation.id, { text })
+      } else {
+        addAnnotation({
+          id: crypto.randomUUID(),
+          text,
+          time: editingAnnotation.time,
+          anchor: editingAnnotation.anchor,
+        })
+      }
+      setEditingAnnotation(null)
+    },
+    [editingAnnotation, addAnnotation, updateAnnotation]
+  )
+
   if (!timeline || !layoutData) {
     return (
       <div className="flex items-center justify-center bg-muted/20" style={{ width, height }}>
@@ -886,6 +952,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     LANE_ROW_HEIGHT,
     displayActionOverrides,
   } = layoutData
+
+  const damageTrackAnnotations = (timeline.annotations ?? []).filter(
+    a => a.anchor.type === 'damageTrack'
+  )
+  const skillTrackAnnotations = (timeline.annotations ?? []).filter(
+    a => a.anchor.type === 'skillTrack'
+  )
 
   // 计算时间轴总长度
   const lastEventTime = Math.max(
@@ -952,11 +1025,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onDblClick={time => setAddEventAt(time)}
                 onContextMenu={handleContextMenu}
                 isReadOnly={isReadOnly}
-                annotations={timeline.annotations ?? []}
-                onAnnotationHover={() => {}}
-                onAnnotationHoverEnd={() => {}}
-                onAnnotationClick={() => {}}
-                onAnnotationContextMenu={() => {}}
+                annotations={damageTrackAnnotations}
+                onAnnotationHover={handleAnnotationHover}
+                onAnnotationHoverEnd={handleAnnotationHoverEnd}
+                onAnnotationClick={handleAnnotationClick}
+                onAnnotationContextMenu={handleAnnotationContextMenu}
               />
             </Layer>
             {/* 固定区域十字准线纵线 */}
@@ -1044,11 +1117,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               onHoverActionEnd={hideTooltip}
               onClickAction={handleClickAction}
               isReadOnly={isReadOnly}
-              annotations={timeline.annotations ?? []}
-              onAnnotationHover={() => {}}
-              onAnnotationHoverEnd={() => {}}
-              onAnnotationClick={() => {}}
-              onAnnotationContextMenu={() => {}}
+              annotations={skillTrackAnnotations}
+              onAnnotationHover={handleAnnotationHover}
+              onAnnotationHoverEnd={handleAnnotationHoverEnd}
+              onAnnotationClick={handleAnnotationClick}
+              onAnnotationContextMenu={handleAnnotationContextMenu}
             />
           </Stage>
         </div>
@@ -1094,6 +1167,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onAddAnnotation={handleAddAnnotation}
         onDeleteAnnotation={handleDeleteAnnotation}
       />
+
+      {/* 注释悬浮查看 */}
+      {hoverAnnotation && !editingAnnotation && (
+        <AnnotationPopover
+          mode="view"
+          text={hoverAnnotation.annotation.text}
+          screenX={hoverAnnotation.screenX}
+          screenY={hoverAnnotation.screenY}
+          onClose={() => setHoverAnnotation(null)}
+        />
+      )}
+
+      {/* 注释编辑 */}
+      {editingAnnotation && (
+        <AnnotationPopover
+          mode="edit"
+          text={editingAnnotation.annotation?.text ?? ''}
+          screenX={editingAnnotation.screenX}
+          screenY={editingAnnotation.screenY}
+          onConfirm={handleAnnotationConfirm}
+          onClose={() => setEditingAnnotation(null)}
+        />
+      )}
     </div>
   )
 }
