@@ -497,6 +497,44 @@ describe('POST /api/timelines 数据校验', () => {
     })
     expect(res.status).toBe(201)
   })
+
+  it('包含合法 annotations 时通过校验', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      annotations: [
+        {
+          id: 'ann1',
+          text: '注意减伤',
+          time: 30,
+          anchor: { type: 'damageTrack' },
+        },
+        {
+          id: 'ann2',
+          text: '铁壁在这里',
+          time: 45,
+          anchor: { type: 'skillTrack', playerId: 1, actionId: 100 },
+        },
+      ],
+    })
+    expect(res.status).toBe(201)
+  })
+
+  it('annotations 中 text 超过 200 字符时返回 400', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      annotations: [
+        {
+          id: 'ann1',
+          text: 'a'.repeat(201),
+          time: 30,
+          anchor: { type: 'damageTrack' },
+        },
+      ],
+    })
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toBe('Validation failed')
+  })
 })
 
 describe('PUT /api/timelines/:id 数据校验', () => {

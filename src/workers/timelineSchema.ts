@@ -11,6 +11,7 @@ import {
   TIMELINE_NAME_MAX_LENGTH,
   TIMELINE_DESCRIPTION_MAX_LENGTH,
   DAMAGE_EVENT_NAME_MAX_LENGTH,
+  ANNOTATION_TEXT_MAX_LENGTH,
 } from '@/constants/limits'
 
 const JobSchema = v.picklist(Object.keys(JOB_METADATA) as [string, ...string[]])
@@ -83,6 +84,22 @@ const FFLogsSourceSchema = v.object({
   fightId: v.number(),
 })
 
+const AnnotationAnchorSchema = v.variant('type', [
+  v.object({ type: v.literal('damageTrack') }),
+  v.object({
+    type: v.literal('skillTrack'),
+    playerId: v.number(),
+    actionId: v.number(),
+  }),
+])
+
+const AnnotationSchema = v.object({
+  id: v.string(),
+  text: v.pipe(v.string(), v.maxLength(ANNOTATION_TEXT_MAX_LENGTH)),
+  time: v.number(),
+  anchor: AnnotationAnchorSchema,
+})
+
 /**
  * 时间轴数据 schema
  */
@@ -94,6 +111,7 @@ const TimelineSchema = v.object({
   composition: CompositionSchema,
   damageEvents: v.array(DamageEventSchema),
   castEvents: v.array(CastEventSchema),
+  annotations: v.optional(v.array(AnnotationSchema)),
   isReplayMode: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),
