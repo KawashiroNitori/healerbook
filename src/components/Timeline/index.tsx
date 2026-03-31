@@ -513,18 +513,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     { enabled: !isReadOnly, preventDefault: true }
   )
 
-  // 删除选中的事件
+  // 删除选中的事件或注释
   useHotkeys(
     'delete, backspace',
     () => {
-      if (selectedEventId) {
+      if (pinnedAnnotationId) {
+        removeAnnotation(pinnedAnnotationId)
+        setPinnedAnnotationId(null)
+      } else if (selectedEventId) {
         removeDamageEvent(selectedEventId)
       } else if (selectedCastEventId) {
         removeCastEvent(selectedCastEventId)
       }
     },
     { enabled: !isReadOnly },
-    [selectedEventId, selectedCastEventId]
+    [pinnedAnnotationId, selectedEventId, selectedCastEventId]
   )
 
   // 复制选中的伤害事件

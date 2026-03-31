@@ -230,7 +230,7 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                编辑注释
+                编辑
               </DropdownMenuItem>
             )}
             {!isReadOnly && (
@@ -241,7 +241,8 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                删除注释
+                删除
+                <DropdownMenuShortcut>{isMac ? '⌫' : 'Del'}</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
           </>
