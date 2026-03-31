@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
 import { parseComposition, parseDamageEvents, parseCastEvents } from '@/utils/fflogsImporter'
@@ -145,7 +144,6 @@ export default function ImportFFLogsDialog({
       }
 
       // 计算战斗时长（秒）
-      const duration = Math.floor((fight.endTime - fight.startTime) / 1000)
 
       // 获取伤害事件（自动分页）
       setLoadingStep('正在获取战斗事件...')
@@ -210,10 +208,6 @@ export default function ImportFFLogsDialog({
         }
 
         newTimeline.castEvents = castEvents
-
-        toast.success(
-          `已导入：${timelineName}（${duration}秒，${damageEvents.length} 个伤害事件，${castEvents.length} 个技能使用，${composition.players.length} 名玩家）`
-        )
       } catch (eventError) {
         console.error('Failed to fetch events:', eventError)
         throw eventError
