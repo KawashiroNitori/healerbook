@@ -938,6 +938,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const handleAnnotationDragEnd = useCallback(
     (annotationId: string, newX: number) => {
       setIsDraggingAnnotation(false)
+      annotationClickedRef.current = true
       const newTime = Math.max(TIMELINE_START_TIME, Math.round((newX / zoomLevel) * 10) / 10)
       updateAnnotation(annotationId, { time: newTime })
     },
