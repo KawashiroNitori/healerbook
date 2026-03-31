@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { toast } from 'sonner'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
@@ -63,7 +64,7 @@ export default function CreateTimelineDialog({
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              maxLength={50}
+              maxLength={TIMELINE_NAME_MAX_LENGTH}
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
               autoComplete="off"

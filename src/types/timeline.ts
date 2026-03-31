@@ -14,7 +14,14 @@ export const MAX_PARTY_SIZE = 8
 /**
  * 伤害类型
  */
-export type DamageType = 'physical' | 'magical' | 'darkness'
+export const DAMAGE_TYPES = ['physical', 'magical', 'darkness'] as const
+export type DamageType = (typeof DAMAGE_TYPES)[number]
+
+/**
+ * 攻击类型
+ */
+export const DAMAGE_EVENT_TYPES = ['aoe', 'tankbuster'] as const
+export type DamageEventType = (typeof DAMAGE_EVENT_TYPES)[number]
 
 /**
  * 时间轴
@@ -140,7 +147,7 @@ export interface DamageEvent {
   /** 原始伤害（非坦克玩家平均值，如果只有坦克则为所有玩家平均值） */
   damage: number
   /** 攻击类型 */
-  type: 'aoe' | 'tankbuster'
+  type: DamageEventType
   /** 伤害类型 */
   damageType: DamageType
   /** 目标玩家 ID（可选，用于单体伤害） */

@@ -7,6 +7,7 @@ import { temporal } from 'zundo'
 import type { Timeline, DamageEvent, CastEvent, Composition } from '@/types/timeline'
 import type { PartyState, PlayerState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
+import type { SharedTimelineResponse } from '@/api/timelineShareApi'
 import { saveTimeline, deleteTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 
@@ -93,9 +94,7 @@ interface TimelineState {
   /** 将保存更新结果写入本地状态 */
   applyUpdateResult: (updatedAt: number, version: number) => void
   /** 从服务器版本覆盖本地（冲突解决 - 使用服务器版本） */
-  applyServerTimeline: (
-    serverTimeline: import('@/api/timelineShareApi').PublicSharedTimeline
-  ) => void
+  applyServerTimeline: (response: SharedTimelineResponse) => void
   /** 重置状态 */
   reset: () => void
 }
@@ -526,23 +525,21 @@ export const useTimelineStore = create<TimelineState>()(
         resume()
       },
 
-      applyServerTimeline: serverTimeline => {
+      applyServerTimeline: response => {
         // 使用服务器版本覆盖本地不可撤销，清空历史栈
         const temporal = useTimelineStore.temporal.getState()
         temporal.pause()
         const now = Math.floor(Date.now() / 1000)
         set(state => {
           if (!state.timeline) return state
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { isAuthor: _isAuthor, ...rest } = serverTimeline
           return {
             timeline: {
               ...state.timeline,
-              ...rest,
+              ...response.timeline,
               statusEvents: state.timeline.statusEvents,
               isShared: true,
               hasLocalChanges: false,
-              serverVersion: rest.version,
+              serverVersion: response.version,
               updatedAt: now,
             },
           }

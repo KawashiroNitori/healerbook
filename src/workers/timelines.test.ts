@@ -160,7 +160,7 @@ describe('POST /api/timelines', () => {
     const req = new Request('https://example.com/api/timelines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(MINIMAL_TIMELINE),
+      body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
     const res = await handleTimelines(req, makeMockEnv(makeMockD1()))
     expect(res.status).toBe(401)
@@ -174,7 +174,7 @@ describe('POST /api/timelines', () => {
     const req = new Request('https://example.com/api/timelines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(MINIMAL_TIMELINE),
+      body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
 
     const res = await handleTimelines(req, env)
@@ -194,7 +194,7 @@ describe('POST /api/timelines', () => {
     const req = new Request('https://example.com/api/timelines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name: '没有 encounter', createdAt: 1742780000 }),
+      body: JSON.stringify({ timeline: { name: '没有 encounter', createdAt: 1742780000 } }),
     })
 
     const res = await handleTimelines(req, env)
@@ -208,7 +208,7 @@ describe('POST /api/timelines', () => {
     const req = new Request('https://example.com/api/timelines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name: '没有 createdAt', encounter: { id: 1 } }),
+      body: JSON.stringify({ timeline: { name: '没有 createdAt', encounter: { id: 1 } } }),
     })
 
     const res = await handleTimelines(req, env)
@@ -224,7 +224,7 @@ describe('PUT /api/timelines/:id', () => {
     const req = new Request('https://example.com/api/timelines/notexist', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...MINIMAL_TIMELINE }),
+      body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
 
     const res = await handleTimelines(req, env)
@@ -239,7 +239,10 @@ describe('PUT /api/timelines/:id', () => {
     const req = new Request('https://example.com/api/timelines/server123', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...MINIMAL_TIMELINE, id: 'server123', expectedVersion: 1 }),
+      body: JSON.stringify({
+        timeline: { ...MINIMAL_TIMELINE, id: 'server123' },
+        expectedVersion: 1,
+      }),
     })
 
     const res = await handleTimelines(req, env)
@@ -254,7 +257,10 @@ describe('PUT /api/timelines/:id', () => {
     const req = new Request('https://example.com/api/timelines/server123', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...MINIMAL_TIMELINE, id: 'server123', expectedVersion: 1 }),
+      body: JSON.stringify({
+        timeline: { ...MINIMAL_TIMELINE, id: 'server123' },
+        expectedVersion: 1,
+      }),
     })
 
     const res = await handleTimelines(req, env)
@@ -277,7 +283,10 @@ describe('PUT /api/timelines/:id', () => {
     const req = new Request('https://example.com/api/timelines/server123', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...MINIMAL_TIMELINE, id: 'server123', expectedVersion: 1 }),
+      body: JSON.stringify({
+        timeline: { ...MINIMAL_TIMELINE, id: 'server123' },
+        expectedVersion: 1,
+      }),
     })
 
     const res = await handleTimelines(req, env)
@@ -306,7 +315,10 @@ describe('GET /api/timelines/:id', () => {
 
     const body = (await res.json()) as Record<string, unknown>
     expect(body.isAuthor).toBe(false)
-    expect(body.authorId).toBeUndefined()
+    expect(body.authorName).toBeDefined()
+    expect((body as { timeline?: Record<string, unknown> }).timeline).toBeDefined()
+    // authorId 不应出现在任何层级
+    expect((body as { timeline?: Record<string, unknown> }).timeline?.authorId).toBeUndefined()
   })
 
   it('作者携带有效 token 时 isAuthor 为 true', async () => {
@@ -326,7 +338,7 @@ describe('GET /api/timelines/:id', () => {
     expect(body.isAuthor).toBe(true)
   })
 
-  it('GET 返回的数据包含 encounter 等 content 字段', async () => {
+  it('GET 返回的 timeline 字段包含 encounter 等内容', async () => {
     const db = makeMockD1([makeDbRow()])
     const env = makeMockEnv(db)
 
@@ -335,10 +347,16 @@ describe('GET /api/timelines/:id', () => {
     const res = await handleTimelines(req, env)
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as Record<string, unknown>
-    expect(body.encounter).toBeDefined()
-    expect(body.damageEvents).toBeDefined()
-    expect(body.name).toBe('测试时间轴')
+    const body = (await res.json()) as {
+      timeline: Record<string, unknown>
+      version: number
+      authorName: string
+    }
+    expect(body.timeline.encounter).toBeDefined()
+    expect(body.timeline.damageEvents).toBeDefined()
+    expect(body.timeline.name).toBe('测试时间轴')
+    expect(body.version).toBe(1)
+    expect(body.authorName).toBe('User1')
   })
 })
 
@@ -397,6 +415,135 @@ describe('GET /api/timelines（列表）', () => {
       body.every(item => 'publishedAt' in item && 'updatedAt' in item && 'version' in item)
     ).toBe(true)
     expect(body.every(item => !('authorId' in item) && !('content' in item))).toBe(true)
+  })
+})
+
+describe('POST /api/timelines 数据校验', () => {
+  async function postTimeline(timeline: unknown) {
+    const db = makeMockD1()
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
+    const req = new Request('https://example.com/api/timelines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ timeline }),
+    })
+    return handleTimelines(req, env)
+  }
+
+  it('剥离不在 schema 中的多余字段', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      statusEvents: [{ statusId: 1 }],
+      isShared: true,
+      hasLocalChanges: false,
+      serverVersion: 5,
+      __proto_hack__: 'evil',
+    })
+    expect(res.status).toBe(201)
+  })
+
+  it('name 类型错误时返回 400', async () => {
+    const res = await postTimeline({ ...MINIMAL_TIMELINE, name: 12345 })
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: string; details: string }
+    expect(body.error).toBe('Validation failed')
+  })
+
+  it('encounter 结构不完整时返回 400', async () => {
+    const res = await postTimeline({ ...MINIMAL_TIMELINE, encounter: { id: 'not-a-number' } })
+    expect(res.status).toBe(400)
+  })
+
+  it('damageEvents 包含无效 type 时返回 400', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      damageEvents: [
+        { id: '1', name: 'test', time: 10, damage: 100, type: 'invalid', damageType: 'physical' },
+      ],
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('castEvents 包含无效 job 时返回 400', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      castEvents: [{ id: '1', actionId: 1, timestamp: 10, playerId: 1, job: 'INVALID_JOB' }],
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('composition.players 包含无效 job 时返回 400', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      composition: { players: [{ id: 1, job: 'FAKE' }] },
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('有效的完整数据通过校验', async () => {
+    const res = await postTimeline({
+      ...MINIMAL_TIMELINE,
+      composition: {
+        players: [
+          { id: 1, job: 'WAR' },
+          { id: 2, job: 'WHM' },
+        ],
+      },
+      damageEvents: [
+        { id: 'd1', name: 'AOE', time: 30, damage: 50000, type: 'aoe', damageType: 'magical' },
+      ],
+      castEvents: [{ id: 'c1', actionId: 100, timestamp: 25, playerId: 2, job: 'WHM' }],
+    })
+    expect(res.status).toBe(201)
+  })
+})
+
+describe('PUT /api/timelines/:id 数据校验', () => {
+  async function putTimeline(timeline: unknown, expectedVersion?: number) {
+    const db = makeMockD1([makeDbRow()])
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('user1', 'User1', 'test-secret')
+    const req = new Request('https://example.com/api/timelines/server123', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        timeline,
+        ...(expectedVersion !== undefined ? { expectedVersion } : {}),
+      }),
+    })
+    return handleTimelines(req, env)
+  }
+
+  it('剥离多余字段后正常更新', async () => {
+    const res = await putTimeline(
+      {
+        ...MINIMAL_TIMELINE,
+        statusEvents: [],
+        isShared: true,
+        randomField: 'should be stripped',
+      },
+      1
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('name 类型错误时返回 400', async () => {
+    const res = await putTimeline({ ...MINIMAL_TIMELINE, name: { nested: true } }, 1)
+    expect(res.status).toBe(400)
+  })
+
+  it('damageType 值不在枚举中时返回 400', async () => {
+    const res = await putTimeline(
+      {
+        ...MINIMAL_TIMELINE,
+        damageEvents: [
+          { id: '1', name: 'test', time: 10, damage: 100, type: 'aoe', damageType: 'holy' },
+        ],
+      },
+      1
+    )
+    expect(res.status).toBe(400)
   })
 })
 

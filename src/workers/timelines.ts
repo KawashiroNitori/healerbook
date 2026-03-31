@@ -3,14 +3,24 @@
 import type { Env } from './fflogs-proxy'
 import { verifyToken } from './jwt'
 import { customAlphabet } from 'nanoid'
+import { validateCreateRequest, validateUpdateRequest } from './timelineSchema'
 
 const generateId = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   21
 )
 
-// 不存入数据库的字段
-const EXCLUDED_FIELDS = ['statusEvents', 'isShared', 'hasLocalChanges', 'serverVersion']
+/** 格式化 Valibot 校验错误为可读字符串 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatIssues(issues: readonly any[]): string {
+  return issues
+    .slice(0, 5)
+    .map(issue => {
+      const path = issue.path?.map((p: { key: unknown }) => String(p.key)).join('.') ?? ''
+      return path ? `${path}: ${issue.message}` : issue.message
+    })
+    .join('; ')
+}
 
 // D1 timelines 表的行结构
 interface DbRow {
@@ -62,25 +72,6 @@ async function getAuthUserId(
   return { userId: sub, username: name }
 }
 
-function stripExcludedFields(obj: Record<string, unknown>): Record<string, unknown> {
-  const copy = { ...obj }
-  for (const field of EXCLUDED_FIELDS) {
-    delete copy[field]
-  }
-  return copy
-}
-
-/**
- * 将请求 body 拆分为结构化字段和 content JSON blob。
- * content 包含除 id、name 之外的所有透传字段（id 和 name 均存为独立列）。
- */
-function buildContent(body: Record<string, unknown>): string {
-  const stripped = stripExcludedFields(body)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { name: _name, id: _id, ...rest } = stripped
-  return JSON.stringify(rest)
-}
-
 /**
  * 将 D1 行合并还原为 SharedTimeline。
  * 结构化列优先，覆盖 content 中可能残留的同名字段。
@@ -103,33 +94,33 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
   const auth = await getAuthUserId(request, env)
   if (!auth) return jsonRes({ error: 'Unauthorized' }, 401, env.ALLOWED_ORIGIN)
 
-  let body: Record<string, unknown>
+  let raw: unknown
   try {
-    body = (await request.json()) as Record<string, unknown>
+    raw = await request.json()
   } catch {
     return jsonRes({ error: 'Invalid JSON' }, 400, env.ALLOWED_ORIGIN)
   }
 
-  if (!body.name || !body.encounter || !body.createdAt) {
-    return jsonRes({ error: 'Missing required fields' }, 400, env.ALLOWED_ORIGIN)
+  const result = validateCreateRequest(raw)
+  if (!result.success) {
+    return jsonRes(
+      { error: 'Validation failed', details: formatIssues(result.issues) },
+      400,
+      env.ALLOWED_ORIGIN
+    )
   }
 
-  if (typeof body.name === 'string' && body.name.length > 50) {
-    return jsonRes({ error: 'Name too long (max 50)' }, 400, env.ALLOWED_ORIGIN)
-  }
-  if (typeof body.description === 'string' && body.description.length > 500) {
-    return jsonRes({ error: 'Description too long (max 500)' }, 400, env.ALLOWED_ORIGIN)
-  }
-
+  const { timeline } = result.output
   const now = Math.floor(Date.now() / 1000)
   const newId = generateId()
-  const content = buildContent(body)
+  const { name: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
+  const content = JSON.stringify(rest)
 
   await env.healerbook_timelines
     .prepare(
       'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(newId, body.name as string, auth.userId, auth.username, now, now, 1, content)
+    .bind(newId, timeline.name, auth.userId, auth.username, now, now, 1, content)
     .run()
 
   return jsonRes({ id: newId, publishedAt: now, version: 1 }, 201, env.ALLOWED_ORIGIN)
@@ -150,39 +141,40 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
     return jsonRes({ error: 'Forbidden' }, 403, env.ALLOWED_ORIGIN)
   }
 
-  let body: Record<string, unknown>
+  let raw: unknown
   try {
-    body = (await request.json()) as Record<string, unknown>
+    raw = await request.json()
   } catch {
     return jsonRes({ error: 'Invalid JSON' }, 400, env.ALLOWED_ORIGIN)
   }
 
-  const expectedVersion = body.expectedVersion as number | undefined
+  const validation = validateUpdateRequest(raw)
+  if (!validation.success) {
+    return jsonRes(
+      { error: 'Validation failed', details: formatIssues(validation.issues) },
+      400,
+      env.ALLOWED_ORIGIN
+    )
+  }
+
+  const { timeline, expectedVersion } = validation.output
   const now = Math.floor(Date.now() / 1000)
 
-  const newBody = { ...body }
-  delete newBody.expectedVersion
+  const newName = timeline.name ?? row.name
+  const { name: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
+  const content = JSON.stringify(rest)
 
-  const newName = (newBody.name as string | undefined) ?? row.name
-  if (newName.length > 50) {
-    return jsonRes({ error: 'Name too long (max 50)' }, 400, env.ALLOWED_ORIGIN)
-  }
-  if (typeof newBody.description === 'string' && newBody.description.length > 500) {
-    return jsonRes({ error: 'Description too long (max 500)' }, 400, env.ALLOWED_ORIGIN)
-  }
-  const content = buildContent(newBody)
-
-  let result: { meta: { changes: number } }
+  let dbResult: { meta: { changes: number } }
 
   if (expectedVersion !== undefined) {
-    result = await env.healerbook_timelines
+    dbResult = await env.healerbook_timelines
       .prepare(
         'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=? AND version=?'
       )
       .bind(newName, auth.username, now, content, id, expectedVersion)
       .run()
   } else {
-    result = await env.healerbook_timelines
+    dbResult = await env.healerbook_timelines
       .prepare(
         'UPDATE timelines SET name=?, author_name=?, updated_at=?, version=version+1, content=? WHERE id=?'
       )
@@ -190,7 +182,7 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
       .run()
   }
 
-  if (result.meta.changes === 0) {
+  if (dbResult.meta.changes === 0) {
     // expectedVersion 不匹配（极低概率：步骤间记录被删除，统一返回 409）
     return jsonRes(
       { error: 'conflict', serverVersion: row.version, serverUpdatedAt: row.updated_at },
@@ -219,9 +211,19 @@ async function handleGet(request: Request, env: Env, id: string): Promise<Respon
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { authorId: _authorId, ...publicData } = data
+  const { authorId: _, authorName: __, publishedAt: ___, version: ____, ...timeline } = data
 
-  return jsonRes({ ...publicData, isAuthor }, 200, env.ALLOWED_ORIGIN)
+  return jsonRes(
+    {
+      timeline,
+      authorName: data.authorName,
+      publishedAt: data.publishedAt,
+      version: data.version,
+      isAuthor,
+    },
+    200,
+    env.ALLOWED_ORIGIN
+  )
 }
 
 interface TimelineListItem {

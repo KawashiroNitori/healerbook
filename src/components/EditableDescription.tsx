@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { TIMELINE_DESCRIPTION_MAX_LENGTH } from '@/constants/limits'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 interface EditableDescriptionProps {
@@ -50,7 +51,7 @@ export default function EditableDescription({
                 autoFocus
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                maxLength={500}
+                maxLength={TIMELINE_DESCRIPTION_MAX_LENGTH}
                 onKeyDown={e => {
                   if (e.key === 'Escape') setOpen(false)
                 }}

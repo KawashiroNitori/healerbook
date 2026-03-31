@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -57,7 +58,7 @@ export default function PropertyPanel() {
             type="text"
             value={event.name}
             onChange={e => updateDamageEvent(event.id, { name: e.target.value })}
-            maxLength={20}
+            maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
             className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
             disabled={isReadOnly}
           />

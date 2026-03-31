@@ -3,6 +3,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { Check, X, Pencil } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -77,7 +78,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           type="text"
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
-          maxLength={50}
+          maxLength={TIMELINE_NAME_MAX_LENGTH}
           onKeyDown={handleKeyDown}
           style={{ width: `${inputWidth}px` }}
           className="px-1 h-7 border rounded-md text-sm"

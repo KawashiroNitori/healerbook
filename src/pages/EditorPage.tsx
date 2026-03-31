@@ -108,30 +108,32 @@ export default function EditorPage() {
 
     if (!apiData) return
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { isAuthor, authorName: _a, publishedAt: _p, version: _v, ...rest } = apiData
+    const { timeline: serverTimeline, isAuthor, version } = apiData
 
     if (isAuthor) {
       const restored: Timeline = {
-        ...rest,
+        ...serverTimeline,
         statusEvents: [],
         isShared: true,
         hasLocalChanges: false,
-        serverVersion: apiData.version,
+        serverVersion: version,
       }
       saveTimeline(restored)
       setTimeline(restored)
       toast.success('已从服务器恢复此时间轴')
     } else {
       const viewTimeline: Timeline = {
-        ...rest,
+        ...serverTimeline,
         statusEvents: [],
         isShared: false,
         hasLocalChanges: false,
       }
       setTimeline(viewTimeline)
       useUIStore.setState({ isReadOnly: true })
-      track('timeline-view-shared', { timelineId: rest.id, encounterId: rest.encounter?.id })
+      track('timeline-view-shared', {
+        timelineId: serverTimeline.id,
+        encounterId: serverTimeline.encounter?.id,
+      })
     }
 
     return () => {
@@ -193,12 +195,10 @@ export default function EditorPage() {
     if (!apiData) return
     const newId = generateId()
     const now = Math.floor(Date.now() / 1000)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { isAuthor: _, authorName: _a, publishedAt: _p, version: _v, ...rest } = apiData
     const copy: Timeline = {
-      ...rest,
+      ...apiData.timeline,
       id: newId,
-      name: `${apiData.name}（副本）`,
+      name: `${apiData.timeline.name}（副本）`,
       statusEvents: [],
       isShared: false,
       hasLocalChanges: false,
@@ -265,9 +265,9 @@ export default function EditorPage() {
           {isViewMode ? (
             // 只读头部：静态标题 + 说明（只读）
             <div>
-              <h1 className="text-lg font-bold">{apiData?.name}</h1>
+              <h1 className="text-lg font-bold">{apiData?.timeline.name}</h1>
               <EditableDescription
-                value={apiData?.description || ''}
+                value={apiData?.timeline.description || ''}
                 onChange={() => {}}
                 readOnly
               />

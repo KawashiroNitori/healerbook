@@ -21,7 +21,8 @@ export interface UploadPayload {
   updatedAt: number
 }
 
-export interface PublicSharedTimeline extends UploadPayload {
+export interface SharedTimelineResponse {
+  timeline: UploadPayload
   authorName: string
   publishedAt: number
   version: number
@@ -67,7 +68,9 @@ function buildPayload(timeline: Timeline): UploadPayload {
  */
 export async function publishTimeline(timeline: Timeline): Promise<PublishResult> {
   try {
-    return await apiClient.post('timelines', { json: buildPayload(timeline) }).json<PublishResult>()
+    return await apiClient
+      .post('timelines', { json: { timeline: buildPayload(timeline) } })
+      .json<PublishResult>()
   } catch (err) {
     if (err instanceof HTTPError) {
       const body = await err.response.json<{ error?: string }>().catch(() => ({ error: undefined }))
@@ -87,7 +90,7 @@ export async function updateTimeline(
   expectedVersion?: number
 ): Promise<UpdateResult | ConflictError> {
   const payload = {
-    ...buildPayload(timeline),
+    timeline: buildPayload(timeline),
     ...(expectedVersion !== undefined ? { expectedVersion } : {}),
   }
 
@@ -150,9 +153,9 @@ export async function deleteSharedTimeline(id: string): Promise<void> {
  * 获取共享的时间轴（公开）
  * 若已登录，Worker 会根据 Authorization 头计算 isAuthor
  */
-export async function fetchSharedTimeline(id: string): Promise<PublicSharedTimeline> {
+export async function fetchSharedTimeline(id: string): Promise<SharedTimelineResponse> {
   try {
-    return await apiClient.get(`timelines/${id}`).json<PublicSharedTimeline>()
+    return await apiClient.get(`timelines/${id}`).json<SharedTimelineResponse>()
   } catch (err) {
     if (err instanceof HTTPError && err.response.status === 404) {
       throw new Error('NOT_FOUND')

@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
@@ -59,7 +60,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              maxLength={20}
+              maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
               placeholder="例如: 全屏 AOE"
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
