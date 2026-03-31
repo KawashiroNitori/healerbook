@@ -114,6 +114,7 @@ export default function EditorPage() {
       const restored: Timeline = {
         ...serverTimeline,
         statusEvents: [],
+        annotations: serverTimeline.annotations ?? [],
         isShared: true,
         hasLocalChanges: false,
         serverVersion: version,
@@ -125,6 +126,7 @@ export default function EditorPage() {
       const viewTimeline: Timeline = {
         ...serverTimeline,
         statusEvents: [],
+        annotations: serverTimeline.annotations ?? [],
         isShared: false,
         hasLocalChanges: false,
       }
@@ -200,6 +202,7 @@ export default function EditorPage() {
       id: newId,
       name: `${apiData.timeline.name}（副本）`,
       statusEvents: [],
+      annotations: apiData.timeline.annotations ?? [],
       isShared: false,
       hasLocalChanges: false,
       createdAt: now,

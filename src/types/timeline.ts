@@ -48,6 +48,8 @@ export interface Timeline {
   castEvents: CastEvent[]
   /** 状态事件列表（编辑模式专用） */
   statusEvents: StatusEvent[]
+  /** 注释列表 */
+  annotations: Annotation[]
   /** 是否为回放模式 */
   isReplayMode?: boolean
   /** 是否已发布到服务器 */
@@ -185,6 +187,27 @@ export interface CastEvent {
   job: Job
   /** 目标玩家 ID（可选，用于单体技能） */
   targetPlayerId?: number
+}
+
+/**
+ * 注释锚定目标
+ */
+export type AnnotationAnchor =
+  | { type: 'damageTrack' }
+  | { type: 'skillTrack'; playerId: number; actionId: number }
+
+/**
+ * 注释
+ */
+export interface Annotation {
+  /** 注释 ID */
+  id: string
+  /** 注释文本（最大 200 字符，允许换行） */
+  text: string
+  /** 锚定时间（秒） */
+  time: number
+  /** 锚定目标 */
+  anchor: AnnotationAnchor
 }
 
 /**

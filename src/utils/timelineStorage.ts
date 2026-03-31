@@ -155,6 +155,7 @@ export function createNewTimeline(encounterId: string, name: string): Timeline {
     damageEvents: [],
     castEvents: [],
     statusEvents: [],
+    annotations: [],
     composition: {
       players: [],
     },
