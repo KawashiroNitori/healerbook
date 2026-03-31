@@ -16,7 +16,7 @@ export interface UploadPayload {
   composition: Timeline['composition']
   damageEvents: Timeline['damageEvents']
   castEvents: Timeline['castEvents']
-  annotations: Timeline['annotations']
+  annotations?: Timeline['annotations']
   isReplayMode?: boolean
   createdAt: number
   updatedAt: number
@@ -58,7 +58,7 @@ function buildPayload(timeline: Timeline): UploadPayload {
     composition: timeline.composition,
     damageEvents: timeline.damageEvents,
     castEvents: timeline.castEvents,
-    annotations: timeline.annotations,
+    ...(timeline.annotations?.length ? { annotations: timeline.annotations } : {}),
     ...(timeline.isReplayMode !== undefined && { isReplayMode: timeline.isReplayMode }),
     createdAt: timeline.createdAt,
     updatedAt: timeline.updatedAt,
