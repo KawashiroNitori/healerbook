@@ -63,7 +63,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 h-7">
         {/* 隐藏的 span 用于测量文本宽度 */}
         <span
           ref={spanRef}
@@ -79,15 +79,14 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           onChange={e => setEditValue(e.target.value)}
           maxLength={50}
           onKeyDown={handleKeyDown}
-          onBlur={handleSave}
           style={{ width: `${inputWidth}px` }}
-          className={`px-2 py-1 border rounded-md ${className}`}
+          className="px-1 h-7 border rounded-md text-sm"
         />
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={handleSave}
-              className="p-1 hover:bg-accent rounded-md transition-colors"
+              className="p-0.5 hover:bg-accent rounded-md transition-colors"
             >
               <Check className="w-4 h-4 text-green-600" />
             </button>
@@ -98,7 +97,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           <TooltipTrigger asChild>
             <button
               onClick={handleCancel}
-              className="p-1 hover:bg-accent rounded-md transition-colors"
+              className="p-0.5 hover:bg-accent rounded-md transition-colors"
             >
               <X className="w-4 h-4 text-red-600" />
             </button>
@@ -110,7 +109,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
   }
 
   return (
-    <div className="flex items-center gap-2 group">
+    <div className="flex items-center gap-2 h-7 group">
       <h1 className={className}>{value}</h1>
       <Tooltip>
         <TooltipTrigger asChild>
