@@ -54,6 +54,8 @@ export interface Timeline {
   isReplayMode?: boolean
   /** 是否已发布到服务器 */
   isShared?: boolean
+  /** 是否曾经发布过（只增不减，用于决定打开时是否请求服务器验证） */
+  everPublished?: boolean
   /** 发布后是否有本地未发布的修改 */
   hasLocalChanges?: boolean
   /** 最后一次与服务器同步的版本号 */

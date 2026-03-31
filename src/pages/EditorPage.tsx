@@ -57,12 +57,12 @@ export default function EditorPage() {
   } = useQuery({
     queryKey: ['shared-timeline', id, accessToken],
     queryFn: () => fetchSharedTimeline(id!),
-    // isShared 的本地时间轴也查询，以便检测服务端已取消发布的情况
-    enabled: !!id && (localTimeline === null || !!localTimeline?.isShared),
+    // everPublished 的本地时间轴也查询，以便检测服务端已取消发布的情况
+    enabled: !!id && (localTimeline === null || !!localTimeline?.everPublished),
     retry: false,
-    // isShared 验证请求不使用缓存，确保每次都拿最新状态
-    staleTime: localTimeline?.isShared ? 0 : 5 * 60 * 1000,
-    gcTime: localTimeline?.isShared ? 0 : 5 * 60 * 1000,
+    // everPublished 验证请求不使用缓存，确保每次都拿最新状态
+    staleTime: localTimeline?.everPublished ? 0 : 5 * 60 * 1000,
+    gcTime: localTimeline?.everPublished ? 0 : 5 * 60 * 1000,
   })
 
   // 从 query 状态派生页面模式，无需额外 useState
@@ -116,6 +116,7 @@ export default function EditorPage() {
         statusEvents: [],
         annotations: serverTimeline.annotations ?? [],
         isShared: true,
+        everPublished: true,
         hasLocalChanges: false,
         serverVersion: version,
       }
