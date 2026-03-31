@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MousePointerClick } from 'lucide-react'
-import type { DamageEvent } from '@/types/timeline'
+import type { DamageEvent, AnnotationAnchor } from '@/types/timeline'
 
 export type ContextMenuState =
   | {
@@ -28,6 +28,7 @@ export type ContextMenuState =
       time: number
       type: 'skillTrackEmpty'
       actionId: number
+      playerId: number
     }
   | {
       x: number
@@ -41,6 +42,13 @@ export type ContextMenuState =
       y: number
       time: number
       type: 'damageTrackEmpty'
+    }
+  | {
+      x: number
+      y: number
+      time: number
+      type: 'annotation'
+      annotationId: string
     }
 
 export type DamageEventClipboard = Omit<DamageEvent, 'id' | 'time'> | null
@@ -57,6 +65,8 @@ interface TimelineContextMenuProps {
   onDeleteDamageEvent: (eventId: string) => void
   onAddDamageEvent: (time: number) => void
   onPasteDamageEvent: (time: number) => void
+  onAddAnnotation: (time: number, anchor: AnnotationAnchor) => void
+  onDeleteAnnotation: (annotationId: string) => void
 }
 
 const isMac =
@@ -76,6 +86,8 @@ export default function TimelineContextMenu({
   onDeleteDamageEvent,
   onAddDamageEvent,
   onPasteDamageEvent,
+  onAddAnnotation,
+  onDeleteAnnotation,
 }: TimelineContextMenuProps) {
   if (!menu) return null
 
@@ -109,17 +121,31 @@ export default function TimelineContextMenu({
         )}
 
         {menu.type === 'skillTrackEmpty' && (
-          <DropdownMenuItem
-            onClick={() => {
-              onAddCast(menu.actionId, menu.time)
-              onClose()
-            }}
-          >
-            添加
-            <DropdownMenuShortcut>
-              <MousePointerClick className="size-3" />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              onClick={() => {
+                onAddCast(menu.actionId, menu.time)
+                onClose()
+              }}
+            >
+              添加
+              <DropdownMenuShortcut>
+                <MousePointerClick className="size-3" />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                onAddAnnotation(menu.time, {
+                  type: 'skillTrack',
+                  playerId: menu.playerId,
+                  actionId: menu.actionId,
+                })
+                onClose()
+              }}
+            >
+              添加注释
+            </DropdownMenuItem>
+          </>
         )}
 
         {menu.type === 'damageEvent' && (
@@ -183,7 +209,26 @@ export default function TimelineContextMenu({
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              onClick={() => {
+                onAddAnnotation(menu.time, { type: 'damageTrack' })
+                onClose()
+              }}
+            >
+              添加注释
+            </DropdownMenuItem>
           </>
+        )}
+        {menu.type === 'annotation' && (
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => {
+              onDeleteAnnotation(menu.annotationId)
+              onClose()
+            }}
+          >
+            删除注释
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

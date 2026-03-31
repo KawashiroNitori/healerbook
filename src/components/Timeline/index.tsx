@@ -28,7 +28,7 @@ import SkillTracksCanvas from './SkillTracksCanvas'
 import TimelineMinimap from './TimelineMinimap'
 import type { TimelineMinimapHandle } from './TimelineMinimap'
 import type { SkillTrack } from './SkillTrackLabels'
-import type { CastEvent } from '@/types/timeline'
+import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME } from './constants'
@@ -47,6 +47,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const scrollTopRef = useRef(0)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [clipboard, setClipboard] = useState<DamageEventClipboard>(null)
+  // Task 9 会读取 editingAnnotation 并渲染 AnnotationPopover
+  const annotationEditState = useState<{
+    annotation: { id: string; text: string; time: number; anchor: AnnotationAnchor } | null
+    time: number
+    anchor: AnnotationAnchor
+    screenX: number
+    screenY: number
+  } | null>(null)
+  const setEditingAnnotation = annotationEditState[1]
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
     eventId: string
     x: number
@@ -101,6 +110,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setPendingScrollProgress,
     updateScrollState,
     triggerAutoSave,
+    removeAnnotation,
   } = useTimelineStore()
   const { actions, loadActions } = useMitigationStore()
   const { hiddenPlayerIds } = useUIStore()
@@ -641,9 +651,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     (
       payload:
         | { type: 'castEvent'; castEventId: string; actionId: number }
-        | { type: 'skillTrackEmpty'; actionId: number }
+        | { type: 'skillTrackEmpty'; actionId: number; playerId: number }
         | { type: 'damageEvent'; eventId: string }
-        | { type: 'damageTrackEmpty' },
+        | { type: 'damageTrackEmpty' }
+        | { type: 'annotation'; annotationId: string },
       clientX: number,
       clientY: number,
       time: number
@@ -833,6 +844,28 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       toast.success('已粘贴伤害事件')
     },
     [clipboard]
+  )
+
+  const handleAddAnnotation = useCallback(
+    (time: number, anchor: AnnotationAnchor) => {
+      const menuX = contextMenu?.x ?? 0
+      const menuY = contextMenu?.y ?? 0
+      setEditingAnnotation({
+        annotation: null,
+        time,
+        anchor,
+        screenX: menuX,
+        screenY: menuY,
+      })
+    },
+    [contextMenu, setEditingAnnotation]
+  )
+
+  const handleDeleteAnnotation = useCallback(
+    (annotationId: string) => {
+      removeAnnotation(annotationId)
+    },
+    [removeAnnotation]
   )
 
   if (!timeline || !layoutData) {
@@ -1048,6 +1081,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onDeleteDamageEvent={removeDamageEvent}
         onAddDamageEvent={handleContextMenuAddDamageEvent}
         onPasteDamageEvent={handleContextMenuPasteDamageEvent}
+        onAddAnnotation={handleAddAnnotation}
+        onDeleteAnnotation={handleDeleteAnnotation}
       />
     </div>
   )

@@ -35,7 +35,7 @@ interface SkillTracksCanvasProps {
   onContextMenu: (
     payload:
       | { type: 'castEvent'; castEventId: string; actionId: number }
-      | { type: 'skillTrackEmpty'; actionId: number },
+      | { type: 'skillTrackEmpty'; actionId: number; playerId: number },
     clientX: number,
     clientY: number,
     time: number
@@ -121,7 +121,7 @@ export default function SkillTracksCanvas({
               if (!pos) return
               const time = Math.round((pos.x / zoomLevel) * 10) / 10
               onContextMenu(
-                { type: 'skillTrackEmpty', actionId: track.actionId },
+                { type: 'skillTrackEmpty', actionId: track.actionId, playerId: track.playerId },
                 e.evt.clientX,
                 e.evt.clientY,
                 time
