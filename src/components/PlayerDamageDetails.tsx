@@ -26,7 +26,7 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">玩家伤害详情</h3>
 
-      {sortedDetails.map(detail => {
+      {sortedDetails.map((detail, i) => {
         // 直接使用 detail.statuses（来自 PlayerDamageDetail）
         const activeStatuses = detail.statuses || []
 
@@ -44,7 +44,7 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
             : null
 
         return (
-          <div key={detail.playerId} className="border rounded-lg p-3 space-y-2 bg-card">
+          <div key={`${detail.playerId}-${i}`} className="border rounded-lg p-3 space-y-2 bg-card">
             {/* 玩家信息 */}
             <div className="flex items-center gap-2">
               <JobIcon job={detail.job} size="sm" />
