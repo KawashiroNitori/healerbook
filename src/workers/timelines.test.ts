@@ -132,7 +132,6 @@ const MINIMAL_TIMELINE = {
   name: '测试时间轴',
   encounter: { id: 1001, name: '副本', displayName: '副本', zone: '', damageEvents: [] },
   composition: { players: [] },
-  phases: [],
   damageEvents: [],
   castEvents: [],
   createdAt: 1742780000,

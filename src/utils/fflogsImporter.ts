@@ -41,7 +41,7 @@ export function parseComposition(
     const job = JOB_MAP[actor.type]
     if (!job) continue
     if (participantIds && !participantIds.has(actor.id)) continue
-    composition.players.push({ id: actor.id, job, name: actor.name })
+    composition.players.push({ id: actor.id, job })
   }
 
   return composition

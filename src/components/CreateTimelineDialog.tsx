@@ -63,6 +63,7 @@ export default function CreateTimelineDialog({
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
+              maxLength={50}
               className="w-full px-3 py-2 border rounded-md"
               autoFocus
               autoComplete="off"

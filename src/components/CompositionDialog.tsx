@@ -41,10 +41,7 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
 
   const handleAddJob = (job: Job) => {
     if (!canAddMore) return
-    setLocalPlayers(prev => [
-      ...prev,
-      { id: Date.now() + Math.floor(Math.random() * 1000), job, name: `${job} Player` },
-    ])
+    setLocalPlayers(prev => [...prev, { id: Date.now() + Math.floor(Math.random() * 1000), job }])
   }
 
   const handleRemove = (playerId: number) => {

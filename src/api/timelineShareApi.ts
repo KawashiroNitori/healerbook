@@ -14,7 +14,6 @@ export interface UploadPayload {
   fflogsSource?: Timeline['fflogsSource']
   encounter: Timeline['encounter']
   composition: Timeline['composition']
-  phases: Timeline['phases']
   damageEvents: Timeline['damageEvents']
   castEvents: Timeline['castEvents']
   isReplayMode?: boolean
@@ -55,7 +54,6 @@ function buildPayload(timeline: Timeline): UploadPayload {
     ...(timeline.fflogsSource !== undefined && { fflogsSource: timeline.fflogsSource }),
     encounter: timeline.encounter,
     composition: timeline.composition,
-    phases: timeline.phases,
     damageEvents: timeline.damageEvents,
     castEvents: timeline.castEvents,
     ...(timeline.isReplayMode !== undefined && { isReplayMode: timeline.isReplayMode }),

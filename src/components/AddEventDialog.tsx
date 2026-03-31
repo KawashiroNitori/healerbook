@@ -59,6 +59,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
+              maxLength={20}
               placeholder="例如: 全屏 AOE"
               className="w-full px-3 py-2 border rounded-md"
               autoFocus

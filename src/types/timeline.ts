@@ -35,8 +35,6 @@ export interface Timeline {
   encounter: Encounter
   /** 小队阵容 */
   composition: Composition
-  /** 阶段列表 */
-  phases: Phase[]
   /** 伤害事件列表 */
   damageEvents: DamageEvent[]
   /** 技能使用事件列表 */
@@ -154,20 +152,6 @@ export interface DamageEvent {
 }
 
 /**
- * 阶段
- */
-export interface Phase {
-  /** 阶段 ID */
-  id: string
-  /** 阶段名称 */
-  name: string
-  /** 开始时间（绝对时间或相对时间，秒） */
-  startTime: number
-  /** 标志性技能作为时间基准（可选） */
-  baselineSkill?: string
-}
-
-/**
  * 小队阵容
  */
 export interface Composition {
@@ -175,7 +159,6 @@ export interface Composition {
   players: Array<{
     id: number
     job: Job
-    name: string
   }>
 }
 

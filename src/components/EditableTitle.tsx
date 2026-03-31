@@ -77,6 +77,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           type="text"
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
+          maxLength={50}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
           style={{ width: `${inputWidth}px` }}

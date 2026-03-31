@@ -114,6 +114,13 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
     return jsonRes({ error: 'Missing required fields' }, 400, env.ALLOWED_ORIGIN)
   }
 
+  if (typeof body.name === 'string' && body.name.length > 50) {
+    return jsonRes({ error: 'Name too long (max 50)' }, 400, env.ALLOWED_ORIGIN)
+  }
+  if (typeof body.description === 'string' && body.description.length > 500) {
+    return jsonRes({ error: 'Description too long (max 500)' }, 400, env.ALLOWED_ORIGIN)
+  }
+
   const now = Math.floor(Date.now() / 1000)
   const newId = generateId()
   const content = buildContent(body)
@@ -157,6 +164,12 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
   delete newBody.expectedVersion
 
   const newName = (newBody.name as string | undefined) ?? row.name
+  if (newName.length > 50) {
+    return jsonRes({ error: 'Name too long (max 50)' }, 400, env.ALLOWED_ORIGIN)
+  }
+  if (typeof newBody.description === 'string' && newBody.description.length > 500) {
+    return jsonRes({ error: 'Description too long (max 500)' }, 400, env.ALLOWED_ORIGIN)
+  }
   const content = buildContent(newBody)
 
   let result: { meta: { changes: number } }

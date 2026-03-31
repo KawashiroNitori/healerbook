@@ -14,8 +14,8 @@ describe('timelineStore - 状态管理', () => {
 
   const mockComposition: Composition = {
     players: [
-      { id: 1, job: 'PLD', name: 'Tank' },
-      { id: 2, job: 'WHM', name: 'Healer' },
+      { id: 1, job: 'PLD' },
+      { id: 2, job: 'WHM' },
     ],
   }
 
@@ -30,7 +30,6 @@ describe('timelineStore - 状态管理', () => {
       damageEvents: [],
     },
     composition: mockComposition,
-    phases: [],
     damageEvents: [],
     castEvents: [],
     statusEvents: [],
@@ -122,8 +121,8 @@ describe('timelineStore - 状态管理', () => {
 describe('undo/redo - temporal 中间件', () => {
   const mockComposition: Composition = {
     players: [
-      { id: 1, job: 'PLD', name: 'Tank' },
-      { id: 2, job: 'WHM', name: 'Healer' },
+      { id: 1, job: 'PLD' },
+      { id: 2, job: 'WHM' },
     ],
   }
 
@@ -138,7 +137,6 @@ describe('undo/redo - temporal 中间件', () => {
       damageEvents: [],
     },
     composition: mockComposition,
-    phases: [],
     damageEvents: [],
     castEvents: [],
     statusEvents: [],
@@ -209,7 +207,7 @@ describe('undo/redo - temporal 中间件', () => {
 
     // 修改阵容：移除 PLD，只留 WHM
     store.updateComposition({
-      players: [{ id: 2, job: 'WHM', name: 'Healer' }],
+      players: [{ id: 2, job: 'WHM' }],
     })
     expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(1)
     expect(useTimelineStore.getState().timeline!.composition.players).toHaveLength(1)

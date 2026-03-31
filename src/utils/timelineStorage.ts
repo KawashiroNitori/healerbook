@@ -158,7 +158,6 @@ export function createNewTimeline(encounterId: string, name: string): Timeline {
     composition: {
       players: [],
     },
-    phases: [],
     createdAt: now,
     updatedAt: now,
   }

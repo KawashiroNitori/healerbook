@@ -57,6 +57,7 @@ export default function PropertyPanel() {
             type="text"
             value={event.name}
             onChange={e => updateDamageEvent(event.id, { name: e.target.value })}
+            maxLength={20}
             className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
             disabled={isReadOnly}
           />

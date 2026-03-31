@@ -50,6 +50,7 @@ export default function EditableDescription({
                 autoFocus
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
+                maxLength={500}
                 onKeyDown={e => {
                   if (e.key === 'Escape') setOpen(false)
                 }}
