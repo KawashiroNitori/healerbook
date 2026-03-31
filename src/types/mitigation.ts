@@ -81,8 +81,8 @@ export interface MitigationAction {
   duration: number
   /** 冷却时间（秒） */
   cooldown: number
-  /** 技能执行器 */
-  executor: ActionExecutor
+  /** 技能执行器（可选，无执行器的技能不产生状态效果） */
+  executor?: ActionExecutor
   /** 隐藏技能（不在技能轨道中显示，仅供内部数据引用） */
   hidden?: boolean
 }

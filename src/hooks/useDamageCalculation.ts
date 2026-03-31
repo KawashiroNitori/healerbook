@@ -122,7 +122,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
             sourcePlayerId: castEvent.playerId,
             statistics: statistics ?? undefined,
           }
-          currentState = action.executor(ctx)
+          if (action.executor) currentState = action.executor(ctx)
         }
         castIdx++
       }
