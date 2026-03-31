@@ -519,7 +519,9 @@ export default function SkillTracksCanvas({
                   const stage = e.target.getStage()
                   if (!stage) return
                   const box = stage.container().getBoundingClientRect()
-                  const absPos = e.target.getParent()!.getAbsolutePosition()
+                  const parent = e.target.getParent()
+                  if (!parent) return
+                  const absPos = parent.getAbsolutePosition()
                   onAnnotationHover(annotation, box.left + absPos.x + 8, box.top + absPos.y + 8)
                 }}
                 onMouseLeave={onAnnotationHoverEnd}
@@ -527,7 +529,9 @@ export default function SkillTracksCanvas({
                   const stage = e.target.getStage()
                   if (!stage) return
                   const box = stage.container().getBoundingClientRect()
-                  const absPos = e.target.getParent()!.getAbsolutePosition()
+                  const parent = e.target.getParent()
+                  if (!parent) return
+                  const absPos = parent.getAbsolutePosition()
                   onAnnotationClick(annotation, box.left + absPos.x + 8, box.top + absPos.y + 8)
                 }}
                 onContextMenu={(e: KonvaEventObject<PointerEvent>) => {

@@ -1182,6 +1182,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       {/* 注释编辑 */}
       {editingAnnotation && (
         <AnnotationPopover
+          key={editingAnnotation.annotation?.id ?? 'new'}
           mode="edit"
           text={editingAnnotation.annotation?.text ?? ''}
           screenX={editingAnnotation.screenX}
