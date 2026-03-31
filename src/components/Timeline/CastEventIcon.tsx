@@ -27,6 +27,7 @@ interface CastEventIconProps {
   onDragEnd: (x: number) => void
   onContextMenu: (e: KonvaContextMenuEvent) => void
   onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onHoverEnd: () => void
   onClickIcon: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
   isReadOnly?: boolean
 }
@@ -47,6 +48,7 @@ export default function CastEventIcon({
   onDragEnd,
   onContextMenu,
   onHover,
+  onHoverEnd,
   onClickIcon,
   isReadOnly = false,
 }: CastEventIconProps) {
@@ -236,6 +238,7 @@ export default function CastEventIcon({
         height={30}
         fill="transparent"
         onMouseEnter={e => onHover(displayAction ?? action, e)}
+        onMouseLeave={onHoverEnd}
         onTap={e => onClickIcon(displayAction ?? action, e)}
       />
     </Group>

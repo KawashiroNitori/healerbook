@@ -1003,6 +1003,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               onContextMenu={handleContextMenu}
               onDoubleClickTrack={handleDoubleClickTrack}
               onHoverAction={handleHoverAction}
+              onHoverActionEnd={hideTooltip}
               onClickAction={handleClickAction}
               isReadOnly={isReadOnly}
             />

@@ -42,6 +42,7 @@ interface SkillTracksCanvasProps {
   ) => void
   onDoubleClickTrack: (track: SkillTrack, time: number) => void
   onHoverAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
+  onHoverActionEnd: () => void
   onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
   isReadOnly?: boolean
   bgLayerRef?: RefObject<Konva.Layer | null>
@@ -69,6 +70,7 @@ export default function SkillTracksCanvas({
   onContextMenu,
   onDoubleClickTrack,
   onHoverAction,
+  onHoverActionEnd,
   onClickAction,
   isReadOnly = false,
   bgLayerRef,
@@ -468,6 +470,7 @@ export default function SkillTracksCanvas({
                 )
               }}
               onHover={onHoverAction}
+              onHoverEnd={onHoverActionEnd}
               onClickIcon={onClickAction}
               isReadOnly={isReadOnly}
             />
