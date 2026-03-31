@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import { temporal } from 'zundo'
-import type { Timeline, DamageEvent, CastEvent, Composition } from '@/types/timeline'
+import type { Timeline, DamageEvent, CastEvent, Composition, Annotation } from '@/types/timeline'
 import type { PartyState, PlayerState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
 import type { SharedTimelineResponse } from '@/api/timelineShareApi'
@@ -85,6 +85,12 @@ interface TimelineState {
   updateCastEvent: (castEventId: string, updates: Partial<CastEvent>) => void
   /** 删除技能使用事件 */
   removeCastEvent: (castEventId: string) => void
+  /** 添加注释 */
+  addAnnotation: (annotation: Annotation) => void
+  /** 更新注释 */
+  updateAnnotation: (id: string, updates: Partial<Pick<Annotation, 'text' | 'time'>>) => void
+  /** 删除注释 */
+  removeAnnotation: (id: string) => void
   /** 解除回放模式 */
   exitReplayMode: () => void
   /** 触发自动保存 */
@@ -301,11 +307,17 @@ export const useTimelineStore = create<TimelineState>()(
             newPlayerIds.includes(castEvent.playerId)
           )
 
+          // 过滤掉不在新阵容中的 skillTrack 注释
+          const filteredAnnotations = (state.timeline.annotations ?? []).filter(
+            a => a.anchor.type !== 'skillTrack' || newPlayerIds.includes(a.anchor.playerId)
+          )
+
           return {
             timeline: {
               ...state.timeline,
               composition,
               castEvents: filteredCastEvents,
+              annotations: filteredAnnotations,
               updatedAt: Math.floor(Date.now() / 1000),
             },
           }
@@ -403,6 +415,47 @@ export const useTimelineStore = create<TimelineState>()(
             },
             selectedCastEventId:
               state.selectedCastEventId === castEventId ? null : state.selectedCastEventId,
+          }
+        })
+        get().triggerAutoSave()
+      },
+
+      addAnnotation: annotation => {
+        set(state => {
+          if (!state.timeline) return state
+          return {
+            timeline: {
+              ...state.timeline,
+              annotations: [...state.timeline.annotations, annotation],
+            },
+          }
+        })
+        get().triggerAutoSave()
+      },
+
+      updateAnnotation: (id, updates) => {
+        set(state => {
+          if (!state.timeline) return state
+          return {
+            timeline: {
+              ...state.timeline,
+              annotations: state.timeline.annotations.map(a =>
+                a.id === id ? { ...a, ...updates } : a
+              ),
+            },
+          }
+        })
+        get().triggerAutoSave()
+      },
+
+      removeAnnotation: id => {
+        set(state => {
+          if (!state.timeline) return state
+          return {
+            timeline: {
+              ...state.timeline,
+              annotations: state.timeline.annotations.filter(a => a.id !== id),
+            },
           }
         })
         get().triggerAutoSave()

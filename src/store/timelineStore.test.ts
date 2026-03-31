@@ -33,6 +33,7 @@ describe('timelineStore - 状态管理', () => {
     damageEvents: [],
     castEvents: [],
     statusEvents: [],
+    annotations: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -140,6 +141,7 @@ describe('undo/redo - temporal 中间件', () => {
     damageEvents: [],
     castEvents: [],
     statusEvents: [],
+    annotations: [],
     createdAt: 1000,
     updatedAt: 1000,
   }
@@ -250,5 +252,117 @@ describe('undo/redo - temporal 中间件', () => {
     store.setTimeline({ ...mockTimeline, id: 'new-timeline' })
     expect(useTimelineStore.temporal.getState().pastStates.length).toBe(0)
     expect(useTimelineStore.temporal.getState().futureStates.length).toBe(0)
+  })
+})
+
+describe('annotation CRUD', () => {
+  const mockComposition: Composition = {
+    players: [
+      { id: 1, job: 'PLD' },
+      { id: 2, job: 'WHM' },
+    ],
+  }
+
+  const mockTimeline: Timeline = {
+    id: 'test-annotations',
+    name: '测试注释',
+    encounter: {
+      id: 1,
+      name: '绝龙诗',
+      displayName: '绝龙诗',
+      zone: 'Ultimate',
+      damageEvents: [],
+    },
+    composition: mockComposition,
+    damageEvents: [],
+    castEvents: [],
+    statusEvents: [],
+    annotations: [],
+    createdAt: 1000,
+    updatedAt: 1000,
+  }
+
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+    useTimelineStore.temporal.getState().clear()
+  })
+
+  it('addAnnotation 应该添加注释', () => {
+    const store = useTimelineStore.getState()
+    store.setTimeline(mockTimeline)
+    store.addAnnotation({
+      id: 'ann-1',
+      text: '注意减伤',
+      time: 10,
+      anchor: { type: 'damageTrack' },
+    })
+    const annotations = useTimelineStore.getState().timeline!.annotations
+    expect(annotations).toHaveLength(1)
+    expect(annotations[0].id).toBe('ann-1')
+    expect(annotations[0].text).toBe('注意减伤')
+  })
+
+  it('updateAnnotation 应该更新注释文本', () => {
+    const store = useTimelineStore.getState()
+    store.setTimeline({
+      ...mockTimeline,
+      annotations: [{ id: 'ann-1', text: '旧文本', time: 10, anchor: { type: 'damageTrack' } }],
+    })
+    store.updateAnnotation('ann-1', { text: '新文本' })
+    const annotation = useTimelineStore.getState().timeline!.annotations[0]
+    expect(annotation.text).toBe('新文本')
+    expect(annotation.time).toBe(10)
+  })
+
+  it('removeAnnotation 应该删除注释', () => {
+    const store = useTimelineStore.getState()
+    store.setTimeline({
+      ...mockTimeline,
+      annotations: [{ id: 'ann-1', text: '测试', time: 10, anchor: { type: 'damageTrack' } }],
+    })
+    store.removeAnnotation('ann-1')
+    expect(useTimelineStore.getState().timeline!.annotations).toHaveLength(0)
+  })
+
+  it('updateComposition 应该过滤掉不在新阵容中的 skillTrack 注释', () => {
+    const store = useTimelineStore.getState()
+    store.setTimeline({
+      ...mockTimeline,
+      annotations: [
+        {
+          id: 'ann-1',
+          text: '坦克注释',
+          time: 10,
+          anchor: { type: 'skillTrack', playerId: 1, actionId: 100 },
+        },
+        {
+          id: 'ann-2',
+          text: '治疗注释',
+          time: 20,
+          anchor: { type: 'skillTrack', playerId: 2, actionId: 200 },
+        },
+        { id: 'ann-3', text: '伤害注释', time: 30, anchor: { type: 'damageTrack' } },
+      ],
+    })
+    store.updateComposition({ players: [{ id: 2, job: 'WHM' }] })
+    const annotations = useTimelineStore.getState().timeline!.annotations
+    expect(annotations).toHaveLength(2)
+    expect(annotations.map(a => a.id)).toEqual(['ann-2', 'ann-3'])
+  })
+
+  it('addAnnotation 应该支持撤销/重做', () => {
+    const store = useTimelineStore.getState()
+    store.setTimeline(mockTimeline)
+    store.addAnnotation({
+      id: 'ann-1',
+      text: '测试撤销',
+      time: 10,
+      anchor: { type: 'damageTrack' },
+    })
+    expect(useTimelineStore.getState().timeline!.annotations).toHaveLength(1)
+    useTimelineStore.temporal.getState().undo()
+    expect(useTimelineStore.getState().timeline!.annotations).toHaveLength(0)
+    useTimelineStore.temporal.getState().redo()
+    expect(useTimelineStore.getState().timeline!.annotations).toHaveLength(1)
   })
 })
