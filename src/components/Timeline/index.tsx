@@ -27,6 +27,10 @@ import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
 import SkillTracksCanvas from './SkillTracksCanvas'
 import TimelineMinimap from './TimelineMinimap'
+import VerticalScrollbar, {
+  SCROLLBAR_WIDTH,
+  type VerticalScrollbarHandle,
+} from './VerticalScrollbar'
 import type { TimelineMinimapHandle } from './TimelineMinimap'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
@@ -42,6 +46,7 @@ interface TimelineCanvasProps {
 export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const stageRef = useRef<Konva.Stage | null>(null)
   const fixedStageRef = useRef<Konva.Stage | null>(null)
+  const labelColumnRef = useRef<HTMLDivElement>(null)
   const labelColumnContainerRef = useRef<HTMLDivElement>(null)
   const timelineContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedZoom = useRef(false)
@@ -100,6 +105,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const mainOverlayLayerRef = useRef<Konva.Layer | null>(null)
   const fixedOverlayLayerRef = useRef<Konva.Layer | null>(null)
   const minimapRef = useRef<TimelineMinimapHandle | null>(null)
+  const scrollbarRef = useRef<VerticalScrollbarHandle | null>(null)
 
   const {
     timeline,
@@ -182,6 +188,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (labelColumnContainerRef.current) {
       labelColumnContainerRef.current.style.transform = `translateY(-${newScrollTop}px)`
     }
+    // 滚动条 thumb 同步
+    scrollbarRef.current?.updateScrollTop(newScrollTop)
     // 固定展示的注释 popover 实时跟随滚动（通过 CSS 自定义属性驱动 calc()）
     if (timelineContainerRef.current) {
       timelineContainerRef.current.style.setProperty('--tl-scroll-x', `${newScrollLeft}px`)
@@ -392,8 +400,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [createCrosshairMoveHandler, handleCrosshairLeave])
 
-  // 视口宽度（Stage 实际宽度）
-  const viewportWidth = Math.max(width - labelColumnWidth, 1)
+  // 视口宽度（Stage 实际宽度，减去标签列和滚动条宽度）
+  const viewportWidth = Math.max(width - labelColumnWidth - SCROLLBAR_WIDTH, 1)
   // 限制 scrollLeft 不超出范围
   const minScrollLeft = TIMELINE_START_TIME * zoomLevel
   const maxScrollLeft = layoutData
@@ -449,6 +457,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     scrollLeft,
     scrollTop,
   ])
+
+  // 标签列 wheel 事件：注册为 non-passive 以支持 preventDefault
+  useEffect(() => {
+    const el = labelColumnRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      // 用 visualScrollTopRef 作为累加基准（不会被 sync effect 覆盖）
+      const newScrollTop = Math.max(
+        0,
+        Math.min(visualScrollTopRef.current + e.deltaY, maxScrollTopRef.current)
+      )
+      visualScrollTopRef.current = newScrollTop
+      clampedScrollRef.current = {
+        scrollLeft: clampedScrollRef.current.scrollLeft,
+        scrollTop: newScrollTop,
+      }
+      handleDirectScroll(clampedScrollRef.current.scrollLeft, newScrollTop)
+      setScrollTop(newScrollTop)
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [handleDirectScroll])
 
   // 检查技能是否与同轨道的其他技能重叠
   const checkOverlap = (
@@ -1060,10 +1091,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     >
       {/* 固定顶部区域：时间标尺 + 伤害事件轨道 */}
       <div className="flex flex-shrink-0" style={{ height: fixedAreaHeight }}>
-        {/* 左侧固定标签 */}
+        {/* 左侧固定标签（宽度包含滚动条区域） */}
         <div
           className="flex-shrink-0 border-r bg-background flex flex-col"
-          style={{ width: labelColumnWidth }}
+          style={{ width: labelColumnWidth + SCROLLBAR_WIDTH }}
         >
           <div
             style={{ height: timeRulerHeight }}
@@ -1140,24 +1171,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       {/* 可滚动区域：技能轨道 */}
       <div className="flex flex-1 overflow-hidden select-none">
-        {/* 左侧技能标签 */}
+        {/* 左侧技能标签（含滚动条） */}
         <div
-          className="flex-shrink-0 border-r bg-background overflow-hidden"
-          style={{ width: labelColumnWidth }}
-          onWheel={e => {
-            e.preventDefault()
-            const newScrollTop = Math.max(
-              0,
-              Math.min(scrollTopRef.current + e.deltaY, maxScrollTop)
-            )
-            setScrollTop(newScrollTop)
-            // 同步 useTimelinePanZoom 读取的 refs，避免下次垂直拖动从错误位置起跳
-            visualScrollTopRef.current = newScrollTop
-            clampedScrollRef.current = {
-              scrollLeft: clampedScrollRef.current.scrollLeft,
-              scrollTop: newScrollTop,
-            }
-          }}
+          ref={labelColumnRef}
+          className="flex-shrink-0 border-r bg-background overflow-hidden relative"
+          style={{ width: labelColumnWidth + SCROLLBAR_WIDTH }}
         >
           <div
             ref={labelColumnContainerRef}
@@ -1167,11 +1185,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               skillTracks={skillTracks}
               trackHeight={skillTrackHeight}
               actions={actions}
+              scrollbarWidth={SCROLLBAR_WIDTH}
               onHoverAction={handleHoverActionFromDom}
               onClickAction={handleClickActionFromDom}
               onUnhoverAction={hideTooltip}
             />
           </div>
+          {/* 垂直滚动条，绝对定位在左侧，不随内容滚动 */}
+          <VerticalScrollbar
+            ref={scrollbarRef}
+            viewportHeight={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
+            contentHeight={skillTracksHeight}
+            scrollTop={clampedScrollTop}
+            maxScrollTop={maxScrollTop}
+            onScroll={newScrollTop => {
+              setScrollTop(newScrollTop)
+              visualScrollTopRef.current = newScrollTop
+              clampedScrollRef.current = {
+                scrollLeft: clampedScrollRef.current.scrollLeft,
+                scrollTop: newScrollTop,
+              }
+              handleDirectScroll(clampedScrollRef.current.scrollLeft, newScrollTop)
+            }}
+          />
         </div>
 
         {/* 右侧技能轨道 Stage */}

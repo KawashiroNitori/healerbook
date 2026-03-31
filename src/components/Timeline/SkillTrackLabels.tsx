@@ -19,6 +19,8 @@ interface SkillTrackLabelsProps {
   skillTracks: SkillTrack[]
   trackHeight: number
   actions: MitigationAction[]
+  /** 左侧滚动条宽度，用于给图标留出空间 */
+  scrollbarWidth?: number
   onHoverAction: (action: MitigationAction, anchorRect: DOMRect) => void
   onClickAction: (action: MitigationAction, anchorRect: DOMRect) => void
   onUnhoverAction: () => void
@@ -28,6 +30,7 @@ export default function SkillTrackLabels({
   skillTracks,
   trackHeight,
   actions,
+  scrollbarWidth = 0,
   onHoverAction,
   onClickAction,
   onUnhoverAction,
@@ -39,8 +42,8 @@ export default function SkillTrackLabels({
         return (
           <div
             key={`label-${track.playerId}-${track.actionId}`}
-            style={{ height: trackHeight }}
-            className={`border-b flex items-center gap-2 px-2 ${
+            style={{ height: trackHeight, paddingLeft: scrollbarWidth + 8 }}
+            className={`border-b flex items-center gap-2 pr-2 ${
               index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
             }`}
           >
