@@ -196,10 +196,9 @@ export const useTimelineStore = create<TimelineState>()(
         }
 
         // 执行技能并更新状态
-        if (action.executor) {
-          const newPartyState = action.executor(context)
-          set({ partyState: newPartyState })
-        }
+        if (!action.executor) return
+        const newPartyState = action.executor(context)
+        set({ partyState: newPartyState })
       },
 
       updatePartyState: partyState => {

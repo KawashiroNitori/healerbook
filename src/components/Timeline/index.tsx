@@ -874,16 +874,27 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [removeAnnotation]
   )
 
+  const hoverAnnotationTimerRef = useRef<number | null>(null)
+
   const handleAnnotationHover = useCallback(
     (annotation: { id: string; text: string }, screenX: number, screenY: number) => {
       if (editingAnnotation) return
+      // 取消之前的隐藏定时器，防止闪烁
+      if (hoverAnnotationTimerRef.current !== null) {
+        clearTimeout(hoverAnnotationTimerRef.current)
+        hoverAnnotationTimerRef.current = null
+      }
       setHoverAnnotation({ annotation, screenX, screenY })
     },
     [editingAnnotation]
   )
 
   const handleAnnotationHoverEnd = useCallback(() => {
-    setHoverAnnotation(null)
+    // 延迟隐藏，给 mouseEnter 机会取消
+    hoverAnnotationTimerRef.current = window.setTimeout(() => {
+      setHoverAnnotation(null)
+      hoverAnnotationTimerRef.current = null
+    }, 50)
   }, [])
 
   const handleAnnotationClick = useCallback(
