@@ -126,8 +126,11 @@ export const useTimelineStore = create<TimelineState>()(
       ...initialState,
 
       setTimeline: timeline => {
+        const normalized = timeline
+          ? { ...timeline, annotations: timeline.annotations ?? [] }
+          : null
         set({
-          timeline,
+          timeline: normalized,
           selectedEventId: null,
           selectedCastEventId: null,
           currentTime: 0,
@@ -135,8 +138,8 @@ export const useTimelineStore = create<TimelineState>()(
         // 加载新时间轴时清空撤销/重做历史
         useTimelineStore.temporal.getState().clear()
         // 初始化小队状态
-        if (timeline?.composition) {
-          get().initializePartyState(timeline.composition)
+        if (normalized?.composition) {
+          get().initializePartyState(normalized.composition)
         }
       },
 
@@ -592,6 +595,7 @@ export const useTimelineStore = create<TimelineState>()(
               ...state.timeline,
               ...response.timeline,
               statusEvents: state.timeline.statusEvents,
+              annotations: response.timeline.annotations ?? [],
               isShared: true,
               hasLocalChanges: false,
               serverVersion: response.version,
