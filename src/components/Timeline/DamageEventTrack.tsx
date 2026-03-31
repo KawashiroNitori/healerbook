@@ -32,6 +32,7 @@ interface DamageEventTrackProps {
   ) => void
   isReadOnly?: boolean
   annotations: Annotation[]
+  pinnedAnnotationId: string | null
   onAnnotationHover: (annotation: Annotation, screenX: number, screenY: number) => void
   onAnnotationHoverEnd: () => void
   onAnnotationClick: (annotation: Annotation, screenX: number, screenY: number) => void
@@ -41,6 +42,8 @@ interface DamageEventTrackProps {
     clientY: number,
     time: number
   ) => void
+  onAnnotationDragStart: () => void
+  onAnnotationDragEnd: (annotationId: string, newX: number) => void
 }
 
 export default function DamageEventTrack({
@@ -62,10 +65,13 @@ export default function DamageEventTrack({
   onContextMenu,
   isReadOnly = false,
   annotations,
+  pinnedAnnotationId,
   onAnnotationHover,
   onAnnotationHoverEnd,
   onAnnotationClick,
   onAnnotationContextMenu,
+  onAnnotationDragStart,
+  onAnnotationDragEnd,
 }: DamageEventTrackProps) {
   // 生成时间刻度网格线（每10秒一条，实线）
   const gridLines = []
@@ -184,6 +190,10 @@ export default function DamageEventTrack({
             key={`annotation-${annotation.id}`}
             x={x}
             y={annotationY}
+            isPinned={pinnedAnnotationId === annotation.id}
+            draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
+            onDragStart={onAnnotationDragStart}
+            onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
             onMouseEnter={e => {
               const stage = e.target.getStage()
               if (!stage) return

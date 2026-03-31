@@ -66,8 +66,11 @@ export default function AnnotationPopover({
     <div
       ref={containerRef}
       className="fixed z-50 bg-popover text-popover-foreground border rounded-md shadow-md"
-      style={{ left: screenX, top: screenY }}
-      onMouseLeave={mode === 'view' ? onClose : undefined}
+      style={{
+        left: screenX,
+        top: screenY,
+        pointerEvents: mode === 'view' ? 'none' : undefined,
+      }}
     >
       {mode === 'view' ? (
         <div className="px-3 py-2 text-xs max-w-[240px] whitespace-pre-wrap break-words">

@@ -66,6 +66,7 @@ interface TimelineContextMenuProps {
   onAddDamageEvent: (time: number) => void
   onPasteDamageEvent: (time: number) => void
   onAddAnnotation: (time: number, anchor: AnnotationAnchor) => void
+  onEditAnnotation: (annotationId: string) => void
   onDeleteAnnotation: (annotationId: string) => void
 }
 
@@ -87,6 +88,7 @@ export default function TimelineContextMenu({
   onAddDamageEvent,
   onPasteDamageEvent,
   onAddAnnotation,
+  onEditAnnotation,
   onDeleteAnnotation,
 }: TimelineContextMenuProps) {
   if (!menu) return null
@@ -220,15 +222,29 @@ export default function TimelineContextMenu({
           </>
         )}
         {menu.type === 'annotation' && (
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={() => {
-              onDeleteAnnotation(menu.annotationId)
-              onClose()
-            }}
-          >
-            删除注释
-          </DropdownMenuItem>
+          <>
+            {!isReadOnly && (
+              <DropdownMenuItem
+                onClick={() => {
+                  onEditAnnotation(menu.annotationId)
+                  onClose()
+                }}
+              >
+                编辑注释
+              </DropdownMenuItem>
+            )}
+            {!isReadOnly && (
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => {
+                  onDeleteAnnotation(menu.annotationId)
+                  onClose()
+                }}
+              >
+                删除注释
+              </DropdownMenuItem>
+            )}
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -52,6 +52,7 @@ interface SkillTracksCanvasProps {
   hoverTrackIndex: number | null
   hoverTimeX: number | null // 鼠标时间对应的像素 X 坐标（Layer 坐标系）
   annotations: Annotation[]
+  pinnedAnnotationId: string | null
   onAnnotationHover: (annotation: Annotation, screenX: number, screenY: number) => void
   onAnnotationHoverEnd: () => void
   onAnnotationClick: (annotation: Annotation, screenX: number, screenY: number) => void
@@ -61,6 +62,8 @@ interface SkillTracksCanvasProps {
     clientY: number,
     time: number
   ) => void
+  onAnnotationDragStart: () => void
+  onAnnotationDragEnd: (annotationId: string, newX: number) => void
 }
 
 export default function SkillTracksCanvas({
@@ -90,10 +93,13 @@ export default function SkillTracksCanvas({
   hoverTrackIndex,
   hoverTimeX,
   annotations,
+  pinnedAnnotationId,
   onAnnotationHover,
   onAnnotationHoverEnd,
   onAnnotationClick,
   onAnnotationContextMenu,
+  onAnnotationDragStart,
+  onAnnotationDragEnd,
 }: SkillTracksCanvasProps) {
   const skillTracksHeight = skillTracks.length * trackHeight
 
@@ -514,6 +520,10 @@ export default function SkillTracksCanvas({
               <AnnotationIcon
                 key={`annotation-${annotation.id}`}
                 x={x}
+                isPinned={pinnedAnnotationId === annotation.id}
+                draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
+                onDragStart={onAnnotationDragStart}
+                onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
                 y={y}
                 onMouseEnter={(e: KonvaEventObject<MouseEvent>) => {
                   const stage = e.target.getStage()

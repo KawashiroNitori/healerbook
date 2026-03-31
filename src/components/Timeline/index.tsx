@@ -43,6 +43,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const stageRef = useRef<Konva.Stage | null>(null)
   const fixedStageRef = useRef<Konva.Stage | null>(null)
   const labelColumnContainerRef = useRef<HTMLDivElement>(null)
+  const timelineContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedZoom = useRef(false)
   const scrollLeftRef = useRef(0)
   const scrollTopRef = useRef(0)
@@ -55,11 +56,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     screenX: number
     screenY: number
   } | null>(null)
-  const [hoverAnnotation, setHoverAnnotation] = useState<{
-    annotation: { id: string; text: string }
-    screenX: number
-    screenY: number
-  } | null>(null)
+  const [hoverAnnotationId, setHoverAnnotationId] = useState<string | null>(null)
+  // 点击固定显示的注释 ID（位置在渲染时动态计算）
+  const [pinnedAnnotationId, setPinnedAnnotationId] = useState<string | null>(null)
+  // 用于区分注释 icon 点击和空白点击
+  const annotationClickedRef = useRef(false)
+  const [isDraggingAnnotation, setIsDraggingAnnotation] = useState(false)
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
     eventId: string
     x: number
@@ -179,6 +181,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     // 标签列垂直滚动
     if (labelColumnContainerRef.current) {
       labelColumnContainerRef.current.style.transform = `translateY(-${newScrollTop}px)`
+    }
+    // 固定展示的注释 popover 实时跟随滚动（通过 CSS 自定义属性驱动 calc()）
+    if (timelineContainerRef.current) {
+      timelineContainerRef.current.style.setProperty('--tl-scroll-x', `${newScrollLeft}px`)
+      timelineContainerRef.current.style.setProperty('--tl-scroll-y', `${newScrollTop}px`)
     }
     // 同步 minimap 视口指示器
     minimapRef.current?.updateViewport(newScrollLeft)
@@ -874,57 +881,64 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [removeAnnotation]
   )
 
-  const hoverAnnotationTimerRef = useRef<number | null>(null)
-
   const handleAnnotationHover = useCallback(
-    (annotation: { id: string; text: string }, screenX: number, screenY: number) => {
+    (annotation: { id: string }) => {
       if (editingAnnotation) return
-      // 取消之前的隐藏定时器，防止闪烁
-      if (hoverAnnotationTimerRef.current !== null) {
-        clearTimeout(hoverAnnotationTimerRef.current)
-        hoverAnnotationTimerRef.current = null
-      }
-      setHoverAnnotation({ annotation, screenX, screenY })
+      if (pinnedAnnotationId === annotation.id) return
+      setHoverAnnotationId(annotation.id)
     },
-    [editingAnnotation]
+    [editingAnnotation, pinnedAnnotationId]
   )
 
   const handleAnnotationHoverEnd = useCallback(() => {
-    // 延迟隐藏，给 mouseEnter 机会取消
-    hoverAnnotationTimerRef.current = window.setTimeout(() => {
-      setHoverAnnotation(null)
-      hoverAnnotationTimerRef.current = null
-    }, 50)
+    setHoverAnnotationId(null)
   }, [])
 
-  const handleAnnotationClick = useCallback(
-    (
-      annotation: { id: string; text: string; time: number; anchor: AnnotationAnchor },
-      screenX: number,
-      screenY: number
-    ) => {
-      if (isReadOnly) {
-        setHoverAnnotation({ annotation, screenX, screenY })
-        return
-      }
-      setHoverAnnotation(null)
+  const handleAnnotationClick = useCallback((annotation: { id: string }) => {
+    if (panJustEndedRef.current) return
+    annotationClickedRef.current = true
+    setHoverAnnotationId(null)
+    setPinnedAnnotationId(prev => (prev === annotation.id ? null : annotation.id))
+  }, [])
+
+  const handleAnnotationContextMenu = useCallback(
+    (annotationId: string, clientX: number, clientY: number, time: number) => {
+      setPinnedAnnotationId(null)
+      setContextMenu({ type: 'annotation', annotationId, x: clientX, y: clientY, time })
+    },
+    []
+  )
+
+  const handleEditAnnotation = useCallback(
+    (annotationId: string) => {
+      if (!timeline) return
+      const annotation = timeline.annotations?.find(a => a.id === annotationId)
+      if (!annotation) return
+      const menuX = contextMenu?.x ?? 0
+      const menuY = contextMenu?.y ?? 0
+      setPinnedAnnotationId(null)
       setEditingAnnotation({
         annotation,
         time: annotation.time,
         anchor: annotation.anchor,
-        screenX,
-        screenY,
+        screenX: menuX,
+        screenY: menuY,
       })
     },
-    [isReadOnly]
+    [timeline, contextMenu]
   )
 
-  const handleAnnotationContextMenu = useCallback(
-    (annotationId: string, clientX: number, clientY: number, time: number) => {
-      if (isReadOnly) return
-      setContextMenu({ type: 'annotation', annotationId, x: clientX, y: clientY, time })
+  const handleAnnotationDragStart = useCallback(() => {
+    setIsDraggingAnnotation(true)
+  }, [])
+
+  const handleAnnotationDragEnd = useCallback(
+    (annotationId: string, newX: number) => {
+      setIsDraggingAnnotation(false)
+      const newTime = Math.max(TIMELINE_START_TIME, Math.round((newX / zoomLevel) * 10) / 10)
+      updateAnnotation(annotationId, { time: newTime })
     },
-    [isReadOnly]
+    [zoomLevel, updateAnnotation]
   )
 
   const handleAnnotationConfirm = useCallback(
@@ -971,6 +985,45 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     a => a.anchor.type === 'skillTrack'
   )
 
+  // 计算注释 popover 的基准位置（不含滚动偏移，供 CSS calc() 使用）
+  const getAnnotationBasePos = (annotation: { time: number; anchor: AnnotationAnchor }) => {
+    const timePixels = annotation.time * zoomLevel
+    if (annotation.anchor.type === 'damageTrack') {
+      const container = fixedStageRef.current?.container()
+      if (!container) return null
+      const rect = container.getBoundingClientRect()
+      return {
+        x: rect.left + timePixels,
+        y: rect.top + timeRulerHeight + eventTrackHeight - 20,
+        scrollY: false, // 伤害轨道不随垂直滚动
+      }
+    } else {
+      const anchor = annotation.anchor as { type: 'skillTrack'; playerId: number; actionId: number }
+      const trackIndex = skillTracks.findIndex(
+        t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
+      )
+      if (trackIndex === -1) return null
+      const container = stageRef.current?.container()
+      if (!container) return null
+      const rect = container.getBoundingClientRect()
+      return {
+        x: rect.left + timePixels,
+        y: rect.top + trackIndex * skillTrackHeight + skillTrackHeight / 2,
+        scrollY: true, // 技能轨道随垂直滚动
+      }
+    }
+  }
+
+  const allAnnotations = timeline.annotations ?? []
+  const hoverAnnotation = hoverAnnotationId
+    ? allAnnotations.find(a => a.id === hoverAnnotationId)
+    : null
+  const pinnedAnnotation = pinnedAnnotationId
+    ? allAnnotations.find(a => a.id === pinnedAnnotationId)
+    : null
+  const hoverBasePos = hoverAnnotation ? getAnnotationBasePos(hoverAnnotation) : null
+  const pinnedBasePos = pinnedAnnotation ? getAnnotationBasePos(pinnedAnnotation) : null
+
   // 计算时间轴总长度
   const lastEventTime = Math.max(
     0,
@@ -981,7 +1034,26 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const maxTime = Math.max(300, lastEventTime + 60)
 
   return (
-    <div className="relative flex flex-col" style={{ width, height }}>
+    <div
+      ref={timelineContainerRef}
+      className="relative flex flex-col"
+      style={
+        {
+          width,
+          height,
+          '--tl-scroll-x': `${clampedScrollLeft}px`,
+          '--tl-scroll-y': `${clampedScrollTop}px`,
+        } as React.CSSProperties
+      }
+      onClick={() => {
+        if (annotationClickedRef.current) {
+          annotationClickedRef.current = false
+          return
+        }
+        if (panJustEndedRef.current) return
+        setPinnedAnnotationId(null)
+      }}
+    >
       {/* 固定顶部区域：时间标尺 + 伤害事件轨道 */}
       <div className="flex flex-shrink-0" style={{ height: fixedAreaHeight }}>
         {/* 左侧固定标签 */}
@@ -1037,10 +1109,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onContextMenu={handleContextMenu}
                 isReadOnly={isReadOnly}
                 annotations={damageTrackAnnotations}
+                pinnedAnnotationId={pinnedAnnotationId}
                 onAnnotationHover={handleAnnotationHover}
                 onAnnotationHoverEnd={handleAnnotationHoverEnd}
                 onAnnotationClick={handleAnnotationClick}
                 onAnnotationContextMenu={handleAnnotationContextMenu}
+                onAnnotationDragStart={handleAnnotationDragStart}
+                onAnnotationDragEnd={handleAnnotationDragEnd}
               />
             </Layer>
             {/* 固定区域十字准线纵线 */}
@@ -1129,10 +1204,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               onClickAction={handleClickAction}
               isReadOnly={isReadOnly}
               annotations={skillTrackAnnotations}
+              pinnedAnnotationId={pinnedAnnotationId}
               onAnnotationHover={handleAnnotationHover}
               onAnnotationHoverEnd={handleAnnotationHoverEnd}
               onAnnotationClick={handleAnnotationClick}
               onAnnotationContextMenu={handleAnnotationContextMenu}
+              onAnnotationDragStart={handleAnnotationDragStart}
+              onAnnotationDragEnd={handleAnnotationDragEnd}
             />
           </Stage>
         </div>
@@ -1176,18 +1254,48 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onAddDamageEvent={handleContextMenuAddDamageEvent}
         onPasteDamageEvent={handleContextMenuPasteDamageEvent}
         onAddAnnotation={handleAddAnnotation}
+        onEditAnnotation={handleEditAnnotation}
         onDeleteAnnotation={handleDeleteAnnotation}
       />
 
-      {/* 注释悬浮查看 */}
-      {hoverAnnotation && !editingAnnotation && (
-        <AnnotationPopover
-          mode="view"
-          text={hoverAnnotation.annotation.text}
-          screenX={hoverAnnotation.screenX}
-          screenY={hoverAnnotation.screenY}
-          onClose={() => setHoverAnnotation(null)}
-        />
+      {/* 注释悬浮查看（pointer-events: none，通过 CSS 变量实时跟随滚动） */}
+      {hoverAnnotation && hoverBasePos && !editingAnnotation && !pinnedAnnotation && (
+        <div
+          className="fixed z-50 bg-popover text-popover-foreground border rounded-md shadow-md"
+          style={
+            {
+              left: `calc(${hoverBasePos.x}px - var(--tl-scroll-x, 0px))`,
+              top: hoverBasePos.scrollY
+                ? `calc(${hoverBasePos.y}px - var(--tl-scroll-y, 0px))`
+                : `${hoverBasePos.y}px`,
+              pointerEvents: 'none',
+            } as React.CSSProperties
+          }
+        >
+          <div className="px-3 py-2 text-xs max-w-[240px] whitespace-pre-wrap break-words">
+            {hoverAnnotation.text}
+          </div>
+        </div>
+      )}
+
+      {/* 注释固定显示（点击切换，通过 CSS 变量实时跟随滚动） */}
+      {pinnedAnnotation && pinnedBasePos && !editingAnnotation && !isDraggingAnnotation && (
+        <div
+          className="fixed z-50 bg-popover text-popover-foreground border rounded-md shadow-md"
+          style={
+            {
+              left: `calc(${pinnedBasePos.x}px - var(--tl-scroll-x, 0px))`,
+              top: pinnedBasePos.scrollY
+                ? `calc(${pinnedBasePos.y}px - var(--tl-scroll-y, 0px))`
+                : `${pinnedBasePos.y}px`,
+              pointerEvents: 'none',
+            } as React.CSSProperties
+          }
+        >
+          <div className="px-3 py-2 text-xs max-w-[240px] whitespace-pre-wrap break-words">
+            {pinnedAnnotation.text}
+          </div>
+        </div>
       )}
 
       {/* 注释编辑 */}

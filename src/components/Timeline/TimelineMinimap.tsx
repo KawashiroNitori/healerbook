@@ -250,6 +250,35 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         )
       })
 
+      // 绘制注释标记（minimap 顶部）
+      const annotations = timeline.annotations ?? []
+      if (annotations.length > 0) {
+        const iconSize = 10
+        annotations.forEach(annotation => {
+          const ax = (annotation.time - TIMELINE_START_TIME) * zoomLevel * minimapScale
+          const ay = contentY + 2
+
+          // 气泡背景
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.7)'
+          ctx.beginPath()
+          ctx.roundRect(ax - iconSize / 2, ay, iconSize, iconSize, 2)
+          ctx.fill()
+
+          // 文字线
+          ctx.strokeStyle = 'white'
+          ctx.lineWidth = 1.2
+          ctx.lineCap = 'round'
+          const lineY1 = ay + iconSize * 0.33
+          const lineY2 = ay + iconSize * 0.6
+          ctx.beginPath()
+          ctx.moveTo(ax - iconSize / 2 + 2, lineY1)
+          ctx.lineTo(ax + iconSize / 2 - 3, lineY1)
+          ctx.moveTo(ax - iconSize / 2 + 2, lineY2)
+          ctx.lineTo(ax + iconSize / 2 - 2, lineY2)
+          ctx.stroke()
+        })
+      }
+
       // 绘制致死线（有事件超过非T生命值时才画）
       if (shouldDrawFatalLine) {
         const lineY = contentY + contentHeight - lineHeightFromBottom
