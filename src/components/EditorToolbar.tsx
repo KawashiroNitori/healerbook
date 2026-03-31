@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ZoomIn, ZoomOut, Lock, Unlock, BugPlay, Undo2, Redo2 } from 'lucide-react'
+import { ZoomIn, ZoomOut, Lock, Unlock, BugPlay, Undo2, Redo2, TriangleAlert } from 'lucide-react'
 import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -28,6 +28,7 @@ import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
+import { getEncounterById } from '@/data/raidEncounters'
 
 interface EditorToolbarProps {
   onCreateCopy?: () => void
@@ -59,6 +60,10 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
   const isReplayMode = timeline?.isReplayMode || false
   const isReadOnly = useEditorReadOnly()
   const accessToken = useAuthStore(s => s.accessToken)
+
+  const encounterId = timeline?.encounter?.id
+  const isUnsupportedEncounter =
+    !!encounterId && encounterId !== 0 && !getEncounterById(encounterId)
 
   const handleExitReplayMode = () => {
     exitReplayMode()
@@ -241,6 +246,13 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           </AlertDialog>
         </div>
       </TooltipProvider>
+
+      {isUnsupportedEncounter && (
+        <div className="flex items-center gap-1.5 border-b border-yellow-300 bg-yellow-50 px-4 py-1 text-xs text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+          <span>该副本暂未支持，部分功能可能无法正常使用</span>
+        </div>
+      )}
 
       {conflict && timeline && (
         <ConflictDialog

@@ -7,6 +7,22 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 
+let _measureCtx: CanvasRenderingContext2D | null = null
+function getMeasureCtx(): CanvasRenderingContext2D {
+  if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d')!
+  return _measureCtx
+}
+
+function truncateText(text: string, maxWidth: number, font: string): string {
+  const ctx = getMeasureCtx()
+  ctx.font = font
+  if (ctx.measureText(text).width <= maxWidth) return text
+  const ellipsisWidth = ctx.measureText('...').width
+  let i = text.length
+  while (i > 0 && ctx.measureText(text.slice(0, i)).width + ellipsisWidth > maxWidth) i--
+  return text.slice(0, i) + '...'
+}
+
 interface DamageEventCardProps {
   event: DamageEvent
   isSelected: boolean
@@ -70,6 +86,14 @@ export default function DamageEventCard({
   }
   const damageText = getDamageText()
 
+  const nameAreaWidth = damageText ? 90 : 140
+  const nameXOffset = hasOverkill || isLethal || isDangerous ? 20 : 5
+  const displayName = truncateText(
+    event.name,
+    nameAreaWidth - (nameXOffset - 5),
+    'bold 13px Arial, sans-serif'
+  )
+
   return (
     <Group
       x={x}
@@ -117,17 +141,17 @@ export default function DamageEventCard({
 
       {/* 技能名称 */}
       <Text
-        x={hasOverkill || isLethal || isDangerous ? 20 : 5}
+        x={nameXOffset}
         y={-15}
-        width={damageText ? 90 : 140}
+        width={nameAreaWidth}
         height={30}
-        text={event.name}
+        text={displayName}
         fontSize={13}
         fill={nameColor}
         fontStyle="bold"
         fontFamily="Arial, sans-serif"
         wrap="none"
-        ellipsis={true}
+        ellipsis={false}
         verticalAlign="middle"
         perfectDrawEnabled={false}
         listening={false}
