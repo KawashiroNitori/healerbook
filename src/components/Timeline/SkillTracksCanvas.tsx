@@ -5,6 +5,7 @@
 import type { ReactElement, RefObject } from 'react'
 import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
+import AnnotationIcon from './AnnotationIcon'
 import CastEventIcon from './CastEventIcon'
 import {
   CROSSHAIR_VERTICAL_LINE_STYLE,
@@ -13,7 +14,7 @@ import {
   TIMELINE_START_TIME,
 } from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
-import type { Timeline } from '@/types/timeline'
+import type { Annotation, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 
@@ -50,6 +51,16 @@ interface SkillTracksCanvasProps {
   overlayLayerRef?: RefObject<Konva.Layer | null>
   hoverTrackIndex: number | null
   hoverTimeX: number | null // 鼠标时间对应的像素 X 坐标（Layer 坐标系）
+  annotations: Annotation[]
+  onAnnotationHover: (annotation: Annotation, screenX: number, screenY: number) => void
+  onAnnotationHoverEnd: () => void
+  onAnnotationClick: (annotation: Annotation, screenX: number, screenY: number) => void
+  onAnnotationContextMenu: (
+    annotationId: string,
+    clientX: number,
+    clientY: number,
+    time: number
+  ) => void
 }
 
 export default function SkillTracksCanvas({
@@ -78,6 +89,11 @@ export default function SkillTracksCanvas({
   overlayLayerRef,
   hoverTrackIndex,
   hoverTimeX,
+  annotations,
+  onAnnotationHover,
+  onAnnotationHoverEnd,
+  onAnnotationClick,
+  onAnnotationContextMenu,
 }: SkillTracksCanvasProps) {
   const skillTracksHeight = skillTracks.length * trackHeight
 
@@ -476,6 +492,56 @@ export default function SkillTracksCanvas({
             />
           )
         })}
+
+        {/* 注释图标 */}
+        {annotations
+          .filter(a => a.anchor.type === 'skillTrack')
+          .map(annotation => {
+            const anchor = annotation.anchor as {
+              type: 'skillTrack'
+              playerId: number
+              actionId: number
+            }
+            const trackIndex = skillTracks.findIndex(
+              t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
+            )
+            if (trackIndex === -1) return null
+
+            const x = annotation.time * zoomLevel
+            const y = trackIndex * trackHeight + trackHeight / 2
+
+            return (
+              <AnnotationIcon
+                key={`annotation-${annotation.id}`}
+                x={x}
+                y={y}
+                onMouseEnter={(e: KonvaEventObject<MouseEvent>) => {
+                  const stage = e.target.getStage()
+                  if (!stage) return
+                  const box = stage.container().getBoundingClientRect()
+                  const absPos = e.target.getParent()!.getAbsolutePosition()
+                  onAnnotationHover(annotation, box.left + absPos.x + 8, box.top + absPos.y + 8)
+                }}
+                onMouseLeave={onAnnotationHoverEnd}
+                onClick={(e: KonvaEventObject<MouseEvent>) => {
+                  const stage = e.target.getStage()
+                  if (!stage) return
+                  const box = stage.container().getBoundingClientRect()
+                  const absPos = e.target.getParent()!.getAbsolutePosition()
+                  onAnnotationClick(annotation, box.left + absPos.x + 8, box.top + absPos.y + 8)
+                }}
+                onContextMenu={(e: KonvaEventObject<PointerEvent>) => {
+                  e.evt.preventDefault()
+                  onAnnotationContextMenu(
+                    annotation.id,
+                    e.evt.clientX,
+                    e.evt.clientY,
+                    annotation.time
+                  )
+                }}
+              />
+            )
+          })}
       </Layer>
 
       {/* 十字准线叠加层 */}

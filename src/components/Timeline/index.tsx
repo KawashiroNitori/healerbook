@@ -952,6 +952,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onDblClick={time => setAddEventAt(time)}
                 onContextMenu={handleContextMenu}
                 isReadOnly={isReadOnly}
+                annotations={timeline.annotations ?? []}
+                onAnnotationHover={() => {}}
+                onAnnotationHoverEnd={() => {}}
+                onAnnotationClick={() => {}}
+                onAnnotationContextMenu={() => {}}
               />
             </Layer>
             {/* 固定区域十字准线纵线 */}
@@ -1039,6 +1044,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               onHoverActionEnd={hideTooltip}
               onClickAction={handleClickAction}
               isReadOnly={isReadOnly}
+              annotations={timeline.annotations ?? []}
+              onAnnotationHover={() => {}}
+              onAnnotationHoverEnd={() => {}}
+              onAnnotationClick={() => {}}
+              onAnnotationContextMenu={() => {}}
             />
           </Stage>
         </div>

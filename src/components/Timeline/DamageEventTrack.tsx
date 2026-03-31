@@ -5,7 +5,8 @@
 import { Rect, Line } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
 import { GRID_LINE_STYLE, DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME } from './constants'
-import type { DamageEvent } from '@/types/timeline'
+import AnnotationIcon from './AnnotationIcon'
+import type { DamageEvent, Annotation } from '@/types/timeline'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]
@@ -30,6 +31,16 @@ interface DamageEventTrackProps {
     time: number
   ) => void
   isReadOnly?: boolean
+  annotations: Annotation[]
+  onAnnotationHover: (annotation: Annotation, screenX: number, screenY: number) => void
+  onAnnotationHoverEnd: () => void
+  onAnnotationClick: (annotation: Annotation, screenX: number, screenY: number) => void
+  onAnnotationContextMenu: (
+    annotationId: string,
+    clientX: number,
+    clientY: number,
+    time: number
+  ) => void
 }
 
 export default function DamageEventTrack({
@@ -50,6 +61,11 @@ export default function DamageEventTrack({
   onDblClick,
   onContextMenu,
   isReadOnly = false,
+  annotations,
+  onAnnotationHover,
+  onAnnotationHoverEnd,
+  onAnnotationClick,
+  onAnnotationContextMenu,
 }: DamageEventTrackProps) {
   // 生成时间刻度网格线（每10秒一条，实线）
   const gridLines = []
@@ -158,6 +174,38 @@ export default function DamageEventTrack({
             />
           )
         })}
+      {/* 注释图标 */}
+      {annotations.map(annotation => {
+        const x = annotation.time * zoomLevel
+        const annotationY = yOffset + trackHeight - 20
+
+        return (
+          <AnnotationIcon
+            key={`annotation-${annotation.id}`}
+            x={x}
+            y={annotationY}
+            onMouseEnter={e => {
+              const stage = e.target.getStage()
+              if (!stage) return
+              const box = stage.container().getBoundingClientRect()
+              const absPos = e.target.getParent()!.getAbsolutePosition()
+              onAnnotationHover(annotation, box.left + absPos.x + 8, box.top + absPos.y)
+            }}
+            onMouseLeave={onAnnotationHoverEnd}
+            onClick={e => {
+              const stage = e.target.getStage()
+              if (!stage) return
+              const box = stage.container().getBoundingClientRect()
+              const absPos = e.target.getParent()!.getAbsolutePosition()
+              onAnnotationClick(annotation, box.left + absPos.x + 8, box.top + absPos.y)
+            }}
+            onContextMenu={e => {
+              e.evt.preventDefault()
+              onAnnotationContextMenu(annotation.id, e.evt.clientX, e.evt.clientY, annotation.time)
+            }}
+          />
+        )
+      })}
     </>
   )
 }
