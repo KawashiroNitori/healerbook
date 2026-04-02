@@ -62,7 +62,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               onChange={e => setName(e.target.value)}
               maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
               placeholder="例如: 全屏 AOE"
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
               autoFocus
             />
           </div>
@@ -73,7 +73,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               type="number"
               value={time}
               onChange={e => setTime(parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
               step="0.1"
               min="-30"
             />
@@ -85,7 +85,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               type="number"
               value={damage}
               onChange={e => setDamage(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
               min="0"
             />
           </div>
@@ -95,7 +95,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
             <select
               value={type}
               onChange={e => setType(e.target.value as 'aoe' | 'tankbuster')}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
             >
               <option value="aoe">AOE</option>
               <option value="tankbuster">死刑</option>
@@ -107,7 +107,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
             <select
               value={damageType}
               onChange={e => setDamageType(e.target.value as DamageType)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
             >
               <option value="physical">物理</option>
               <option value="magical">魔法</option>
