@@ -29,6 +29,7 @@ import EditableTitle from '@/components/EditableTitle'
 import EditableDescription from '@/components/EditableDescription'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
+import ThemeToggle from '@/components/ThemeToggle'
 import type { Timeline } from '@/types/timeline'
 import { track } from '@/utils/analytics'
 
@@ -296,6 +297,10 @@ export default function EditorPage() {
               />
             </div>
           )}
+
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

@@ -6,6 +6,7 @@ import { Group, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import { useCanvasColors } from './constants'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
 function getMeasureCtx(): CanvasRenderingContext2D {
@@ -52,15 +53,17 @@ export default function DamageEventCard({
   isReadOnly = false,
   onContextMenu,
 }: DamageEventCardProps) {
+  const colors = useCanvasColors()
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
   const isTankbuster = event.type === 'tankbuster'
   const x = event.time * zoomLevel
   const y = yOffset + row * rowHeight + rowHeight / 2
 
+  const isDark = colors.cardBg !== '#ffffff'
   const damageTypeColorMap: Record<DamageType, string> = {
     physical: '#ef4444',
-    magical: '#1e40af',
+    magical: isDark ? '#60a5fa' : '#1e40af',
     darkness: '#c026d3',
   }
   const nameColor = damageTypeColorMap[event.damageType || 'physical'] || '#ef4444'
@@ -129,8 +132,8 @@ export default function DamageEventCard({
         y={-15}
         width={150}
         height={30}
-        fill={isTankbuster ? '#f9fafb' : '#ffffff'}
-        stroke={isSelected ? '#3b82f6' : isTankbuster ? '#9ca3af' : '#d1d5db'}
+        fill={isTankbuster ? colors.cardBgTankbuster : colors.cardBg}
+        stroke={isSelected ? '#3b82f6' : isTankbuster ? colors.textSecondary : colors.gridLine}
         strokeWidth={isSelected ? 2 : 1}
         dash={isTankbuster && !isSelected ? [4, 3] : undefined}
         cornerRadius={4}
@@ -215,7 +218,7 @@ export default function DamageEventCard({
           height={30}
           text={damageText}
           fontSize={12}
-          fill="#6b7280"
+          fill={colors.textPrimary}
           fontFamily="Arial, sans-serif"
           wrap="none"
           align="right"

@@ -152,7 +152,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                  className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900 dark:hover:text-blue-200"
                   disabled={forceReadOnly}
                 >
                   <BugPlay className="w-4 h-4" />

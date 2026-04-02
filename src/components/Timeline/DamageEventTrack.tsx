@@ -4,7 +4,7 @@
 
 import { Rect, Line } from 'react-konva'
 import DamageEventCard from './DamageEventCard'
-import { GRID_LINE_STYLE, DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME } from './constants'
+import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME, useCanvasColors } from './constants'
 import AnnotationIcon from './AnnotationIcon'
 import type { DamageEvent, Annotation } from '@/types/timeline'
 
@@ -73,6 +73,7 @@ export default function DamageEventTrack({
   onAnnotationDragStart,
   onAnnotationDragEnd,
 }: DamageEventTrackProps) {
+  const colors = useCanvasColors()
   // 生成时间刻度网格线（每10秒一条，实线）
   const gridLines = []
   const gridInterval = 10 // 10秒间隔
@@ -83,8 +84,8 @@ export default function DamageEventTrack({
       <Line
         key={`grid-${time}`}
         points={[x, yOffset, x, yOffset + trackHeight]}
-        stroke={time === 0 ? '#9ca3af' : GRID_LINE_STYLE.stroke}
-        strokeWidth={time === 0 ? 2 : GRID_LINE_STYLE.strokeWidth}
+        stroke={time === 0 ? colors.zeroLine : colors.gridLine}
+        strokeWidth={time === 0 ? 2 : 1}
       />
     )
   }
@@ -114,7 +115,7 @@ export default function DamageEventTrack({
         y={yOffset}
         width={timelineWidth}
         height={trackHeight}
-        fill="#e5e7eb"
+        fill={colors.damageTrackBg}
         draggableBackground={true}
         onDblClick={e => {
           if (isReadOnly || !onDblClick) return

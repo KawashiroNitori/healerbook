@@ -81,7 +81,7 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
           maxLength={TIMELINE_NAME_MAX_LENGTH}
           onKeyDown={handleKeyDown}
           style={{ width: `${inputWidth}px` }}
-          className="px-1 h-7 border rounded-md text-sm"
+          className="px-1 h-7 border rounded-md text-sm bg-background text-foreground border-border"
         />
         <Tooltip>
           <TooltipTrigger asChild>

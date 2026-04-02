@@ -7,12 +7,7 @@ import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
 import AnnotationIcon from './AnnotationIcon'
 import CastEventIcon from './CastEventIcon'
-import {
-  CROSSHAIR_VERTICAL_LINE_STYLE,
-  CROSSHAIR_TRACK_HIGHLIGHT_COLOR,
-  DAMAGE_TIME_LINE_STYLE,
-  TIMELINE_START_TIME,
-} from './constants'
+import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME, useCanvasColors } from './constants'
 import type { SkillTrack } from './SkillTrackLabels'
 import type { Annotation, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -101,6 +96,7 @@ export default function SkillTracksCanvas({
   onAnnotationDragStart,
   onAnnotationDragEnd,
 }: SkillTracksCanvasProps) {
+  const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
 
   return (
@@ -114,7 +110,7 @@ export default function SkillTracksCanvas({
             y={index * trackHeight}
             width={timelineWidth}
             height={trackHeight}
-            fill={index % 2 === 0 ? '#fafafa' : '#ffffff'}
+            fill={index % 2 === 0 ? colors.trackBgEven : colors.trackBgOdd}
             draggableBackground={true}
             onDblClick={() => {
               if (isReadOnly) return
@@ -192,8 +188,8 @@ export default function SkillTracksCanvas({
                     ctx.rect(0, 0, w, h)
                     ctx.clip()
                     const step = 7
-                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.22)'
-                    ctx.lineWidth = 1
+                    ctx.strokeStyle = colors.cooldownStripe
+                    ctx.lineWidth = colors.cooldownStripeWidth
                     for (let i = -h; i < w + h; i += step) {
                       ctx.beginPath()
                       ctx.moveTo(i, 0)
@@ -219,7 +215,7 @@ export default function SkillTracksCanvas({
               y={hoverTrackIndex * trackHeight}
               width={timelineWidth}
               height={trackHeight}
-              fill={CROSSHAIR_TRACK_HIGHLIGHT_COLOR}
+              fill={colors.crosshairTrackHighlight}
               listening={false}
               perfectDrawEnabled={false}
             />
@@ -235,7 +231,7 @@ export default function SkillTracksCanvas({
               TIMELINE_START_TIME * zoomLevel + timelineWidth,
               (index + 1) * trackHeight,
             ]}
-            stroke="#e5e7eb"
+            stroke={colors.separator}
             strokeWidth={1}
           />
         ))}
@@ -250,7 +246,7 @@ export default function SkillTracksCanvas({
               <Line
                 key={`grid-${time}`}
                 points={[x, 0, x, skillTracksHeight]}
-                stroke={time === 0 ? '#9ca3af' : '#f3f4f6'}
+                stroke={time === 0 ? colors.zeroLine : colors.gridLineLight}
                 strokeWidth={time === 0 ? 2 : 1}
               />
             )
@@ -316,7 +312,7 @@ export default function SkillTracksCanvas({
                 {/* 左侧连接线（从战斗开始 + CD） */}
                 <Line
                   points={[startX, trackY, centerX - 35, trackY]}
-                  stroke="#d1d5db"
+                  stroke={colors.idleLine}
                   strokeWidth={1}
                   dash={[4, 4]}
                   opacity={0.6}
@@ -328,7 +324,7 @@ export default function SkillTracksCanvas({
                 {/* 右侧连接线 */}
                 <Line
                   points={[centerX + 35, trackY, endX, trackY]}
-                  stroke="#d1d5db"
+                  stroke={colors.idleLine}
                   strokeWidth={1}
                   dash={[4, 4]}
                   opacity={0.6}
@@ -374,7 +370,7 @@ export default function SkillTracksCanvas({
                 {/* 左侧连接线 */}
                 <Line
                   points={[startX, trackY, centerX - 35, trackY]}
-                  stroke="#d1d5db"
+                  stroke={colors.idleLine}
                   strokeWidth={1}
                   dash={[4, 4]}
                   opacity={0.6}
@@ -386,7 +382,7 @@ export default function SkillTracksCanvas({
                 {/* 右侧连接线 */}
                 <Line
                   points={[centerX + 35, trackY, endX, trackY]}
-                  stroke="#d1d5db"
+                  stroke={colors.idleLine}
                   strokeWidth={1}
                   dash={[4, 4]}
                   opacity={0.6}
@@ -563,7 +559,8 @@ export default function SkillTracksCanvas({
         {hoverTimeX != null && (
           <Line
             points={[hoverTimeX, 0, hoverTimeX, skillTracksHeight]}
-            {...CROSSHAIR_VERTICAL_LINE_STYLE}
+            stroke={colors.crosshairStroke}
+            strokeWidth={1}
             listening={false}
             perfectDrawEnabled={false}
           />

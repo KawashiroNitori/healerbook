@@ -56,14 +56,14 @@ export default function EditableDescription({
                   if (e.key === 'Escape') setOpen(false)
                 }}
                 rows={8}
-                className="w-full px-2 py-1.5 border rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 border border-border rounded-md text-sm resize-none bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="为这个时间轴添加说明..."
               />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="px-3 py-1.5 text-sm border rounded-md hover:bg-accent transition-colors"
+                  className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground hover:bg-accent transition-colors"
                 >
                   取消
                 </button>

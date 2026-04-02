@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { APP_NAME } from '@/lib/constants'
 import TimelineCard from '@/components/TimelineCard'
 import AuthButton from '@/components/AuthButton'
+import ThemeToggle from '@/components/ThemeToggle'
 import { useAuth } from '@/hooks/useAuth'
 import { Globe } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -71,11 +72,17 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{APP_NAME}</h1>
-            <p className="text-sm text-muted-foreground">FF14 减伤规划工具</p>
+          <div className="flex items-center gap-3">
+            <img src="/icon.png" alt="Healerbook" className="w-10 h-10" />
+            <div>
+              <h1 className="text-2xl font-bold">{APP_NAME}</h1>
+              <p className="text-sm text-muted-foreground">FF14 减伤规划工具</p>
+            </div>
           </div>
-          <AuthButton />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <AuthButton />
+          </div>
         </div>
       </header>
 

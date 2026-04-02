@@ -59,7 +59,7 @@ export default function PropertyPanel() {
             value={event.name}
             onChange={e => updateDamageEvent(event.id, { name: e.target.value })}
             maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
-            className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
+            className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
             disabled={isReadOnly}
           />
         </div>
@@ -71,7 +71,7 @@ export default function PropertyPanel() {
               type="number"
               value={event.time}
               onChange={e => updateDamageEvent(event.id, { time: parseFloat(e.target.value) || 0 })}
-              className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
+              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               step="0.1"
               disabled={isReadOnly}
             />
@@ -82,7 +82,7 @@ export default function PropertyPanel() {
               type="number"
               value={event.damage}
               onChange={e => updateDamageEvent(event.id, { damage: parseInt(e.target.value) || 0 })}
-              className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
+              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             />
           </div>
@@ -98,7 +98,7 @@ export default function PropertyPanel() {
                   damageType: e.target.value as DamageType,
                 })
               }
-              className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
+              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             >
               <option value="physical">物理</option>
@@ -115,7 +115,7 @@ export default function PropertyPanel() {
                   type: e.target.value as 'aoe' | 'tankbuster',
                 })
               }
-              className="w-full px-2.5 py-1.5 border rounded-md text-sm disabled:bg-muted disabled:cursor-not-allowed"
+              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             >
               <option value="aoe">AOE</option>

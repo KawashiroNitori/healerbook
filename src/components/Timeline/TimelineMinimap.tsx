@@ -8,7 +8,8 @@ import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { getNonTankMinHP } from '@/utils/stats'
-import { TIMELINE_START_TIME } from './constants'
+import { TIMELINE_START_TIME, getCanvasColors } from './constants'
+import { useUIStore } from '@/store/uiStore'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -51,6 +52,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
 
     const { timeline, statistics } = useTimelineStore()
     const eventResults = useDamageCalculationResults()
+    const theme = useUIStore(s => s.theme)
 
     // 计算缩略图的缩放比例（减去内边距）
     const padding = 16 // p-2 = 8px * 2
@@ -81,11 +83,12 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         const vl = (sl + to) * ms * dpr
         const vw = viewportWidth * ms * dpr
 
-        ctx.strokeStyle = '#2563eb'
+        const c = getCanvasColors()
+        ctx.strokeStyle = c.viewportStroke
         ctx.lineWidth = 2 * dpr
         ctx.strokeRect(vl, contentY * dpr, vw, contentHeight * dpr)
 
-        ctx.fillStyle = 'rgba(37, 99, 235, 0.08)'
+        ctx.fillStyle = c.viewportFill
         ctx.fillRect(vl, contentY * dpr, vw, contentHeight * dpr)
       },
       [viewportWidth]
@@ -120,11 +123,13 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       viewportCanvas.style.height = `${height}px`
       ctx.scale(dpr, dpr)
 
+      const colors = getCanvasColors()
+
       // 清空画布
       ctx.clearRect(0, 0, canvasWidth, height)
 
       // 绘制背景
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = colors.minimapBg
       ctx.fillRect(0, 0, canvasWidth, height)
 
       // 计算最大时间
@@ -138,7 +143,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       const tickHeight = 24 // 刻度区域高度
 
       // 先绘制所有网格线
-      ctx.strokeStyle = '#e4e4e7'
+      ctx.strokeStyle = colors.minimapGrid
       ctx.lineWidth = 1
       for (let t = 0; t <= maxTime; t += tickInterval) {
         const x = (t - TIMELINE_START_TIME) * zoomLevel * minimapScale
@@ -150,7 +155,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
 
       // 0 秒标记线（加粗）
       const zeroX = -TIMELINE_START_TIME * zoomLevel * minimapScale
-      ctx.strokeStyle = '#9ca3af'
+      ctx.strokeStyle = colors.zeroLine
       ctx.lineWidth = 2
       ctx.beginPath()
       ctx.moveTo(zeroX, 0)
@@ -172,16 +177,16 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         const textWidth = textMetrics.width
         const textPadding = 4
 
-        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = colors.timeLabelBg
         ctx.fillRect(x - textWidth / 2 - textPadding, 4, textWidth + textPadding * 2, 16)
 
         // 绘制文字
-        ctx.fillStyle = '#18181b'
+        ctx.fillStyle = colors.textDark
         ctx.fillText(timeText, x, 7)
       }
 
       // 绘制分隔线
-      ctx.strokeStyle = '#d4d4d8'
+      ctx.strokeStyle = colors.minimapSeparator
       ctx.lineWidth = 1
       ctx.beginPath()
       ctx.moveTo(0, tickHeight)
@@ -221,7 +226,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         if (event.type === 'tankbuster') {
           color = '#94a3b8' // 死刑 - 灰色
         } else if (hasOverkill) {
-          color = '#373737' // 有死亡 - 深灰黑
+          color = theme === 'dark' ? '#f87171' : '#373737' // 有死亡
         } else if (ratio >= 1) {
           color = '#dc2626' // >= 100% HP - 致死红
         } else if (ratio >= 0.9) {
@@ -304,7 +309,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       // 画视口指示器
       drawViewportRect(scrollLeft)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeline, eventResults, statistics, canvasWidth, height, zoomLevel, minimapScale])
+    }, [timeline, eventResults, statistics, canvasWidth, height, zoomLevel, minimapScale, theme])
 
     // React 驱动的视口更新（drag 结束 / zoom 后同步）
     useEffect(() => {

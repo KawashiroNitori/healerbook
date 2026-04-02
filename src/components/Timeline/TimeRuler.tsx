@@ -3,7 +3,7 @@
  */
 
 import { Group, Line, Rect, Text } from 'react-konva'
-import { TIMELINE_START_TIME } from './constants'
+import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 
 interface TimeRulerProps {
   maxTime: number
@@ -34,6 +34,8 @@ export default function TimeRuler({
   height,
   hoverTime,
 }: TimeRulerProps) {
+  const colors = useCanvasColors()
+
   // 从 TIMELINE_START_TIME 开始，每 10 秒一个刻度，对齐到 10 秒整数
   const startTick = Math.ceil(TIMELINE_START_TIME / 10) * 10
   const ticks: number[] = []
@@ -49,7 +51,7 @@ export default function TimeRuler({
         y={0}
         width={timelineWidth}
         height={height}
-        fill="#f3f4f6"
+        fill={colors.timeRulerBg}
         draggableBackground={true}
       />
 
@@ -58,13 +60,13 @@ export default function TimeRuler({
         const x = time * zoomLevel
         return (
           <Group key={`ruler-${time}`}>
-            <Line points={[x, 0, x, height]} stroke="#d1d5db" strokeWidth={1} />
+            <Line points={[x, 0, x, height]} stroke={colors.gridLine} strokeWidth={1} />
             <Text
               x={x + 4}
               y={8}
               text={formatTime(time)}
               fontSize={12}
-              fill={time < 0 ? '#9ca3af' : '#6b7280'}
+              fill={time < 0 ? colors.textSecondary : colors.textPrimary}
               fontFamily="Arial, sans-serif"
               perfectDrawEnabled={false}
               listening={false}
@@ -74,20 +76,25 @@ export default function TimeRuler({
       })}
 
       {/* 0 秒标记线（加粗） */}
-      <Line points={[0, 0, 0, height]} stroke="#9ca3af" strokeWidth={2} />
+      <Line points={[0, 0, 0, height]} stroke={colors.zeroLine} strokeWidth={2} />
 
       {hoverTime != null &&
         (() => {
           const x = hoverTime * zoomLevel
           return (
             <Group>
-              <Line points={[x, 0, x, height]} stroke="#9ca3af" strokeWidth={1} listening={false} />
+              <Line
+                points={[x, 0, x, height]}
+                stroke={colors.zeroLine}
+                strokeWidth={1}
+                listening={false}
+              />
               <Text
                 x={x + 4}
                 y={8}
                 text={formatTimeWithDecimal(hoverTime)}
                 fontSize={12}
-                fill="#6b7280"
+                fill={colors.textPrimary}
                 fontFamily="Arial, sans-serif"
                 perfectDrawEnabled={false}
                 listening={false}

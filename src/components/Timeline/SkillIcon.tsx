@@ -4,6 +4,7 @@
 
 import { Rect, Image as KonvaImage } from 'react-konva'
 import { useKonvaImage } from '@/utils/useKonvaImage'
+import { useCanvasColors } from './constants'
 
 interface SkillIconProps {
   iconPath: string
@@ -12,6 +13,7 @@ interface SkillIconProps {
 
 export default function SkillIcon({ iconPath, isSelected }: SkillIconProps) {
   const image = useKonvaImage(iconPath)
+  const colors = useCanvasColors()
 
   if (!image) {
     // 加载中或加载失败，显示占位符
@@ -21,7 +23,7 @@ export default function SkillIcon({ iconPath, isSelected }: SkillIconProps) {
         y={-15}
         width={30}
         height={30}
-        fill="#e5e7eb"
+        fill={colors.placeholderBg}
         cornerRadius={4}
         shadowEnabled={false}
         perfectDrawEnabled={false}

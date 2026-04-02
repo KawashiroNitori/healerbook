@@ -51,6 +51,20 @@ interface UIState {
   isolatePlayer: (playerId: number, allPlayerIds: number[]) => void
 }
 
+function applyTheme(theme: 'light' | 'dark') {
+  document.documentElement.classList.toggle('dark', theme === 'dark')
+  localStorage.setItem('theme', theme)
+}
+
+function getInitialTheme(): 'light' | 'dark' {
+  const stored = localStorage.getItem('theme')
+  if (stored === 'light' || stored === 'dark') return stored
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+const initialTheme = getInitialTheme()
+applyTheme(initialTheme)
+
 export const useUIStore = create<UIState>(set => ({
   isSidebarOpen: true,
   isSkillPanelOpen: true,
@@ -59,7 +73,7 @@ export const useUIStore = create<UIState>(set => ({
   showGrid: true,
   showTimeRuler: true,
   showCooldownIndicators: true,
-  theme: 'light',
+  theme: initialTheme,
   isReadOnly: false,
   hiddenPlayerIds: new Set<number>(),
 
@@ -102,10 +116,10 @@ export const useUIStore = create<UIState>(set => ({
       showCooldownIndicators: !state.showCooldownIndicators,
     })),
 
-  setTheme: theme =>
-    set({
-      theme,
-    }),
+  setTheme: theme => {
+    applyTheme(theme)
+    set({ theme })
+  },
 
   toggleReadOnly: () =>
     set(state => ({

@@ -36,7 +36,7 @@ import type { SkillTrack } from './SkillTrackLabels'
 import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import { TIMELINE_START_TIME } from './constants'
+import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 
 interface TimelineCanvasProps {
   width: number
@@ -44,6 +44,7 @@ interface TimelineCanvasProps {
 }
 
 export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
+  const canvasColors = useCanvasColors()
   const stageRef = useRef<Konva.Stage | null>(null)
   const fixedStageRef = useRef<Konva.Stage | null>(null)
   const labelColumnRef = useRef<HTMLDivElement>(null)
@@ -1158,7 +1159,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               {hoverTime != null && (
                 <Line
                   points={[hoverTime * zoomLevel, 0, hoverTime * zoomLevel, fixedAreaHeight]}
-                  stroke="#9ca3af"
+                  stroke={canvasColors.crosshairStroke}
                   strokeWidth={1}
                   listening={false}
                   perfectDrawEnabled={false}
