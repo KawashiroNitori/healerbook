@@ -112,8 +112,8 @@ export default function SkillTracksCanvas({
             height={trackHeight}
             fill={index % 2 === 0 ? colors.trackBgEven : colors.trackBgOdd}
             draggableBackground={true}
-            onDblClick={() => {
-              if (isReadOnly) return
+            onDblClick={e => {
+              if (isReadOnly || e.evt.button !== 0) return
               const layer = bgLayerRef?.current
               if (!layer) return
               const pos = layer.getRelativePointerPosition()

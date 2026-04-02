@@ -118,7 +118,7 @@ export default function DamageEventTrack({
         fill={colors.damageTrackBg}
         draggableBackground={true}
         onDblClick={e => {
-          if (isReadOnly || !onDblClick) return
+          if (isReadOnly || !onDblClick || e.evt.button !== 0) return
           const layer = e.target.getLayer()
           if (!layer) return
           const pos = layer.getRelativePointerPosition()
