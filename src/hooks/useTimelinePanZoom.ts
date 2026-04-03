@@ -2,7 +2,7 @@
  * 时间轴平移/缩放交互 Hook
  * 统一使用 PointerEvent 处理鼠标和触摸的平移操作
  *
- * 性能优化：拖动和惯性动画期间通过 onDirectScroll 直接更新 Konva Layer 位置，
+ * 性能优化：拖动期间通过 onDirectScroll 直接更新 Konva Layer 位置，
  * 绕过 React 渲染循环，仅在操作结束时同步 React state。
  */
 
@@ -27,7 +27,6 @@ export interface PanZoomRefs {
   hasMovedRef: RefObject<boolean>
   panJustEndedRef: RefObject<boolean>
   lastPanEndTimeRef: RefObject<number>
-  inertiaRafIdRef: RefObject<number | null>
 }
 
 interface PanZoomOptions {
@@ -38,10 +37,6 @@ interface PanZoomOptions {
   /** 直接更新 Konva 图层位置的回调，绕过 React 渲染 */
   onDirectScroll?: (scrollLeft: number, scrollTop: number) => void
 }
-
-/** 惯性参数 */
-const FRICTION = 0.92 // 每帧速度衰减系数
-const MIN_VELOCITY = 0.5 // 低于此速度停止动画（px/frame）
 
 export function useTimelinePanZoom(
   stageRef: RefObject<Konva.Stage | null>,
@@ -67,15 +62,8 @@ export function useTimelinePanZoom(
       hasMovedRef,
       panJustEndedRef,
       lastPanEndTimeRef,
-      inertiaRafIdRef,
     } = refs
 
-    // --- 惯性状态 ---
-    let velocityX = 0
-    let velocityY = 0
-    let lastMoveTime = 0
-    let lastClientX = 0
-    let lastClientY = 0
     // 直接滚动模式下的本地滚动位置追踪
     let localScrollLeft = 0
     let localScrollTop = 0
@@ -85,13 +73,6 @@ export function useTimelinePanZoom(
 
     const clampScrollTop = (value: number) => Math.min(maxScrollTopRef.current, Math.max(0, value))
 
-    const stopInertia = () => {
-      if (inertiaRafIdRef.current !== null) {
-        cancelAnimationFrame(inertiaRafIdRef.current)
-        inertiaRafIdRef.current = null
-      }
-    }
-
     /** 将本地滚动位置同步到 React state */
     const syncToReactState = () => {
       setScrollLeft(localScrollLeft)
@@ -100,57 +81,12 @@ export function useTimelinePanZoom(
       }
     }
 
-    const startInertia = () => {
-      stopInertia()
-      const tick = () => {
-        velocityX *= FRICTION
-        velocityY *= FRICTION
-        if (Math.abs(velocityX) < MIN_VELOCITY && Math.abs(velocityY) < MIN_VELOCITY) {
-          inertiaRafIdRef.current = null
-          // 惯性结束，同步到 React state
-          if (onDirectScroll) {
-            syncToReactState()
-          }
-          return
-        }
-
-        if (onDirectScroll) {
-          localScrollLeft = clampScrollLeft(localScrollLeft + velocityX)
-          if (enableVerticalScroll) {
-            localScrollTop = clampScrollTop(localScrollTop + velocityY)
-          }
-          const effectiveScrollTop = enableVerticalScroll
-            ? localScrollTop
-            : clampedScrollRef.current.scrollTop
-          clampedScrollRef.current = { scrollLeft: localScrollLeft, scrollTop: effectiveScrollTop }
-          onDirectScroll(localScrollLeft, effectiveScrollTop)
-        } else {
-          setScrollLeft(prev =>
-            Math.min(maxScrollLeftRef.current, Math.max(minScrollLeftRef.current, prev + velocityX))
-          )
-          if (enableVerticalScroll) {
-            setScrollTop(prev => clampScrollTop(prev + velocityY))
-          }
-        }
-        inertiaRafIdRef.current = requestAnimationFrame(tick)
-      }
-      inertiaRafIdRef.current = requestAnimationFrame(tick)
-    }
-
     // --- Konva pointerdown: 单点按下开始平移 ---
     const handlePointerDown = (e: KonvaMouseEvent) => {
       const evt = e.evt as PointerEvent
 
       // 已有活跃指针时忽略额外的触摸点
       if (activePointerIdRef.current !== null) return
-
-      // 任意键按下都停止惯性动画，并重置平移时间戳
-      // 必须在右键 return 之前执行，否则右键无法中断惯性，且 Konva 会将拖动尾帧与右键合并判定为双击
-      const wasInertiaRunning = inertiaRafIdRef.current !== null
-      stopInertia()
-      if (wasInertiaRunning) {
-        lastPanEndTimeRef.current = Date.now()
-      }
 
       // 右键不触发拖动
       if (evt.button === 2) return
@@ -177,12 +113,6 @@ export function useTimelinePanZoom(
         scrollLeft: clampedScrollRef.current.scrollLeft,
         scrollTop: visualScrollTopRef.current,
       }
-      // 初始化速度跟踪和本地滚动位置
-      velocityX = 0
-      velocityY = 0
-      lastMoveTime = performance.now()
-      lastClientX = evt.clientX
-      lastClientY = evt.clientY
       localScrollLeft = clampedScrollRef.current.scrollLeft
       localScrollTop = visualScrollTopRef.current
     }
@@ -192,20 +122,6 @@ export function useTimelinePanZoom(
       if (!isDraggingRef.current || e.pointerId !== activePointerIdRef.current) return
       hasMovedRef.current = true
       panJustEndedRef.current = true
-
-      // 计算瞬时速度（px/frame，约 16ms）
-      const now = performance.now()
-      const dt = now - lastMoveTime
-      if (dt > 0) {
-        const rawVx = ((lastClientX - e.clientX) / dt) * 16
-        const rawVy = ((lastClientY - e.clientY) / dt) * 16
-        // 用指数移动平均平滑速度，避免最后一帧突变
-        velocityX = velocityX * 0.3 + rawVx * 0.7
-        velocityY = velocityY * 0.3 + rawVy * 0.7
-      }
-      lastMoveTime = now
-      lastClientX = e.clientX
-      lastClientY = e.clientY
 
       const deltaX = dragStartRef.current.x - e.clientX
       const newScrollLeft = clampScrollLeft(dragStartRef.current.scrollLeft + deltaX)
@@ -254,19 +170,14 @@ export function useTimelinePanZoom(
       }
       hasMovedRef.current = false
 
-      // 如果最后一次 move 距离太久（手指停住再松开），不启动惯性
-      const shouldStartInertia = didMove && performance.now() - lastMoveTime < 100
-      if (shouldStartInertia) {
-        startInertia()
-      } else if (onDirectScroll && didMove) {
-        // 没有惯性，同步最终位置到 React state
+      // 同步最终位置到 React state
+      if (onDirectScroll && didMove) {
         syncToReactState()
       }
     }
 
     // --- Wheel: Ctrl+滚轮缩放 / 普通滚轮平移 ---
     const handleWheel = (e: WheelEvent) => {
-      stopInertia()
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         e.stopPropagation()
@@ -285,7 +196,7 @@ export function useTimelinePanZoom(
         e.preventDefault()
         const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY
         if (onDirectScroll) {
-          // 以 clampedScrollRef 为基准（惯性期间与视觉位置同步），避免跳回旧 React state
+          // 以 clampedScrollRef 为基准，避免跳回旧 React state
           localScrollLeft = clampScrollLeft(clampedScrollRef.current.scrollLeft + scrollDelta)
           // 用 visualScrollTopRef（由 handleDirectScroll 维护，始终正确），
           // 而非 clampedScrollRef.scrollTop（可能被 sync effect 用 stale React state 覆盖）
@@ -313,7 +224,6 @@ export function useTimelinePanZoom(
     stage.container().addEventListener('wheel', handleWheel, { passive: false })
 
     return () => {
-      stopInertia()
       stage.off('pointerdown', handlePointerDown)
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)

@@ -92,7 +92,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 平移刚结束标记：mouseup 时设 true，同帧 click 可见；requestAnimationFrame 自动清除
   const panJustEndedRef = useRef(false)
   const lastPanEndTimeRef = useRef(0) // 记录最后一次平移结束的时间戳，用于阻止 dblclick
-  const inertiaRafIdRef = useRef<number | null>(null)
   // Konva Layer refs（用于直接操作 Layer 位置，绕过 React 渲染）
   const fixedLayerRef = useRef<Konva.Layer | null>(null)
   const mainBgLayerRef = useRef<Konva.Layer | null>(null)
@@ -153,10 +152,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     hasMovedRef,
     panJustEndedRef,
     lastPanEndTimeRef,
-    inertiaRafIdRef,
   }
 
-  // 直接操作 Konva Layer 位置的回调（拖动/惯性动画期间绕过 React 渲染）
+  // 直接操作 Konva Layer 位置的回调（拖动期间绕过 React 渲染）
   const handleDirectScroll = useCallback((newScrollLeft: number, newScrollTop: number) => {
     // 记录真实视觉滚动位置（供 handlePointerDown 读取，不受过时 React state 影响）
     visualScrollTopRef.current = newScrollTop
@@ -444,8 +442,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     maxScrollLeftRef.current = maxScrollLeft
     minScrollLeftRef.current = minScrollLeft
     maxScrollTopRef.current = maxScrollTop
-    // 只同步 scrollLeft；scrollTop 由 direct scroll 路径管理（inertia/drag/wheel），
-    // 避免惯性动画期间用 stale 的 React state 覆盖正确的 ref 值
+    // 只同步 scrollLeft；scrollTop 由 direct scroll 路径管理（drag/wheel），
+    // 避免拖动期间用 stale 的 React state 覆盖正确的 ref 值
     clampedScrollRef.current.scrollLeft = clampedScrollLeft
     scrollLeftRef.current = scrollLeft
     scrollTopRef.current = scrollTop
@@ -1267,11 +1265,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         totalWidth={timelineWidth}
         zoomLevel={zoomLevel}
         onScroll={newScrollLeft => {
-          // 停止正在进行的惯性动画（修复 3：minimap 点击不停惯性）
-          if (inertiaRafIdRef.current !== null) {
-            cancelAnimationFrame(inertiaRafIdRef.current)
-            inertiaRafIdRef.current = null
-          }
           setScrollLeft(newScrollLeft)
         }}
       />
