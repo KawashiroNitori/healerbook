@@ -173,22 +173,24 @@ export default function PropertyPanel() {
               return (
                 <div className="space-y-1.5">
                   {isLethal && (
-                    <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-                      <Skull className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                    <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 px-3 py-2">
+                      <Skull className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
                       <div>
-                        <p className="text-xs font-medium text-red-700">致死</p>
-                        <p className="text-xs text-red-600/80">
+                        <p className="text-xs font-medium text-red-700 dark:text-red-400">致死</p>
+                        <p className="text-xs text-red-600/80 dark:text-red-400/80">
                           伤害溢出 {(result.finalDamage - maxHP).toLocaleString()} HP，需要更多减伤
                         </p>
                       </div>
                     </div>
                   )}
                   {isDangerous && (
-                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-                      <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                      <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                       <div>
-                        <p className="text-xs font-medium text-amber-700">危险</p>
-                        <p className="text-xs text-amber-600/80">
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                          危险
+                        </p>
+                        <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
                           伤害后仅剩 {remainHP.toLocaleString()} HP（{survivePct.toFixed(1)}%）
                         </p>
                       </div>
