@@ -19,6 +19,8 @@ interface DamageEventTrackProps {
   yOffset: number
   maxTime: number
   draggingEventPosition: { eventId: string; x: number } | null
+  viewportWidth: number
+  scrollLeft: number
   onSelectEvent: (id: string) => void
   onDragStart: (eventId: string, x: number) => void
   onDragMove: (eventId: string, x: number) => void
@@ -57,6 +59,8 @@ export default function DamageEventTrack({
   yOffset,
   maxTime,
   draggingEventPosition,
+  viewportWidth,
+  scrollLeft,
   onSelectEvent,
   onDragStart,
   onDragMove,
@@ -74,11 +78,21 @@ export default function DamageEventTrack({
   onAnnotationDragEnd,
 }: DamageEventTrackProps) {
   const colors = useCanvasColors()
-  // 生成时间刻度网格线（每10秒一条，实线）
+
+  // 视口裁剪：只渲染可见范围内的元素（含 1 个 viewport 宽度的 buffer）
+  const buffer = viewportWidth
+  const visibleMinX = scrollLeft - buffer
+  const visibleMaxX = scrollLeft + viewportWidth + buffer
+
+  // 生成时间刻度网格线（每10秒一条，实线，视口裁剪）
   const gridLines = []
   const gridInterval = 10 // 10秒间隔
-  const startTick = Math.ceil(TIMELINE_START_TIME / 10) * 10
-  for (let time = startTick; time <= maxTime; time += gridInterval) {
+  const gridStartTick = Math.max(
+    Math.ceil(TIMELINE_START_TIME / 10) * 10,
+    Math.floor(visibleMinX / zoomLevel / 10) * 10
+  )
+  const gridEndTick = Math.min(maxTime, Math.ceil(visibleMaxX / zoomLevel / 10) * 10)
+  for (let time = gridStartTick; time <= gridEndTick; time += gridInterval) {
     const x = time * zoomLevel
     gridLines.push(
       <Line
@@ -90,22 +104,32 @@ export default function DamageEventTrack({
     )
   }
 
-  // 生成伤害时间指示虚线（从卡片底部开始）
+  // 生成伤害时间指示虚线（从卡片底部开始，视口裁剪）
   const CARD_HEIGHT = 28 // 卡片高度
-  const damageTimeLines = events.map(event => {
-    const x =
-      draggingEventPosition?.eventId === event.id ? draggingEventPosition.x : event.time * zoomLevel
-    const row = rowMap.get(event.id) ?? 0
-    const cardBottomY = yOffset + row * rowHeight + CARD_HEIGHT
+  const damageTimeLines = events
+    .filter(event => {
+      const x =
+        draggingEventPosition?.eventId === event.id
+          ? draggingEventPosition.x
+          : event.time * zoomLevel
+      return x >= visibleMinX && x <= visibleMaxX
+    })
+    .map(event => {
+      const x =
+        draggingEventPosition?.eventId === event.id
+          ? draggingEventPosition.x
+          : event.time * zoomLevel
+      const row = rowMap.get(event.id) ?? 0
+      const cardBottomY = yOffset + row * rowHeight + CARD_HEIGHT
 
-    return (
-      <Line
-        key={`damage-line-${event.id}`}
-        points={[x, cardBottomY, x, yOffset + trackHeight]}
-        {...DAMAGE_TIME_LINE_STYLE}
-      />
-    )
-  })
+      return (
+        <Line
+          key={`damage-line-${event.id}`}
+          points={[x, cardBottomY, x, yOffset + trackHeight]}
+          {...DAMAGE_TIME_LINE_STYLE}
+        />
+      )
+    })
 
   return (
     <>
@@ -144,8 +168,13 @@ export default function DamageEventTrack({
       {/* 伤害时间指示虚线 */}
       {damageTimeLines}
 
-      {/* 伤害事件 */}
+      {/* 伤害事件（视口裁剪，卡片宽度约 150px） */}
       {[...events]
+        .filter(event => {
+          const x = event.time * zoomLevel
+          const CARD_WIDTH = 150
+          return x + CARD_WIDTH >= visibleMinX && x <= visibleMaxX
+        })
         .sort((a, b) => {
           // 选中的事件排在最后（渲染在最顶层）
           if (a.id === selectedEventId) return 1
@@ -181,46 +210,56 @@ export default function DamageEventTrack({
             />
           )
         })}
-      {/* 注释图标 */}
-      {annotations.map(annotation => {
-        const x = annotation.time * zoomLevel
-        const annotationY = yOffset + trackHeight - 20
+      {/* 注释图标（视口裁剪） */}
+      {annotations
+        .filter(annotation => {
+          const x = annotation.time * zoomLevel
+          return x >= visibleMinX && x <= visibleMaxX
+        })
+        .map(annotation => {
+          const x = annotation.time * zoomLevel
+          const annotationY = yOffset + trackHeight - 20
 
-        return (
-          <AnnotationIcon
-            key={`annotation-${annotation.id}`}
-            x={x}
-            y={annotationY}
-            isPinned={pinnedAnnotationId === annotation.id}
-            draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
-            onDragStart={onAnnotationDragStart}
-            onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
-            onMouseEnter={e => {
-              const stage = e.target.getStage()
-              if (!stage) return
-              const box = stage.container().getBoundingClientRect()
-              const parent = e.target.getParent()
-              if (!parent) return
-              const absPos = parent.getAbsolutePosition()
-              onAnnotationHover(annotation, box.left + absPos.x + 8, box.top + absPos.y)
-            }}
-            onMouseLeave={onAnnotationHoverEnd}
-            onClick={e => {
-              const stage = e.target.getStage()
-              if (!stage) return
-              const box = stage.container().getBoundingClientRect()
-              const parent = e.target.getParent()
-              if (!parent) return
-              const absPos = parent.getAbsolutePosition()
-              onAnnotationClick(annotation, box.left + absPos.x + 8, box.top + absPos.y)
-            }}
-            onContextMenu={e => {
-              e.evt.preventDefault()
-              onAnnotationContextMenu(annotation.id, e.evt.clientX, e.evt.clientY, annotation.time)
-            }}
-          />
-        )
-      })}
+          return (
+            <AnnotationIcon
+              key={`annotation-${annotation.id}`}
+              x={x}
+              y={annotationY}
+              isPinned={pinnedAnnotationId === annotation.id}
+              draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
+              onDragStart={onAnnotationDragStart}
+              onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
+              onMouseEnter={e => {
+                const stage = e.target.getStage()
+                if (!stage) return
+                const box = stage.container().getBoundingClientRect()
+                const parent = e.target.getParent()
+                if (!parent) return
+                const absPos = parent.getAbsolutePosition()
+                onAnnotationHover(annotation, box.left + absPos.x + 8, box.top + absPos.y)
+              }}
+              onMouseLeave={onAnnotationHoverEnd}
+              onClick={e => {
+                const stage = e.target.getStage()
+                if (!stage) return
+                const box = stage.container().getBoundingClientRect()
+                const parent = e.target.getParent()
+                if (!parent) return
+                const absPos = parent.getAbsolutePosition()
+                onAnnotationClick(annotation, box.left + absPos.x + 8, box.top + absPos.y)
+              }}
+              onContextMenu={e => {
+                e.evt.preventDefault()
+                onAnnotationContextMenu(
+                  annotation.id,
+                  e.evt.clientX,
+                  e.evt.clientY,
+                  annotation.time
+                )
+              }}
+            />
+          )
+        })}
     </>
   )
 }

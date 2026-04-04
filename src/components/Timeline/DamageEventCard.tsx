@@ -2,6 +2,7 @@
  * 单个伤害事件卡片组件
  */
 
+import { memo } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
@@ -39,7 +40,7 @@ interface DamageEventCardProps {
   onContextMenu?: (e: KonvaEventObject<PointerEvent>) => void
 }
 
-export default function DamageEventCard({
+const DamageEventCard = memo(function DamageEventCard({
   event,
   isSelected,
   zoomLevel,
@@ -229,4 +230,6 @@ export default function DamageEventCard({
       )}
     </Group>
   )
-}
+})
+
+export default DamageEventCard

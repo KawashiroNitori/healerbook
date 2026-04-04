@@ -2,7 +2,7 @@
  * 技能使用事件图标组件
  */
 
-import { useState, useRef } from 'react'
+import { memo, useState, useRef } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import SkillIcon from './SkillIcon'
 import type { MitigationAction } from '@/types/mitigation'
@@ -32,7 +32,7 @@ interface CastEventIconProps {
   isReadOnly?: boolean
 }
 
-export default function CastEventIcon({
+const CastEventIcon = memo(function CastEventIcon({
   castEvent,
   action,
   displayAction,
@@ -243,4 +243,6 @@ export default function CastEventIcon({
       />
     </Group>
   )
-}
+})
+
+export default CastEventIcon

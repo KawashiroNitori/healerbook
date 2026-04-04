@@ -3,7 +3,7 @@
  */
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
-import { Stage, Layer, Line } from 'react-konva'
+import { Stage, Layer, Line, Text } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
@@ -37,6 +37,7 @@ import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
+import { formatTimeWithDecimal } from '@/utils/timeFormat'
 
 interface TimelineCanvasProps {
   width: number
@@ -96,11 +97,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const fixedLayerRef = useRef<Konva.Layer | null>(null)
   const mainBgLayerRef = useRef<Konva.Layer | null>(null)
   const mainEventLayerRef = useRef<Konva.Layer | null>(null)
-  // 十字准线状态
+  // 十字准线状态（仅 ref，不触发 React 重渲染）
   const hoverTimeRef = useRef<number | null>(null)
   const hoverTrackIndexRef = useRef<number | null>(null)
-  const [hoverTime, setHoverTime] = useState<number | null>(null)
-  const [hoverTrackIndex, setHoverTrackIndex] = useState<number | null>(null)
+  // 十字准线 Konva 节点 refs（直接操控，绕过 React 渲染）
+  const crosshairFixedLineRef = useRef<Konva.Line>(null)
+  const crosshairMainLineRef = useRef<Konva.Line>(null)
+  const trackHighlightRef = useRef<Konva.Rect>(null)
+  const timeIndicatorLineRef = useRef<Konva.Line>(null)
+  const timeIndicatorTextRef = useRef<Konva.Text>(null)
   // overlay Layer refs
   const mainOverlayLayerRef = useRef<Konva.Layer | null>(null)
   const fixedOverlayLayerRef = useRef<Konva.Layer | null>(null)
@@ -316,44 +321,93 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [timeline, zoomLevel, actions, hiddenPlayerIds])
 
-  // 十字准线：鼠标移动事件（技能轨道区域计算轨道高亮，固定区域只更新时间）
+  // 十字准线：鼠标移动事件（直接操作 Konva 节点，不触发 React 重渲染）
   const createCrosshairMoveHandler = useCallback(
-    (stageRef: React.RefObject<Konva.Stage | null>, withTrackHighlight: boolean) =>
+    (stageRefParam: React.RefObject<Konva.Stage | null>, withTrackHighlight: boolean) =>
       (e: MouseEvent) => {
         if (isDraggingRef.current) {
           if (hoverTimeRef.current !== null) {
             hoverTimeRef.current = null
             hoverTrackIndexRef.current = null
-            setHoverTime(null)
-            setHoverTrackIndex(null)
+            // 隐藏所有十字准线元素
+            crosshairFixedLineRef.current?.visible(false)
+            crosshairMainLineRef.current?.visible(false)
+            trackHighlightRef.current?.visible(false)
+            timeIndicatorLineRef.current?.visible(false)
+            timeIndicatorTextRef.current?.visible(false)
+            fixedStageRef.current?.batchDraw()
+            stageRef.current?.batchDraw()
           }
           return
         }
 
-        const stage = stageRef.current
+        const stage = stageRefParam.current
         if (!stage) return
 
         const rect = stage.container().getBoundingClientRect()
         const pointerX = e.clientX - rect.left
         const time = (pointerX + clampedScrollRef.current.scrollLeft) / zoomLevel
+        const xPx = time * zoomLevel
 
         hoverTimeRef.current = time
 
+        // 更新固定区域十字准线纵线
+        const fixedLine = crosshairFixedLineRef.current
+        if (fixedLine) {
+          fixedLine.points([xPx, 0, xPx, layoutData?.fixedAreaHeight ?? 0])
+          fixedLine.visible(true)
+        }
+
+        // 更新技能轨道区域十字准线纵线
+        const mainLine = crosshairMainLineRef.current
+        if (mainLine) {
+          mainLine.points([xPx, 0, xPx, layoutData?.skillTracksHeight ?? 0])
+          mainLine.visible(true)
+        }
+
+        // 更新时间标尺悬浮指示器（线 + 文字）
+        const tiLine = timeIndicatorLineRef.current
+        if (tiLine) {
+          tiLine.points([xPx, 0, xPx, timeRulerHeight])
+          tiLine.visible(true)
+        }
+        const tiText = timeIndicatorTextRef.current
+        if (tiText) {
+          tiText.x(xPx + 4)
+          tiText.text(formatTimeWithDecimal(time))
+          tiText.visible(true)
+        }
+
+        // 更新轨道高亮
         if (withTrackHighlight) {
           const pointerY = e.clientY - rect.top
           const trackIndex = Math.floor((pointerY + visualScrollTopRef.current) / skillTrackHeight)
-          hoverTrackIndexRef.current =
-            trackIndex >= 0 && trackIndex < (layoutData?.skillTracks.length ?? 0)
-              ? trackIndex
-              : null
+          const validTrack = trackIndex >= 0 && trackIndex < (layoutData?.skillTracks.length ?? 0)
+          hoverTrackIndexRef.current = validTrack ? trackIndex : null
+
+          const highlight = trackHighlightRef.current
+          if (highlight) {
+            if (validTrack) {
+              highlight.y(trackIndex * skillTrackHeight)
+              highlight.visible(true)
+            } else {
+              highlight.visible(false)
+            }
+          }
         } else {
           hoverTrackIndexRef.current = null
         }
 
-        setHoverTime(time)
-        setHoverTrackIndex(hoverTrackIndexRef.current)
+        // 批量重绘受影响的 Stage
+        fixedStageRef.current?.batchDraw()
+        stageRef.current?.batchDraw()
       },
-    [zoomLevel, layoutData?.skillTracks.length]
+    [
+      zoomLevel,
+      layoutData?.skillTracks.length,
+      layoutData?.fixedAreaHeight,
+      layoutData?.skillTracksHeight,
+    ]
   )
 
   // 十字准线：鼠标离开事件
@@ -370,8 +424,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
     hoverTimeRef.current = null
     hoverTrackIndexRef.current = null
-    setHoverTime(null)
-    setHoverTrackIndex(null)
+    // 隐藏所有十字准线元素
+    crosshairFixedLineRef.current?.visible(false)
+    crosshairMainLineRef.current?.visible(false)
+    trackHighlightRef.current?.visible(false)
+    timeIndicatorLineRef.current?.visible(false)
+    timeIndicatorTextRef.current?.visible(false)
+    fixedStageRef.current?.batchDraw()
+    stageRef.current?.batchDraw()
   }, [])
 
   // 绑定十字准线鼠标事件
@@ -1119,7 +1179,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}
                 height={timeRulerHeight}
-                hoverTime={hoverTime}
               />
 
               <DamageEventTrack
@@ -1133,6 +1192,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 yOffset={timeRulerHeight}
                 maxTime={maxTime}
                 draggingEventPosition={draggingEventPosition}
+                viewportWidth={viewportWidth}
+                scrollLeft={clampedScrollLeft}
                 onSelectEvent={handleSelectEvent}
                 onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}
                 onDragMove={(eventId, x) => {
@@ -1152,17 +1213,39 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onAnnotationDragEnd={handleAnnotationDragEnd}
               />
             </Layer>
-            {/* 固定区域十字准线纵线 */}
+            {/* 固定区域十字准线纵线（由 ref 直接控制，绕过 React 渲染） */}
             <Layer ref={fixedOverlayLayerRef} x={-clampedScrollLeft} listening={false}>
-              {hoverTime != null && (
-                <Line
-                  points={[hoverTime * zoomLevel, 0, hoverTime * zoomLevel, fixedAreaHeight]}
-                  stroke={canvasColors.crosshairStroke}
-                  strokeWidth={1}
-                  listening={false}
-                  perfectDrawEnabled={false}
-                />
-              )}
+              <Line
+                ref={crosshairFixedLineRef}
+                points={[0, 0, 0, fixedAreaHeight]}
+                stroke={canvasColors.crosshairStroke}
+                strokeWidth={1}
+                listening={false}
+                perfectDrawEnabled={false}
+                visible={false}
+              />
+              {/* 时间标尺悬浮指示器 */}
+              <Line
+                ref={timeIndicatorLineRef}
+                points={[0, 0, 0, timeRulerHeight]}
+                stroke={canvasColors.zeroLine}
+                strokeWidth={1}
+                listening={false}
+                perfectDrawEnabled={false}
+                visible={false}
+              />
+              <Text
+                ref={timeIndicatorTextRef}
+                x={0}
+                y={8}
+                text=""
+                fontSize={12}
+                fill={canvasColors.textPrimary}
+                fontFamily="Arial, sans-serif"
+                perfectDrawEnabled={false}
+                listening={false}
+                visible={false}
+              />
             </Layer>
           </Stage>
         </div>
@@ -1229,11 +1312,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               draggingEventPosition={draggingEventPosition}
               scrollLeft={clampedScrollLeft}
               scrollTop={clampedScrollTop}
+              viewportWidth={viewportWidth}
               bgLayerRef={mainBgLayerRef}
               eventLayerRef={mainEventLayerRef}
               overlayLayerRef={mainOverlayLayerRef}
-              hoverTrackIndex={hoverTrackIndex}
-              hoverTimeX={hoverTime != null ? hoverTime * zoomLevel : null}
+              crosshairLineRef={crosshairMainLineRef}
+              trackHighlightRef={trackHighlightRef}
               onSelectCastEvent={handleSelectCastEvent}
               onUpdateCastEvent={handleCastEventDragEnd}
               onContextMenu={handleContextMenu}

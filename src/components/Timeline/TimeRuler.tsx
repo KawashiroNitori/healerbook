@@ -10,15 +10,6 @@ interface TimeRulerProps {
   zoomLevel: number
   timelineWidth: number
   height: number
-  hoverTime?: number | null
-}
-
-function formatTimeWithDecimal(seconds: number): string {
-  const abs = Math.abs(seconds)
-  const sign = seconds < 0 ? '-' : ''
-  const min = Math.floor(abs / 60)
-  const sec = abs % 60
-  return `${sign}${min}:${sec < 10 ? '0' : ''}${sec.toFixed(1)}`
 }
 
 function formatTime(seconds: number): string {
@@ -27,13 +18,7 @@ function formatTime(seconds: number): string {
   return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`
 }
 
-export default function TimeRuler({
-  maxTime,
-  zoomLevel,
-  timelineWidth,
-  height,
-  hoverTime,
-}: TimeRulerProps) {
+export default function TimeRuler({ maxTime, zoomLevel, timelineWidth, height }: TimeRulerProps) {
   const colors = useCanvasColors()
 
   // 从 TIMELINE_START_TIME 开始，每 10 秒一个刻度，对齐到 10 秒整数
@@ -77,31 +62,6 @@ export default function TimeRuler({
 
       {/* 0 秒标记线（加粗） */}
       <Line points={[0, 0, 0, height]} stroke={colors.zeroLine} strokeWidth={2} />
-
-      {hoverTime != null &&
-        (() => {
-          const x = hoverTime * zoomLevel
-          return (
-            <Group>
-              <Line
-                points={[x, 0, x, height]}
-                stroke={colors.zeroLine}
-                strokeWidth={1}
-                listening={false}
-              />
-              <Text
-                x={x + 4}
-                y={8}
-                text={formatTimeWithDecimal(hoverTime)}
-                fontSize={12}
-                fill={colors.textPrimary}
-                fontFamily="Arial, sans-serif"
-                perfectDrawEnabled={false}
-                listening={false}
-              />
-            </Group>
-          )
-        })()}
     </>
   )
 }
