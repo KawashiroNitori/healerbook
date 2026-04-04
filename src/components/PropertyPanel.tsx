@@ -168,7 +168,7 @@ export default function PropertyPanel() {
               const survivePct = Math.max(0, Math.min(100, (remainHP / maxHP) * 100))
               const damagePct = Math.max(0, Math.min(100, (result.finalDamage / maxHP) * 100))
               const isLethal = result.finalDamage >= maxHP
-              const isDangerous = !isLethal && result.finalDamage >= maxHP * 0.9
+              const isDangerous = !isLethal && result.finalDamage >= maxHP * 0.95
 
               return (
                 <div className="space-y-1.5">

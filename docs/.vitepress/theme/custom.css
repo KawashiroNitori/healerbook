@@ -1,0 +1,8 @@
+.VPSidebarItem.level-0 + .VPSidebarItem.level-0 > .item::before {
+  display: none;
+}
+
+.vp-doc img {
+  max-width: 100%;
+  width: auto;
+}

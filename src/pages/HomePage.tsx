@@ -4,7 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Upload } from 'lucide-react'
+import { Plus, Upload, CircleHelp } from 'lucide-react'
 import {
   getAllTimelineMetadata,
   deleteTimeline,
@@ -80,6 +80,15 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a
+              href="/docs/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <CircleHelp className="w-4 h-4" />
+              帮助
+            </a>
             <ThemeToggle />
             <AuthButton />
           </div>
