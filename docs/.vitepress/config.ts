@@ -6,7 +6,7 @@ const vitePressConfig = defineConfig({
   description: 'FF14 减伤规划工具',
   lang: 'zh-CN',
   base: '/docs/',
-  outDir: '../dist/docs',
+  outDir: '../dist/client/docs',
   cleanUrls: true,
 
   themeConfig: {

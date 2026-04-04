@@ -16,8 +16,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'konva': ['konva', 'react-konva'],
-          'radix': [
+          konva: ['konva', 'react-konva'],
+          radix: [
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-dialog',
             '@radix-ui/react-scroll-area',
@@ -25,10 +25,18 @@ export default defineConfig({
             '@radix-ui/react-slot',
             '@radix-ui/react-switch',
           ],
-          'query': ['@tanstack/react-query'],
-          'graphql': ['graphql', 'graphql-request'],
-          'router': ['react-router-dom'],
+          query: ['@tanstack/react-query'],
+          graphql: ['graphql', 'graphql-request'],
+          router: ['react-router-dom'],
         },
+      },
+    },
+  },
+  server: {
+    proxy: {
+      '/docs': {
+        target: 'http://localhost:5174',
+        rewrite: path => path,
       },
     },
   },

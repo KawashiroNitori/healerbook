@@ -15,7 +15,7 @@
     "test:run": "vitest run",
     "workers:deploy": "wrangler deploy --config wrangler.toml --env production",
     "prepare": "husky",
-    "docs:dev": "vitepress dev docs",
+    "docs:dev": "vitepress dev docs --port 5174",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
