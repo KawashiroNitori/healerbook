@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/redirect-superpowers-docs.mjs",
+            "statusMessage": "Checking superpowers doc path..."
+          }
+        ]
+      }
+    ]
+  }
+}
