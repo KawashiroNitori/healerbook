@@ -16,7 +16,7 @@ export default function AuthButton() {
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={login}>
+    <Button variant="default" size="sm" onClick={login}>
       登录 FFLogs
     </Button>
   )
