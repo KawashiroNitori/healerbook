@@ -210,6 +210,26 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       const lineDisplayRatio = Math.max(rawLineRatio, 0.75)
       const lineHeightFromBottom = lineDisplayRatio * contentHeight
 
+      // 创建红黄斜条纹 pattern（用于致死伤害柱）
+      const stripeSize = 6
+      const stripeCanvas = document.createElement('canvas')
+      stripeCanvas.width = stripeSize
+      stripeCanvas.height = stripeSize
+      const stripeCtx = stripeCanvas.getContext('2d')!
+      stripeCtx.fillStyle = '#dc2626'
+      stripeCtx.fillRect(0, 0, stripeSize, stripeSize)
+      stripeCtx.strokeStyle = '#eab308'
+      stripeCtx.lineWidth = 1
+      stripeCtx.beginPath()
+      stripeCtx.moveTo(-1, stripeSize + 1)
+      stripeCtx.lineTo(stripeSize + 1, -1)
+      stripeCtx.moveTo(-1, 1)
+      stripeCtx.lineTo(1, -1)
+      stripeCtx.moveTo(stripeSize - 1, stripeSize + 1)
+      stripeCtx.lineTo(stripeSize + 1, stripeSize - 1)
+      stripeCtx.stroke()
+      const fatalPattern = ctx.createPattern(stripeCanvas, 'repeat')!
+
       timeline.damageEvents.forEach(event => {
         const x = (event.time - TIMELINE_START_TIME) * zoomLevel * minimapScale
         const eventWidth = Math.max(3, 5 * minimapScale)
@@ -221,14 +241,14 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         )
         const finalDamageForColor = result?.finalDamage ?? event.damage
         const ratio = finalDamageForColor / referenceMaxHP
-        let color: string
+        let color: string | CanvasPattern
+        let isFatal = false
 
         if (event.type === 'tankbuster') {
           color = '#94a3b8' // 死刑 - 灰色
-        } else if (hasOverkill) {
-          color = theme === 'dark' ? '#f87171' : '#373737' // 有死亡
-        } else if (ratio >= 1) {
-          color = '#dc2626' // >= 100% HP - 致死红
+        } else if (hasOverkill || ratio >= 1) {
+          color = fatalPattern // 有死亡 / 致死 - 红黄斜条纹
+          isFatal = true
         } else if (ratio >= 0.9) {
           color = '#f59e0b' // 90–100% HP - 琥珀
         } else if (ratio >= 0.7) {
@@ -246,13 +266,21 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
           : (finalDamageForColor / maxDamage) * contentHeight
         const barHeight = Math.max(3, Math.min(normalizedHeight, contentHeight))
 
-        ctx.fillStyle = color
-        ctx.fillRect(
-          Math.round(x - eventWidth / 2),
-          contentY + contentHeight - barHeight,
-          Math.ceil(eventWidth),
-          Math.ceil(barHeight)
-        )
+        const barX = Math.round(x - eventWidth / 2)
+        const barY = contentY + contentHeight - barHeight
+        const barW = Math.ceil(eventWidth)
+        const barH = Math.ceil(barHeight)
+
+        if (isFatal) {
+          ctx.save()
+          ctx.fillStyle = fatalPattern
+          ctx.translate(barX, barY)
+          ctx.fillRect(0, 0, barW, barH)
+          ctx.restore()
+        } else {
+          ctx.fillStyle = color
+          ctx.fillRect(barX, barY, barW, barH)
+        }
       })
 
       // 绘制注释标记（minimap 顶部）
