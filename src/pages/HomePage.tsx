@@ -4,7 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Upload, CircleHelp } from 'lucide-react'
+import { Plus, Download, CircleHelp } from 'lucide-react'
 import {
   getAllTimelineMetadata,
   deleteTimeline,
@@ -100,21 +100,21 @@ export default function HomePage() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <button
+            onClick={handleImportFromFFLogs}
+            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
+          >
+            <Download className="w-12 h-12 mb-2 text-muted-foreground" />
+            <span className="font-medium">从 FFLogs 导入</span>
+            <span className="text-sm text-muted-foreground">导入战斗记录</span>
+          </button>
+
+          <button
             onClick={handleCreateNew}
             className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
           >
             <Plus className="w-12 h-12 mb-2 text-muted-foreground" />
             <span className="font-medium">新建时间轴</span>
             <span className="text-sm text-muted-foreground">从空白开始</span>
-          </button>
-
-          <button
-            onClick={handleImportFromFFLogs}
-            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
-          >
-            <Upload className="w-12 h-12 mb-2 text-muted-foreground" />
-            <span className="font-medium">从 FFLogs 导入</span>
-            <span className="text-sm text-muted-foreground">导入战斗记录</span>
           </button>
         </div>
 
