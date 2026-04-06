@@ -50,6 +50,9 @@ export function getEncounterById(id: number): RaidEncounter | undefined {
   return ALL_ENCOUNTERS.find(e => e.id === id)
 }
 
+// 当某个 encounter 无统计数据时，回退到此 encounter 的数据
+export const DEFAULT_ENCOUNTER_ID = 101 // M9S
+
 // 通过 ID 获取遭遇战及其所属的 RaidTier
 export function getEncounterWithTier(
   id: number
