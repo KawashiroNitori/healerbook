@@ -246,8 +246,8 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
 
         if (event.type === 'tankbuster') {
           color = '#94a3b8' // 死刑 - 灰色
-        } else if (hasOverkill || ratio >= 1) {
-          color = fatalPattern // 有死亡 / 致死 - 红黄斜条纹
+        } else if (timeline.isReplayMode ? hasOverkill : ratio >= 1) {
+          color = fatalPattern // 回放：有死亡 / 预估：致死 - 红黄斜条纹
           isFatal = true
         } else if (ratio >= 0.9) {
           color = '#f59e0b' // 90–100% HP - 琥珀
