@@ -90,18 +90,29 @@ init_submodule_local() {
 
 echo "🔗 初始化 submodule（本地 clone）..."
 
-# 外层: 3rdparty/ff14-overlay-vue
-init_submodule_local \
-  "3rdparty/ff14-overlay-vue" \
-  "$MAIN_MODULES/3rdparty/ff14-overlay-vue" \
-  "$WT_GITDIR/modules/3rdparty/ff14-overlay-vue"
+# 从主仓库动态遍历所有 submodule（含嵌套），按层级顺序处理
+git -C "$MAIN_REPO" submodule foreach --quiet --recursive \
+  'echo "$displaypath|$(git rev-parse --git-dir)|$toplevel"' | \
+while IFS='|' read -r sm_display_path main_git_dir sm_toplevel; do
+  # main_git_dir: 主仓库中该 submodule 的 .git/modules 绝对路径
+  # 将主仓库的 modules 路径映射到 worktree 的 modules 路径
+  relative_modules="${main_git_dir#$MAIN_REPO/.git/}"
+  dest_modules_dir="$WT_GITDIR/$relative_modules"
 
-# 嵌套: 3rdparty/ff14-overlay-vue/cactbot
-init_submodule_local \
-  "3rdparty/ff14-overlay-vue/cactbot" \
-  "$MAIN_MODULES/3rdparty/ff14-overlay-vue/modules/cactbot" \
-  "$WT_GITDIR/modules/3rdparty/ff14-overlay-vue/modules/cactbot" \
-  "$WORKTREE/3rdparty/ff14-overlay-vue"
+  # 确定父目录（用于 git ls-tree 查找期望的 commit）
+  relative_toplevel="${sm_toplevel#$MAIN_REPO}"
+  if [ -z "$relative_toplevel" ]; then
+    parent_dir=""
+  else
+    parent_dir="$WORKTREE${relative_toplevel}"
+  fi
+
+  init_submodule_local \
+    "$sm_display_path" \
+    "$main_git_dir" \
+    "$dest_modules_dir" \
+    "$parent_dir"
+done
 
 echo ""
 
