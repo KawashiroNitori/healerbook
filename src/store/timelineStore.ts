@@ -145,6 +145,14 @@ export const useTimelineStore = create<TimelineState>()(
         if (normalized?.composition) {
           get().initializePartyState(normalized.composition)
         }
+        // 如果 statistics 已到位但 statData 未初始化，补上
+        const { statistics } = get()
+        if (normalized && !normalized.statData && statistics && normalized.composition) {
+          const statData = initializeStatData(statistics, normalized.composition)
+          set(state => ({
+            timeline: state.timeline ? { ...state.timeline, statData } : null,
+          }))
+        }
       },
 
       initializePartyState: composition => {
