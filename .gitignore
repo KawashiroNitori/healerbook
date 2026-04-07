@@ -22,6 +22,7 @@ coverage/
 # Wrangler
 .wrangler/
 
+.superpowers/
 
 # VitePress
 docs/.vitepress/cache
