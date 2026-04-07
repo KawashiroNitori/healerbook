@@ -211,6 +211,7 @@ export default function EditorPage() {
       updatedAt: now,
     }
     saveTimeline(copy)
+    track('timeline-create-copy', { encounterId: apiData.timeline.encounter?.id })
     navigate(`/timeline/${newId}`)
   }
 

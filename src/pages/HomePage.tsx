@@ -85,6 +85,7 @@ export default function HomePage() {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => track('help-click')}
             >
               <CircleHelp className="w-4 h-4" />
               帮助
