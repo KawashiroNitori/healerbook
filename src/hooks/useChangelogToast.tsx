@@ -20,7 +20,7 @@ export function useChangelogToast() {
         return res.json() as Promise<LatestRelease>
       })
       .then(latest => {
-        if (!latest) return
+        if (!latest || !latest.html) return
         const seen = localStorage.getItem(LS_KEY)
         if (seen === latest.id) return
 
@@ -31,8 +31,13 @@ export function useChangelogToast() {
           }
         }
 
-        toast('Healerbook 已更新', {
-          description: <div dangerouslySetInnerHTML={{ __html: latest.html }} />,
+        toast('🎉 Healerbook 已更新', {
+          description: (
+            <div
+              className="prose prose-sm dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: latest.html }}
+            />
+          ),
           action: {
             label: '查看详情',
             onClick: () => {
