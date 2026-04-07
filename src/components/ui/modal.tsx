@@ -56,8 +56,19 @@ export function Modal({
     if (!visible) setMounted(false)
   }
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && !disableBackdropClick) {
+  const mouseDownTarget = React.useRef<EventTarget | null>(null)
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    mouseDownTarget.current = e.target
+  }
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // 只在 mousedown 和 click 都发生在 backdrop 上时才关闭
+    if (
+      e.target === e.currentTarget &&
+      mouseDownTarget.current === e.currentTarget &&
+      !disableBackdropClick
+    ) {
       onClose()
     }
   }
@@ -79,7 +90,8 @@ export function Modal({
         'fixed inset-0 flex items-center justify-center z-50 transition-all duration-200',
         visible ? 'bg-black/80 backdrop-blur-sm' : 'bg-black/0 backdrop-blur-none'
       )}
-      onClick={handleBackdropClick}
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
       onTransitionEnd={handleTransitionEnd}
     >
       <div
