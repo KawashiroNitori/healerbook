@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { marked } from 'marked'
 
 const changelogPath = 'docs/changelog.md'
@@ -46,7 +46,7 @@ if (!filteredText) {
 }
 
 const html = await marked(filteredText)
-const id = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+const id = createHash('sha256').update(filteredText).digest('hex').slice(0, 8)
 
 const output = JSON.stringify({ id, date, html }, null, 2)
 writeFileSync('public/latest-release.json', output)
