@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { toast } from 'sonner'
 
 const CHANGELOG_URL = '/docs/changelog'
-const LS_KEY = 'lastSeenReleaseId'
+const LS_KEY = 'last_seen_release_id'
 
 interface LatestRelease {
   id: string
@@ -23,6 +23,11 @@ export function useChangelogToast() {
         if (!latest || !latest.html) return
         const seen = localStorage.getItem(LS_KEY)
         if (seen === latest.id) return
+        // 首次访问：静默记录当前版本，不弹 toast
+        if (seen === null) {
+          localStorage.setItem(LS_KEY, latest.id)
+          return
+        }
 
         const markSeen = () => {
           if (!dismissed) {
@@ -31,7 +36,7 @@ export function useChangelogToast() {
           }
         }
 
-        toast('🎉 Healerbook 已更新', {
+        const toastId = toast('🎉 Healerbook 已更新', {
           description: (
             <div>
               <div
@@ -44,6 +49,7 @@ export function useChangelogToast() {
                   onClick={() => {
                     window.open(CHANGELOG_URL, '_blank')
                     markSeen()
+                    toast.dismiss(toastId)
                   }}
                 >
                   查看详情
@@ -51,6 +57,7 @@ export function useChangelogToast() {
               </div>
             </div>
           ),
+          closeButton: true,
           position: 'bottom-right',
           duration: Infinity,
           onDismiss: markSeen,
