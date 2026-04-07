@@ -425,7 +425,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const schShieldId = 297 // 鼓舞
         const hasZoe = ctx.partyState.statuses.some(s => s.statusId === zoeId)
         let barrier = ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000
-        if (hasZoe) barrier *= 1.5
+        if (hasZoe) barrier = Math.round(barrier * 1.5)
 
         const newStatuses: MitigationStatus[] = []
 
