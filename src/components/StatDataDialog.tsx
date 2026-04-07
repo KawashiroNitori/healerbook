@@ -237,7 +237,7 @@ function StatDataDialogInner({
               <span className="text-sm font-medium">{getJobName(job)}</span>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="ml-7 divide-y divide-border">
+              <div className="ml-7">
                 {entries.map(({ action, entry }) => (
                   <ActionEntryRow
                     key={`${action.id}-${entry.type}-${entry.key}`}
