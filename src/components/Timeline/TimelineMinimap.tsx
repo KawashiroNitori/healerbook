@@ -7,7 +7,6 @@ import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 
 import { useState } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
-import { getNonTankMinHP } from '@/utils/stats'
 import { TIMELINE_START_TIME, getCanvasColors } from './constants'
 import { useUIStore } from '@/store/uiStore'
 
@@ -50,7 +49,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       contentHeight: 36,
     })
 
-    const { timeline, statistics } = useTimelineStore()
+    const { timeline } = useTimelineStore()
     const eventResults = useDamageCalculationResults()
     const theme = useUIStore(s => s.theme)
 
@@ -204,7 +203,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       )
 
       // 致死线：非T职业最低HP / 最大伤害，限制在 60%–100%
-      const referenceMaxHP = getNonTankMinHP(statistics)
+      const referenceMaxHP = timeline.statData?.referenceMaxHP ?? 100000
       const rawLineRatio = referenceMaxHP / maxDamage
       const shouldDrawFatalLine = rawLineRatio < 1
       const lineDisplayRatio = Math.max(rawLineRatio, 0.75)
@@ -337,7 +336,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       // 画视口指示器
       drawViewportRect(scrollLeft)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeline, eventResults, statistics, canvasWidth, height, zoomLevel, minimapScale, theme])
+    }, [timeline, eventResults, canvasWidth, height, zoomLevel, minimapScale, theme])
 
     // React 驱动的视口更新（drag 结束 / zoom 后同步）
     useEffect(() => {

@@ -6,7 +6,6 @@ import { describe, it, expect } from 'vitest'
 import { MITIGATION_DATA } from './mitigationActions'
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
-import type { Job } from '@/data/jobs'
 
 describe('mitigationActions', () => {
   const mockPartyState: PartyState = {
@@ -163,16 +162,11 @@ describe('mitigationActions', () => {
         partyState: stateWithSeraph,
         sourcePlayerId: 1,
         statistics: {
-          encounterId: 1,
-          encounterName: 'test',
-          damageByAbility: {},
-          maxHPByJob: {} as Record<Job, number>,
+          referenceMaxHP: 100000,
           shieldByAbility: {},
           critShieldByAbility: {},
           healByAbility: { 37013: 8000, 37016: 12000 },
           critHealByAbility: { 37013: 16000 },
-          sampleSize: 100,
-          updatedAt: '2026-01-01T00:00:00Z',
         },
       }
 
@@ -192,16 +186,11 @@ describe('mitigationActions', () => {
         partyState: mockPartyState,
         sourcePlayerId: 1,
         statistics: {
-          encounterId: 1,
-          encounterName: 'test',
-          damageByAbility: {},
-          maxHPByJob: {} as Record<Job, number>,
+          referenceMaxHP: 100000,
           shieldByAbility: {},
           critShieldByAbility: {},
           healByAbility: { 37013: 8000, 37016: 12000 },
           critHealByAbility: { 37013: 16000 },
-          sampleSize: 100,
-          updatedAt: '2026-01-01T00:00:00Z',
         },
       }
 

@@ -10,7 +10,7 @@ import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { useTimelineStore } from '@/store/timelineStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { calculatePercentile, getNonTankMinHP } from '@/utils/stats'
+import { calculatePercentile } from '@/utils/stats'
 
 /**
  * 计算时间轴上所有伤害事件的减伤结果
@@ -20,7 +20,6 @@ import { calculatePercentile, getNonTankMinHP } from '@/utils/stats'
  */
 export function useDamageCalculation(timeline: Timeline | null): Map<string, CalculationResult> {
   const partyState = useTimelineStore(state => state.partyState)
-  const statistics = useTimelineStore(state => state.statistics)
 
   return useMemo(() => {
     const results = new Map<string, CalculationResult>()
@@ -87,7 +86,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     // 编辑模式：使用 PartyState，单次时间轴扫描
     if (!partyState) return results
 
-    const referenceMaxHP = getNonTankMinHP(statistics)
+    const referenceMaxHP = timeline.statData?.referenceMaxHP ?? 100000
     const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
     const sortedCastEvents = [...(timeline.castEvents || [])].sort(
       (a, b) => a.timestamp - b.timestamp
@@ -120,9 +119,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
             useTime: castEvent.timestamp,
             partyState: currentState,
             sourcePlayerId: castEvent.playerId,
-            // TODO(Task 3): 迁移到 TimelineStatData 后移除类型断言
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            statistics: (statistics ?? undefined) as any,
+            statistics: timeline.statData ?? undefined,
           }
           if (action.executor) currentState = action.executor(ctx)
         }
@@ -153,5 +150,5 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     }
 
     return results
-  }, [timeline, partyState, statistics])
+  }, [timeline, partyState])
 }
