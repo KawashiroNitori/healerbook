@@ -35,20 +35,22 @@ interface ActionExecutionContext {
 }
 ```
 
-### `MitigationAction` 新增标记
+### `MitigationAction` 新增 `statDataEntries`
 
 ```typescript
+interface StatDataEntry {
+  type: 'shield' | 'heal' | 'critHeal' // 对应 shieldByAbility / healByAbility / critHealByAbility
+  key: number // 对应 Record 中的 key
+  label?: string // 可选显示标签（如展开战术的"鼓舞"）
+}
+
 interface MitigationAction {
   // ... 现有字段
-  noStatData?: boolean // 标记不需要 statData 的技能（如活化、秘策、炽天附体）
+  statDataEntries?: StatDataEntry[] // 有此字段 → 出现在数值设置模态框；无 → 不出现
 }
 ```
 
-需要标记 `noStatData: true` 的技能：
-
-- 活化 (24300) — 仅添加标记状态，后续盾技能检测此状态做数值修正
-- 秘策 (16542) — 同上
-- 炽天附体 (37014) — 同上
+有 `statDataEntries` 的技能出现在设置模态框中，没有的（如活化、秘策、炽天附体以及百分比减伤技能）自然不出现，无需额外标记。
 
 ## 数据流
 
@@ -80,38 +82,29 @@ interface MitigationAction {
 
 API 的 `EncounterStatistics` 不参与运行时计算。
 
-## 技能与 statData 字段的对应关系
+## 各技能的 `statDataEntries` 配置
 
-以下是所有盾技能及其从 `TimelineStatData` 中读取的字段：
+以下是所有需要配置 `statDataEntries` 的技能：
 
-### `shieldByAbility[statusId]`（用户填"盾量"）
+| 技能         | actionId | 职业 | statDataEntries                                                    |
+| ------------ | -------- | ---- | ------------------------------------------------------------------ |
+| 圣光幕帘     | 3540     | PLD  | `[{ type: 'shield', key: 1362 }]`                                  |
+| 摆脱         | 7388     | WAR  | `[{ type: 'shield', key: 1457 }]`                                  |
+| 神爱抚       | 37011    | WHM  | `[{ type: 'shield', key: 3903 }]`                                  |
+| 展开战术     | 3585     | SCH  | `[{ type: 'heal', key: 185, label: '鼓舞' }]`                      |
+| 意气轩昂之策 | 37013    | SCH  | `[{ type: 'heal', key: 37013 }, { type: 'critHeal', key: 37013 }]` |
+| 降临之章     | 37016    | SCH  | `[{ type: 'heal', key: 37016 }]`                                   |
+| 慰藉         | 16546    | SCH  | `[{ type: 'shield', key: 1917 }]`                                  |
+| 阳星合相     | 37030    | AST  | `[{ type: 'shield', key: 1921 }]`                                  |
+| 泛输血       | 24311    | SGE  | `[{ type: 'shield', key: 2613 }]`                                  |
+| 整体论       | 24310    | SGE  | `[{ type: 'shield', key: 3365 }]`                                  |
+| 均衡预后II   | 37034    | SGE  | `[{ type: 'shield', key: 2609 }]`                                  |
 
-| 技能       | actionId | statusId | 职业 |
-| ---------- | -------- | -------- | ---- |
-| 圣光幕帘   | 3540     | 1362     | PLD  |
-| 摆脱       | 7388     | 1457     | WAR  |
-| 神爱抚     | 37011    | 3903     | WHM  |
-| 慰藉       | 16546    | 1917     | SCH  |
-| 泛输血     | 24311    | 2613     | SGE  |
-| 整体论     | 24310    | 3365     | SGE  |
-| 均衡预后II | 37034    | 2609     | SGE  |
-| 阳星合相   | 37030    | 1921     | AST  |
+模态框根据 `statDataEntries` 动态生成，按 `type` 显示对应标签：
 
-### `healByAbility[actionId]`（用户填"治疗量"）
-
-| 技能         | actionId | 职业 | 备注                                      |
-| ------------ | -------- | ---- | ----------------------------------------- |
-| 展开战术     | 3585     | SCH  | 读 `healByAbility[185]`（鼓舞基础恢复力） |
-| 意气轩昂之策 | 37013    | SCH  | 读 `healByAbility[37013]`                 |
-| 降临之章     | 37016    | SCH  | 读 `healByAbility[37016]`                 |
-
-### `critHealByAbility[actionId]`（用户填"暴击治疗量"）
-
-| 技能         | actionId | 职业 | 备注                          |
-| ------------ | -------- | ---- | ----------------------------- |
-| 意气轩昂之策 | 37013    | SCH  | 读 `critHealByAbility[37013]` |
-
-注意：展开战术读的是 `healByAbility[185]`（鼓舞的 actionId），不是自己的 actionId。模态框中展开战术条目的标签应写"治疗量 (鼓舞)"以区分。
+- `shield` → "盾量"
+- `heal` → "治疗量" + 可选 `label`（如"治疗量 (鼓舞)"）
+- `critHeal` → "暴击治疗量"
 
 ## UI 设计
 
