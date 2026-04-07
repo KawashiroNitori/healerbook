@@ -225,7 +225,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
                   size="icon"
                   className="h-7 w-7"
                   onClick={() => setShowStatDataDialog(true)}
-                  disabled={!timeline?.statData}
+                  disabled={isReadOnly || !timeline?.statData}
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
