@@ -29,8 +29,8 @@ export interface StatDataEntry {
  * 存储在 Timeline.statData 中，所有运行时计算只读此数据
  */
 export interface TimelineStatData {
-  /** 全局安全血量（非坦最低 HP） */
-  referenceMaxHP: number
+  /** 全局安全血量（非坦最低 HP），undefined 表示用户未设定 */
+  referenceMaxHP?: number
   /** 盾量：statusId → 中位盾值 */
   shieldByAbility: Record<number, number>
   /** 暴击盾量：statusId → 暴击盾值 */

@@ -1,9 +1,12 @@
 /**
  * 时间轴数值设置模态框
  * 让用户自定义盾技能数值和安全血量
+ *
+ * statData 只存储用户覆盖值，未设定的字段留空，
+ * placeholder 显示 statistics fallback 值（或硬编码默认值）。
  */
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -11,6 +14,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
 import JobIcon from '@/components/JobIcon'
+import { getFallbackValue, getFallbackMaxHP } from '@/utils/statDataUtils'
 import type { TimelineStatData, StatDataEntry } from '@/types/statData'
 import type { MitigationAction } from '@/types/mitigation'
 import type { Composition } from '@/types/timeline'
@@ -33,60 +37,101 @@ function getEntryLabel(entry: StatDataEntry): string {
   return entry.label ? `${baseLabel} (${entry.label})` : baseLabel
 }
 
-/** 从 statData 中读取指定条目的值 */
-function getEntryValue(statData: TimelineStatData, entry: StatDataEntry): number {
+/** 从 statData 中读取用户覆盖值，不存在返回 undefined */
+function getEntryValue(statData: TimelineStatData, entry: StatDataEntry): number | undefined {
   switch (entry.type) {
     case 'shield':
-      return statData.shieldByAbility[entry.key] ?? 0
+      return entry.key in statData.shieldByAbility ? statData.shieldByAbility[entry.key] : undefined
     case 'critShield':
-      return statData.critShieldByAbility[entry.key] ?? 0
+      return entry.key in statData.critShieldByAbility
+        ? statData.critShieldByAbility[entry.key]
+        : undefined
     case 'heal':
-      return statData.healByAbility[entry.key] ?? 0
+      return entry.key in statData.healByAbility ? statData.healByAbility[entry.key] : undefined
     case 'critHeal':
-      return statData.critHealByAbility[entry.key] ?? 0
+      return entry.key in statData.critHealByAbility
+        ? statData.critHealByAbility[entry.key]
+        : undefined
   }
 }
 
-/** 将值写入 statData 的副本 */
+/** 将值写入 statData 的副本。undefined 表示删除（恢复为 fallback） */
 function setEntryValue(
   statData: TimelineStatData,
   entry: StatDataEntry,
-  value: number
+  value: number | undefined
 ): TimelineStatData {
   const result = { ...statData }
   switch (entry.type) {
     case 'shield':
-      result.shieldByAbility = { ...result.shieldByAbility, [entry.key]: value }
+      result.shieldByAbility = { ...result.shieldByAbility }
+      if (value !== undefined) {
+        result.shieldByAbility[entry.key] = value
+      } else {
+        delete result.shieldByAbility[entry.key]
+      }
       break
     case 'critShield':
-      result.critShieldByAbility = { ...result.critShieldByAbility, [entry.key]: value }
+      result.critShieldByAbility = { ...result.critShieldByAbility }
+      if (value !== undefined) {
+        result.critShieldByAbility[entry.key] = value
+      } else {
+        delete result.critShieldByAbility[entry.key]
+      }
       break
     case 'heal':
-      result.healByAbility = { ...result.healByAbility, [entry.key]: value }
+      result.healByAbility = { ...result.healByAbility }
+      if (value !== undefined) {
+        result.healByAbility[entry.key] = value
+      } else {
+        delete result.healByAbility[entry.key]
+      }
       break
     case 'critHeal':
-      result.critHealByAbility = { ...result.critHealByAbility, [entry.key]: value }
+      result.critHealByAbility = { ...result.critHealByAbility }
+      if (value !== undefined) {
+        result.critHealByAbility[entry.key] = value
+      } else {
+        delete result.critHealByAbility[entry.key]
+      }
       break
   }
   return result
 }
 
-/** 数值输入组件 */
-function NumberInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  const [text, setText] = useState(String(value))
+/** 数值输入组件，支持空值和 placeholder */
+function NumberInput({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: number | undefined
+  placeholder: string
+  onChange: (value: number | undefined) => void
+}) {
+  const [text, setText] = useState(value != null ? String(value) : '')
+  const [focused, setFocused] = useState(false)
+  const displayValue = value != null ? String(value) : ''
 
-  // 外部 value 变化时同步 text
-  useEffect(() => {
-    setText(String(value))
-  }, [value])
+  // 外部 value 变化时同步 text（不在聚焦编辑时覆盖）
+  if (!focused && text !== displayValue) {
+    setText(displayValue)
+  }
 
   const handleBlur = () => {
-    const num = parseInt(text, 10)
+    const trimmed = text.trim()
+    if (trimmed === '') {
+      // 清空 → 删除用户覆盖值
+      onChange(undefined)
+      return
+    }
+    const num = parseInt(trimmed, 10)
     if (!isNaN(num) && num >= 0) {
       onChange(num)
       setText(String(num))
     } else {
-      setText(String(value))
+      // 无效输入 → 恢复
+      setText(value != null ? String(value) : '')
     }
   }
 
@@ -94,12 +139,17 @@ function NumberInput({ value, onChange }: { value: number; onChange: (value: num
     <input
       type="text"
       value={text}
+      placeholder={placeholder}
       onChange={e => setText(e.target.value)}
-      onBlur={handleBlur}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        handleBlur()
+      }}
       onKeyDown={e => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
       }}
-      className="w-28 px-2 py-1 text-right text-sm tabular-nums border border-border rounded-md bg-background"
+      className="w-28 px-2 py-1 text-right text-sm tabular-nums border border-border rounded-md bg-background placeholder:text-muted-foreground/50"
     />
   )
 }
@@ -109,12 +159,14 @@ function ActionEntryRow({
   action,
   entry,
   value,
+  placeholder,
   onChange,
 }: {
   action: MitigationAction
   entry: StatDataEntry
-  value: number
-  onChange: (value: number) => void
+  value: number | undefined
+  placeholder: string
+  onChange: (value: number | undefined) => void
 }) {
   return (
     <div className="flex items-center justify-between py-1.5">
@@ -129,7 +181,7 @@ function ActionEntryRow({
           <div className="text-xs text-muted-foreground">{getEntryLabel(entry)}</div>
         </div>
       </div>
-      <NumberInput value={value} onChange={onChange} />
+      <NumberInput value={value} placeholder={placeholder} onChange={onChange} />
     </div>
   )
 }
@@ -147,9 +199,11 @@ function StatDataDialogInner({
   onSave,
   onClose,
 }: StatDataDialogInnerProps) {
+  const statistics = useTimelineStore(state => state.statistics)
+
   // 本地编辑态，从 initialData 初始化（组件每次挂载时重新初始化）
   const [localStatData, setLocalStatData] = useState<TimelineStatData>({
-    ...initialData,
+    referenceMaxHP: initialData.referenceMaxHP,
     shieldByAbility: { ...initialData.shieldByAbility },
     critShieldByAbility: { ...initialData.critShieldByAbility },
     healByAbility: { ...initialData.healByAbility },
@@ -201,13 +255,14 @@ function StatDataDialogInner({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto space-y-4">
+      <div className="flex-1 overflow-y-auto space-y-4 px-0.5">
         {/* 安全血量 */}
         <div>
           <div className="text-sm font-medium mb-1.5">安全血量</div>
           <div className="flex items-center gap-3">
             <NumberInput
               value={localStatData.referenceMaxHP}
+              placeholder={String(getFallbackMaxHP(statistics))}
               onChange={v => setLocalStatData(prev => ({ ...prev, referenceMaxHP: v }))}
             />
             <span className="text-xs text-muted-foreground">非坦职业最低 HP</span>
@@ -217,10 +272,10 @@ function StatDataDialogInner({
         <div className="h-px bg-border" />
 
         {/* 盾技能数值 */}
-        <div className="text-sm font-medium">盾技能数值</div>
+        <div className="text-sm font-medium">技能数值</div>
 
         {groupedActions.length === 0 && (
-          <p className="text-sm text-muted-foreground">当前阵容中没有盾技能</p>
+          <p className="text-sm text-muted-foreground">当前阵容中没有需要指定数值的技能</p>
         )}
 
         {groupedActions.map(({ job, entries }) => (
@@ -244,6 +299,7 @@ function StatDataDialogInner({
                     action={action}
                     entry={entry}
                     value={getEntryValue(localStatData, entry)}
+                    placeholder={String(getFallbackValue(statistics, entry.type, entry.key))}
                     onChange={v => setLocalStatData(prev => setEntryValue(prev, entry, v))}
                   />
                 ))}

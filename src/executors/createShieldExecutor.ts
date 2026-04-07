@@ -14,10 +14,8 @@ export interface ShieldExecutorOptions {
   uniqueGroup?: number[]
   /** 层数：盾值耗尽后会减少层数并重置盾值，默认为 1 */
   stack?: number
-  /** 倍率：用于调整盾值的强度，默认为 1 */
-  multiplier?: number
-  /** 是否使用暴击盾值（使用 critShieldByAbility），默认为 false */
-  crit?: boolean
+  /** 固定盾值：指定时跳过从 statistics 读取，直接使用此值 */
+  fixedBarrier?: number
 }
 
 /**
@@ -34,13 +32,10 @@ export function createShieldExecutor(
 ): ActionExecutor {
   const uniqueGroup = options?.uniqueGroup ?? [statusId]
   const stack = options?.stack ?? 1
-  const multiplier = options?.multiplier ?? 1
-  const crit = options?.crit ?? false
+  const fixedBarrier = options?.fixedBarrier
 
   return ctx => {
-    // 优先使用统计数据里的盾值，其次用兜底值 10000
-    const shieldData = crit ? ctx.statistics?.critShieldByAbility : ctx.statistics?.shieldByAbility
-    const barrier = Math.round((shieldData?.[statusId] ?? 10000) * multiplier)
+    const barrier = fixedBarrier ?? ctx.statistics?.shieldByAbility?.[statusId] ?? 10000
 
     // 删除互斥组中的旧状态
     const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))

@@ -1,9 +1,12 @@
 /**
- * statData 初始化和维护工具
+ * statData 工具函数
+ *
+ * statData 只存储用户的覆盖值。读取时按优先级合并：
+ *   用户覆盖值 (statData) > 统计值 (statistics) > 硬编码默认值
  */
 
 import type { EncounterStatistics } from '@/types/mitigation'
-import type { TimelineStatData } from '@/types/statData'
+import type { TimelineStatData, StatDataEntryType } from '@/types/statData'
 import type { Composition } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getNonTankMinHP } from './stats'
@@ -12,21 +15,23 @@ const DEFAULT_VALUE = 10000
 const DEFAULT_MAX_HP = 100000
 
 /**
- * 获取阵容中所有技能的 statDataEntries
+ * 创建空的 statData（只有结构，没有预填值）
  */
-function getCompositionEntries(composition: Composition) {
-  const jobs = new Set(composition.players.map(p => p.job))
-  return MITIGATION_DATA.actions
-    .filter(a => a.statDataEntries && a.jobs.some(j => jobs.has(j)))
-    .flatMap(a => a.statDataEntries!)
+export function createEmptyStatData(): TimelineStatData {
+  return {
+    shieldByAbility: {},
+    critShieldByAbility: {},
+    healByAbility: {},
+    critHealByAbility: {},
+  }
 }
 
 /**
- * 从 EncounterStatistics 中获取指定 key 的值
+ * 从 statistics 中获取指定 key 的值，不存在则返回硬编码默认值
  */
-function getValueFromStatistics(
-  statistics: EncounterStatistics | null,
-  type: 'shield' | 'critShield' | 'heal' | 'critHeal',
+function getStatisticsValue(
+  statistics: EncounterStatistics | null | undefined,
+  type: StatDataEntryType,
   key: number
 ): number {
   if (!statistics) return DEFAULT_VALUE
@@ -43,85 +48,93 @@ function getValueFromStatistics(
 }
 
 /**
- * 从 EncounterStatistics 和阵容初始化 statData
+ * 读取某个条目的 fallback 值（statistics > 默认值），用于 placeholder 显示
  */
-export function initializeStatData(
-  statistics: EncounterStatistics | null,
-  composition: Composition
+export function getFallbackValue(
+  statistics: EncounterStatistics | null | undefined,
+  type: StatDataEntryType,
+  key: number
+): number {
+  return getStatisticsValue(statistics, type, key)
+}
+
+/**
+ * 获取 referenceMaxHP 的 fallback 值
+ */
+export function getFallbackMaxHP(statistics: EncounterStatistics | null | undefined): number {
+  return statistics ? getNonTankMinHP(statistics) : DEFAULT_MAX_HP
+}
+
+/**
+ * 将用户覆盖值 (statData) 与 statistics 合并为完整的 TimelineStatData，
+ * 供计算层和 executor 使用。
+ *
+ * 合并规则：statData 中有值则用，否则取 statistics，再否则取默认值。
+ */
+export function resolveStatData(
+  statData: TimelineStatData | undefined,
+  statistics: EncounterStatistics | null | undefined,
+  composition: Composition | undefined
 ): TimelineStatData {
-  const statData: TimelineStatData = {
-    referenceMaxHP: statistics ? getNonTankMinHP(statistics) : DEFAULT_MAX_HP,
+  const resolved: TimelineStatData = {
+    referenceMaxHP: statData?.referenceMaxHP ?? getFallbackMaxHP(statistics),
     shieldByAbility: {},
     critShieldByAbility: {},
     healByAbility: {},
     critHealByAbility: {},
   }
 
-  for (const entry of getCompositionEntries(composition)) {
-    const value = getValueFromStatistics(statistics, entry.type, entry.key)
-    switch (entry.type) {
-      case 'shield':
-        statData.shieldByAbility[entry.key] = value
-        break
-      case 'critShield':
-        statData.critShieldByAbility[entry.key] = value
-        break
-      case 'heal':
-        statData.healByAbility[entry.key] = value
-        break
-      case 'critHeal':
-        statData.critHealByAbility[entry.key] = value
-        break
+  if (!composition) return resolved
+
+  // 遍历阵容中所有技能的 statDataEntries，逐个 resolve
+  const jobs = new Set(composition.players.map(p => p.job))
+  const actions = MITIGATION_DATA.actions.filter(
+    a => a.statDataEntries && a.jobs.some(j => jobs.has(j))
+  )
+
+  for (const action of actions) {
+    for (const entry of action.statDataEntries!) {
+      const userValue = getUserValue(statData, entry.type, entry.key)
+      const value = userValue ?? getStatisticsValue(statistics, entry.type, entry.key)
+      switch (entry.type) {
+        case 'shield':
+          resolved.shieldByAbility[entry.key] = value
+          break
+        case 'critShield':
+          resolved.critShieldByAbility[entry.key] = value
+          break
+        case 'heal':
+          resolved.healByAbility[entry.key] = value
+          break
+        case 'critHeal':
+          resolved.critHealByAbility[entry.key] = value
+          break
+      }
     }
   }
 
-  return statData
+  return resolved
 }
 
 /**
- * 填充 statData 中缺失的 key（阵容新增玩家时使用）
- * 已有的 key 不覆盖
+ * 从 statData 中读取用户覆盖值，不存在返回 undefined
  */
-export function fillMissingStatData(
-  existing: TimelineStatData,
-  statistics: EncounterStatistics | null,
-  composition: Composition
-): TimelineStatData {
-  const result: TimelineStatData = {
-    referenceMaxHP: existing.referenceMaxHP,
-    shieldByAbility: { ...existing.shieldByAbility },
-    critShieldByAbility: { ...existing.critShieldByAbility },
-    healByAbility: { ...existing.healByAbility },
-    critHealByAbility: { ...existing.critHealByAbility },
+function getUserValue(
+  statData: TimelineStatData | undefined,
+  type: StatDataEntryType,
+  key: number
+): number | undefined {
+  if (!statData) return undefined
+  switch (type) {
+    case 'shield':
+      return key in statData.shieldByAbility ? statData.shieldByAbility[key] : undefined
+    case 'critShield':
+      return key in statData.critShieldByAbility ? statData.critShieldByAbility[key] : undefined
+    case 'heal':
+      return key in statData.healByAbility ? statData.healByAbility[key] : undefined
+    case 'critHeal':
+      return key in statData.critHealByAbility ? statData.critHealByAbility[key] : undefined
   }
-
-  for (const entry of getCompositionEntries(composition)) {
-    const value = getValueFromStatistics(statistics, entry.type, entry.key)
-    switch (entry.type) {
-      case 'shield':
-        if (!(entry.key in result.shieldByAbility)) {
-          result.shieldByAbility[entry.key] = value
-        }
-        break
-      case 'critShield':
-        if (!(entry.key in result.critShieldByAbility)) {
-          result.critShieldByAbility[entry.key] = value
-        }
-        break
-      case 'heal':
-        if (!(entry.key in result.healByAbility)) {
-          result.healByAbility[entry.key] = value
-        }
-        break
-      case 'critHeal':
-        if (!(entry.key in result.critHealByAbility)) {
-          result.critHealByAbility[entry.key] = value
-        }
-        break
-    }
-  }
-
-  return result
 }
 
 /**
@@ -131,7 +144,10 @@ export function cleanupStatData(
   statData: TimelineStatData,
   composition: Composition
 ): TimelineStatData {
-  const validEntries = getCompositionEntries(composition)
+  const jobs = new Set(composition.players.map(p => p.job))
+  const validEntries = MITIGATION_DATA.actions
+    .filter(a => a.statDataEntries && a.jobs.some(j => jobs.has(j)))
+    .flatMap(a => a.statDataEntries!)
   const validKeys = {
     shield: new Set(validEntries.filter(e => e.type === 'shield').map(e => e.key)),
     critShield: new Set(validEntries.filter(e => e.type === 'critShield').map(e => e.key)),

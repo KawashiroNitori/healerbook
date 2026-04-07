@@ -10,7 +10,7 @@ import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitiga
 import type { SharedTimelineResponse } from '@/api/timelineShareApi'
 import { saveTimeline, deleteTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { initializeStatData, fillMissingStatData, cleanupStatData } from '@/utils/statDataUtils'
+import { createEmptyStatData, cleanupStatData } from '@/utils/statDataUtils'
 import type { TimelineStatData } from '@/types/statData'
 
 // 自动保存延迟时间 (毫秒)
@@ -145,15 +145,14 @@ export const useTimelineStore = create<TimelineState>()(
         if (normalized?.composition) {
           get().initializePartyState(normalized.composition)
         }
-        // statData 未初始化时，用当前 statistics（可能为 null）初始化默认值
-        // 在 temporal clear 之后执行，避免被记入历史栈
-        if (normalized && !normalized.statData && normalized.composition) {
-          const { statistics } = get()
-          const statData = initializeStatData(statistics, normalized.composition)
+        // 确保 statData 存在（空结构，仅存用户覆盖值）
+        if (normalized && !normalized.statData) {
           const { pause, resume } = useTimelineStore.temporal.getState()
           pause()
           set(state => ({
-            timeline: state.timeline ? { ...state.timeline, statData } : null,
+            timeline: state.timeline
+              ? { ...state.timeline, statData: createEmptyStatData() }
+              : null,
           }))
           resume()
         }
@@ -183,30 +182,11 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       setStatistics: newStatistics => {
-        const prevStatistics = get().statistics
         set({ statistics: newStatistics })
         // 统计数据到位后用真实 HP 重新初始化小队状态
         const { timeline } = get()
         if (newStatistics && timeline?.composition) {
           get().initializePartyState(timeline.composition)
-          if (!timeline.statData || !prevStatistics) {
-            // statData 不存在，或者真实 statistics 首次到达（替换之前的默认值）
-            const statData = initializeStatData(newStatistics, timeline.composition)
-            set(state => ({
-              timeline: state.timeline ? { ...state.timeline, statData } : null,
-            }))
-            get().triggerAutoSave()
-          } else {
-            // 已有 statData 且非首次，补充缺失的 key
-            const filled = fillMissingStatData(
-              timeline.statData,
-              newStatistics,
-              timeline.composition
-            )
-            set(state => ({
-              timeline: state.timeline ? { ...state.timeline, statData: filled } : null,
-            }))
-          }
         }
       },
 
@@ -349,15 +329,10 @@ export const useTimelineStore = create<TimelineState>()(
             a => a.anchor.type !== 'skillTrack' || newPlayerIds.includes(a.anchor.playerId)
           )
 
-          // 清理 + 补充 statData
-          let statData = state.timeline.statData
-          if (statData) {
-            statData = cleanupStatData(statData, composition)
-            statData = fillMissingStatData(statData, state.statistics, composition)
-          } else if (composition.players.length > 0) {
-            // statData 还不存在但阵容非空，初始化
-            statData = initializeStatData(state.statistics, composition)
-          }
+          // 清理 statData 中已不在阵容内的技能条目
+          const statData = state.timeline.statData
+            ? cleanupStatData(state.timeline.statData, composition)
+            : createEmptyStatData()
 
           return {
             timeline: {
@@ -560,7 +535,7 @@ export const useTimelineStore = create<TimelineState>()(
             },
           }
         })
-        get().triggerAutoSave()
+        get().triggerAutoSave(0)
       },
 
       exitReplayMode: () => {

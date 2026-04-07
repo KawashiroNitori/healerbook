@@ -201,5 +201,154 @@ describe('mitigationActions', () => {
       expect(shield).toBeDefined()
       expect(shield!.remainingBarrier).toBe(Math.round(8000 * 1.8)) // 14400
     })
+
+    it('意气轩昂之策在秘策激活时应使用暴击治疗量并消耗秘策', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37013)!
+      const stateWithRecitation: PartyState = {
+        players: [{ id: 1, job: 'SCH', maxHP: 100000 }],
+        statuses: [{ instanceId: 'recitation-1', statusId: 1896, startTime: 0, endTime: 30 }],
+        timestamp: 5,
+      }
+      const ctx: ActionExecutionContext = {
+        actionId: 37013,
+        useTime: 5,
+        partyState: stateWithRecitation,
+        sourcePlayerId: 1,
+        statistics: {
+          referenceMaxHP: 100000,
+          shieldByAbility: {},
+          critShieldByAbility: {},
+          healByAbility: { 37013: 8000 },
+          critHealByAbility: { 37013: 16000 },
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      // 秘策激活时使用暴击治疗量（16000）
+      const shield = newState.statuses.find(s => s.statusId === 297)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(Math.round(16000 * 1.8)) // 28800
+      // 秘策状态应被消耗
+      expect(newState.statuses.some(s => s.statusId === 1896)).toBe(false)
+    })
+
+    it('降临之章应使用 37016 治疗量并添加鼓舞盾', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37016)!
+      const ctx: ActionExecutionContext = {
+        actionId: 37016,
+        useTime: 10,
+        partyState: mockPartyState,
+        sourcePlayerId: 1,
+        statistics: {
+          referenceMaxHP: 100000,
+          shieldByAbility: {},
+          critShieldByAbility: {},
+          healByAbility: { 37016: 11000 },
+          critHealByAbility: {},
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      const shield = newState.statuses.find(s => s.statusId === 297)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(Math.round(11000 * 1.8)) // 19800
+    })
+
+    it('阳星合相在中间学派激活时应添加盾值', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37030)!
+      const stateWithNeutralSect: PartyState = {
+        players: [{ id: 1, job: 'AST', maxHP: 100000 }],
+        statuses: [{ instanceId: 'neutral-1', statusId: 1892, startTime: 0, endTime: 30 }],
+        timestamp: 5,
+      }
+      const ctx: ActionExecutionContext = {
+        actionId: 37030,
+        useTime: 5,
+        partyState: stateWithNeutralSect,
+        sourcePlayerId: 1,
+        statistics: {
+          referenceMaxHP: 100000,
+          shieldByAbility: {},
+          critShieldByAbility: {},
+          healByAbility: { 37030: 20000 },
+          critHealByAbility: {},
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      const shield = newState.statuses.find(s => s.statusId === 1921)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(Math.round(20000 * 1.25 * 1.2)) // 30000
+    })
+
+    it('阳星合相在无中间学派时不应添加盾值', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37030)!
+      const ctx: ActionExecutionContext = {
+        actionId: 37030,
+        useTime: 10,
+        partyState: mockPartyState,
+        sourcePlayerId: 1,
+      }
+
+      const newState = action.executor(ctx)
+
+      expect(newState.statuses).toHaveLength(0)
+    })
+
+    it('均衡预后II应添加盾值并互斥鼓舞盾', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37034)!
+      const ctx: ActionExecutionContext = {
+        actionId: 37034,
+        useTime: 10,
+        partyState: mockPartyState,
+        sourcePlayerId: 1,
+        statistics: {
+          referenceMaxHP: 100000,
+          shieldByAbility: { 2609: 15000 },
+          critShieldByAbility: {},
+          healByAbility: {},
+          critHealByAbility: {},
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      const shield = newState.statuses.find(s => s.statusId === 2609)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(15000)
+    })
+
+    it('均衡预后II在活化激活时盾量应乘以 1.5 并消耗活化', () => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === 37034)!
+      const stateWithZoe: PartyState = {
+        players: [{ id: 1, job: 'SGE', maxHP: 100000 }],
+        statuses: [{ instanceId: 'zoe-1', statusId: 2611, startTime: 0, endTime: 30 }],
+        timestamp: 5,
+      }
+      const ctx: ActionExecutionContext = {
+        actionId: 37034,
+        useTime: 5,
+        partyState: stateWithZoe,
+        sourcePlayerId: 1,
+        statistics: {
+          referenceMaxHP: 100000,
+          shieldByAbility: { 2609: 15000 },
+          critShieldByAbility: {},
+          healByAbility: {},
+          critHealByAbility: {},
+        },
+      }
+
+      const newState = action.executor(ctx)
+
+      const shield = newState.statuses.find(s => s.statusId === 2609)
+      expect(shield).toBeDefined()
+      expect(shield!.remainingBarrier).toBe(Math.round(15000 * 1.5)) // 22500
+      // 活化状态应被消耗
+      expect(newState.statuses.some(s => s.statusId === 2611)).toBe(false)
+    })
   })
 })

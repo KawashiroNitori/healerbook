@@ -9,6 +9,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { TIMELINE_START_TIME, getCanvasColors } from './constants'
 import { useUIStore } from '@/store/uiStore'
+import { getFallbackMaxHP } from '@/utils/statDataUtils'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -203,7 +204,8 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       )
 
       // 致死线：非T职业最低HP / 最大伤害，限制在 60%–100%
-      const referenceMaxHP = timeline.statData?.referenceMaxHP ?? 100000
+      const statistics = useTimelineStore.getState().statistics
+      const referenceMaxHP = timeline.statData?.referenceMaxHP ?? getFallbackMaxHP(statistics)
       const rawLineRatio = referenceMaxHP / maxDamage
       const shouldDrawFatalLine = rawLineRatio < 1
       const lineDisplayRatio = Math.max(rawLineRatio, 0.75)

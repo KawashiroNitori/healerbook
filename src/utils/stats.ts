@@ -1,5 +1,4 @@
 import type { EncounterStatistics } from '@/types/mitigation'
-import type { TimelineStatData } from '@/types/statData'
 import type { Job } from '@/data/jobs'
 import { getTankJobs } from '@/data/jobs'
 
@@ -19,19 +18,11 @@ export function calculatePercentile(values: number[], percentile: number = 50): 
 const DEFAULT_MAX_HP = 100000
 
 /**
- * 从 TimelineStatData 或 EncounterStatistics 获取非坦克职业的最低最大 HP
+ * 从 EncounterStatistics 获取非坦克职业的最低最大 HP
  * 无数据时返回 100000
  */
-export function getNonTankMinHP(statistics: TimelineStatData): number
-export function getNonTankMinHP(statistics: EncounterStatistics | null): number
-export function getNonTankMinHP(statistics: EncounterStatistics | TimelineStatData | null): number {
+export function getNonTankMinHP(statistics: EncounterStatistics | null): number {
   if (!statistics) return DEFAULT_MAX_HP
-
-  // TimelineStatData 已经预计算了 referenceMaxHP
-  if ('referenceMaxHP' in statistics) return statistics.referenceMaxHP
-
-  // EncounterStatistics: 从 maxHPByJob 计算
-  if (!statistics.maxHPByJob) return DEFAULT_MAX_HP
 
   const tankJobs = new Set<string>(getTankJobs())
   const hpValues = (Object.entries(statistics.maxHPByJob) as [Job, number][])

@@ -6,9 +6,8 @@
  */
 
 import type { MitigationAction } from '@/types/mitigation'
-import { createBuffExecutor, createShieldExecutor, generateId } from '@/executors'
+import { createBuffExecutor, createShieldExecutor } from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
-import type { MitigationStatus } from '@/types/status'
 
 export interface MitigationDataSource {
   actions: MitigationAction[]
@@ -126,33 +125,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 90,
       executor: (ctx: ActionExecutionContext) => {
+        // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
-        // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
         const baseHeal = ctx.statistics?.healByAbility[185] ?? 10000
         const barrier = Math.round(baseHeal * 1.8)
-
-        const newStatuses: MitigationStatus[] = []
-
-        newStatuses.push({
-          instanceId: generateId(),
-          statusId: baseShieldId,
-          startTime: ctx.useTime,
-          endTime: ctx.useTime + 30,
-          remainingBarrier: barrier,
-          initialBarrier: barrier,
-          sourceActionId: ctx.actionId,
-          sourcePlayerId: ctx.sourcePlayerId,
-        })
-
-        const filteredStatuses = ctx.partyState.statuses.filter(
-          s => ![baseShieldId, sageShieldId].includes(s.statusId)
-        )
-
-        return {
-          ...ctx.partyState,
-          statuses: [...filteredStatuses, ...newStatuses],
-        }
+        return createShieldExecutor(baseShieldId, 30, {
+          fixedBarrier: barrier,
+          uniqueGroup: [baseShieldId, sageShieldId],
+        })(ctx)
       },
       statDataEntries: [{ type: 'heal', key: 185, label: '鼓舞' }],
     },
@@ -195,31 +176,11 @@ export const MITIGATION_DATA: MitigationDataSource = {
         }
 
         const barrier = Math.round(baseHeal * 1.8)
-
-        const statusesToRemove = hasSeraphism
+        const uniqueGroup = hasSeraphism
           ? [baseShieldId, sageShieldId]
           : [recitationId, baseShieldId, sageShieldId]
 
-        const filteredStatuses = ctx.partyState.statuses.filter(
-          s => !statusesToRemove.includes(s.statusId)
-        )
-
-        return {
-          ...ctx.partyState,
-          statuses: [
-            ...filteredStatuses,
-            {
-              instanceId: generateId(),
-              statusId: baseShieldId,
-              startTime: ctx.useTime,
-              endTime: ctx.useTime + 30,
-              remainingBarrier: barrier,
-              initialBarrier: barrier,
-              sourceActionId: ctx.actionId,
-              sourcePlayerId: ctx.sourcePlayerId,
-            },
-          ],
-        }
+        return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })(ctx)
       },
       statDataEntries: [
         { type: 'heal', key: 37013 },
@@ -251,28 +212,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
         // 降临之章的鼓舞盾是 240 恢复力，而且秘策无效
         const baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
         const barrier = Math.round(baseHeal * 1.8)
-
-        const newStatuses: MitigationStatus[] = []
-
-        newStatuses.push({
-          instanceId: generateId(),
-          statusId: baseShieldId,
-          startTime: ctx.useTime,
-          endTime: ctx.useTime + 30,
-          remainingBarrier: barrier,
-          initialBarrier: barrier,
-          sourceActionId: ctx.actionId,
-          sourcePlayerId: ctx.sourcePlayerId,
-        })
-
-        const filteredStatuses = ctx.partyState.statuses.filter(
-          s => ![baseShieldId, sageShieldId].includes(s.statusId)
-        )
-
-        return {
-          ...ctx.partyState,
-          statuses: [...filteredStatuses, ...newStatuses],
-        }
+        return createShieldExecutor(baseShieldId, 30, {
+          fixedBarrier: barrier,
+          uniqueGroup: [baseShieldId, sageShieldId],
+        })(ctx)
       },
       statDataEntries: [{ type: 'heal', key: 37016 }],
     },
@@ -371,9 +314,12 @@ export const MITIGATION_DATA: MitigationDataSource = {
         if (!ctx.partyState.statuses.some(s => s.statusId === neutralSectId)) {
           return ctx.partyState
         }
-        return createShieldExecutor(1921, 30)(ctx)
+        // 盾量 = 阳星合相治疗量 × 1.25（盾比例）× 1.2（中间学派加成）
+        const baseHeal = ctx.statistics?.healByAbility[37030] ?? 10000
+        const barrier = Math.round(baseHeal * 1.25 * 1.2)
+        return createShieldExecutor(1921, 30, { fixedBarrier: barrier })(ctx)
       },
-      statDataEntries: [{ type: 'shield', key: 1921 }],
+      statDataEntries: [{ type: 'heal', key: 37030 }],
     },
 
     // 贤者 (SGE)
@@ -440,27 +386,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
         let barrier = ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000
         if (hasZoe) barrier = Math.round(barrier * 1.5)
 
-        const newStatuses: MitigationStatus[] = []
-
-        newStatuses.push({
-          instanceId: generateId(),
-          statusId: baseShieldId,
-          startTime: ctx.useTime,
-          endTime: ctx.useTime + 30,
-          remainingBarrier: barrier,
-          initialBarrier: barrier,
-          sourceActionId: ctx.actionId,
-          sourcePlayerId: ctx.sourcePlayerId,
-        })
-
-        const filteredStatuses = ctx.partyState.statuses.filter(
-          s => ![zoeId, baseShieldId, schShieldId].includes(s.statusId)
-        )
-
-        return {
-          ...ctx.partyState,
-          statuses: [...filteredStatuses, ...newStatuses],
-        }
+        return createShieldExecutor(baseShieldId, 30, {
+          fixedBarrier: barrier,
+          uniqueGroup: [zoeId, baseShieldId, schShieldId],
+        })(ctx)
       },
       statDataEntries: [{ type: 'shield', key: 2609 }],
     },
