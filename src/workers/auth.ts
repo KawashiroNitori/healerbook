@@ -89,7 +89,7 @@ export async function handleAuthCallback(request: Request, env: Env): Promise<Re
     const userId = String(user.id)
     const [accessToken, refreshToken] = await Promise.all([
       signAccessToken(userId, user.name, env.JWT_SECRET),
-      signRefreshToken(userId, env.JWT_SECRET),
+      signRefreshToken(userId, user.name, env.JWT_SECRET),
     ])
 
     return jsonOk(
@@ -130,9 +130,8 @@ export async function handleAuthRefresh(request: Request, env: Env): Promise<Res
   }
 
   try {
-    // refresh token 中无 name，续期时 name 使用空字符串占位
-    // 前端展示 username 依赖 authStore 缓存值，不重新从 JWT 读取
-    const accessToken = await signAccessToken(result.payload.sub, '', env.JWT_SECRET)
+    const username = (result.payload as { name?: string }).name ?? ''
+    const accessToken = await signAccessToken(result.payload.sub, username, env.JWT_SECRET)
     return jsonOk({ access_token: accessToken }, env.ALLOWED_ORIGIN)
   } catch (error) {
     console.error('[Auth] refresh error:', error)

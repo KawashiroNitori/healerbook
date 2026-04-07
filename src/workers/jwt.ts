@@ -3,8 +3,8 @@ import { JWTExpired } from 'jose/errors'
 import { nanoid } from 'nanoid'
 
 const ALGORITHM = 'HS256'
-const ACCESS_TOKEN_TTL = 60 * 60          // 1 小时（秒）
-const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 30  // 30 天（秒）
+const ACCESS_TOKEN_TTL = 60 * 60 // 1 小时（秒）
+const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 30 // 30 天（秒）
 
 const encoder = new TextEncoder()
 function getSecretKey(secret: string): Uint8Array {
@@ -12,8 +12,8 @@ function getSecretKey(secret: string): Uint8Array {
 }
 
 export interface AccessTokenPayload extends JWTPayload {
-  sub: string    // FFLogs user ID（字符串）
-  name: string   // FFLogs username
+  sub: string // FFLogs user ID（字符串）
+  name: string // FFLogs username
   jti: string
 }
 
@@ -39,10 +39,11 @@ export async function signAccessToken(
 
 export async function signRefreshToken(
   userId: string,
+  username: string,
   secret: string
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
-  return new SignJWT({ type: 'refresh' })
+  return new SignJWT({ type: 'refresh', name: username })
     .setProtectedHeader({ alg: ALGORITHM })
     .setSubject(userId)
     .setJti(nanoid())
