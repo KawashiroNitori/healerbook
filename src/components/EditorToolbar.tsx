@@ -4,7 +4,17 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ZoomIn, ZoomOut, Lock, Unlock, BugPlay, Undo2, Redo2, TriangleAlert } from 'lucide-react'
+import {
+  ZoomIn,
+  ZoomOut,
+  Lock,
+  Unlock,
+  BugPlay,
+  Undo2,
+  Redo2,
+  TriangleAlert,
+  Settings,
+} from 'lucide-react'
 import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -26,6 +36,7 @@ import {
 import CompositionPopover from './CompositionPopover'
 import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
+import StatDataDialog from './StatDataDialog'
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -53,6 +64,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
   const { toggleReadOnly } = useUIStore()
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
+  const [showStatDataDialog, setShowStatDataDialog] = useState(false)
 
   const canUndo = useStore(useTimelineStore.temporal, s => s.pastStates.length > 0)
   const canRedo = useStore(useTimelineStore.temporal, s => s.futureStates.length > 0)
@@ -204,6 +216,24 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           {/* Party Composition */}
           <CompositionPopover />
 
+          {/* 数值设置 */}
+          {!isReplayMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setShowStatDataDialog(true)}
+                  disabled={!timeline?.statData}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">数值设置</TooltipContent>
+            </Tooltip>
+          )}
+
           {/* 共享按钮 或 在本地创建副本 */}
           {timeline && (
             <>
@@ -276,6 +306,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
           }}
         />
       )}
+      <StatDataDialog open={showStatDataDialog} onClose={() => setShowStatDataDialog(false)} />
     </>
   )
 }
