@@ -14,6 +14,7 @@ import JobIcon from '@/components/JobIcon'
 import type { TimelineStatData, StatDataEntry } from '@/types/statData'
 import type { MitigationAction } from '@/types/mitigation'
 import type { Composition } from '@/types/timeline'
+import { getIconUrl } from '@/utils/iconUtils'
 
 interface StatDataDialogProps {
   open: boolean
@@ -122,7 +123,11 @@ function ActionEntryRow({
   return (
     <div className="flex items-center justify-between py-1.5">
       <div className="flex items-center gap-2">
-        <img src={action.iconHD || action.icon} alt={action.name} className="w-7 h-7 rounded" />
+        <img
+          src={getIconUrl(action.iconHD || action.icon)}
+          alt={action.name}
+          className="w-7 h-7 rounded"
+        />
         <div>
           <div className="text-sm">{action.name}</div>
           <div className="text-xs text-muted-foreground">{getEntryLabel(entry)}</div>
