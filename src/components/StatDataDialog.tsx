@@ -71,26 +71,22 @@ function setEntryValue(
   return result
 }
 
-const numberFormat = new Intl.NumberFormat('en-US', { useGrouping: true })
-const formatNumber = (n: number) => numberFormat.format(n)
-const parseNumber = (s: string) => parseInt(s.replace(/,/g, ''), 10)
-
 /** 数值输入组件 */
 function NumberInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  const [text, setText] = useState(formatNumber(value))
+  const [text, setText] = useState(String(value))
 
   // 外部 value 变化时同步 text
   useEffect(() => {
-    setText(formatNumber(value))
+    setText(String(value))
   }, [value])
 
   const handleBlur = () => {
-    const num = parseNumber(text)
+    const num = parseInt(text, 10)
     if (!isNaN(num) && num >= 0) {
       onChange(num)
-      setText(formatNumber(num))
+      setText(String(num))
     } else {
-      setText(formatNumber(value))
+      setText(String(value))
     }
   }
 
