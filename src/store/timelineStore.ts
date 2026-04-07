@@ -10,6 +10,8 @@ import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitiga
 import type { SharedTimelineResponse } from '@/api/timelineShareApi'
 import { saveTimeline, deleteTimeline } from '@/utils/timelineStorage'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { initializeStatData, fillMissingStatData, cleanupStatData } from '@/utils/statDataUtils'
+import type { TimelineStatData } from '@/types/statData'
 
 // 自动保存延迟时间 (毫秒)
 const AUTO_SAVE_DELAY = 2000
@@ -101,6 +103,8 @@ interface TimelineState {
   applyUpdateResult: (updatedAt: number, version: number) => void
   /** 从服务器版本覆盖本地（冲突解决 - 使用服务器版本） */
   applyServerTimeline: (response: SharedTimelineResponse) => void
+  /** 更新时间轴统计数据 */
+  updateStatData: (statData: TimelineStatData) => void
   /** 重置状态 */
   reset: () => void
 }
@@ -172,6 +176,20 @@ export const useTimelineStore = create<TimelineState>()(
         const { timeline } = get()
         if (statistics && timeline?.composition) {
           get().initializePartyState(timeline.composition)
+          // 如果时间轴没有 statData，从 statistics 初始化
+          if (!timeline.statData) {
+            const statData = initializeStatData(statistics, timeline.composition)
+            set(state => ({
+              timeline: state.timeline ? { ...state.timeline, statData } : null,
+            }))
+            get().triggerAutoSave()
+          } else {
+            // 已有 statData，补充缺失的 key
+            const filled = fillMissingStatData(timeline.statData, statistics, timeline.composition)
+            set(state => ({
+              timeline: state.timeline ? { ...state.timeline, statData: filled } : null,
+            }))
+          }
         }
       },
 
@@ -314,12 +332,20 @@ export const useTimelineStore = create<TimelineState>()(
             a => a.anchor.type !== 'skillTrack' || newPlayerIds.includes(a.anchor.playerId)
           )
 
+          // 清理 + 补充 statData
+          let statData = state.timeline.statData
+          if (statData) {
+            statData = cleanupStatData(statData, composition)
+            statData = fillMissingStatData(statData, state.statistics, composition)
+          }
+
           return {
             timeline: {
               ...state.timeline,
               composition,
               castEvents: filteredCastEvents,
               annotations: filteredAnnotations,
+              statData,
               updatedAt: Math.floor(Date.now() / 1000),
             },
           }
@@ -501,6 +527,20 @@ export const useTimelineStore = create<TimelineState>()(
         }, delay)
 
         set({ autoSaveTimer: timer })
+      },
+
+      updateStatData: statData => {
+        set(state => {
+          if (!state.timeline) return state
+          return {
+            timeline: {
+              ...state.timeline,
+              statData,
+              updatedAt: Math.floor(Date.now() / 1000),
+            },
+          }
+        })
+        get().triggerAutoSave()
       },
 
       exitReplayMode: () => {
