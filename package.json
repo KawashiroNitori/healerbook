@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc -b && vite build && vitepress build docs",
+    "build": "tsc -b && tsx scripts/extract-latest-release.ts && vite build && vitepress build docs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
@@ -83,6 +83,7 @@
     "jsdom": "^29.0.1",
     "lint-staged": "^16.4.0",
     "lucide-vue-next": "^1.0.0",
+    "marked": "^18.0.0",
     "postcss": "^8.5.6",
     "prettier": "^3.8.1",
     "tailwindcss": "^3.4.19",

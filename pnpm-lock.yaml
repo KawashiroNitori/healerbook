@@ -165,6 +165,9 @@ importers:
       lucide-vue-next:
         specifier: ^1.0.0
         version: 1.0.0(vue@3.5.32(typescript@5.9.3))
+      marked:
+        specifier: ^18.0.0
+        version: 18.0.0
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -2478,6 +2481,11 @@ packages:
 
   mark.js@8.11.1:
     resolution: {integrity: sha512-1I+1qpDt4idfgLQG+BNWmrqku+7/2bi5nLf4YwF8y8zXvmfiTBY3PV3ZibfrjBueCByROpuBjLLFCajqkgYoLQ==}
+
+  marked@18.0.0:
+    resolution: {integrity: sha512-2e7Qiv/HJSXj8rDEpgTvGKsP8yYtI9xXHKDnrftrmnrJPaFNM7VRb2YCzWaX4BP1iCJ/XPduzDJZMFoqTCcIMA==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   mdast-util-to-hast@13.2.1:
     resolution: {integrity: sha512-cctsq2wp5vTsLIcaymblUriiTcZd0CwWtCbLvrOzYCDZoWyMNV8sZ7krj09FSnsiJi3WVsHLM4k6Dq/yaPyCXA==}
@@ -5593,6 +5601,8 @@ snapshots:
       semver: 7.7.4
 
   mark.js@8.11.1: {}
+
+  marked@18.0.0: {}
 
   mdast-util-to-hast@13.2.1:
     dependencies:
