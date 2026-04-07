@@ -64,8 +64,8 @@ export default function SharePopover({
     setLoading(true)
     try {
       const result = await publishTimeline(timeline)
-      onPublished(result.id, result.publishedAt, result.version)
       track('timeline-publish', { encounterId: timeline.encounter?.id })
+      onPublished(result.id, result.publishedAt, result.version)
       toast.success('发布成功')
     } catch (err) {
       toast.error(`发布失败：${err instanceof Error ? err.message : '未知错误'}`)
