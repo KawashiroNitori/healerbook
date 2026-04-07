@@ -4,6 +4,7 @@
 
 import type { Job } from '@/data/jobs'
 import type { PartyState } from './partyState'
+import type { TimelineStatData, StatDataEntry } from './statData'
 
 export type { Job }
 
@@ -51,8 +52,8 @@ export interface ActionExecutionContext {
   partyState: PartyState
   /** 使用技能的玩家 ID（对应 FFLogsActor.id） */
   sourcePlayerId: number
-  /** 副本统计数据（可选，用于盾值计算） */
-  statistics?: EncounterStatistics
+  /** 时间轴统计数据（可选，用于盾值计算） */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -85,4 +86,6 @@ export interface MitigationAction {
   executor?: ActionExecutor
   /** 隐藏技能（不在技能轨道中显示，仅供内部数据引用） */
   hidden?: boolean
+  /** 技能统计数据条目声明（有此字段 → 出现在数值设置模态框） */
+  statDataEntries?: StatDataEntry[]
 }

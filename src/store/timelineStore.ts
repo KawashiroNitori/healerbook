@@ -192,7 +192,9 @@ export const useTimelineStore = create<TimelineState>()(
           useTime: time,
           partyState: state.partyState,
           sourcePlayerId,
-          statistics: state.statistics ?? undefined,
+          // TODO(Task 3): 迁移到 TimelineStatData 后移除类型断言
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          statistics: (state.statistics ?? undefined) as any,
         }
 
         // 执行技能并更新状态

@@ -120,7 +120,9 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
             useTime: castEvent.timestamp,
             partyState: currentState,
             sourcePlayerId: castEvent.playerId,
-            statistics: statistics ?? undefined,
+            // TODO(Task 3): 迁移到 TimelineStatData 后移除类型断言
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            statistics: (statistics ?? undefined) as any,
           }
           if (action.executor) currentState = action.executor(ctx)
         }

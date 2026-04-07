@@ -3,6 +3,7 @@
  */
 
 import type { Job } from '@/data/jobs'
+import type { TimelineStatData } from './statData'
 
 export type { Job } from '@/data/jobs'
 
@@ -50,6 +51,8 @@ export interface Timeline {
   statusEvents: StatusEvent[]
   /** 注释列表 */
   annotations: Annotation[]
+  /** 时间轴内部统计数据（盾值、治疗量、安全血量） */
+  statData?: TimelineStatData
   /** 是否为回放模式 */
   isReplayMode?: boolean
   /** 是否已发布到服务器 */
