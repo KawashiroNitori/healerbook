@@ -337,6 +337,9 @@ export const useTimelineStore = create<TimelineState>()(
           if (statData) {
             statData = cleanupStatData(statData, composition)
             statData = fillMissingStatData(statData, state.statistics, composition)
+          } else if (composition.players.length > 0) {
+            // statData 还不存在但阵容非空，初始化
+            statData = initializeStatData(state.statistics, composition)
           }
 
           return {
