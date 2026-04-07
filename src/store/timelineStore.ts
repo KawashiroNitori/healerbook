@@ -145,13 +145,17 @@ export const useTimelineStore = create<TimelineState>()(
         if (normalized?.composition) {
           get().initializePartyState(normalized.composition)
         }
-        // 如果 statistics 已到位但 statData 未初始化，补上
-        const { statistics } = get()
-        if (normalized && !normalized.statData && statistics && normalized.composition) {
+        // statData 未初始化时，用当前 statistics（可能为 null）初始化默认值
+        // 在 temporal clear 之后执行，避免被记入历史栈
+        if (normalized && !normalized.statData && normalized.composition) {
+          const { statistics } = get()
           const statData = initializeStatData(statistics, normalized.composition)
+          const { pause, resume } = useTimelineStore.temporal.getState()
+          pause()
           set(state => ({
             timeline: state.timeline ? { ...state.timeline, statData } : null,
           }))
+          resume()
         }
       },
 
@@ -178,22 +182,27 @@ export const useTimelineStore = create<TimelineState>()(
         set({ partyState })
       },
 
-      setStatistics: statistics => {
-        set({ statistics })
+      setStatistics: newStatistics => {
+        const prevStatistics = get().statistics
+        set({ statistics: newStatistics })
         // 统计数据到位后用真实 HP 重新初始化小队状态
         const { timeline } = get()
-        if (statistics && timeline?.composition) {
+        if (newStatistics && timeline?.composition) {
           get().initializePartyState(timeline.composition)
-          // 如果时间轴没有 statData，从 statistics 初始化
-          if (!timeline.statData) {
-            const statData = initializeStatData(statistics, timeline.composition)
+          if (!timeline.statData || !prevStatistics) {
+            // statData 不存在，或者真实 statistics 首次到达（替换之前的默认值）
+            const statData = initializeStatData(newStatistics, timeline.composition)
             set(state => ({
               timeline: state.timeline ? { ...state.timeline, statData } : null,
             }))
             get().triggerAutoSave()
           } else {
-            // 已有 statData，补充缺失的 key
-            const filled = fillMissingStatData(timeline.statData, statistics, timeline.composition)
+            // 已有 statData 且非首次，补充缺失的 key
+            const filled = fillMissingStatData(
+              timeline.statData,
+              newStatistics,
+              timeline.composition
+            )
             set(state => ({
               timeline: state.timeline ? { ...state.timeline, statData: filled } : null,
             }))
