@@ -40,3 +40,5 @@ docs/.vitepress/dist
 
 # Git worktrees
 .worktrees/
+
+public/latest-release.json
