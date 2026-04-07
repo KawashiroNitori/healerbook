@@ -11,7 +11,7 @@ if (!existsSync(changelogPath)) {
 const changelog = readFileSync(changelogPath, 'utf-8')
 
 // 提取第一个 ## date 到下一个 ## 之间的内容
-const match = changelog.match(/^## (\d{4}-\d{2}-\d{2})\s*\n([\s\S]*?)(?=\n## |\n*$)/)
+const match = changelog.match(/^## (\d{4}-\d{2}-\d{2})\s*\n([\s\S]*?)(?=\n## |\n*$)/m)
 if (!match) {
   console.warn('Warning: no changelog entry found in docs/changelog.md, skipping generation')
   process.exit(0)

@@ -33,18 +33,24 @@ export function useChangelogToast() {
 
         toast('🎉 Healerbook 已更新', {
           description: (
-            <div
-              className="prose prose-sm dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: latest.html }}
-            />
+            <div>
+              <div
+                className="prose prose-sm dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: latest.html }}
+              />
+              <div className="flex justify-end mt-2">
+                <button
+                  className="text-sm font-medium bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 transition-colors"
+                  onClick={() => {
+                    window.open(CHANGELOG_URL, '_blank')
+                    markSeen()
+                  }}
+                >
+                  查看详情
+                </button>
+              </div>
+            </div>
           ),
-          action: {
-            label: '查看详情',
-            onClick: () => {
-              window.open(CHANGELOG_URL, '_blank')
-              markSeen()
-            },
-          },
           position: 'bottom-right',
           duration: Infinity,
           onDismiss: markSeen,
