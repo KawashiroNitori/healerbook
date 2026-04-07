@@ -21,12 +21,14 @@ import { Globe } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchMyTimelines, deleteSharedTimeline } from '@/api/timelineShareApi'
 import { track } from '@/utils/analytics'
+import { useChangelogToast } from '@/hooks/useChangelogToast'
 
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
 const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
 const Top100Section = lazy(() => import('@/components/Top100Section'))
 
 export default function HomePage() {
+  useChangelogToast()
   const navigate = useNavigate()
   const { isLoggedIn } = useAuth()
   const queryClient = useQueryClient()
