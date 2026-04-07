@@ -25,6 +25,8 @@ interface UIState {
   isReadOnly: boolean
   /** 隐藏的玩家 ID 集合 */
   hiddenPlayerIds: Set<number>
+  /** 伤害事件轨道是否折叠 */
+  isDamageTrackCollapsed: boolean
 
   // Actions
   /** 切换侧边栏 */
@@ -49,6 +51,8 @@ interface UIState {
   togglePlayerVisibility: (playerId: number) => void
   /** 隐藏除指定玩家外的所有玩家（独奏模式），若已是独奏则全部显示 */
   isolatePlayer: (playerId: number, allPlayerIds: number[]) => void
+  /** 切换伤害事件轨道折叠 */
+  toggleDamageTrackCollapsed: () => void
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -76,6 +80,7 @@ export const useUIStore = create<UIState>(set => ({
   theme: initialTheme,
   isReadOnly: false,
   hiddenPlayerIds: new Set<number>(),
+  isDamageTrackCollapsed: false,
 
   toggleSidebar: () =>
     set(state => ({
@@ -136,6 +141,11 @@ export const useUIStore = create<UIState>(set => ({
       }
       return { hiddenPlayerIds: next }
     }),
+
+  toggleDamageTrackCollapsed: () =>
+    set(state => ({
+      isDamageTrackCollapsed: !state.isDamageTrackCollapsed,
+    })),
 
   isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
     set(state => {

@@ -13,6 +13,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { useTimelinePanZoom } from '@/hooks/useTimelinePanZoom'
 import type { PanZoomRefs } from '@/hooks/useTimelinePanZoom'
 import { sortJobsByOrder, getJobName } from '@/data/jobs'
+import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
@@ -132,7 +133,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     removeAnnotation,
   } = useTimelineStore()
   const { actions, loadActions } = useMitigationStore()
-  const { hiddenPlayerIds } = useUIStore()
+  const { hiddenPlayerIds, isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const calculationResults = useDamageCalculationResults()
 
   useEffect(() => {
@@ -255,20 +256,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
     const LANE_ROW_HEIGHT = 36 // 每行高度（px）
     const damageEventRowMap = new Map<string, number>()
-    const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
 
-    const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
-    for (const event of sortedDamageEvents) {
-      const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
-      if (laneIndex !== -1) {
-        damageEventRowMap.set(event.id, laneIndex)
-        laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
-      } else {
-        damageEventRowMap.set(event.id, laneEndTimes.length)
-        laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+    let laneCount: number
+    if (isDamageTrackCollapsed) {
+      // 折叠模式：所有事件重叠在同一行
+      for (const event of timeline.damageEvents) {
+        damageEventRowMap.set(event.id, 0)
       }
+      laneCount = 1
+    } else {
+      const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
+      const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+      for (const event of sortedDamageEvents) {
+        const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
+        if (laneIndex !== -1) {
+          damageEventRowMap.set(event.id, laneIndex)
+          laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
+        } else {
+          damageEventRowMap.set(event.id, laneEndTimes.length)
+          laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+        }
+      }
+      laneCount = Math.max(1, laneEndTimes.length)
     }
-    const laneCount = Math.max(1, laneEndTimes.length)
     const eventTrackHeight = laneCount * LANE_ROW_HEIGHT
 
     // 计算时间轴总长度
@@ -319,7 +329,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       LANE_ROW_HEIGHT,
       displayActionOverrides,
     }
-  }, [timeline, zoomLevel, actions, hiddenPlayerIds])
+  }, [timeline, zoomLevel, actions, hiddenPlayerIds, isDamageTrackCollapsed])
 
   // 十字准线：鼠标移动事件（直接操作 Konva 节点，不触发 React 重渲染）
   const createCrosshairMoveHandler = useCallback(
@@ -1164,8 +1174,19 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
           <div
             style={{ height: eventTrackHeight }}
-            className="border-b bg-muted/50 flex items-center justify-end px-2"
+            className="border-b bg-muted/50 flex items-center justify-end px-2 gap-1"
           >
+            <button
+              className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded hover:bg-muted"
+              onClick={toggleDamageTrackCollapsed}
+              title={isDamageTrackCollapsed ? '展开伤害轨道' : '折叠伤害轨道'}
+            >
+              {isDamageTrackCollapsed ? (
+                <ChevronsUpDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronsDownUp className="w-3.5 h-3.5" />
+              )}
+            </button>
             <span className="text-xs text-muted-foreground">伤害</span>
           </div>
         </div>
