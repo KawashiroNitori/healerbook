@@ -38,6 +38,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 90,
       executor: createShieldExecutor(1362, 30),
+      statDataEntries: [{ type: 'shield', key: 1362 }],
     },
     {
       id: 7385,
@@ -58,6 +59,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 90,
       executor: createShieldExecutor(1457, 30),
+      statDataEntries: [{ type: 'shield', key: 1457 }],
     },
 
     // 暗黑骑士 (DRK)
@@ -111,6 +113,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 10,
       cooldown: 1,
       executor: createShieldExecutor(3903, 10),
+      statDataEntries: [{ type: 'shield', key: 3903 }],
     },
 
     // 学者 (SCH)
@@ -151,6 +154,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           statuses: [...filteredStatuses, ...newStatuses],
         }
       },
+      statDataEntries: [{ type: 'heal', key: 185, label: '鼓舞' }],
     },
     {
       id: 16542,
@@ -217,6 +221,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
           ],
         }
       },
+      statDataEntries: [
+        { type: 'heal', key: 37013 },
+        { type: 'critHeal', key: 37013 },
+      ],
     },
 
     {
@@ -266,6 +274,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           statuses: [...filteredStatuses, ...newStatuses],
         }
       },
+      statDataEntries: [{ type: 'heal', key: 37016 }],
     },
 
     {
@@ -316,6 +325,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 1,
       executor: createShieldExecutor(1917, 30),
+      statDataEntries: [{ type: 'shield', key: 1917 }],
     },
 
     // 占星术士 (AST)
@@ -363,6 +373,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         }
         return createShieldExecutor(1921, 30)(ctx)
       },
+      statDataEntries: [{ type: 'shield', key: 1921 }],
     },
 
     // 贤者 (SGE)
@@ -374,6 +385,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 15,
       cooldown: 120,
       executor: createShieldExecutor(2613, 15, { stack: 5 }),
+      statDataEntries: [{ type: 'shield', key: 2613 }],
     },
 
     // 整体论 - 贤者复合技能（减伤 + 盾值）
@@ -390,6 +402,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const partyState = modifierExecutor(ctx)
         return shieldExecutor({ ...ctx, partyState })
       },
+      statDataEntries: [{ type: 'shield', key: 3365 }],
     },
 
     {
@@ -449,6 +462,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           statuses: [...filteredStatuses, ...newStatuses],
         }
       },
+      statDataEntries: [{ type: 'shield', key: 2609 }],
     },
 
     // ==================== 近战 DPS ====================
