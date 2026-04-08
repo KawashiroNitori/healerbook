@@ -517,7 +517,7 @@ describe('parseDamageEvents', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('应该过滤掉低伤害技能', () => {
+  it('不应过滤低伤害技能（保留供用户编辑）', () => {
     const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
     const abilityMap = makeAbilityMap(12345, 'Weak Attack', 1024)
 
@@ -541,7 +541,8 @@ describe('parseDamageEvents', () => {
       playerMap,
       abilityMap
     )
-    expect(result).toHaveLength(0)
+    expect(result).toHaveLength(1)
+    expect(result[0].damage).toBe(5000)
   })
 
   it('应该在 unmitigatedAmount 为 0 时从 multiplier 和 absorbed 推测原始伤害', () => {
@@ -590,7 +591,7 @@ describe('parseDamageEvents', () => {
     expect(healerDetail?.unmitigatedDamage).toBe(10000)
   })
 
-  it('应该在 unmitigatedAmount 为 0 且无法推测时忽略该玩家伤害', () => {
+  it('unmitigatedAmount 为 0 且无法推测时保留该玩家伤害（置 0 供用户填写）', () => {
     const playerMap = new Map<number, V2Actor>([
       [1, { id: 1, name: 'Healer1', type: 'WhiteMage' }],
       [2, { id: 2, name: 'DPS1', type: 'Samurai' }],
@@ -603,7 +604,7 @@ describe('parseDamageEvents', () => {
         packetID: 1,
         abilityGameID: 999999,
         targetID: 1,
-        unmitigatedAmount: 0, // 无效，multiplier 也缺失，应忽略
+        unmitigatedAmount: 0, // 无法推测，保留并置 0
         amount: 0,
         absorbed: 0,
         timestamp: fightStartTime + 5000,
@@ -630,9 +631,10 @@ describe('parseDamageEvents', () => {
       abilityMap
     )
     expect(result).toHaveLength(1)
-    // 第一个玩家的伤害事件被忽略，只有第二个玩家
-    expect(result[0].playerDamageDetails).toHaveLength(1)
-    expect(result[0].playerDamageDetails?.[0].playerId).toBe(2)
+    // 两个玩家都保留
+    expect(result[0].playerDamageDetails).toHaveLength(2)
+    const healerDetail = result[0].playerDamageDetails?.find(d => d.playerId === 1)
+    expect(healerDetail?.unmitigatedDamage).toBe(0)
   })
 
   it('应该将全坦目标且伤害远高于 AOE 的伤害判定为 tankbuster', () => {

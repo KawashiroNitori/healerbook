@@ -203,8 +203,8 @@ export function parseDamageEvents(
     damageTimestamps.set(detail, event.timestamp)
   }
 
-  // 过滤掉没有被 damage 事件填充数值的 detail（无法获取伤害数据）
-  const filledDetails = playerDamageDetails.filter(d => d.unmitigatedDamage > 0)
+  // 标记已被 damage 事件填充数值的 detail
+  const filledDetails = playerDamageDetails
 
   // Step 3: 从 absorbed 事件填充盾值状态
   // absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key
@@ -271,9 +271,9 @@ export function parseDamageEvents(
       }
     }
 
-    // 过滤总伤害过低的事件
-    const totalUnmitigatedDamage = details.reduce((sum, d) => sum + d.unmitigatedDamage, 0)
-    if (totalUnmitigatedDamage < 10000) continue
+    // 注意：不要过滤低伤害事件。伤害为 0 表示数据缺失（如只有 calculateddamage 没有 damage），
+    // 需要保留供用户在编辑器中手动填写。即使有数据但伤害值低，也不应过滤，
+    // 因为某些机制伤害确实很低但对减伤规划仍有意义。
 
     // 找到最早的 detail
     const firstDetail = details.reduce((earliest, current) =>
