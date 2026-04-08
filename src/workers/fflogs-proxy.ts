@@ -23,6 +23,7 @@ import { ALL_ENCOUNTERS, DEFAULT_ENCOUNTER_ID } from '@/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
 import { handleAuthCallback, handleAuthRefresh } from './auth'
 import { handleTimelines } from './timelines'
+import { handleFFLogsImport } from './fflogsImportHandler'
 
 interface QueueMessageBody {
   type: string
@@ -98,6 +99,8 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
       path.match(/^\/api\/timelines\/[0-9A-Za-z]+$/)
     ) {
       return await handleTimelines(request, env)
+    } else if (path === '/api/fflogs/import' && request.method === 'GET') {
+      return await handleFFLogsImport(request, env)
     } else if (path.startsWith('/api/fflogs/report/')) {
       return await handleReport(request, env)
     } else if (path.startsWith('/api/fflogs/events/')) {
