@@ -15,6 +15,7 @@ import {
   TriangleAlert,
   Settings,
   Eye,
+  Copy,
 } from 'lucide-react'
 import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -291,6 +292,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
               <div className="w-px h-6 bg-border mx-1" />
               {onCreateCopy ? (
                 <Button variant="outline" size="sm" className="h-7" onClick={onCreateCopy}>
+                  <Copy className="w-4 h-4" />
                   在本地创建副本
                 </Button>
               ) : (
