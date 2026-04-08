@@ -14,6 +14,7 @@ import {
   Redo2,
   TriangleAlert,
   Settings,
+  Eye,
 } from 'lucide-react'
 import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -23,6 +24,15 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +71,13 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
     selectEvent,
     selectCastEvent,
   } = useTimelineStore()
-  const { toggleReadOnly } = useUIStore()
+  const {
+    toggleReadOnly,
+    showActualDamage,
+    showOriginalDamage,
+    toggleShowActualDamage,
+    toggleShowOriginalDamage,
+  } = useUIStore()
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
@@ -210,6 +226,41 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
               </TooltipContent>
             </Tooltip>
           )}
+
+          <div className="w-px h-6 bg-border mx-1" />
+
+          {/* 视图菜单 */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">视图</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>伤害事件</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuCheckboxItem
+                    checked={showActualDamage}
+                    onCheckedChange={toggleShowActualDamage}
+                  >
+                    实际伤害
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={showOriginalDamage}
+                    onCheckedChange={toggleShowOriginalDamage}
+                  >
+                    原始伤害
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <div className="w-px h-6 bg-border mx-1" />
 
