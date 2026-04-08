@@ -4,48 +4,22 @@
  * 将 FFLogs 数据获取和解析合并为一次请求，返回完整 Timeline 对象
  */
 
-import { FFLogsClientV2 } from './fflogsClientV2'
 import {
   parseComposition,
   parseDamageEvents,
   parseCastEvents,
   findFirstDamageTimestamp,
+  convertV1ToReport,
 } from '@/utils/fflogsImporter'
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import type { Timeline } from '@/types/timeline'
-import type { FFLogsReport, FFLogsV1Report } from '@/types/fflogs'
-import type { Env } from './fflogs-proxy'
+import { createClient, jsonResponse, type Env } from './fflogs-proxy'
 import { customAlphabet } from 'nanoid'
 
 const generateId = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   21
 )
-
-/**
- * 将 Worker 返回的 V1 格式报告转换为 FFLogsReport（复用前端 fflogsClient.ts 中的逻辑）
- */
-function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogsReport {
-  return {
-    code: reportCode,
-    title: v1Report.title || '未命名报告',
-    lang: v1Report.lang,
-    startTime: v1Report.start,
-    endTime: v1Report.end,
-    fights: v1Report.fights.map(fight => ({
-      id: fight.id,
-      name: fight.name,
-      difficulty: fight.difficulty,
-      kill: fight.kill || false,
-      startTime: fight.start_time,
-      endTime: fight.end_time,
-      encounterID: fight.boss,
-    })),
-    friendlies: v1Report.friendlies,
-    enemies: v1Report.enemies,
-    abilities: v1Report.abilities,
-  }
-}
 
 export async function handleFFLogsImport(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
@@ -56,17 +30,8 @@ export async function handleFFLogsImport(request: Request, env: Env): Promise<Re
     return jsonResponse({ error: 'Missing reportCode parameter' }, 400)
   }
 
-  if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET) {
-    return jsonResponse({ error: 'FFLogs credentials not configured' }, 500)
-  }
-
-  const client = new FFLogsClientV2({
-    clientId: env.FFLOGS_CLIENT_ID,
-    clientSecret: env.FFLOGS_CLIENT_SECRET,
-    kv: env.healerbook,
-  })
-
   try {
+    const client = createClient(env)
     // 1. 获取报告元数据
     const v1Report = await client.getReport({ reportCode })
     const report = convertV1ToReport(v1Report, reportCode)
@@ -166,14 +131,4 @@ export async function handleFFLogsImport(request: Request, env: Env): Promise<Re
       502
     )
   }
-}
-
-function jsonResponse(data: unknown, status: number = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-  })
 }

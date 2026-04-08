@@ -2,7 +2,7 @@
  * FFLogs 数据解析工具（V2 API）
  */
 
-import type { FFLogsReport, FFLogsAbility, FFLogsEvent } from '@/types/fflogs'
+import type { FFLogsReport, FFLogsV1Report, FFLogsAbility, FFLogsEvent } from '@/types/fflogs'
 import type {
   Composition,
   DamageEvent,
@@ -19,6 +19,31 @@ import { getTankJobs, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
 
 const actionChinese: Record<string, string> = actionChineseRaw
+
+/**
+ * 将 Worker 返回的 V1 格式报告转换为 FFLogsReport
+ */
+export function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogsReport {
+  return {
+    code: reportCode,
+    title: v1Report.title || '未命名报告',
+    lang: v1Report.lang,
+    startTime: v1Report.start,
+    endTime: v1Report.end,
+    fights: v1Report.fights.map(fight => ({
+      id: fight.id,
+      name: fight.name,
+      difficulty: fight.difficulty,
+      kill: fight.kill || false,
+      startTime: fight.start_time,
+      endTime: fight.end_time,
+      encounterID: fight.boss,
+    })),
+    friendlies: v1Report.friendlies,
+    enemies: v1Report.enemies,
+    abilities: v1Report.abilities,
+  }
+}
 
 function getActionChinese(actionId: number): string | undefined {
   return actionChinese[actionId.toString()]

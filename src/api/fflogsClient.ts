@@ -12,33 +12,9 @@ import type {
   FFLogsEventsResponse,
 } from '@/types/fflogs'
 import { apiClient } from './apiClient'
+import { convertV1ToReport } from '@/utils/fflogsImporter'
 
 const REQUEST_TIMEOUT = 60000
-
-/**
- * 将 v1 响应转换为统一格式
- */
-function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogsReport {
-  return {
-    code: reportCode,
-    title: v1Report.title || '未命名报告',
-    lang: v1Report.lang,
-    startTime: v1Report.start,
-    endTime: v1Report.end,
-    fights: v1Report.fights.map(fight => ({
-      id: fight.id,
-      name: fight.name,
-      difficulty: fight.difficulty,
-      kill: fight.kill || false,
-      startTime: fight.start_time,
-      endTime: fight.end_time,
-      encounterID: fight.boss,
-    })),
-    friendlies: v1Report.friendlies,
-    enemies: v1Report.enemies,
-    abilities: v1Report.abilities,
-  }
-}
 
 /**
  * FFLogs 客户端（前端）

@@ -65,7 +65,7 @@ export interface IFFLogsClient {
 /**
  * 创建 FFLogs V2 客户端
  */
-function createClient(env: Env): FFLogsClientV2 {
+export function createClient(env: Env): FFLogsClientV2 {
   if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET) {
     throw new Error('FFLogs v2 credentials not configured')
   }
@@ -393,7 +393,7 @@ function handleCORS(): Response {
 /**
  * JSON 响应辅助函数
  */
-function jsonResponse(
+export function jsonResponse(
   data: unknown,
   status: number = 200,
   extraHeaders: Record<string, string> = {}
