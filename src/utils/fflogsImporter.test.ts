@@ -38,12 +38,12 @@ describe('parseFFLogsUrl', () => {
       })
     })
 
-    it('应该解析不带 fight 参数的 URL', () => {
+    it('应该解析不带 fight 参数的 URL（默认取最后一个战斗）', () => {
       const result = parseFFLogsUrl('https://www.fflogs.com/reports/ABC123')
       expect(result).toEqual({
         reportCode: 'ABC123',
         fightId: null,
-        isLastFight: false,
+        isLastFight: true,
       })
     })
 
@@ -76,12 +76,12 @@ describe('parseFFLogsUrl', () => {
   })
 
   describe('简短格式', () => {
-    it('应该解析纯报告代码', () => {
+    it('应该解析纯报告代码（默认取最后一个战斗）', () => {
       const result = parseFFLogsUrl('ABC123')
       expect(result).toEqual({
         reportCode: 'ABC123',
         fightId: null,
-        isLastFight: false,
+        isLastFight: true,
       })
     })
 
@@ -132,24 +132,62 @@ describe('parseFFLogsUrl', () => {
       })
     })
 
-    it('应该处理无效的 fight 参数', () => {
+    it('应该处理无效的 fight 参数（默认取最后一个战斗）', () => {
       const result = parseFFLogsUrl('https://www.fflogs.com/reports/ABC123#fight=abc')
       expect(result).toEqual({
         reportCode: 'ABC123',
         fightId: null,
-        isLastFight: false,
+        isLastFight: true,
       })
     })
   })
 
-  describe('实际案例', () => {
-    it('应该解析真实的 FFLogs URL', () => {
+  describe('匿名报告（a:CODE 格式）', () => {
+    it('应该解析匿名报告 URL', () => {
       const result = parseFFLogsUrl(
-        'https://www.fflogs.com/reports/a:1234567890abcdef#fight=12&type=damage-done'
+        'https://www.fflogs.com/reports/a:fQ6DXNV7bWqrmKBM?fight=18&type=damage-done'
       )
-      expect(result.reportCode).toBeTruthy()
-      expect(result.fightId).toBe(12)
-      expect(result.isLastFight).toBe(false)
+      expect(result).toEqual({
+        reportCode: 'a:fQ6DXNV7bWqrmKBM',
+        fightId: 18,
+        isLastFight: false,
+      })
+    })
+
+    it('应该解析匿名报告 URL（hash 参数）', () => {
+      const result = parseFFLogsUrl('https://www.fflogs.com/reports/a:fQ6DXNV7bWqrmKBM#fight=last')
+      expect(result).toEqual({
+        reportCode: 'a:fQ6DXNV7bWqrmKBM',
+        fightId: null,
+        isLastFight: true,
+      })
+    })
+
+    it('应该解析匿名报告 URL（无 fight 参数，默认取最后一个战斗）', () => {
+      const result = parseFFLogsUrl('https://zh.fflogs.com/reports/a:fQ6DXNV7bWqrmKBM')
+      expect(result).toEqual({
+        reportCode: 'a:fQ6DXNV7bWqrmKBM',
+        fightId: null,
+        isLastFight: true,
+      })
+    })
+
+    it('应该解析匿名报告纯代码', () => {
+      const result = parseFFLogsUrl('a:fQ6DXNV7bWqrmKBM#fight=5')
+      expect(result).toEqual({
+        reportCode: 'a:fQ6DXNV7bWqrmKBM',
+        fightId: 5,
+        isLastFight: false,
+      })
+    })
+
+    it('应该解析匿名报告纯代码（无 fight，默认取最后一个战斗）', () => {
+      const result = parseFFLogsUrl('a:fQ6DXNV7bWqrmKBM')
+      expect(result).toEqual({
+        reportCode: 'a:fQ6DXNV7bWqrmKBM',
+        fightId: null,
+        isLastFight: true,
+      })
     })
   })
 })

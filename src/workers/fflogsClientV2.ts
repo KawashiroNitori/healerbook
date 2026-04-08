@@ -89,6 +89,17 @@ export class FFLogsClientV2 {
   }
 
   /**
+   * 清除 token 缓存，强制下次获取新 token
+   */
+  private async invalidateToken(): Promise<void> {
+    cachedToken = null
+    tokenExpiresAt = 0
+    if (this.kv) {
+      await this.kv.delete(KV_TOKEN_KEY)
+    }
+  }
+
+  /**
    * 获取 Access Token（优先从 KV 读取，其次内存缓存）
    */
   private async getAccessToken(): Promise<string> {
@@ -162,20 +173,28 @@ export class FFLogsClientV2 {
     variables: Record<string, unknown> = {},
     region: string = 'cn'
   ): Promise<T> {
-    const token = await this.getAccessToken()
     const graphqlUrl = `https://${region}.fflogs.com/api/v2/client`
 
-    const response = await fetch(graphqlUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query,
-        variables,
-      }),
-    })
+    const doRequest = async (token: string) => {
+      return fetch(graphqlUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query, variables }),
+      })
+    }
+
+    let token = await this.getAccessToken()
+    let response = await doRequest(token)
+
+    // 401 时清除缓存的 token，重新获取后重试一次
+    if (response.status === 401) {
+      await this.invalidateToken()
+      token = await this.getAccessToken()
+      response = await doRequest(token)
+    }
 
     if (!response.ok) {
       throw new Error(`FFLogs GraphQL error: ${response.statusText}`)
@@ -271,7 +290,7 @@ export class FFLogsClientV2 {
     // 转换为 v1 格式（保持接口一致性）
     return {
       title: report.title,
-      owner: report.owner.name,
+      owner: report.owner?.name ?? '',
       start: report.startTime,
       end: report.endTime,
       phases: report.phases,
