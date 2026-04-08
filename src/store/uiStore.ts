@@ -27,6 +27,10 @@ interface UIState {
   hiddenPlayerIds: Set<number>
   /** 伤害事件轨道是否折叠 */
   isDamageTrackCollapsed: boolean
+  /** 是否显示实际伤害 */
+  showActualDamage: boolean
+  /** 是否显示原始伤害 */
+  showOriginalDamage: boolean
 
   // Actions
   /** 切换侧边栏 */
@@ -53,6 +57,10 @@ interface UIState {
   isolatePlayer: (playerId: number, allPlayerIds: number[]) => void
   /** 切换伤害事件轨道折叠 */
   toggleDamageTrackCollapsed: () => void
+  /** 切换显示实际伤害 */
+  toggleShowActualDamage: () => void
+  /** 切换显示原始伤害 */
+  toggleShowOriginalDamage: () => void
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -81,6 +89,8 @@ export const useUIStore = create<UIState>(set => ({
   isReadOnly: false,
   hiddenPlayerIds: new Set<number>(),
   isDamageTrackCollapsed: false,
+  showActualDamage: true,
+  showOriginalDamage: false,
 
   toggleSidebar: () =>
     set(state => ({
@@ -145,6 +155,16 @@ export const useUIStore = create<UIState>(set => ({
   toggleDamageTrackCollapsed: () =>
     set(state => ({
       isDamageTrackCollapsed: !state.isDamageTrackCollapsed,
+    })),
+
+  toggleShowActualDamage: () =>
+    set(state => ({
+      showActualDamage: !state.showActualDamage,
+    })),
+
+  toggleShowOriginalDamage: () =>
+    set(state => ({
+      showOriginalDamage: !state.showOriginalDamage,
     })),
 
   isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
