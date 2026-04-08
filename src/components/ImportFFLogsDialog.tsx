@@ -16,6 +16,11 @@ import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
+import { apiClient } from '@/api/apiClient'
+import type { Timeline } from '@/types/timeline'
+
+const useServerImport = () =>
+  new URLSearchParams(window.location.search).get('server_import') === '1'
 
 interface ImportFFLogsDialogProps {
   open: boolean
@@ -65,143 +70,49 @@ export default function ImportFFLogsDialog({
     readClipboard()
   }, [initialUrl])
 
+  const serverImport = useServerImport()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!parsed?.reportCode) return
 
     setError('')
     setIsLoading(true)
-    setLoadingStep('正在获取报告信息...')
 
     try {
-      // 获取报告数据
-      const client = createFFLogsClient()
-      const report = await client.getReport(parsed.reportCode)
+      let newTimeline: Timeline
 
-      // 确定战斗 ID
-      let fightId = parsed.fightId
-      if (parsed.isLastFight) {
-        // 获取最后一个战斗
-        if (!report.fights || report.fights.length === 0) {
-          throw new Error('报告中没有战斗记录')
-        }
-        fightId = report.fights[report.fights.length - 1].id
-      }
-
-      // 查找指定的战斗
-      const fight = report.fights?.find(f => f.id === fightId)
-      if (!fight) {
-        throw new Error(`战斗 #${fightId} 不存在`)
-      }
-
-      // 创建时间轴名称
-      // 优先从 raidEncounters.ts 查询副本名称
-      let timelineName = fight.name || `战斗 ${fightId}`
-
-      if (fight.encounterID) {
-        const result = getEncounterWithTier(fight.encounterID)
-        if (result) {
-          timelineName = `${result.tier.name} - ${result.encounter.name}`
-        }
-      }
-
-      // 创建新时间轴
-      const newTimeline = createNewTimeline(fight.encounterID?.toString() || '0', timelineName)
-
-      // 更新战斗信息
-      newTimeline.encounter = {
-        id: fight.encounterID || 0,
-        name: fight.name,
-        displayName: fight.name,
-        zone: report.title || '',
-        damageEvents: [],
-      }
-
-      // 计算战斗时长（秒）
-
-      // 获取伤害事件（自动分页）
-      setLoadingStep('正在获取战斗事件...')
-
-      try {
-        const eventsData = await client.getAllEvents(parsed.reportCode, {
-          start: fight.startTime,
-          end: fight.endTime,
-          lang: report.lang,
-        })
-
-        setLoadingStep(`正在解析数据...`)
-
-        // 构建玩家 ID 映射
-        const playerMap = new Map<number, { id: number; name: string; type: string }>()
-        report.friendlies?.forEach(player => {
-          playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
-        })
-
-        // 构建技能元数据映射（V2 API 提供）
-        const abilityMap = new Map<
-          number,
-          { gameID: number; name: string; type: string | number }
-        >()
-        report.abilities?.forEach(ability => {
-          abilityMap.set(ability.gameID, ability)
-        })
-
-        // 从事件中提取实际参与战斗的玩家 ID
-        const participantIds = new Set<number>()
-        for (const event of eventsData.events || []) {
-          if (event.sourceID && playerMap.has(event.sourceID)) participantIds.add(event.sourceID)
-          if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
-        }
-
-        // 重新解析阵容（用参与者过滤）
-        const composition = parseComposition(report, fightId!, participantIds)
-        newTimeline.composition = composition
-
-        // 战斗零时间：第一个 damage 事件的时间戳
-        const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
-
-        // 解析伤害事件
-        const damageEvents = parseDamageEvents(
-          eventsData.events || [],
-          fightStartTime,
-          playerMap,
-          abilityMap
+      if (serverImport) {
+        newTimeline = await handleServerImport(
+          parsed.reportCode,
+          parsed.fightId,
+          parsed.isLastFight
         )
-        newTimeline.damageEvents = damageEvents
-
-        // 解析技能使用事件
-        const castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
-
-        // 设置为回放模式
-        newTimeline.isReplayMode = true
-
-        // 预填 description：记录导入来源
-        newTimeline.description = `导入自 ${url}`
-
-        // 记录 FFLogs 来源（parsed.reportCode 已在 handleSubmit 开头验证非 null）
-        newTimeline.fflogsSource = {
-          reportCode: parsed.reportCode!,
-          fightId: fightId!,
-        }
-
-        newTimeline.castEvents = castEvents
-      } catch (eventError) {
-        console.error('Failed to fetch events:', eventError)
-        throw eventError
+      } else {
+        newTimeline = await handleClientImport(
+          parsed.reportCode,
+          parsed.fightId,
+          parsed.isLastFight
+        )
       }
+
+      newTimeline.description = `导入自 ${url}`
 
       // 保存时间轴
       saveTimeline(newTimeline)
-      track('fflogs-import', { success: true, encounterId: fight.encounterID ?? 0 })
+      track('fflogs-import', {
+        success: true,
+        encounterId: newTimeline.encounter?.id ?? 0,
+        serverImport,
+      })
 
       // 跳转到编辑器
       window.open(`/timeline/${newTimeline.id}`, '_blank')
       onImported()
       onClose()
     } catch (err) {
-      track('fflogs-import', { success: false })
+      track('fflogs-import', { success: false, serverImport })
       if (err instanceof Error) {
-        // 友好的错误提示
         if (err.message.includes('API Token') || err.message.includes('API Key')) {
           setError('FFLogs 连接配置错误，请联系开发者')
         } else {
@@ -213,6 +124,125 @@ export default function ImportFFLogsDialog({
     } finally {
       setIsLoading(false)
     }
+  }
+
+  /** 服务端解析：一次请求返回完整 Timeline */
+  const handleServerImport = async (
+    reportCode: string,
+    fightId: number | null,
+    isLastFight: boolean
+  ): Promise<Timeline> => {
+    setLoadingStep('正在服务端解析...')
+
+    const params = new URLSearchParams({ reportCode })
+    if (!isLastFight && fightId !== null) {
+      params.set('fightId', String(fightId))
+    }
+
+    const response = await apiClient.get(`fflogs/import?${params}`, {
+      timeout: 120000,
+      throwHttpErrors: false,
+    })
+
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string }
+      throw new Error(body.error || `HTTP ${response.status}`)
+    }
+
+    return (await response.json()) as Timeline
+  }
+
+  /** 前端解析：原有逻辑 */
+  const handleClientImport = async (
+    reportCode: string,
+    fightId: number | null,
+    isLastFight: boolean
+  ): Promise<Timeline> => {
+    setLoadingStep('正在获取报告信息...')
+
+    const client = createFFLogsClient()
+    const report = await client.getReport(reportCode)
+
+    // 确定战斗 ID
+    let resolvedFightId = fightId
+    if (isLastFight) {
+      if (!report.fights || report.fights.length === 0) {
+        throw new Error('报告中没有战斗记录')
+      }
+      resolvedFightId = report.fights[report.fights.length - 1].id
+    }
+
+    const fight = report.fights?.find(f => f.id === resolvedFightId)
+    if (!fight) {
+      throw new Error(`战斗 #${resolvedFightId} 不存在`)
+    }
+
+    // 创建时间轴名称
+    let timelineName = fight.name || `战斗 ${resolvedFightId}`
+    if (fight.encounterID) {
+      const result = getEncounterWithTier(fight.encounterID)
+      if (result) {
+        timelineName = `${result.tier.name} - ${result.encounter.name}`
+      }
+    }
+
+    const newTimeline = createNewTimeline(fight.encounterID?.toString() || '0', timelineName)
+
+    newTimeline.encounter = {
+      id: fight.encounterID || 0,
+      name: fight.name,
+      displayName: fight.name,
+      zone: report.title || '',
+      damageEvents: [],
+    }
+
+    setLoadingStep('正在获取战斗事件...')
+
+    const eventsData = await client.getAllEvents(reportCode, {
+      start: fight.startTime,
+      end: fight.endTime,
+      lang: report.lang,
+    })
+
+    setLoadingStep('正在解析数据...')
+
+    const playerMap = new Map<number, { id: number; name: string; type: string }>()
+    report.friendlies?.forEach(player => {
+      playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
+    })
+
+    const abilityMap = new Map<number, { gameID: number; name: string; type: string | number }>()
+    report.abilities?.forEach(ability => {
+      abilityMap.set(ability.gameID, ability)
+    })
+
+    const participantIds = new Set<number>()
+    for (const event of eventsData.events || []) {
+      if (event.sourceID && playerMap.has(event.sourceID)) participantIds.add(event.sourceID)
+      if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
+    }
+
+    const composition = parseComposition(report, resolvedFightId!, participantIds)
+    newTimeline.composition = composition
+
+    const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
+
+    newTimeline.damageEvents = parseDamageEvents(
+      eventsData.events || [],
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+
+    newTimeline.castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
+
+    newTimeline.isReplayMode = true
+    newTimeline.fflogsSource = {
+      reportCode,
+      fightId: resolvedFightId!,
+    }
+
+    return newTimeline
   }
 
   return (
