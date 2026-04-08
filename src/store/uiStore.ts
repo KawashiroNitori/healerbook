@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface UIState {
   /** 侧边栏是否展开 */
@@ -77,104 +78,114 @@ function getInitialTheme(): 'light' | 'dark' {
 const initialTheme = getInitialTheme()
 applyTheme(initialTheme)
 
-export const useUIStore = create<UIState>(set => ({
-  isSidebarOpen: true,
-  isSkillPanelOpen: true,
-  isPropertyPanelOpen: true,
-  activePanel: null,
-  showGrid: true,
-  showTimeRuler: true,
-  showCooldownIndicators: true,
-  theme: initialTheme,
-  isReadOnly: false,
-  hiddenPlayerIds: new Set<number>(),
-  isDamageTrackCollapsed: false,
-  showActualDamage: true,
-  showOriginalDamage: false,
+export const useUIStore = create<UIState>()(
+  persist(
+    set => ({
+      isSidebarOpen: true,
+      isSkillPanelOpen: true,
+      isPropertyPanelOpen: true,
+      activePanel: null,
+      showGrid: true,
+      showTimeRuler: true,
+      showCooldownIndicators: true,
+      theme: initialTheme,
+      isReadOnly: false,
+      hiddenPlayerIds: new Set<number>(),
+      isDamageTrackCollapsed: false,
+      showActualDamage: true,
+      showOriginalDamage: false,
 
-  toggleSidebar: () =>
-    set(state => ({
-      isSidebarOpen: !state.isSidebarOpen,
-    })),
+      toggleSidebar: () =>
+        set(state => ({
+          isSidebarOpen: !state.isSidebarOpen,
+        })),
 
-  toggleSkillPanel: () =>
-    set(state => ({
-      isSkillPanelOpen: !state.isSkillPanelOpen,
-      activePanel: !state.isSkillPanelOpen ? 'skills' : null,
-    })),
+      toggleSkillPanel: () =>
+        set(state => ({
+          isSkillPanelOpen: !state.isSkillPanelOpen,
+          activePanel: !state.isSkillPanelOpen ? 'skills' : null,
+        })),
 
-  togglePropertyPanel: () =>
-    set(state => ({
-      isPropertyPanelOpen: !state.isPropertyPanelOpen,
-      activePanel: !state.isPropertyPanelOpen ? 'properties' : null,
-    })),
+      togglePropertyPanel: () =>
+        set(state => ({
+          isPropertyPanelOpen: !state.isPropertyPanelOpen,
+          activePanel: !state.isPropertyPanelOpen ? 'properties' : null,
+        })),
 
-  setActivePanel: panel =>
-    set({
-      activePanel: panel,
-      isSkillPanelOpen: panel === 'skills' ? true : false,
-      isPropertyPanelOpen: panel === 'properties' ? true : false,
+      setActivePanel: panel =>
+        set({
+          activePanel: panel,
+          isSkillPanelOpen: panel === 'skills' ? true : false,
+          isPropertyPanelOpen: panel === 'properties' ? true : false,
+        }),
+
+      toggleGrid: () =>
+        set(state => ({
+          showGrid: !state.showGrid,
+        })),
+
+      toggleTimeRuler: () =>
+        set(state => ({
+          showTimeRuler: !state.showTimeRuler,
+        })),
+
+      toggleCooldownIndicators: () =>
+        set(state => ({
+          showCooldownIndicators: !state.showCooldownIndicators,
+        })),
+
+      setTheme: theme => {
+        applyTheme(theme)
+        set({ theme })
+      },
+
+      toggleReadOnly: () =>
+        set(state => ({
+          isReadOnly: !state.isReadOnly,
+        })),
+
+      togglePlayerVisibility: (playerId: number) =>
+        set(state => {
+          const next = new Set(state.hiddenPlayerIds)
+          if (next.has(playerId)) {
+            next.delete(playerId)
+          } else {
+            next.add(playerId)
+          }
+          return { hiddenPlayerIds: next }
+        }),
+
+      toggleDamageTrackCollapsed: () =>
+        set(state => ({
+          isDamageTrackCollapsed: !state.isDamageTrackCollapsed,
+        })),
+
+      toggleShowActualDamage: () =>
+        set(state => ({
+          showActualDamage: !state.showActualDamage,
+        })),
+
+      toggleShowOriginalDamage: () =>
+        set(state => ({
+          showOriginalDamage: !state.showOriginalDamage,
+        })),
+
+      isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
+        set(state => {
+          const others = allPlayerIds.filter(id => id !== playerId)
+          const alreadyIsolated =
+            others.every(id => state.hiddenPlayerIds.has(id)) &&
+            !state.hiddenPlayerIds.has(playerId)
+          if (alreadyIsolated) {
+            return { hiddenPlayerIds: new Set<number>() }
+          }
+          return { hiddenPlayerIds: new Set(others) }
+        }),
     }),
-
-  toggleGrid: () =>
-    set(state => ({
-      showGrid: !state.showGrid,
-    })),
-
-  toggleTimeRuler: () =>
-    set(state => ({
-      showTimeRuler: !state.showTimeRuler,
-    })),
-
-  toggleCooldownIndicators: () =>
-    set(state => ({
-      showCooldownIndicators: !state.showCooldownIndicators,
-    })),
-
-  setTheme: theme => {
-    applyTheme(theme)
-    set({ theme })
-  },
-
-  toggleReadOnly: () =>
-    set(state => ({
-      isReadOnly: !state.isReadOnly,
-    })),
-
-  togglePlayerVisibility: (playerId: number) =>
-    set(state => {
-      const next = new Set(state.hiddenPlayerIds)
-      if (next.has(playerId)) {
-        next.delete(playerId)
-      } else {
-        next.add(playerId)
-      }
-      return { hiddenPlayerIds: next }
-    }),
-
-  toggleDamageTrackCollapsed: () =>
-    set(state => ({
-      isDamageTrackCollapsed: !state.isDamageTrackCollapsed,
-    })),
-
-  toggleShowActualDamage: () =>
-    set(state => ({
-      showActualDamage: !state.showActualDamage,
-    })),
-
-  toggleShowOriginalDamage: () =>
-    set(state => ({
-      showOriginalDamage: !state.showOriginalDamage,
-    })),
-
-  isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
-    set(state => {
-      const others = allPlayerIds.filter(id => id !== playerId)
-      const alreadyIsolated =
-        others.every(id => state.hiddenPlayerIds.has(id)) && !state.hiddenPlayerIds.has(playerId)
-      if (alreadyIsolated) {
-        return { hiddenPlayerIds: new Set<number>() }
-      }
-      return { hiddenPlayerIds: new Set(others) }
-    }),
-}))
+    {
+      name: 'ui-store',
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      partialize: ({ hiddenPlayerIds, theme, ...rest }) => rest,
+    }
+  )
+)

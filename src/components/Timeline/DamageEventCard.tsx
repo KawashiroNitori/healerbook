@@ -96,7 +96,7 @@ const DamageEventCard = memo(function DamageEventCard({
 
     if (showActualDamage && showOriginalDamage) {
       if (actualValue === undefined || originalValue === undefined) return ''
-      return `${formatDamageValue(actualValue)}/${formatDamageValue(originalValue)}`
+      return `${formatDamageValue(actualValue)} / ${formatDamageValue(originalValue)}`
     }
     if (showActualDamage) {
       if (actualValue === undefined) return ''
@@ -110,8 +110,12 @@ const DamageEventCard = memo(function DamageEventCard({
   }
   const damageText = getDamageText()
 
-  const showBoth = showActualDamage && showOriginalDamage
-  const damageTextWidth = !damageText ? 0 : showBoth ? 80 : 50
+  const damageTextWidth = (() => {
+    if (!damageText) return 0
+    const ctx = getMeasureCtx()
+    ctx.font = '12px Arial, sans-serif'
+    return Math.ceil(ctx.measureText(damageText).width) + 5
+  })()
   const nameAreaWidth = 150 - 5 - damageTextWidth
   const nameXOffset = hasOverkill || isLethal || isDangerous ? 20 : 5
   const displayName = truncateText(
