@@ -6,7 +6,12 @@ import { useState, useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
-import { parseComposition, parseDamageEvents, parseCastEvents } from '@/utils/fflogsImporter'
+import {
+  parseComposition,
+  parseDamageEvents,
+  parseCastEvents,
+  findFirstDamageTimestamp,
+} from '@/utils/fflogsImporter'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
@@ -31,11 +36,11 @@ export default function ImportFFLogsDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [loadingStep, setLoadingStep] = useState('')
   const [error, setError] = useState('')
-  const [parsedInfo, setParsedInfo] = useState<{
-    reportCode: string | null
-    fightId: number | null
-    isLastFight: boolean
-  } | null>(null)
+
+  // 实时解析 URL，判断是否合法
+  const parsed = url ? parseFFLogsUrl(url) : null
+  const isValid = !!parsed?.reportCode
+  const validationError = url && !isValid ? '无法识别 FFLogs 链接，请检查 URL 格式' : ''
 
   // 自动聚焦输入框并检测剪贴板
   useEffect(() => {
@@ -48,12 +53,8 @@ export default function ImportFFLogsDialog({
     const readClipboard = async () => {
       try {
         const text = await navigator.clipboard.readText()
-        if (text) {
-          // 检查是否为合法的 FFLogs 链接（必须同时包含 reportCode 和 fightId）
-          const parsed = parseFFLogsUrl(text)
-          if (parsed.reportCode && (parsed.fightId || parsed.isLastFight)) {
-            setUrl(text)
-          }
+        if (text && /fflogs\.com\/reports\//.test(text)) {
+          setUrl(text)
         }
       } catch (err) {
         // 剪贴板读取失败（权限问题或不支持），静默忽略
@@ -64,38 +65,11 @@ export default function ImportFFLogsDialog({
     readClipboard()
   }, [initialUrl])
 
-  // 实时解析 URL
-  useEffect(() => {
-    if (url) {
-      const parsed = parseFFLogsUrl(url)
-      setParsedInfo(parsed)
-      setError('')
-    } else {
-      setParsedInfo(null)
-    }
-  }, [url])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!parsed?.reportCode) return
+
     setError('')
-
-    if (!url) {
-      setError('请输入 FFLogs URL')
-      return
-    }
-
-    const parsed = parseFFLogsUrl(url)
-
-    if (!parsed.reportCode) {
-      setError('无法解析报告代码，请检查 URL 格式')
-      return
-    }
-
-    if (!parsed.fightId && !parsed.isLastFight) {
-      setError('无法从 URL 中提取战斗 ID，请确保 URL 包含 #fight=N 或 #fight=last')
-      return
-    }
-
     setIsLoading(true)
     setLoadingStep('正在获取报告信息...')
 
@@ -183,17 +157,20 @@ export default function ImportFFLogsDialog({
         const composition = parseComposition(report, fightId!, participantIds)
         newTimeline.composition = composition
 
+        // 战斗零时间：第一个 damage 事件的时间戳
+        const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
+
         // 解析伤害事件
         const damageEvents = parseDamageEvents(
           eventsData.events || [],
-          fight.startTime,
+          fightStartTime,
           playerMap,
           abilityMap
         )
         newTimeline.damageEvents = damageEvents
 
         // 解析技能使用事件
-        const castEvents = parseCastEvents(eventsData.events || [], fight.startTime, playerMap)
+        const castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
 
         // 设置为回放模式
         newTimeline.isReplayMode = true
@@ -257,34 +234,9 @@ export default function ImportFFLogsDialog({
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={isLoading}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              在 FFLogs 选择具体战斗后，复制浏览器地址栏的完整链接
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">粘贴 FFLogs 战斗链接或报告代码</p>
 
-            {/* 实时解析结果 */}
-            {parsedInfo && (
-              <div className="mt-2 p-3 bg-muted rounded-md text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">报告:</span>
-                  <span className="font-mono">{parsedInfo.reportCode || '未识别'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">战斗:</span>
-                  <span className="font-mono">
-                    {parsedInfo.fightId !== null
-                      ? `#${parsedInfo.fightId}`
-                      : parsedInfo.isLastFight
-                        ? 'last'
-                        : '未识别'}
-                  </span>
-                </div>
-                {parsedInfo.fightId === null && !parsedInfo.isLastFight && (
-                  <p className="text-xs text-destructive mt-1">
-                    ⚠️ 链接中未包含战斗编号，请在 FFLogs 选择具体战斗后再复制链接
-                  </p>
-                )}
-              </div>
-            )}
+            {validationError && <p className="text-xs text-destructive mt-1">{validationError}</p>}
           </div>
 
           {error && (
@@ -313,7 +265,7 @@ export default function ImportFFLogsDialog({
             <button
               type="submit"
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-              disabled={isLoading}
+              disabled={isLoading || !isValid}
             >
               {isLoading ? '导入中...' : '导入'}
             </button>

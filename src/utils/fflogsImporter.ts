@@ -25,6 +25,19 @@ function getActionChinese(actionId: number): string | undefined {
 }
 
 /**
+ * 从事件列表中找到第一个 calculateddamage 事件的时间戳，作为战斗零时间
+ * 如果没有 calculateddamage，回退到第一个 damage 事件，最后回退到 fallback
+ */
+export function findFirstDamageTimestamp(events: FFLogsEvent[], fallback: number): number {
+  let firstDamage: number | undefined
+  for (const event of events) {
+    if (event.type === 'calculateddamage') return event.timestamp
+    if (event.type === 'damage' && firstDamage === undefined) firstDamage = event.timestamp
+  }
+  return firstDamage ?? fallback
+}
+
+/**
  * 解析小队阵容
  * V2: actors(type:"Player") 已过滤，无 fights 数组
  * participantIds: 实际参与战斗的玩家 ID 集合（从事件数据中提取）
@@ -65,6 +78,18 @@ export function parseDamageEvents(
 ): DamageEvent[] {
   const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
   const TANK_JOBS = getTankJobs()
+
+  // Step 0: 构建 calculateddamage 时间戳映射（packetID → 最早时间戳）
+  // calculateddamage 是伤害实际结算的时间，比 damage 事件更准确
+  const calculatedDamageTimestamps = new Map<number, number>()
+  for (const event of events) {
+    if (event.type !== 'calculateddamage') continue
+    if (!event.packetID) continue
+    const existing = calculatedDamageTimestamps.get(event.packetID)
+    if (existing === undefined || event.timestamp < existing) {
+      calculatedDamageTimestamps.set(event.packetID, event.timestamp)
+    }
+  }
 
   // Step 1: 从 damage 事件中构建原始 PlayerDamageDetail，并解析 buffs 字段
   const playerDamageDetails: PlayerDamageDetail[] = []
@@ -123,8 +148,11 @@ export function parseDamageEvents(
       }
     }
 
+    // 优先使用 calculateddamage 的时间戳（伤害实际结算时间）
+    const calculatedTs = event.packetID ? calculatedDamageTimestamps.get(event.packetID) : undefined
+
     playerDamageDetails.push({
-      timestamp: event.timestamp || 0,
+      timestamp: calculatedTs ?? event.timestamp ?? 0,
       packetId: event.packetID,
       sourceId: event.sourceID || 0,
       playerId: event.targetID,
