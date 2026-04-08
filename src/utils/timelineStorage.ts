@@ -3,13 +3,7 @@
  */
 
 import type { Timeline, Composition } from '@/types/timeline'
-import { customAlphabet } from 'nanoid'
-
-// 使用纯字母数字字母表（排除默认的 _ 和 -），避免 ID 包含特殊字符
-const generateId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
+import { generateId } from '@/utils/id'
 
 const STORAGE_KEY = 'healerbook_timelines'
 

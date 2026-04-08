@@ -14,12 +14,7 @@ import {
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import type { Timeline } from '@/types/timeline'
 import { createClient, jsonResponse, type Env } from './fflogs-proxy'
-import { customAlphabet } from 'nanoid'
-
-const generateId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
+import { generateId } from '@/utils/id'
 
 export async function handleFFLogsImport(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)

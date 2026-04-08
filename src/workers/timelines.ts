@@ -2,13 +2,8 @@
 
 import type { Env } from './fflogs-proxy'
 import { verifyToken } from './jwt'
-import { customAlphabet } from 'nanoid'
+import { generateId } from '@/utils/id'
 import { validateCreateRequest, validateUpdateRequest } from './timelineSchema'
-
-const generateId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
 
 /** 格式化 Valibot 校验错误为可读字符串 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

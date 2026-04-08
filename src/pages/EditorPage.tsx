@@ -12,7 +12,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { House, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { customAlphabet } from 'nanoid'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
@@ -31,14 +30,10 @@ import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
 import ThemeToggle from '@/components/ThemeToggle'
 import type { Timeline } from '@/types/timeline'
+import { generateId } from '@/utils/id'
 import { track } from '@/utils/analytics'
 
 type PageMode = 'local' | 'author' | 'view' | 'loading' | 'not_found' | 'network_error'
-
-const generateId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>()
