@@ -26,6 +26,10 @@ function truncateText(text: string, maxWidth: number, font: string): string {
   return text.slice(0, i) + '...'
 }
 
+function formatDamageValue(value: number): string {
+  return value >= 10000 ? `${(value / 10000).toFixed(1)}w` : value.toLocaleString()
+}
+
 interface DamageEventCardProps {
   event: DamageEvent
   isSelected: boolean
@@ -82,10 +86,6 @@ const DamageEventCard = memo(function DamageEventCard({
   const isLethal = !hasOverkill && refHP != null && calculatedEvent!.finalDamage >= refHP
   const isDangerous =
     !hasOverkill && !isLethal && refHP != null && calculatedEvent!.finalDamage >= refHP * 0.9
-
-  const formatDamageValue = (value: number): string => {
-    return value >= 10000 ? `${(value / 10000).toFixed(1)}w` : value.toLocaleString()
-  }
 
   const getDamageText = (): string => {
     if (isTankbuster) return '死刑'
