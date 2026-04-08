@@ -103,8 +103,8 @@ export function parseDamageEvents(
   const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
   const TANK_JOBS = getTankJobs()
 
-  // Step 1: 从 calculateddamage 事件构建初始 PlayerDamageDetail
-  // calculateddamage 是伤害实际结算的事件，时间戳最准确，且总是存在
+  // Step 1: 从 calculateddamage 事件构建初始 PlayerDamageDetail（仅身份信息和时间戳）
+  // calculateddamage 是伤害实际结算的事件，时间戳最准确
   const playerDamageDetails: PlayerDamageDetail[] = []
   // damageTimestamps: 记录每个 detail 对应的 damage 事件时间戳，用于后续 absorbed 匹配
   const damageTimestamps = new Map<PlayerDamageDetail, number>()
@@ -130,19 +130,6 @@ export function parseDamageEvents(
     const chineseName = getActionChinese(abilityId)
     const skillName = chineseName ?? abilityName
 
-    // 计算未减伤伤害
-    let unmitigatedDamage = event.unmitigatedAmount ?? 0
-    if (unmitigatedDamage === 0) {
-      const finalAmount = event.amount ?? 0
-      const absorbed = event.absorbed ?? 0
-      const multiplier = event.multiplier
-      if (multiplier && multiplier > 0 && (finalAmount > 0 || absorbed > 0)) {
-        unmitigatedDamage = Math.round((finalAmount + absorbed) / multiplier)
-      } else {
-        continue
-      }
-    }
-
     const detail: PlayerDamageDetail = {
       timestamp: event.timestamp,
       packetId: event.packetID,
@@ -151,17 +138,15 @@ export function parseDamageEvents(
       job,
       abilityId,
       skillName,
-      unmitigatedDamage,
-      finalDamage: event.amount || 0,
-      overkill: event.overkill,
-      multiplier: event.multiplier,
+      unmitigatedDamage: 0,
+      finalDamage: 0,
       statuses: [],
     }
 
     playerDamageDetails.push(detail)
   }
 
-  // Step 2: 用 damage 事件填充 buffs、targetResources 等补充字段
+  // Step 2: 用 damage 事件填充数值字段（unmitigatedAmount、amount、buffs 等）
   // 同时记录 damage 的时间戳，供 absorbed 匹配使用
   const detailByPacketAndTarget = new Map<string, PlayerDamageDetail>()
   for (const detail of playerDamageDetails) {
@@ -177,7 +162,23 @@ export function parseDamageEvents(
     const detail = detailByPacketAndTarget.get(key)
     if (!detail) continue
 
-    // 填充 damage 事件独有的字段
+    // 填充数值字段（原始逻辑不变，从 damage 事件获取）
+    let unmitigatedDamage = event.unmitigatedAmount ?? 0
+    if (unmitigatedDamage === 0) {
+      const finalAmount = event.amount ?? 0
+      const absorbed = event.absorbed ?? 0
+      const multiplier = event.multiplier
+      if (multiplier && multiplier > 0 && (finalAmount > 0 || absorbed > 0)) {
+        unmitigatedDamage = Math.round((finalAmount + absorbed) / multiplier)
+      }
+    }
+
+    detail.unmitigatedDamage = unmitigatedDamage
+    detail.finalDamage = event.amount || 0
+    detail.overkill = event.overkill
+    detail.multiplier = event.multiplier
+
+    // 填充 buffs
     if (event.buffs) {
       const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
       for (const buffId of buffIds) {
@@ -198,18 +199,17 @@ export function parseDamageEvents(
       detail.maxHitPoints = event.targetResources.maxHitPoints
     }
 
-    if (event.overkill !== undefined) {
-      detail.overkill = event.overkill
-    }
-
     // 记录 damage 时间戳，用于 absorbed 匹配
     damageTimestamps.set(detail, event.timestamp)
   }
 
+  // 过滤掉没有被 damage 事件填充数值的 detail（无法获取伤害数据）
+  const filledDetails = playerDamageDetails.filter(d => d.unmitigatedDamage > 0)
+
   // Step 3: 从 absorbed 事件填充盾值状态
   // absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key
   const detailByDamageTs = new Map<string, PlayerDamageDetail>()
-  for (const detail of playerDamageDetails) {
+  for (const detail of filledDetails) {
     const ts = damageTimestamps.get(detail) ?? detail.timestamp
     const key = `${ts}-${detail.playerId}-${detail.sourceId}-${detail.abilityId}`
     detailByDamageTs.set(key, detail)
@@ -242,23 +242,23 @@ export function parseDamageEvents(
   const TIME_WINDOW = 900 // 0.9秒 = 900毫秒
 
   // 按时间排序所有 PlayerDamageDetail
-  playerDamageDetails.sort((a, b) => a.timestamp - b.timestamp)
+  filledDetails.sort((a, b) => a.timestamp - b.timestamp)
 
   const damageEvents: DamageEvent[] = []
   const processedIndices = new Set<number>()
 
-  for (let i = 0; i < playerDamageDetails.length; i++) {
+  for (let i = 0; i < filledDetails.length; i++) {
     if (processedIndices.has(i)) continue
 
-    const baseDetail = playerDamageDetails[i]
+    const baseDetail = filledDetails[i]
     const details: PlayerDamageDetail[] = [baseDetail]
     processedIndices.add(i)
 
     // 查找时间窗口内相同技能名称的其他伤害
-    for (let j = i + 1; j < playerDamageDetails.length; j++) {
+    for (let j = i + 1; j < filledDetails.length; j++) {
       if (processedIndices.has(j)) continue
 
-      const currentDetail = playerDamageDetails[j]
+      const currentDetail = filledDetails[j]
       const timeDiff = currentDetail.timestamp - baseDetail.timestamp
 
       // 超出时间窗口，停止查找
