@@ -263,6 +263,19 @@ describe('parseCastEvents', () => {
 describe('parseDamageEvents', () => {
   const fightStartTime = 1000000
 
+  /**
+   * 为 damage 事件列表生成对应的 calculateddamage 事件
+   * 新流程以 calculateddamage 为主数据源，damage 用于补充 buffs/targetResources
+   */
+  function withCalculatedDamage(
+    damageEvents: Record<string, unknown>[]
+  ): Record<string, unknown>[] {
+    const calcEvents = damageEvents
+      .filter(e => e.type === 'damage')
+      .map(e => ({ ...e, type: 'calculateddamage' }))
+    return [...calcEvents, ...damageEvents]
+  }
+
   const makeAbilityMap = (id: number, name: string, type: number): Map<number, FFLogsAbility> =>
     new Map([[id, { gameID: id, name, type }]])
 
@@ -310,7 +323,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Test Attack')
     expect(result[0].time).toBe(5)
@@ -362,7 +380,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(11000) // (10000 + 12000) / 2
   })
@@ -399,7 +422,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(19000) // (20000 + 18000) / 2
     expect(result[0].damageType).toBe('physical')
@@ -447,7 +475,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].playerDamageDetails).toHaveLength(2)
     const tankDetail = result[0].playerDamageDetails?.find(d => d.playerId === 1)
@@ -475,7 +508,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(0)
   })
 
@@ -497,7 +535,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(0)
   })
 
@@ -535,7 +578,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     const details = result[0].playerDamageDetails ?? []
     const healerDetail = details.find(d => d.playerId === 1)
@@ -575,7 +623,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     // 第一个玩家的伤害事件被忽略，只有第二个玩家
     expect(result[0].playerDamageDetails).toHaveLength(1)
@@ -621,7 +674,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(2)
     const aoe = result.find(e => e.name === 'AOE Attack')
     const tb = result.find(e => e.name === 'Tankbuster')
@@ -673,7 +731,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('aoe')
   })
@@ -713,7 +776,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(2)
     // 两次都应该是 aoe（第一次通过交叉验证回退）
     expect(result.every(e => e.type === 'aoe')).toBe(true)
@@ -757,7 +825,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(2)
     const lowHit = result.find(e => e.name === 'Low Hit on Tank')
     expect(lowHit?.type).toBe('aoe')
@@ -781,7 +854,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('tankbuster')
   })
@@ -806,7 +884,12 @@ describe('parseDamageEvents', () => {
       sourceID: 999,
     }))
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('aoe')
   })

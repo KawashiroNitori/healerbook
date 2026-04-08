@@ -8,7 +8,6 @@ import type {
   DamageEvent,
   CastEvent,
   PlayerDamageDetail,
-  StatusSnapshot,
   DamageType,
 } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
@@ -104,23 +103,14 @@ export function parseDamageEvents(
   const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
   const TANK_JOBS = getTankJobs()
 
-  // Step 0: 构建 calculateddamage 时间戳映射（packetID → 最早时间戳）
-  // calculateddamage 是伤害实际结算的时间，比 damage 事件更准确
-  const calculatedDamageTimestamps = new Map<number, number>()
+  // Step 1: 从 calculateddamage 事件构建初始 PlayerDamageDetail
+  // calculateddamage 是伤害实际结算的事件，时间戳最准确，且总是存在
+  const playerDamageDetails: PlayerDamageDetail[] = []
+  // damageTimestamps: 记录每个 detail 对应的 damage 事件时间戳，用于后续 absorbed 匹配
+  const damageTimestamps = new Map<PlayerDamageDetail, number>()
+
   for (const event of events) {
     if (event.type !== 'calculateddamage') continue
-    if (!event.packetID) continue
-    const existing = calculatedDamageTimestamps.get(event.packetID)
-    if (existing === undefined || event.timestamp < existing) {
-      calculatedDamageTimestamps.set(event.packetID, event.timestamp)
-    }
-  }
-
-  // Step 1: 从 damage 事件中构建原始 PlayerDamageDetail，并解析 buffs 字段
-  const playerDamageDetails: PlayerDamageDetail[] = []
-
-  for (const event of events) {
-    if (event.type !== 'damage') continue
     if (!event.targetID || !playerMap.has(event.targetID)) continue
     if (!event.packetID) continue
 
@@ -140,7 +130,7 @@ export function parseDamageEvents(
     const chineseName = getActionChinese(abilityId)
     const skillName = chineseName ?? abilityName
 
-    // 计算未减伤伤害：优先使用 unmitigatedAmount，为 0 时从 absorbed 和 multiplier 推测
+    // 计算未减伤伤害
     let unmitigatedDamage = event.unmitigatedAmount ?? 0
     if (unmitigatedDamage === 0) {
       const finalAmount = event.amount ?? 0
@@ -153,53 +143,76 @@ export function parseDamageEvents(
       }
     }
 
-    // 解析 buffs 字段，提取所有减伤状态（百分比减伤和盾值）
-    const statuses: StatusSnapshot[] = []
-    if (event.buffs) {
-      const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
-
-      for (const buffId of buffIds) {
-        const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
-        const statusMeta = getStatusById(statusId)
-
-        // 添加百分比减伤状态和盾值状态（盾值先留空，后续通过 absorbed 事件填充）
-        if (statusMeta) {
-          statuses.push({
-            statusId,
-            targetPlayerId: event.targetID,
-            absorb: undefined, // 盾值状态的 absorb 字段后续填充
-          })
-        }
-      }
-    }
-
-    // 优先使用 calculateddamage 的时间戳（伤害实际结算时间）
-    const calculatedTs = event.packetID ? calculatedDamageTimestamps.get(event.packetID) : undefined
-
-    playerDamageDetails.push({
-      timestamp: calculatedTs ?? event.timestamp ?? 0,
+    const detail: PlayerDamageDetail = {
+      timestamp: event.timestamp,
       packetId: event.packetID,
       sourceId: event.sourceID || 0,
       playerId: event.targetID,
       job,
       abilityId,
       skillName,
-      unmitigatedDamage: unmitigatedDamage,
+      unmitigatedDamage,
       finalDamage: event.amount || 0,
       overkill: event.overkill,
       multiplier: event.multiplier,
-      statuses,
-      hitPoints: event.targetResources?.hitPoints,
-      maxHitPoints: event.targetResources?.maxHitPoints,
-    })
+      statuses: [],
+    }
+
+    playerDamageDetails.push(detail)
   }
 
-  // Step 2 & 3: 从 absorbed 事件中构建耗盾四元组，匹配并添加盾值状态
-  // 构建查找 Map: key = `${timestamp}-${targetID}-${sourceID}-${abilityGameID}`
-  const detailMap = new Map<string, PlayerDamageDetail>()
+  // Step 2: 用 damage 事件填充 buffs、targetResources 等补充字段
+  // 同时记录 damage 的时间戳，供 absorbed 匹配使用
+  const detailByPacketAndTarget = new Map<string, PlayerDamageDetail>()
   for (const detail of playerDamageDetails) {
-    const key = `${detail.timestamp}-${detail.playerId}-${detail.sourceId}-${detail.abilityId}`
-    detailMap.set(key, detail)
+    const key = `${detail.packetId}-${detail.playerId}`
+    detailByPacketAndTarget.set(key, detail)
+  }
+
+  for (const event of events) {
+    if (event.type !== 'damage') continue
+    if (!event.packetID || !event.targetID) continue
+
+    const key = `${event.packetID}-${event.targetID}`
+    const detail = detailByPacketAndTarget.get(key)
+    if (!detail) continue
+
+    // 填充 damage 事件独有的字段
+    if (event.buffs) {
+      const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
+      for (const buffId of buffIds) {
+        const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
+        const statusMeta = getStatusById(statusId)
+        if (statusMeta) {
+          detail.statuses.push({
+            statusId,
+            targetPlayerId: event.targetID,
+            absorb: undefined,
+          })
+        }
+      }
+    }
+
+    if (event.targetResources) {
+      detail.hitPoints = event.targetResources.hitPoints
+      detail.maxHitPoints = event.targetResources.maxHitPoints
+    }
+
+    if (event.overkill !== undefined) {
+      detail.overkill = event.overkill
+    }
+
+    // 记录 damage 时间戳，用于 absorbed 匹配
+    damageTimestamps.set(detail, event.timestamp)
+  }
+
+  // Step 3: 从 absorbed 事件填充盾值状态
+  // absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key
+  const detailByDamageTs = new Map<string, PlayerDamageDetail>()
+  for (const detail of playerDamageDetails) {
+    const ts = damageTimestamps.get(detail) ?? detail.timestamp
+    const key = `${ts}-${detail.playerId}-${detail.sourceId}-${detail.abilityId}`
+    detailByDamageTs.set(key, detail)
   }
 
   for (const event of events) {
@@ -213,15 +226,13 @@ export function parseDamageEvents(
 
     const actualStatusId = statusId && statusId > 1_000_000 ? statusId - 1_000_000 : statusId || 0
 
-    // 构建匹配 key: 使用 attackerID 匹配 damage 事件的 sourceID
+    // 使用 damage 时间戳匹配（absorbed 与 damage 时间戳一致）
     const key = `${event.timestamp}-${event.targetID}-${event.attackerID}-${event.extraAbilityGameID}`
-    const detail = detailMap.get(key)
+    const detail = detailByDamageTs.get(key)
 
     if (detail) {
-      // 查找 statuses 中是否已存在该盾值状态
       const existingStatus = detail.statuses.find(s => s.statusId === actualStatusId)
       if (existingStatus) {
-        // 填充盾值字段
         existingStatus.absorb = event.amount
       }
     }
