@@ -7,6 +7,7 @@ import { Group, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import { useUIStore } from '@/store/uiStore'
 import { useCanvasColors } from './constants'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
@@ -23,6 +24,10 @@ function truncateText(text: string, maxWidth: number, font: string): string {
   let i = text.length
   while (i > 0 && ctx.measureText(text.slice(0, i)).width + ellipsisWidth > maxWidth) i--
   return text.slice(0, i) + '...'
+}
+
+function formatDamageValue(value: number): string {
+  return value >= 10000 ? `${(value / 10000).toFixed(1)}w` : value.toLocaleString()
 }
 
 interface DamageEventCardProps {
@@ -55,6 +60,8 @@ const DamageEventCard = memo(function DamageEventCard({
   onContextMenu,
 }: DamageEventCardProps) {
   const colors = useCanvasColors()
+  const showActualDamage = useUIStore(s => s.showActualDamage)
+  const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
   const isTankbuster = event.type === 'tankbuster'
@@ -82,15 +89,34 @@ const DamageEventCard = memo(function DamageEventCard({
 
   const getDamageText = (): string => {
     if (isTankbuster) return '死刑'
-    const displayDamage = hasOverkill ? calculatedEvent?.maxDamage : calculatedEvent?.finalDamage
-    if (displayDamage === undefined) return ''
-    return displayDamage >= 10000
-      ? `${(displayDamage / 10000).toFixed(1)}w`
-      : displayDamage.toLocaleString()
+    if (!showActualDamage && !showOriginalDamage) return ''
+
+    const actualValue = hasOverkill ? calculatedEvent?.maxDamage : calculatedEvent?.finalDamage
+    const originalValue = calculatedEvent?.originalDamage
+
+    if (showActualDamage && showOriginalDamage) {
+      if (actualValue === undefined || originalValue === undefined) return ''
+      return `${formatDamageValue(actualValue)} / ${formatDamageValue(originalValue)}`
+    }
+    if (showActualDamage) {
+      if (actualValue === undefined) return ''
+      return formatDamageValue(actualValue)
+    }
+    if (showOriginalDamage) {
+      if (originalValue === undefined) return ''
+      return formatDamageValue(originalValue)
+    }
+    return ''
   }
   const damageText = getDamageText()
 
-  const nameAreaWidth = damageText ? 90 : 140
+  const damageTextWidth = (() => {
+    if (!damageText) return 0
+    const ctx = getMeasureCtx()
+    ctx.font = '12px Arial, sans-serif'
+    return Math.ceil(ctx.measureText(damageText).width) + 5
+  })()
+  const nameAreaWidth = 150 - 5 - damageTextWidth
   const nameXOffset = hasOverkill || isLethal || isDangerous ? 20 : 5
   const displayName = truncateText(
     event.name,
@@ -213,9 +239,9 @@ const DamageEventCard = memo(function DamageEventCard({
       {/* 最终伤害数值 */}
       {damageText && (
         <Text
-          x={95}
+          x={150 - damageTextWidth}
           y={-15}
-          width={50}
+          width={damageTextWidth - 5}
           height={30}
           text={damageText}
           fontSize={12}

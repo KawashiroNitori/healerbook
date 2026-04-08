@@ -3,16 +3,9 @@
  */
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface UIState {
-  /** 侧边栏是否展开 */
-  isSidebarOpen: boolean
-  /** 技能面板是否展开 */
-  isSkillPanelOpen: boolean
-  /** 属性面板是否展开 */
-  isPropertyPanelOpen: boolean
-  /** 当前激活的面板 */
-  activePanel: 'skills' | 'properties' | null
   /** 是否显示网格 */
   showGrid: boolean
   /** 是否显示时间标尺 */
@@ -27,16 +20,12 @@ interface UIState {
   hiddenPlayerIds: Set<number>
   /** 伤害事件轨道是否折叠 */
   isDamageTrackCollapsed: boolean
+  /** 是否显示实际伤害 */
+  showActualDamage: boolean
+  /** 是否显示原始伤害 */
+  showOriginalDamage: boolean
 
   // Actions
-  /** 切换侧边栏 */
-  toggleSidebar: () => void
-  /** 切换技能面板 */
-  toggleSkillPanel: () => void
-  /** 切换属性面板 */
-  togglePropertyPanel: () => void
-  /** 设置激活面板 */
-  setActivePanel: (panel: 'skills' | 'properties' | null) => void
   /** 切换网格显示 */
   toggleGrid: () => void
   /** 切换时间标尺显示 */
@@ -53,6 +42,10 @@ interface UIState {
   isolatePlayer: (playerId: number, allPlayerIds: number[]) => void
   /** 切换伤害事件轨道折叠 */
   toggleDamageTrackCollapsed: () => void
+  /** 切换显示实际伤害 */
+  toggleShowActualDamage: () => void
+  /** 切换显示原始伤害 */
+  toggleShowOriginalDamage: () => void
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -69,92 +62,86 @@ function getInitialTheme(): 'light' | 'dark' {
 const initialTheme = getInitialTheme()
 applyTheme(initialTheme)
 
-export const useUIStore = create<UIState>(set => ({
-  isSidebarOpen: true,
-  isSkillPanelOpen: true,
-  isPropertyPanelOpen: true,
-  activePanel: null,
-  showGrid: true,
-  showTimeRuler: true,
-  showCooldownIndicators: true,
-  theme: initialTheme,
-  isReadOnly: false,
-  hiddenPlayerIds: new Set<number>(),
-  isDamageTrackCollapsed: false,
+export const useUIStore = create<UIState>()(
+  persist(
+    set => ({
+      showGrid: true,
+      showTimeRuler: true,
+      showCooldownIndicators: true,
+      theme: initialTheme,
+      isReadOnly: false,
+      hiddenPlayerIds: new Set<number>(),
+      isDamageTrackCollapsed: false,
+      showActualDamage: true,
+      showOriginalDamage: false,
 
-  toggleSidebar: () =>
-    set(state => ({
-      isSidebarOpen: !state.isSidebarOpen,
-    })),
+      toggleGrid: () =>
+        set(state => ({
+          showGrid: !state.showGrid,
+        })),
 
-  toggleSkillPanel: () =>
-    set(state => ({
-      isSkillPanelOpen: !state.isSkillPanelOpen,
-      activePanel: !state.isSkillPanelOpen ? 'skills' : null,
-    })),
+      toggleTimeRuler: () =>
+        set(state => ({
+          showTimeRuler: !state.showTimeRuler,
+        })),
 
-  togglePropertyPanel: () =>
-    set(state => ({
-      isPropertyPanelOpen: !state.isPropertyPanelOpen,
-      activePanel: !state.isPropertyPanelOpen ? 'properties' : null,
-    })),
+      toggleCooldownIndicators: () =>
+        set(state => ({
+          showCooldownIndicators: !state.showCooldownIndicators,
+        })),
 
-  setActivePanel: panel =>
-    set({
-      activePanel: panel,
-      isSkillPanelOpen: panel === 'skills' ? true : false,
-      isPropertyPanelOpen: panel === 'properties' ? true : false,
+      setTheme: theme => {
+        applyTheme(theme)
+        set({ theme })
+      },
+
+      toggleReadOnly: () =>
+        set(state => ({
+          isReadOnly: !state.isReadOnly,
+        })),
+
+      togglePlayerVisibility: (playerId: number) =>
+        set(state => {
+          const next = new Set(state.hiddenPlayerIds)
+          if (next.has(playerId)) {
+            next.delete(playerId)
+          } else {
+            next.add(playerId)
+          }
+          return { hiddenPlayerIds: next }
+        }),
+
+      toggleDamageTrackCollapsed: () =>
+        set(state => ({
+          isDamageTrackCollapsed: !state.isDamageTrackCollapsed,
+        })),
+
+      toggleShowActualDamage: () =>
+        set(state => ({
+          showActualDamage: !state.showActualDamage,
+        })),
+
+      toggleShowOriginalDamage: () =>
+        set(state => ({
+          showOriginalDamage: !state.showOriginalDamage,
+        })),
+
+      isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
+        set(state => {
+          const others = allPlayerIds.filter(id => id !== playerId)
+          const alreadyIsolated =
+            others.every(id => state.hiddenPlayerIds.has(id)) &&
+            !state.hiddenPlayerIds.has(playerId)
+          if (alreadyIsolated) {
+            return { hiddenPlayerIds: new Set<number>() }
+          }
+          return { hiddenPlayerIds: new Set(others) }
+        }),
     }),
-
-  toggleGrid: () =>
-    set(state => ({
-      showGrid: !state.showGrid,
-    })),
-
-  toggleTimeRuler: () =>
-    set(state => ({
-      showTimeRuler: !state.showTimeRuler,
-    })),
-
-  toggleCooldownIndicators: () =>
-    set(state => ({
-      showCooldownIndicators: !state.showCooldownIndicators,
-    })),
-
-  setTheme: theme => {
-    applyTheme(theme)
-    set({ theme })
-  },
-
-  toggleReadOnly: () =>
-    set(state => ({
-      isReadOnly: !state.isReadOnly,
-    })),
-
-  togglePlayerVisibility: (playerId: number) =>
-    set(state => {
-      const next = new Set(state.hiddenPlayerIds)
-      if (next.has(playerId)) {
-        next.delete(playerId)
-      } else {
-        next.add(playerId)
-      }
-      return { hiddenPlayerIds: next }
-    }),
-
-  toggleDamageTrackCollapsed: () =>
-    set(state => ({
-      isDamageTrackCollapsed: !state.isDamageTrackCollapsed,
-    })),
-
-  isolatePlayer: (playerId: number, allPlayerIds: number[]) =>
-    set(state => {
-      const others = allPlayerIds.filter(id => id !== playerId)
-      const alreadyIsolated =
-        others.every(id => state.hiddenPlayerIds.has(id)) && !state.hiddenPlayerIds.has(playerId)
-      if (alreadyIsolated) {
-        return { hiddenPlayerIds: new Set<number>() }
-      }
-      return { hiddenPlayerIds: new Set(others) }
-    }),
-}))
+    {
+      name: 'ui-store',
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      partialize: ({ hiddenPlayerIds, theme, ...rest }) => rest,
+    }
+  )
+)
