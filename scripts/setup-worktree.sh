@@ -120,8 +120,8 @@ echo ""
 
 echo "🔗 链接环境文件..."
 
-for f in .dev.vars .env; do
-  if [ -f "$MAIN_REPO/$f" ] && [ ! -e "$WORKTREE/$f" ]; then
+for f in .dev.vars .env .wrangler; do
+  if [ -e "$MAIN_REPO/$f" ] && [ ! -e "$WORKTREE/$f" ]; then
     ln -s "$MAIN_REPO/$f" "$WORKTREE/$f"
     echo "  ✅ $f → $MAIN_REPO/$f"
   elif [ -e "$WORKTREE/$f" ]; then
