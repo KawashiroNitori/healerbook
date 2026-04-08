@@ -266,7 +266,14 @@ export default function EditorPage() {
           {isViewMode ? (
             // 只读头部：静态标题 + 说明（只读）
             <div>
-              <h1 className="text-lg font-bold">{apiData?.timeline.name}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold">{apiData?.timeline.name}</h1>
+                {apiData?.authorName && (
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+                    By {apiData.authorName}
+                  </span>
+                )}
+              </div>
               <EditableDescription
                 value={apiData?.timeline.description || ''}
                 onChange={() => {}}
@@ -274,10 +281,6 @@ export default function EditorPage() {
               />
             </div>
           ) : null}
-
-          {isViewMode && apiData?.authorName && (
-            <p className="ml-auto text-sm text-muted-foreground">by {apiData.authorName}</p>
-          )}
 
           {!isViewMode && (
             // 编辑头部：可编辑标题 + 描述
