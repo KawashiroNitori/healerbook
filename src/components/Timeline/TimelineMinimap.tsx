@@ -211,16 +211,16 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       const lineDisplayRatio = Math.max(rawLineRatio, 0.75)
       const lineHeightFromBottom = lineDisplayRatio * contentHeight
 
-      // 创建红黄斜条纹 pattern（用于致死伤害柱）
-      const stripeSize = 6
+      // 创建红褐斜条纹 pattern（用于致死伤害柱）
+      const stripeSize = 8
       const stripeCanvas = document.createElement('canvas')
       stripeCanvas.width = stripeSize
       stripeCanvas.height = stripeSize
       const stripeCtx = stripeCanvas.getContext('2d')!
       stripeCtx.fillStyle = '#dc2626'
       stripeCtx.fillRect(0, 0, stripeSize, stripeSize)
-      stripeCtx.strokeStyle = '#eab308'
-      stripeCtx.lineWidth = 1
+      stripeCtx.strokeStyle = '#5c3a1e'
+      stripeCtx.lineWidth = 3
       stripeCtx.beginPath()
       stripeCtx.moveTo(-1, stripeSize + 1)
       stripeCtx.lineTo(stripeSize + 1, -1)
