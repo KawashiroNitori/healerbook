@@ -14,7 +14,7 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import { JOB_MAP } from '@/data/jobMap'
-import { getTankJobs, type Job } from '@/data/jobs'
+import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
 
 const actionChinese: Record<string, string> = actionChineseRaw
@@ -282,19 +282,21 @@ export function parseDamageEvents(
     const relativeTime = Math.round((firstDetail.timestamp - fightStartTime) / 10) / 100
     if (relativeTime < 0) continue
 
-    // 计算中位数伤害（非坦克优先）
-    const nonTankDetails = details.filter(d => !TANK_JOBS.includes(d.job))
-    const detailsForMedian = nonTankDetails.length > 0 ? nonTankDetails : details
-    const medianDamage = calculatePercentile(detailsForMedian.map(d => d.unmitigatedDamage))
-
     const abilityMeta = abilityMap?.get(firstDetail.abilityId)
+    const damageType = detectDamageTypeFromAbility(abilityMeta?.type ?? 0)
+
+    // 计算代表伤害值：按伤害属性选取受该属性影响最大的职业组的最高值
+    // 物理伤害 → 取法系+治疗的最高值（他们物防低）
+    // 魔法伤害 → 取近战+远物的最高值（他们魔防低）
+    // 其他情况 → 取非坦克中位数
+    const representativeDamage = selectRepresentativeDamage(details, damageType, TANK_JOBS)
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
       name: firstDetail.skillName,
       time: relativeTime,
-      damage: medianDamage,
+      damage: representativeDamage,
       type: detectDamageType(details, TANK_JOBS),
-      damageType: detectDamageTypeFromAbility(abilityMeta?.type ?? 0),
+      damageType,
       playerDamageDetails: details,
       packetId: firstDetail.packetId,
     })
@@ -306,6 +308,41 @@ export function parseDamageEvents(
   refineTankbusterClassification(damageEvents)
 
   return damageEvents
+}
+
+/**
+ * 按伤害属性选取代表伤害值
+ * 物理伤害 → 法系+治疗受伤最高（物防低）
+ * 魔法伤害 → 近战+远物受伤最高（魔防低）
+ * 其他 → 非坦克最高值
+ */
+function selectRepresentativeDamage(
+  details: PlayerDamageDetail[],
+  damageType: DamageType,
+  tankJobs: Job[]
+): number {
+  if (damageType === 'physical') {
+    const targets = details.filter(d => {
+      const role = getJobRole(d.job)
+      return role === 'caster' || role === 'healer'
+    })
+    if (targets.length > 0) {
+      return Math.max(...targets.map(d => d.unmitigatedDamage))
+    }
+  } else if (damageType === 'magical') {
+    const targets = details.filter(d => {
+      const role = getJobRole(d.job)
+      return role === 'melee' || role === 'ranged'
+    })
+    if (targets.length > 0) {
+      return Math.max(...targets.map(d => d.unmitigatedDamage))
+    }
+  }
+
+  // fallback: 非坦克最高值
+  const nonTankDetails = details.filter(d => !tankJobs.includes(d.job))
+  const detailsForMax = nonTankDetails.length > 0 ? nonTankDetails : details
+  return Math.max(...detailsForMax.map(d => d.unmitigatedDamage))
 }
 
 function detectDamageType(details: PlayerDamageDetail[], tankJobs: Job[]): 'aoe' | 'tankbuster' {

@@ -336,7 +336,7 @@ describe('parseDamageEvents', () => {
     expect(result[0].playerDamageDetails).toHaveLength(3)
   })
 
-  it('应该使用非坦克玩家的平均伤害', () => {
+  it('魔法伤害应取近战+远物的最高值', () => {
     const playerMap = new Map<number, V2Actor>([
       [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
       [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
@@ -387,7 +387,7 @@ describe('parseDamageEvents', () => {
       abilityMap
     )
     expect(result).toHaveLength(1)
-    expect(result[0].damage).toBe(11000) // (10000 + 12000) / 2
+    expect(result[0].damage).toBe(12000) // 魔法伤害取近战(SAM)最高值
   })
 
   it('应该在只有坦克时使用所有玩家的平均伤害', () => {
@@ -429,8 +429,224 @@ describe('parseDamageEvents', () => {
       abilityMap
     )
     expect(result).toHaveLength(1)
-    expect(result[0].damage).toBe(19000) // (20000 + 18000) / 2
+    expect(result[0].damage).toBe(20000) // 只有坦克时 fallback 取最高值
     expect(result[0].damageType).toBe('physical')
+  })
+
+  it('物理伤害应取法系+治疗的最高值', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+      [4, { id: 4, name: 'Caster1', type: 'BlackMage' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Physical Hit', 128)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 5000,
+        absorbed: 0,
+        amount: 5000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 15000,
+        absorbed: 0,
+        amount: 15000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 8000,
+        absorbed: 0,
+        amount: 8000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 4,
+        unmitigatedAmount: 14000,
+        absorbed: 0,
+        amount: 14000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].damage).toBe(15000) // 物理伤害取 healer(15000) 和 caster(14000) 中最高
+  })
+
+  it('魔法伤害只命中治疗时应 fallback 取非T最高值', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'Healer2', type: 'Scholar' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Magic Hit', 1024)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 5000,
+        absorbed: 0,
+        amount: 5000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 9000,
+        absorbed: 0,
+        amount: 9000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 10000,
+        absorbed: 0,
+        amount: 10000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].damage).toBe(10000) // 无近战/远物，fallback 非T最高值(SCH 10000)
+  })
+
+  it('物理伤害只命中近战时应 fallback 取非T最高值', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Melee1', type: 'Samurai' }],
+      [2, { id: 2, name: 'Melee2', type: 'Ninja' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Physical Hit', 128)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 11000,
+        absorbed: 0,
+        amount: 11000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].damage).toBe(12000) // 无法系/治疗，fallback 非T最高值(NIN 12000)
+  })
+
+  it('darkness 伤害应取非T最高值', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Dark Hit', 0) // type 0 → darkness
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 5000,
+        absorbed: 0,
+        amount: 5000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 13000,
+        absorbed: 0,
+        amount: 13000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 11000,
+        absorbed: 0,
+        amount: 11000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].damage).toBe(13000) // darkness 直接 fallback 非T最高值(WHM 13000)
   })
 
   it('应该记录每个玩家的详细伤害信息', () => {

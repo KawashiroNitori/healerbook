@@ -69,12 +69,12 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
           const medianMitigation = calculatePercentile(
             playerResults.map(r => r.mitigationPercentage)
           )
-          const medianFinalDamage = calculatePercentile(playerResults.map(r => r.finalDamage))
+          const maxFinalDamage = Math.max(...playerResults.map(r => r.finalDamage))
           const maxDamage = Math.max(...playerResults.map(r => r.originalDamage))
 
           results.set(event.id, {
             originalDamage: event.damage,
-            finalDamage: medianFinalDamage,
+            finalDamage: maxFinalDamage,
             maxDamage,
             mitigationPercentage: medianMitigation,
             appliedStatuses: [],
