@@ -16,6 +16,8 @@ import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
+import { apiClient } from '@/api/apiClient'
+import type { Timeline } from '@/types/timeline'
 
 interface ImportFFLogsDialogProps {
   open: boolean
@@ -65,7 +67,60 @@ export default function ImportFFLogsDialog({
     readClipboard()
   }, [initialUrl])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const clientImport = new URLSearchParams(window.location.search).get('client_import') === '1'
+
+  /** 服务端解析：一次请求返回完整 Timeline */
+  const handleServerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!parsed?.reportCode) return
+
+    setError('')
+    setIsLoading(true)
+    setLoadingStep('正在解析战斗事件...')
+
+    try {
+      const params = new URLSearchParams({ reportCode: parsed.reportCode })
+      if (!parsed.isLastFight && parsed.fightId !== null) {
+        params.set('fightId', String(parsed.fightId))
+      }
+
+      const response = await apiClient.get(`fflogs/import?${params}`, {
+        timeout: 120000,
+        throwHttpErrors: false,
+      })
+
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string }
+        throw new Error(body.error || `HTTP ${response.status}`)
+      }
+
+      const newTimeline = (await response.json()) as Timeline
+      newTimeline.description = `导入自 ${url}`
+
+      saveTimeline(newTimeline)
+      track('fflogs-import', { success: true, encounterId: newTimeline.encounter?.id ?? 0 })
+
+      window.open(`/timeline/${newTimeline.id}`, '_blank')
+      onImported()
+      onClose()
+    } catch (err) {
+      track('fflogs-import', { success: false })
+      if (err instanceof Error) {
+        if (err.message.includes('API Token') || err.message.includes('API Key')) {
+          setError('FFLogs 连接配置错误，请联系开发者')
+        } else {
+          setError(err.message)
+        }
+      } else {
+        setError('导入失败，请稍后重试')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  /** 前端解析：原有逻辑 */
+  const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!parsed?.reportCode) return
 
@@ -116,8 +171,6 @@ export default function ImportFFLogsDialog({
         zone: report.title || '',
         damageEvents: [],
       }
-
-      // 计算战斗时长（秒）
 
       // 获取伤害事件（自动分页）
       setLoadingStep('正在获取战斗事件...')
@@ -214,6 +267,8 @@ export default function ImportFFLogsDialog({
       setIsLoading(false)
     }
   }
+
+  const handleSubmit = clientImport ? handleClientSubmit : handleServerSubmit
 
   return (
     <Modal open={open} onClose={onClose} disableBackdropClick={isLoading}>
