@@ -1,0 +1,14 @@
+# 虚拟环境
+.venv/
+__pycache__/
+*.pyc
+
+# 从 KV 拉下来的原始样本数据
+data/*.json
+
+# Jupyter 运行时文件
+.ipynb_checkpoints/
+.jupyter/
+
+# uv lock（可选：如果希望跨机器严格一致可以保留追踪，这里先忽略）
+uv.lock

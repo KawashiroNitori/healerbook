@@ -1,0 +1,12 @@
+[project]
+name = "healerbook-analysis"
+version = "0.1.0"
+description = "Exploratory analysis of FFLogs damage/heal/shield samples"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "matplotlib>=3.9",
+    "seaborn>=0.13",
+    "jupyterlab>=4.2",
+]
