@@ -212,7 +212,7 @@ export default function TableDataRow({
               <img
                 src={getIconUrl(track.actionIcon)}
                 alt={track.actionName}
-                className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm"
+                className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
                 onError={e => {
                   e.currentTarget.style.display = 'none'
                 }}

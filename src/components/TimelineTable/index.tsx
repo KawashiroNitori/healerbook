@@ -136,6 +136,73 @@ export default function TimelineTableView() {
     return () => ro.disconnect()
   }, [skillTracks.length, showOriginalDamage, showActualDamage, timeline])
 
+  // 按住左键拖动平移表格（类似 Figma/draw.io）
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+
+    let dragging = false
+    let moved = false
+    let sx = 0
+    let sy = 0
+    let sl = 0
+    let st = 0
+    const THRESHOLD = 4
+
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      dragging = true
+      moved = false
+      sx = e.clientX
+      sy = e.clientY
+      sl = wrapper.scrollLeft
+      st = wrapper.scrollTop
+    }
+
+    const onMove = (e: MouseEvent) => {
+      if (!dragging) return
+      const dx = e.clientX - sx
+      const dy = e.clientY - sy
+      if (!moved) {
+        if (Math.hypot(dx, dy) < THRESHOLD) return
+        moved = true
+        document.body.style.cursor = 'grabbing'
+        document.body.style.userSelect = 'none'
+      }
+      wrapper.scrollLeft = sl - dx
+      wrapper.scrollTop = st - dy
+      e.preventDefault()
+    }
+
+    const onUp = () => {
+      if (!dragging) return
+      dragging = false
+      if (moved) {
+        moved = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        // 拖动结束紧接着浏览器会触发一次 click，需要拦截掉以免触发 selectEvent(null) 或单元格切换
+        const block = (ev: MouseEvent) => {
+          ev.stopPropagation()
+          ev.preventDefault()
+          wrapper.removeEventListener('click', block, true)
+        }
+        wrapper.addEventListener('click', block, true)
+        setTimeout(() => wrapper.removeEventListener('click', block, true), 0)
+      }
+    }
+
+    wrapper.addEventListener('mousedown', onDown)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+
+    return () => {
+      wrapper.removeEventListener('mousedown', onDown)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
   // 挂载时按共享滚动进度还原纵向滚动位置
   const hasInitializedSyncRef = useRef(false)
   useLayoutEffect(() => {
