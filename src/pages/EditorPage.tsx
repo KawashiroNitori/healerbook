@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
+import { useMitigationStore } from '@/store/mitigationStore'
 import { getTimeline, saveTimeline, unpublishTimeline } from '@/utils/timelineStorage'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
@@ -50,6 +51,15 @@ export default function EditorPage() {
   const accessToken = useAuthStore(s => s.accessToken)
   const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
     useTimelineStore()
+  const mitigationActions = useMitigationStore(s => s.actions)
+  const loadMitigationActions = useMitigationStore(s => s.loadActions)
+
+  // 页面挂载时确保 mitigation actions 已加载（两个视图都依赖）
+  useEffect(() => {
+    if (mitigationActions.length === 0) {
+      loadMitigationActions()
+    }
+  }, [mitigationActions.length, loadMitigationActions])
 
   // 同步读 localStorage，id 变化时重新取，其余渲染复用缓存
   const localTimeline = useMemo(() => (id ? getTimeline(id) : null), [id])

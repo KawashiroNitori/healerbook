@@ -133,15 +133,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     updateAnnotation,
     removeAnnotation,
   } = useTimelineStore()
-  const { actions, loadActions } = useMitigationStore()
+  const { actions } = useMitigationStore()
   const { hiddenPlayerIds, isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const calculationResults = useDamageCalculationResults()
 
-  useEffect(() => {
-    if (actions.length === 0) {
-      loadActions()
-    }
-  }, [actions.length, loadActions])
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
 
