@@ -21,6 +21,14 @@ import { mergeAndSortRows } from '@/utils/tableRows'
 import TableHeader from './TableHeader'
 import TableDataRow from './TableDataRow'
 import AnnotationRow from './AnnotationRow'
+import {
+  HEADER_HEIGHT,
+  TIME_COL_WIDTH,
+  NAME_COL_WIDTH,
+  ORIGINAL_DAMAGE_COL_WIDTH,
+  ACTUAL_DAMAGE_COL_WIDTH,
+  SKILL_COL_WIDTH,
+} from './constants'
 
 export default function TimelineTableView() {
   const timeline = useTimelineStore(s => s.timeline)
@@ -46,10 +54,11 @@ export default function TimelineTableView() {
     return mergeAndSortRows(timeline.damageEvents, timeline.annotations ?? [])
   }, [timeline])
 
-  // 仅当表格窄于容器（即右侧有空白）时才显示线性阴影
+  // 跟踪外层滚动容器的尺寸：用于右侧阴影显隐和注释内容宽度
   const wrapperRef = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
   const [showRightShadow, setShowRightShadow] = useState(false)
+  const [wrapperWidth, setWrapperWidth] = useState(0)
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current
@@ -57,6 +66,7 @@ export default function TimelineTableView() {
     if (!wrapper || !table) return
     const check = () => {
       setShowRightShadow(table.offsetWidth < wrapper.clientWidth)
+      setWrapperWidth(wrapper.clientWidth)
     }
     check()
     const ro = new ResizeObserver(check)
@@ -71,9 +81,28 @@ export default function TimelineTableView() {
   const restColSpan =
     1 /* 事件名 */ + (showOriginalDamage ? 1 : 0) + (showActualDamage ? 1 : 0) + skillTracks.length
 
+  // 表格各列显式宽度之和，用于限定注释行 sticky div 的最大宽度
+  const tableWidth =
+    TIME_COL_WIDTH +
+    NAME_COL_WIDTH +
+    (showOriginalDamage ? ORIGINAL_DAMAGE_COL_WIDTH : 0) +
+    (showActualDamage ? ACTUAL_DAMAGE_COL_WIDTH : 0) +
+    skillTracks.length * SKILL_COL_WIDTH
+
   return (
     <div ref={wrapperRef} className="h-full w-full overflow-auto bg-muted/40">
       <div className="relative inline-block align-top">
+        {/* 表头下方的线性渐变阴影：sticky 固定在视口顶部 HEADER_HEIGHT 处，宽度贴合表格 */}
+        <div
+          aria-hidden
+          className="pointer-events-none sticky left-0 z-[15] w-full"
+          style={{
+            top: HEADER_HEIGHT,
+            height: 16,
+            marginBottom: -16,
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.18), rgba(0,0,0,0))',
+          }}
+        />
         {/* 紧贴表格右缘的线性阴影：水平方向从深色渐隐到透明，仅在表格窄于容器时显示 */}
         {showRightShadow && (
           <div
@@ -109,6 +138,8 @@ export default function TimelineTableView() {
                   key={`a-${row.id}`}
                   annotation={row.annotation}
                   restColSpan={restColSpan}
+                  wrapperWidth={wrapperWidth}
+                  tableWidth={tableWidth}
                 />
               )
             )}
