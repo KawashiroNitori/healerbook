@@ -32,6 +32,7 @@ import {
 
 export default function TimelineTableView() {
   const timeline = useTimelineStore(s => s.timeline)
+  const selectEvent = useTimelineStore(s => s.selectEvent)
   const actions = useMitigationStore(s => s.actions)
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const showActualDamage = useUIStore(s => s.showActualDamage)
@@ -117,6 +118,7 @@ export default function TimelineTableView() {
     <div
       ref={wrapperRef}
       onScroll={handleScroll}
+      onClick={() => selectEvent(null)}
       className="h-full w-full overflow-auto bg-neutral-200 dark:bg-neutral-900"
     >
       <div className="relative inline-block align-top bg-background">
@@ -160,6 +162,7 @@ export default function TimelineTableView() {
                   calculationResult={calculationResults.get(row.id)}
                   showOriginalDamage={showOriginalDamage}
                   showActualDamage={showActualDamage}
+                  onSelect={selectEvent}
                 />
               ) : (
                 <AnnotationRow

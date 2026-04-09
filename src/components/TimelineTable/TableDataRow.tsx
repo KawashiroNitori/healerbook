@@ -30,6 +30,8 @@ interface TableDataRowProps {
   calculationResult: CalculationResult | undefined
   showOriginalDamage: boolean
   showActualDamage: boolean
+  /** 点击事件名时回调，传入事件 id（用于触发 PropertyPanel 打开） */
+  onSelect: (eventId: string) => void
 }
 
 const EMPTY = '—'
@@ -82,8 +84,29 @@ export default function TableDataRow({
   calculationResult,
   showOriginalDamage,
   showActualDamage,
+  onSelect,
 }: TableDataRowProps) {
   const { original, actual } = resolveDamageNumbers(event, timeline, calculationResult)
+
+  // 与时间轴视图一致的配色与警示逻辑（见 Timeline/DamageEventCard.tsx）
+  const damageTypeColorClass: Record<string, string> = {
+    physical: 'text-red-500',
+    magical: 'text-blue-800 dark:text-blue-400',
+    darkness: 'text-fuchsia-600',
+  }
+  const nameColorClass = damageTypeColorClass[event.damageType || 'physical'] || 'text-red-500'
+
+  // 回放模式下的 overkill（排除"复生"状态 810）
+  const hasOverkill =
+    event.playerDamageDetails?.some(
+      d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
+    ) ?? false
+
+  // 编辑模式警示（仅在 calculationResult 有 referenceMaxHP 时才可用）
+  const refHP = calculationResult?.referenceMaxHP
+  const finalDamage = calculationResult?.finalDamage ?? 0
+  const isLethal = !hasOverkill && refHP != null && finalDamage >= refHP
+  const isDangerous = !hasOverkill && !isLethal && refHP != null && finalDamage >= refHP * 0.9
 
   // 计算粘性左偏移
   let leftOffset = 0
@@ -111,11 +134,25 @@ export default function TableDataRow({
         {formatTimeWithDecimal(event.time)}
       </td>
       <td
-        className={`${stickyCell} ${stickyHoverClass} z-10 px-2 truncate`}
+        className={`${stickyCell} ${stickyHoverClass} z-10 px-2`}
         style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH, left: nameLeft }}
         title={event.name}
       >
-        {event.name}
+        <button
+          type="button"
+          onClick={e => {
+            e.stopPropagation()
+            onSelect(event.id)
+          }}
+          className="flex items-center gap-1 w-full text-left cursor-pointer"
+        >
+          {hasOverkill && <span className="shrink-0">💀</span>}
+          {isLethal && <span className="shrink-0 text-red-600 font-bold">⚠</span>}
+          {isDangerous && <span className="shrink-0 text-amber-500 font-bold">⚠</span>}
+          <span className={`truncate font-semibold hover:underline ${nameColorClass}`}>
+            {event.name}
+          </span>
+        </button>
       </td>
       {showOriginalDamage && (
         <td
