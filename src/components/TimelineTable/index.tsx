@@ -90,8 +90,11 @@ export default function TimelineTableView() {
     skillTracks.length * SKILL_COL_WIDTH
 
   return (
-    <div ref={wrapperRef} className="h-full w-full overflow-auto bg-muted/40">
-      <div className="relative inline-block align-top">
+    <div
+      ref={wrapperRef}
+      className="h-full w-full overflow-auto bg-neutral-200 dark:bg-neutral-900"
+    >
+      <div className="relative inline-block align-top bg-background">
         {/* 表头下方的线性渐变阴影：sticky 固定在视口顶部 HEADER_HEIGHT 处，宽度贴合表格 */}
         <div
           aria-hidden

@@ -105,7 +105,7 @@ export default function TableDataRow({
   return (
     <tr className="group" style={{ height: ROW_HEIGHT }}>
       <td
-        className={`${stickyCell} ${stickyHoverClass} z-10 px-2 tabular-nums`}
+        className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
         style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH, left: timeLeft }}
       >
         {formatTimeWithDecimal(event.time)}

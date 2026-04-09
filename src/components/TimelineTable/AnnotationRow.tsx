@@ -33,7 +33,7 @@ export default function AnnotationRow({
   return (
     <tr className="bg-yellow-50/40 dark:bg-yellow-900/20">
       <td
-        className="sticky left-0 z-10 bg-yellow-50/40 dark:bg-yellow-900/20 border-r border-b text-xs px-2 tabular-nums align-top py-2"
+        className="sticky left-0 z-10 bg-yellow-50/40 dark:bg-yellow-900/20 border-r border-b text-xs px-2 text-right tabular-nums align-top py-2"
         style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH }}
       >
         {formatTimeWithDecimal(annotation.time)}
