@@ -75,6 +75,30 @@ export default function TimelineTableView() {
     return () => ro.disconnect()
   }, [skillTracks.length, showOriginalDamage, showActualDamage, timeline])
 
+  // 挂载时按共享滚动进度还原纵向滚动位置
+  const hasInitializedSyncRef = useRef(false)
+  useLayoutEffect(() => {
+    if (hasInitializedSyncRef.current) return
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const maxScroll = wrapper.scrollHeight - wrapper.clientHeight
+    if (maxScroll <= 0) return // 内容还没渲染，等下一轮
+    hasInitializedSyncRef.current = true
+    const progress = useTimelineStore.getState().syncScrollProgress
+    if (progress > 0) {
+      wrapper.scrollTop = progress * maxScroll
+    }
+  }, [rows, wrapperWidth])
+
+  // 滚动时写入共享进度，供时间轴视图读取
+  const handleScroll = () => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const maxScroll = wrapper.scrollHeight - wrapper.clientHeight
+    const progress = maxScroll > 0 ? Math.min(1, Math.max(0, wrapper.scrollTop / maxScroll)) : 0
+    useTimelineStore.getState().setSyncScrollProgress(progress)
+  }
+
   if (!timeline) return null
 
   // AnnotationRow 的 colSpan = 除时间列以外的所有列数
@@ -92,6 +116,7 @@ export default function TimelineTableView() {
   return (
     <div
       ref={wrapperRef}
+      onScroll={handleScroll}
       className="h-full w-full overflow-auto bg-neutral-200 dark:bg-neutral-900"
     >
       <div className="relative inline-block align-top bg-background">

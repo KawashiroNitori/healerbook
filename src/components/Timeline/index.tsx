@@ -475,10 +475,26 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [zoomLevel, layoutData, viewportWidth, pendingScrollProgress, setPendingScrollProgress])
 
+  // 挂载时按共享滚动进度（由上次活动的视图写入）还原横向滚动位置
+  const hasInitializedSyncRef = useRef(false)
+  useEffect(() => {
+    if (hasInitializedSyncRef.current || !layoutData || viewportWidth === 0) return
+    hasInitializedSyncRef.current = true
+    const progress = useTimelineStore.getState().syncScrollProgress
+    const maxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
+    if (progress > 0 && maxScroll > 0) {
+      setScrollLeft(progress * maxScroll)
+    }
+  }, [layoutData, viewportWidth])
+
   // 同步滚动状态到 store（用于工具栏缩放）
   useEffect(() => {
     if (layoutData) {
       updateScrollState(scrollLeft, layoutData.timelineWidth, viewportWidth)
+      // 同步滚动进度（0-1），供视图切换时表格视图读取
+      const maxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
+      const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollLeft / maxScroll)) : 0
+      useTimelineStore.getState().setSyncScrollProgress(progress)
     }
     // updateScrollState 来自 Zustand store，引用稳定
     // eslint-disable-next-line react-hooks/exhaustive-deps
