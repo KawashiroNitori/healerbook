@@ -160,6 +160,15 @@ export default function EditorPage() {
     }
   }, [localTimeline, apiData, error, setTimeline])
 
+  // ── 离开编辑器页面时重置共享滚动进度 ─────────────────────────────────────
+  // syncScrollProgress 仅用于"同一会话内两视图切换同步位置"，
+  // 切换到其他页面后再进入新时间轴应该从 0 开始。
+  useEffect(() => {
+    return () => {
+      useTimelineStore.getState().setSyncScrollProgress(0)
+    }
+  }, [])
+
   // ── 禁止浏览器原生缩放 ─────────────────────────────────────────────────────
   useEffect(() => {
     const preventZoom = (e: WheelEvent) => {
