@@ -4,16 +4,10 @@
 
 import JobIcon from '../JobIcon'
 import { getIconUrl } from '@/utils/iconUtils'
-import type { Job } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
+import type { SkillTrack } from '@/utils/skillTracks'
 
-export interface SkillTrack {
-  job: Job
-  playerId: number
-  actionId: number
-  actionName: string
-  actionIcon: string
-}
+export type { SkillTrack } from '@/utils/skillTracks'
 
 interface SkillTrackLabelsProps {
   skillTracks: SkillTrack[]

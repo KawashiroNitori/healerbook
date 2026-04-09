@@ -33,12 +33,13 @@ import VerticalScrollbar, {
   type VerticalScrollbarHandle,
 } from './VerticalScrollbar'
 import type { TimelineMinimapHandle } from './TimelineMinimap'
-import type { SkillTrack } from './SkillTrackLabels'
+import type { SkillTrack } from '@/utils/skillTracks'
 import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 import { formatTimeWithDecimal } from '@/utils/timeFormat'
+import { deriveSkillTracks } from '@/utils/skillTracks'
 
 interface TimelineCanvasProps {
   width: number
@@ -231,26 +232,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
     // 获取阵容和技能轨道信息
     const composition = timeline.composition || { players: [] }
-
-    // 按职业顺序排序玩家
-    const sortedPlayers = sortJobsByOrder(composition.players, p => p.job)
-
-    const skillTracks: SkillTrack[] = []
-    sortedPlayers.forEach(player => {
-      if (hiddenPlayerIds.has(player.id)) return
-      const jobActions = actions.filter(
-        action => action.jobs.includes(player.job) && !action.hidden
-      )
-      jobActions.forEach(action => {
-        skillTracks.push({
-          job: player.job,
-          playerId: player.id,
-          actionId: action.id,
-          actionName: action.name,
-          actionIcon: action.icon,
-        })
-      })
-    })
+    const skillTracks = deriveSkillTracks(composition, hiddenPlayerIds, actions)
 
     // 泳道算法：为每个伤害事件分配行
     const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
