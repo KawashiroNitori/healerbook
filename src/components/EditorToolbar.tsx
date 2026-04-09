@@ -54,6 +54,7 @@ import StatDataDialog from './StatDataDialog'
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
 import { getEncounterById } from '@/data/raidEncounters'
+import { track } from '@/utils/analytics'
 
 interface EditorToolbarProps {
   onCreateCopy?: () => void
@@ -256,7 +257,11 @@ export default function EditorToolbar({
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup
                 value={viewMode}
-                onValueChange={v => onViewModeChange(v as 'timeline' | 'table')}
+                onValueChange={v => {
+                  const mode = v as 'timeline' | 'table'
+                  track('view-mode-change', { mode })
+                  onViewModeChange(mode)
+                }}
               >
                 <DropdownMenuRadioItem value="timeline">时间轴视图</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="table">表格视图</DropdownMenuRadioItem>
@@ -267,13 +272,19 @@ export default function EditorToolbar({
                 <DropdownMenuSubContent>
                   <DropdownMenuCheckboxItem
                     checked={showActualDamage}
-                    onCheckedChange={toggleShowActualDamage}
+                    onCheckedChange={checked => {
+                      track('view-toggle-actual-damage', { checked })
+                      toggleShowActualDamage()
+                    }}
                   >
                     实际伤害
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={showOriginalDamage}
-                    onCheckedChange={toggleShowOriginalDamage}
+                    onCheckedChange={checked => {
+                      track('view-toggle-original-damage', { checked })
+                      toggleShowOriginalDamage()
+                    }}
                   >
                     原始伤害
                   </DropdownMenuCheckboxItem>

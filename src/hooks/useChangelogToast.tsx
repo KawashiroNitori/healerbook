@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
+import { track } from '@/utils/analytics'
 
 const CHANGELOG_URL = '/docs/changelog'
 const LS_KEY = 'last_seen_release_id'
@@ -47,6 +48,7 @@ export function useChangelogToast() {
                 <button
                   className="text-sm font-medium bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 transition-colors"
                   onClick={() => {
+                    track('changelog-toast-view', { releaseId: latest.id })
                     window.open(CHANGELOG_URL, '_blank')
                     markSeen()
                     toast.dismiss(toastId)
@@ -60,7 +62,10 @@ export function useChangelogToast() {
           closeButton: true,
           position: 'bottom-right',
           duration: Infinity,
-          onDismiss: markSeen,
+          onDismiss: () => {
+            track('changelog-toast-dismiss', { releaseId: latest.id })
+            markSeen()
+          },
         })
       })
       .catch(() => {
