@@ -47,8 +47,12 @@ export default function TableHeader({
   const actualLeft = leftOffset
   if (showActualDamage) leftOffset += ACTUAL_DAMAGE_COL_WIDTH
 
-  const stickyCellClass =
-    'sticky bg-background border-r border-b text-xs font-semibold text-muted-foreground'
+  // 多层零模糊 box-shadow 叠加：每一层都是纯纵向偏移，避免横向 blur 被相邻单元格的 backdrop-filter 剪裁
+  // 视觉上伪造渐变阴影，同时保证各列阴影严格连续
+  const stackedShadow =
+    'shadow-[0_1px_0_0_rgba(0,0,0,0.12),0_3px_0_0_rgba(0,0,0,0.08),0_5px_0_0_rgba(0,0,0,0.05),0_7px_0_0_rgba(0,0,0,0.03)]'
+  // 左上角的固定列必须使用不透明背景，否则横向滚动时会透出后面的技能列头
+  const stickyCellClass = `sticky bg-background border-r ${stackedShadow} text-xs font-semibold text-muted-foreground`
 
   return (
     <thead>
@@ -92,11 +96,11 @@ export default function TableHeader({
         {skillTracks.map((track, index) => {
           const action = actionsById.get(track.actionId)
           const isNewPlayer = index === 0 || skillTracks[index - 1].playerId !== track.playerId
-          const bgColor = index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+          const bgColor = index % 2 === 0 ? 'bg-background/60' : 'bg-muted/40'
           return (
             <th
               key={`h-${track.playerId}-${track.actionId}`}
-              className={`sticky top-0 z-20 border-b text-center ${bgColor} ${
+              className={`sticky top-0 z-20 backdrop-blur-md ${stackedShadow} text-center ${bgColor} ${
                 isNewPlayer ? 'border-l-2 border-l-foreground/20' : 'border-l'
               }`}
               style={{ width: SKILL_COL_WIDTH, minWidth: SKILL_COL_WIDTH }}

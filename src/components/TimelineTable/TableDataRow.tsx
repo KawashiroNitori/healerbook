@@ -97,18 +97,21 @@ export default function TableDataRow({
   if (showActualDamage) leftOffset += ACTUAL_DAMAGE_COL_WIDTH
 
   const stickyCell = 'sticky bg-background border-r border-b text-xs'
+  // 粘性列必须使用不透明 hover 色，避免横向滚动时后面的技能列透过来
+  const stickyHoverClass = 'group-hover:bg-muted'
+  // 非粘性技能列可以用半透明 hover 色
   const hoverClass = 'group-hover:bg-muted/50'
 
   return (
     <tr className="group" style={{ height: ROW_HEIGHT }}>
       <td
-        className={`${stickyCell} ${hoverClass} z-10 px-2 tabular-nums`}
+        className={`${stickyCell} ${stickyHoverClass} z-10 px-2 tabular-nums`}
         style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH, left: timeLeft }}
       >
         {formatTimeWithDecimal(event.time)}
       </td>
       <td
-        className={`${stickyCell} ${hoverClass} z-10 px-2 truncate`}
+        className={`${stickyCell} ${stickyHoverClass} z-10 px-2 truncate`}
         style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH, left: nameLeft }}
         title={event.name}
       >
@@ -116,7 +119,7 @@ export default function TableDataRow({
       </td>
       {showOriginalDamage && (
         <td
-          className={`${stickyCell} ${hoverClass} z-10 px-2 text-right tabular-nums`}
+          className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
           style={{
             width: ORIGINAL_DAMAGE_COL_WIDTH,
             minWidth: ORIGINAL_DAMAGE_COL_WIDTH,
@@ -128,7 +131,7 @@ export default function TableDataRow({
       )}
       {showActualDamage && (
         <td
-          className={`${stickyCell} ${hoverClass} z-10 px-2 text-right tabular-nums`}
+          className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
           style={{
             width: ACTUAL_DAMAGE_COL_WIDTH,
             minWidth: ACTUAL_DAMAGE_COL_WIDTH,

@@ -54,7 +54,7 @@ export default function TimelineTableView() {
 
   return (
     <div className="h-full w-full overflow-auto">
-      <table className="border-collapse text-xs" style={{ borderSpacing: 0 }}>
+      <table className="border-separate text-xs" style={{ borderSpacing: 0 }}>
         <TableHeader
           skillTracks={skillTracks}
           actionsById={actionsById}
