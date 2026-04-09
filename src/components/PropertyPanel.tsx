@@ -36,7 +36,7 @@ export default function PropertyPanel() {
   const result = eventResults.get(event.id)
 
   return (
-    <div className="fixed right-4 top-[136px] bottom-[112px] w-[22rem] hidden md:flex flex-col bg-background/95 backdrop-blur border rounded-xl shadow-lg z-10 overflow-hidden">
+    <div className="fixed right-4 top-[136px] bottom-[112px] w-[22rem] hidden md:flex flex-col bg-background/95 backdrop-blur border rounded-xl shadow-lg z-40 overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="font-semibold">伤害事件</h2>

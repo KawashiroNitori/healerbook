@@ -6,7 +6,7 @@
 export const TIME_COL_WIDTH = 72
 
 /** 事件名列宽度（px） */
-export const NAME_COL_WIDTH = 160
+export const NAME_COL_WIDTH = 128
 
 /** 原始伤害列宽度（px） */
 export const ORIGINAL_DAMAGE_COL_WIDTH = 80
