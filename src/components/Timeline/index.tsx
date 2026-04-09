@@ -38,7 +38,7 @@ import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
-import { formatTimeWithDecimal } from '@/utils/timeFormat'
+import { formatTimeWithDecimal } from '@/utils/formatters'
 import { deriveSkillTracks } from '@/utils/skillTracks'
 
 interface TimelineCanvasProps {

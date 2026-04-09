@@ -8,6 +8,7 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { useUIStore } from '@/store/uiStore'
+import { formatDamageValue } from '@/utils/formatters'
 import { useCanvasColors } from './constants'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
@@ -24,10 +25,6 @@ function truncateText(text: string, maxWidth: number, font: string): string {
   let i = text.length
   while (i > 0 && ctx.measureText(text.slice(0, i)).width + ellipsisWidth > maxWidth) i--
   return text.slice(0, i) + '...'
-}
-
-function formatDamageValue(value: number): string {
-  return value >= 10000 ? `${(value / 10000).toFixed(1)}w` : value.toLocaleString()
 }
 
 interface DamageEventCardProps {

@@ -56,7 +56,7 @@ export default function TableHeader({
     <thead>
       <tr style={{ height: HEADER_HEIGHT }}>
         <th
-          className={`${stickyCellClass} top-0 z-30 text-left px-2`}
+          className={`${stickyCellClass} top-0 z-30 text-right px-2`}
           style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH, left: timeLeft }}
         >
           时间
@@ -65,7 +65,7 @@ export default function TableHeader({
           className={`${stickyCellClass} top-0 z-30 text-left px-2`}
           style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH, left: nameLeft }}
         >
-          事件
+          伤害事件
         </th>
         {showOriginalDamage && (
           <th
@@ -76,7 +76,7 @@ export default function TableHeader({
               left: origLeft,
             }}
           >
-            原始
+            原始伤害
           </th>
         )}
         {showActualDamage && (
@@ -88,7 +88,7 @@ export default function TableHeader({
               left: actualLeft,
             }}
           >
-            实际
+            实际伤害
           </th>
         )}
         {skillTracks.map((track, index) => {

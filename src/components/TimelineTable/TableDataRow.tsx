@@ -8,7 +8,7 @@
  * - 对编辑 / 回放、AoE / 死刑四种情况处理伤害数值来源
  */
 
-import { formatTimeWithDecimal } from '@/utils/timeFormat'
+import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { cellKey } from '@/utils/castWindow'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
@@ -36,7 +36,7 @@ const EMPTY = '—'
 
 function formatDamage(n: number | undefined): string {
   if (n === undefined || n === null || Number.isNaN(n)) return EMPTY
-  return n.toLocaleString()
+  return formatDamageValue(n)
 }
 
 /**

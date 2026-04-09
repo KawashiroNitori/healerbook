@@ -5,7 +5,7 @@
  */
 
 import { StickyNote } from 'lucide-react'
-import { formatTimeWithDecimal } from '@/utils/timeFormat'
+import { formatTimeWithDecimal } from '@/utils/formatters'
 import type { Annotation } from '@/types/timeline'
 import { TIME_COL_WIDTH } from './constants'
 
