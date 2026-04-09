@@ -35,6 +35,10 @@ interface TableDataRowProps {
   showActualDamage: boolean
   /** 点击事件名时回调，传入事件 id（用于触发 PropertyPanel 打开） */
   onSelect: (eventId: string) => void
+  /** 点击技能单元格切换放置状态 */
+  onCellToggle: (track: SkillTrack, event: DamageEvent, isLit: boolean) => void
+  /** 只读模式下禁止切换 */
+  isReadOnly: boolean
 }
 
 const EMPTY = '—'
@@ -89,6 +93,8 @@ export default function TableDataRow({
   showOriginalDamage,
   showActualDamage,
   onSelect,
+  onCellToggle,
+  isReadOnly,
 }: TableDataRowProps) {
   const { original, actual } = resolveDamageNumbers(event, timeline, calculationResult)
 
@@ -193,8 +199,13 @@ export default function TableDataRow({
             key={`c-${track.playerId}-${track.actionId}`}
             className={`relative border-b ${baseBg} ${hoverClass} ${
               isNewPlayer ? 'border-l-2 border-l-foreground/20' : 'border-l'
-            }`}
+            } ${isReadOnly ? '' : 'cursor-pointer'}`}
             style={{ width: SKILL_COL_WIDTH, minWidth: SKILL_COL_WIDTH }}
+            onClick={e => {
+              if (isReadOnly) return
+              e.stopPropagation()
+              onCellToggle(track, event, isMarker)
+            }}
           >
             {isLit && <div className="absolute inset-0 bg-emerald-500/30" />}
             {isMarker && (

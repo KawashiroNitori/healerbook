@@ -10,14 +10,18 @@
  * - useUIStore → showOriginalDamage / showActualDamage
  */
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useUIStore } from '@/store/uiStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
+import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { computeCastMarkerCells, computeLitCellsByEvent } from '@/utils/castWindow'
 import { mergeAndSortRows } from '@/utils/tableRows'
+import type { SkillTrack } from '@/utils/skillTracks'
+import type { DamageEvent } from '@/types/timeline'
 import TableHeader from './TableHeader'
 import TableDataRow from './TableDataRow'
 import AnnotationRow from './AnnotationRow'
@@ -33,11 +37,14 @@ import {
 export default function TimelineTableView() {
   const timeline = useTimelineStore(s => s.timeline)
   const selectEvent = useTimelineStore(s => s.selectEvent)
+  const addCastEvent = useTimelineStore(s => s.addCastEvent)
+  const removeCastEvent = useTimelineStore(s => s.removeCastEvent)
   const actions = useMitigationStore(s => s.actions)
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const skillTracks = useSkillTracks()
   const calculationResults = useDamageCalculationResults()
+  const isReadOnly = useEditorReadOnly()
 
   const actionsById = useMemo(() => {
     const map = new Map<number, (typeof actions)[number]>()
@@ -54,6 +61,54 @@ export default function TimelineTableView() {
     if (!timeline) return new Map<string, Set<string>>()
     return computeCastMarkerCells(timeline.damageEvents, timeline.castEvents)
   }, [timeline])
+
+  // 单元格点击：在该行事件时刻放置/移除对应技能
+  // - 带图标的单元格（marker，即 cast 起点）→ 移除对应 cast
+  // - 淡绿色/空白单元格 → 尝试放置（冷却冲突时 toast 拒绝）
+  const handleCellToggle = useCallback(
+    (track: SkillTrack, event: DamageEvent, isMarker: boolean) => {
+      if (isReadOnly || !timeline) return
+      const action = actionsById.get(track.actionId)
+      if (!action) return
+
+      if (isMarker) {
+        // 移除：在 marker 单元格里，cast.timestamp === event.time（该伤害事件正是 cast 后的第一个）
+        // 严格找 timestamp 最接近 event.time 且在该事件之前或等于的 cast
+        const matching = timeline.castEvents
+          .filter(
+            ce =>
+              ce.playerId === track.playerId &&
+              ce.actionId === track.actionId &&
+              ce.timestamp <= event.time
+          )
+          .sort((a, b) => b.timestamp - a.timestamp)[0]
+        if (matching) removeCastEvent(matching.id)
+        return
+      }
+
+      // 新增：检查冷却重叠（同玩家同技能的 CD 窗口不能重叠）
+      const newEnd = event.time + action.cooldown
+      const overlap = timeline.castEvents.some(other => {
+        if (other.playerId !== track.playerId || other.actionId !== track.actionId) return false
+        const otherAction = actionsById.get(other.actionId)
+        if (!otherAction) return false
+        const otherEnd = other.timestamp + otherAction.cooldown
+        return event.time < otherEnd && other.timestamp < newEnd
+      })
+      if (overlap) {
+        toast.error('无法添加技能', { description: '该技能与已有技能重叠' })
+        return
+      }
+      addCastEvent({
+        id: `cast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        actionId: track.actionId,
+        timestamp: event.time,
+        playerId: track.playerId,
+        job: track.job,
+      })
+    },
+    [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent]
+  )
 
   const rows = useMemo(() => {
     if (!timeline) return []
@@ -169,6 +224,8 @@ export default function TimelineTableView() {
                   showOriginalDamage={showOriginalDamage}
                   showActualDamage={showActualDamage}
                   onSelect={selectEvent}
+                  onCellToggle={handleCellToggle}
+                  isReadOnly={isReadOnly}
                 />
               ) : (
                 <AnnotationRow
