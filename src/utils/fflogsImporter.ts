@@ -321,28 +321,29 @@ function selectRepresentativeDamage(
   damageType: DamageType,
   tankJobs: Job[]
 ): number {
+  // 若目标组内最大 unmitigatedDamage 为 0（通常因为伤害被盾完全吸收，FFLogs 没有返回
+  // unmitigatedAmount / multiplier），则 fallback 到更宽的候选集合，而不是直接返回 0。
   if (damageType === 'physical') {
     const targets = details.filter(d => {
       const role = getJobRole(d.job)
       return role === 'caster' || role === 'healer'
     })
-    if (targets.length > 0) {
-      return Math.max(...targets.map(d => d.unmitigatedDamage))
-    }
+    const max = Math.max(0, ...targets.map(d => d.unmitigatedDamage))
+    if (max > 0) return max
   } else if (damageType === 'magical') {
     const targets = details.filter(d => {
       const role = getJobRole(d.job)
       return role === 'melee' || role === 'ranged'
     })
-    if (targets.length > 0) {
-      return Math.max(...targets.map(d => d.unmitigatedDamage))
-    }
+    const max = Math.max(0, ...targets.map(d => d.unmitigatedDamage))
+    if (max > 0) return max
   }
 
-  // fallback: 非坦克最高值
+  // fallback: 非坦克最高值；若非坦克也全为 0，再退回全体
   const nonTankDetails = details.filter(d => !tankJobs.includes(d.job))
-  const detailsForMax = nonTankDetails.length > 0 ? nonTankDetails : details
-  return Math.max(...detailsForMax.map(d => d.unmitigatedDamage))
+  const nonTankMax = Math.max(0, ...nonTankDetails.map(d => d.unmitigatedDamage))
+  if (nonTankMax > 0) return nonTankMax
+  return Math.max(0, ...details.map(d => d.unmitigatedDamage))
 }
 
 function detectDamageType(details: PlayerDamageDetail[], tankJobs: Job[]): 'aoe' | 'tankbuster' {

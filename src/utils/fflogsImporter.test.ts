@@ -553,6 +553,182 @@ describe('parseDamageEvents', () => {
     expect(result[0].damage).toBe(10000) // 无近战/远物，fallback 非T最高值(SCH 10000)
   })
 
+  it('魔法伤害：近战/远物被盾完全吸光时应 fallback 到非 T 最高值', () => {
+    // 场景：魔法 AOE 同时命中 SAM(melee) 和 WHM(healer)
+    // SAM 被盾完全吸光 → FFLogs 不返回 unmitigatedAmount 也不返回 multiplier
+    // WHM 吃了实伤，有有效的 unmitigatedAmount
+    // 期望：代表值应取 WHM 的 15000，而不是因为 SAM 全 0 返回 0
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Shielded Magic', 1024)
+
+    const events = [
+      // T 吃实伤
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 6000,
+        absorbed: 0,
+        amount: 6000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      // WHM 吃实伤
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 15000,
+        absorbed: 0,
+        amount: 15000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      // SAM 被盾完全吸光：无 unmitigatedAmount、无 multiplier，只有 absorbed
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        absorbed: 14000,
+        amount: 0,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    // 若不做 fallback 防护，magical 分支在 SAM.unmitigatedDamage=0 上会返回 0
+    // 修复后：该组全 0 → fallback 到非 T 最高值 → WHM 15000
+    expect(result[0].damage).toBe(15000)
+  })
+
+  it('物理伤害：法系/治疗被盾完全吸光时应 fallback 到非 T 最高值', () => {
+    // 场景：物理 AOE 同时命中 WHM(healer) 和 SAM(melee)
+    // WHM 被盾完全吸光 → unmitigatedAmount / multiplier 均缺失
+    // SAM 吃了实伤
+    // 期望：代表值应取 SAM 的 12000
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Shielded Physical', 128)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 5000,
+        absorbed: 0,
+        amount: 5000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      // WHM 被盾完全吸光
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        absorbed: 11000,
+        amount: 0,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      // SAM 吃实伤
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].damage).toBe(12000)
+  })
+
+  it('所有非 T 被盾完全吸光时应进一步 fallback 到 T 的真实数据', () => {
+    // 场景：物理 AOE，所有非 T 都被盾吸光，只有 T 吃了实伤
+    // 期望：最终 fallback 到包含 T 在内的最大值 → T 的 20000
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Fully Shielded', 128)
+
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 20000,
+        absorbed: 0,
+        amount: 20000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        absorbed: 11000,
+        amount: 0,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        absorbed: 12000,
+        amount: 0,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(1)
+    // 物理分支 caster/healer 全 0 → 非 T fallback 全 0 → 最终 fallback 到全体 → T 20000
+    expect(result[0].damage).toBe(20000)
+  })
+
   it('物理伤害只命中近战时应 fallback 取非T最高值', () => {
     const playerMap = new Map<number, V2Actor>([
       [1, { id: 1, name: 'Melee1', type: 'Samurai' }],
