@@ -33,6 +33,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
@@ -55,9 +58,16 @@ import { getEncounterById } from '@/data/raidEncounters'
 interface EditorToolbarProps {
   onCreateCopy?: () => void
   forceReadOnly?: boolean
+  viewMode: 'timeline' | 'table'
+  onViewModeChange: (mode: 'timeline' | 'table') => void
 }
 
-export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToolbarProps) {
+export default function EditorToolbar({
+  onCreateCopy,
+  forceReadOnly,
+  viewMode,
+  onViewModeChange,
+}: EditorToolbarProps) {
   const navigate = useNavigate()
   const {
     timeline,
@@ -136,6 +146,7 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
               min={10}
               max={100}
               className="w-24"
+              disabled={viewMode === 'table'}
             />
             <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
           </div>
@@ -243,6 +254,14 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
               <TooltipContent side="bottom">视图</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup
+                value={viewMode}
+                onValueChange={v => onViewModeChange(v as 'timeline' | 'table')}
+              >
+                <DropdownMenuRadioItem value="timeline">时间轴视图</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="table">表格视图</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>伤害事件</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
@@ -300,7 +319,8 @@ export default function EditorToolbar({ onCreateCopy, forceReadOnly }: EditorToo
                   timeline={timeline}
                   onPublished={(newId, publishedAt, version) => {
                     applyPublishResult(newId, publishedAt, version)
-                    navigate(`/timeline/${newId}`, { replace: true })
+                    const query = viewMode === 'table' ? '?view=table' : ''
+                    navigate(`/timeline/${newId}${query}`, { replace: true })
                   }}
                   onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
                   onConflict={c => setConflict(c)}

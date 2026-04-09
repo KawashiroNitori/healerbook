@@ -150,7 +150,7 @@ export default function TableDataRow({
             }`}
             style={{ width: SKILL_COL_WIDTH, minWidth: SKILL_COL_WIDTH }}
           >
-            {isLit && <div className="absolute inset-0 bg-primary/20" />}
+            {isLit && <div className="absolute inset-0 bg-emerald-500/30" />}
           </td>
         )
       })}

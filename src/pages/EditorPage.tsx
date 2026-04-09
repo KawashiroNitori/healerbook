@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { House, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -23,6 +23,7 @@ import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
 import EditorToolbar from '@/components/EditorToolbar'
 import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
+import TimelineTableView from '@/components/TimelineTable'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import EditableTitle from '@/components/EditableTitle'
 import EditableDescription from '@/components/EditableDescription'
@@ -38,6 +39,14 @@ type PageMode = 'local' | 'author' | 'view' | 'loading' | 'not_found' | 'network
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const viewMode: 'timeline' | 'table' = searchParams.get('view') === 'table' ? 'table' : 'timeline'
+  const handleViewModeChange = (mode: 'timeline' | 'table') => {
+    const next = new URLSearchParams(searchParams)
+    if (mode === 'table') next.set('view', 'table')
+    else next.delete('view')
+    setSearchParams(next, { replace: true })
+  }
   const accessToken = useAuthStore(s => s.accessToken)
   const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
     useTimelineStore()
@@ -306,6 +315,8 @@ export default function EditorPage() {
       <EditorToolbar
         onCreateCopy={isViewMode ? handleCreateCopy : undefined}
         forceReadOnly={isViewMode}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
       />
 
       {/* Main Content */}
@@ -315,7 +326,11 @@ export default function EditorPage() {
             <div ref={canvasContainerRef} className="h-full">
               {timeline ? (
                 <ErrorBoundary>
-                  <TimelineCanvas width={canvasSize.width} height={canvasSize.height} />
+                  {viewMode === 'table' ? (
+                    <TimelineTableView />
+                  ) : (
+                    <TimelineCanvas width={canvasSize.width} height={canvasSize.height} />
+                  )}
                 </ErrorBoundary>
               ) : (
                 <div className="flex items-center justify-center h-full">
