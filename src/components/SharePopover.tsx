@@ -26,6 +26,8 @@ import { track } from '@/utils/analytics'
 
 interface SharePopoverProps {
   timeline: Timeline
+  /** 当前视图模式，用于生成带对应 view 参数的分享链接 */
+  viewMode: 'timeline' | 'table'
   onPublished: (newId: string, publishedAt: number, version: number) => void
   onUpdated: (updatedAt: number, version: number) => void
   onConflict: (conflict: ConflictError) => void
@@ -35,6 +37,7 @@ const SHARE_BASE_URL = window.location.origin
 
 export default function SharePopover({
   timeline,
+  viewMode,
   onPublished,
   onUpdated,
   onConflict,
@@ -47,7 +50,9 @@ export default function SharePopover({
 
   const isShared = !!timeline.isShared
   const hasChanges = isShared && !!timeline.hasLocalChanges
-  const shareUrl = isShared ? `${SHARE_BASE_URL}/timeline/${timeline.id}` : ''
+  const shareUrl = isShared
+    ? `${SHARE_BASE_URL}/timeline/${timeline.id}${viewMode === 'table' ? '?view=table' : ''}`
+    : ''
 
   const handleCopy = async () => {
     try {

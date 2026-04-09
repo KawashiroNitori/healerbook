@@ -317,6 +317,7 @@ export default function EditorToolbar({
               ) : (
                 <SharePopover
                   timeline={timeline}
+                  viewMode={viewMode}
                   onPublished={(newId, publishedAt, version) => {
                     applyPublishResult(newId, publishedAt, version)
                     const query = viewMode === 'table' ? '?view=table' : ''
