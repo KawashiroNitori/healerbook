@@ -16,7 +16,7 @@ import { useMitigationStore } from '@/store/mitigationStore'
 import { useUIStore } from '@/store/uiStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
-import { computeLitCellsByEvent } from '@/utils/castWindow'
+import { computeCastMarkerCells, computeLitCellsByEvent } from '@/utils/castWindow'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import TableHeader from './TableHeader'
 import TableDataRow from './TableDataRow'
@@ -49,6 +49,11 @@ export default function TimelineTableView() {
     if (!timeline) return new Map<string, Set<string>>()
     return computeLitCellsByEvent(timeline.damageEvents, timeline.castEvents, actionsById)
   }, [timeline, actionsById])
+
+  const markerCellsByEvent = useMemo(() => {
+    if (!timeline) return new Map<string, Set<string>>()
+    return computeCastMarkerCells(timeline.damageEvents, timeline.castEvents)
+  }, [timeline])
 
   const rows = useMemo(() => {
     if (!timeline) return []
@@ -159,6 +164,7 @@ export default function TimelineTableView() {
                   timeline={timeline}
                   skillTracks={skillTracks}
                   litCells={litCellsByEvent.get(row.id) ?? new Set()}
+                  markerCells={markerCellsByEvent.get(row.id) ?? new Set()}
                   calculationResult={calculationResults.get(row.id)}
                   showOriginalDamage={showOriginalDamage}
                   showActualDamage={showActualDamage}

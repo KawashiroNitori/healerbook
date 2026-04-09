@@ -9,6 +9,7 @@
  */
 
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
+import { getIconUrl } from '@/utils/iconUtils'
 import { cellKey } from '@/utils/castWindow'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
@@ -27,6 +28,8 @@ interface TableDataRowProps {
   timeline: Timeline
   skillTracks: SkillTrack[]
   litCells: Set<string>
+  /** 标记为 cast 起点的单元格——即该伤害事件是 cast 之后的第一个 */
+  markerCells: Set<string>
   calculationResult: CalculationResult | undefined
   showOriginalDamage: boolean
   showActualDamage: boolean
@@ -81,6 +84,7 @@ export default function TableDataRow({
   timeline,
   skillTracks,
   litCells,
+  markerCells,
   calculationResult,
   showOriginalDamage,
   showActualDamage,
@@ -180,7 +184,9 @@ export default function TableDataRow({
       )}
       {skillTracks.map((track, index) => {
         const isNewPlayer = index === 0 || skillTracks[index - 1].playerId !== track.playerId
-        const isLit = litCells.has(cellKey(track.playerId, track.actionId))
+        const key = cellKey(track.playerId, track.actionId)
+        const isLit = litCells.has(key)
+        const isMarker = markerCells.has(key)
         const baseBg = index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
         return (
           <td
@@ -191,6 +197,16 @@ export default function TableDataRow({
             style={{ width: SKILL_COL_WIDTH, minWidth: SKILL_COL_WIDTH }}
           >
             {isLit && <div className="absolute inset-0 bg-emerald-500/30" />}
+            {isMarker && (
+              <img
+                src={getIconUrl(track.actionIcon)}
+                alt={track.actionName}
+                className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm"
+                onError={e => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            )}
           </td>
         )
       })}
