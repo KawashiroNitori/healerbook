@@ -247,7 +247,7 @@ export const JOB_METADATA = {
     code: 'PCT',
     name: '绘灵法师',
     nameEn: 'Pictomancer',
-    shortName: '画师',
+    shortName: '画家',
     initial: '画',
     role: 'caster',
     icon: 'xiv-class_job_042',
