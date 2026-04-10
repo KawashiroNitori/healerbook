@@ -248,7 +248,7 @@ function EncounterTable({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm whitespace-nowrap">
                   <thead>
                     <tr className="border-b bg-muted/20 text-muted-foreground text-xs">
                       <th className="text-right px-3 py-2 w-10">#</th>
