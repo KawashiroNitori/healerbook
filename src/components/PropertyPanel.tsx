@@ -13,6 +13,7 @@ import { Trash2, TriangleAlert, Skull, HelpCircle } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { TimeInput } from '@/components/ui/time-input'
 import type { DamageType } from '@/types/timeline'
 
 export default function PropertyPanel() {
@@ -66,13 +67,12 @@ export default function PropertyPanel() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">时间 (秒)</label>
-            <input
-              type="number"
+            <label className="block text-xs text-muted-foreground mb-1">时间</label>
+            <TimeInput
               value={event.time}
-              onChange={e => updateDamageEvent(event.id, { time: parseFloat(e.target.value) || 0 })}
-              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
-              step="0.1"
+              onChange={v => updateDamageEvent(event.id, { time: v })}
+              min={-30}
+              size="sm"
               disabled={isReadOnly}
             />
           </div>

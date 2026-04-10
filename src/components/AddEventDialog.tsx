@@ -7,6 +7,7 @@ import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
+import { TimeInput } from '@/components/ui/time-input'
 import type { DamageType } from '@/types/timeline'
 
 interface AddEventDialogProps {
@@ -68,15 +69,8 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">时间 (秒)</label>
-            <input
-              type="number"
-              value={time}
-              onChange={e => setTime(parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-              step="0.1"
-              min="-30"
-            />
+            <label className="block text-sm font-medium mb-1">时间</label>
+            <TimeInput value={time} onChange={setTime} min={-30} />
           </div>
 
           <div>
