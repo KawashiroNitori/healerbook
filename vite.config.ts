@@ -5,6 +5,9 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __COMMIT_HASH__: JSON.stringify(process.env.CF_PAGES_COMMIT_SHA?.slice(0, 7) || 'dev'),
+  },
   plugins: [
     react(),
     cloudflare({
