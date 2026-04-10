@@ -53,7 +53,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
   } = options
 
   const wb = new ExcelJS.Workbook()
-  const sheetName = (fileName || '减伤表').slice(0, 31) || '减伤表'
+  const sanitized = (fileName || '减伤表').replace(/[\\/?*[\]:]/g, '_')
+  const sheetName = sanitized.slice(0, 31) || '减伤表'
   const ws = wb.addWorksheet(sheetName)
 
   // 计算固定列数
@@ -166,7 +167,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       if (!url) return
 
       try {
-        const resp = await fetch(url)
+        const resp = await fetch(url, { signal: AbortSignal.timeout(5000) })
         if (!resp.ok) return
         const arrayBuffer = await resp.arrayBuffer()
         // ExcelJS image buffer type — cast via unknown for browser/Node.js compatibility
@@ -229,13 +230,6 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       // 合并 col2 到最后一列
       if (totalCols > 2) {
         ws.mergeCells(rowNum, 2, rowNum, totalCols)
-      }
-
-      // 其余列填充黄色
-      for (let c = 3; c <= totalCols; c++) {
-        const cell = wsRow.getCell(c)
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_YELLOW_FILL } }
-        cell.border = CELL_BORDER
       }
     } else {
       const { event } = tableRow
