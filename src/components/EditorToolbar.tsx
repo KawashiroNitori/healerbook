@@ -2,7 +2,7 @@
  * 编辑器工具栏组件
  */
 
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ZoomIn,
@@ -53,7 +53,7 @@ import CompositionPopover from './CompositionPopover'
 import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
 import StatDataDialog from './StatDataDialog'
-import ExportExcelDialog from './ExportExcelDialog'
+const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -421,7 +421,11 @@ export default function EditorToolbar({
         />
       )}
       <StatDataDialog open={showStatDataDialog} onClose={() => setShowStatDataDialog(false)} />
-      <ExportExcelDialog open={showExportDialog} onClose={() => setShowExportDialog(false)} />
+      <Suspense fallback={null}>
+        {showExportDialog && (
+          <ExportExcelDialog open={showExportDialog} onClose={() => setShowExportDialog(false)} />
+        )}
+      </Suspense>
     </>
   )
 }
