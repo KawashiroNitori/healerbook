@@ -103,74 +103,46 @@ export function parseDamageEvents(
   const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
   const TANK_JOBS = getTankJobs()
 
-  // Step 1: 从 calculateddamage 事件构建初始 PlayerDamageDetail（仅身份信息和时间戳）
-  // calculateddamage 是伤害实际结算的事件，时间戳最准确
+  // DOT 追踪：记录 applydebuff 事件的快照时间和来源技能
+  // key: `${abilityGameID}-${targetID}`, value: { timestamp, extraAbilityGameID }
+  const dotDebuffMap = new Map<string, { timestamp: number; extraAbilityGameID: number }>()
+
+  // Step 1 & 2: 单次遍历事件
+  // - applydebuff: 记录 DOT 快照信息
+  // - calculateddamage: 创建 detail（时间戳最准确）
+  // - damage: 填充数值，若无 calculateddamage 则同时创建 detail
   const playerDamageDetails: PlayerDamageDetail[] = []
-  // damageTimestamps: 记录每个 detail 对应的 damage 事件时间戳，用于后续 absorbed 匹配
   const damageTimestamps = new Map<PlayerDamageDetail, number>()
+  const detailByPacketAndTarget = new Map<string, PlayerDamageDetail>()
 
   for (const event of events) {
-    if (event.type !== 'calculateddamage') continue
-    if (!event.targetID || !playerMap.has(event.targetID)) continue
-    if (!event.packetID) continue
-
-    const abilityId = event.abilityGameID ?? 0
-    const abilityMeta = abilityMap?.get(abilityId)
-    const abilityName = abilityMeta?.name ?? '未知技能'
-
-    if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
-    if (abilityId === 16152) continue // 超火流星
-
-    const player = playerMap.get(event.targetID)
-    if (!player) continue
-
-    const job = JOB_MAP[player.type]
-    if (!job) continue
-
-    const chineseName = getActionChinese(abilityId)
-    const skillName = chineseName ?? abilityName
-
-    const detail: PlayerDamageDetail = {
-      timestamp: event.timestamp,
-      packetId: event.packetID,
-      sourceId: event.sourceID || 0,
-      playerId: event.targetID,
-      job,
-      abilityId,
-      skillName,
-      unmitigatedDamage: 0,
-      finalDamage: 0,
-      statuses: [],
+    // 追踪 applydebuff 用于 DOT 快照
+    if (event.type === 'applydebuff') {
+      if (event.abilityGameID && event.targetID && event.extraAbilityGameID) {
+        const debuffKey = `${event.abilityGameID}-${event.targetID}`
+        dotDebuffMap.set(debuffKey, {
+          timestamp: event.timestamp,
+          extraAbilityGameID: event.extraAbilityGameID,
+        })
+      }
+      continue
     }
 
-    playerDamageDetails.push(detail)
-  }
-
-  // Step 2: 用 damage 事件填充数值字段（unmitigatedAmount、amount、buffs 等）
-  // 同时记录 damage 的时间戳，供 absorbed 匹配使用
-  const detailByPacketAndTarget = new Map<string, PlayerDamageDetail>()
-  for (const detail of playerDamageDetails) {
-    const key = `${detail.packetId}-${detail.playerId}`
-    detailByPacketAndTarget.set(key, detail)
-  }
-
-  for (const event of events) {
-    if (event.type !== 'damage') continue
+    if (event.type !== 'calculateddamage' && event.type !== 'damage') continue
     if (!event.packetID || !event.targetID) continue
+    if (!playerMap.has(event.targetID)) continue
 
-    const key = `${event.packetID}-${event.targetID}`
+    const abilityId = event.abilityGameID ?? 0
+    const key = `${event.packetID}-${event.targetID}-${abilityId}`
     let detail = detailByPacketAndTarget.get(key)
 
-    // 没有对应的 calculateddamage 事件时，从 damage 事件直接创建 detail
+    // detail 不存在时创建（calculateddamage 先到则时间戳更准确，否则用 damage 的）
     if (!detail) {
-      if (!playerMap.has(event.targetID)) continue
-
-      const abilityId = event.abilityGameID ?? 0
       const abilityMeta = abilityMap?.get(abilityId)
       const abilityName = abilityMeta?.name ?? '未知技能'
 
       if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
-      if (abilityId === 16152) continue
+      if (abilityId === 16152) continue // 超火流星
 
       const player = playerMap.get(event.targetID)
       if (!player) continue
@@ -180,6 +152,10 @@ export function parseDamageEvents(
 
       const chineseName = getActionChinese(abilityId)
       const skillName = chineseName ?? abilityName
+
+      // 检查是否为 DOT tick：需要 tick 标记且匹配已追踪的 applydebuff
+      const debuffKey = `${abilityId}-${event.targetID}`
+      const dotInfo = event.tick ? dotDebuffMap.get(debuffKey) : undefined
 
       detail = {
         timestamp: event.timestamp,
@@ -192,11 +168,15 @@ export function parseDamageEvents(
         unmitigatedDamage: 0,
         finalDamage: 0,
         statuses: [],
+        snapshotTimestamp: dotInfo?.timestamp,
       }
 
       playerDamageDetails.push(detail)
       detailByPacketAndTarget.set(key, detail)
     }
+
+    // calculateddamage 仅用于创建 detail，不携带数值字段
+    if (event.type === 'calculateddamage') continue
 
     // 填充数值字段（从 damage 事件获取）
     let unmitigatedDamage = event.unmitigatedAmount ?? 0
@@ -237,15 +217,15 @@ export function parseDamageEvents(
 
     // 记录 damage 时间戳，用于 absorbed 匹配
     damageTimestamps.set(detail, event.timestamp)
-  }
 
-  // 标记已被 damage 事件填充数值的 detail
-  const filledDetails = playerDamageDetails
+    // damage 已填充，从 map 中移除，避免 dot tick 等同 key 多次 damage 合并到同一 detail
+    detailByPacketAndTarget.delete(key)
+  }
 
   // Step 3: 从 absorbed 事件填充盾值状态
   // absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key
   const detailByDamageTs = new Map<string, PlayerDamageDetail>()
-  for (const detail of filledDetails) {
+  for (const detail of playerDamageDetails) {
     const ts = damageTimestamps.get(detail) ?? detail.timestamp
     const key = `${ts}-${detail.playerId}-${detail.sourceId}-${detail.abilityId}`
     detailByDamageTs.set(key, detail)
@@ -275,26 +255,26 @@ export function parseDamageEvents(
   }
 
   // Step 4: 按时间窗口（0.9秒）+ 技能名称汇总，构建 DamageEvent
-  const TIME_WINDOW = 900 // 0.9秒 = 900毫秒
+  const TIME_WINDOW = 900
 
   // 按时间排序所有 PlayerDamageDetail
-  filledDetails.sort((a, b) => a.timestamp - b.timestamp)
+  playerDamageDetails.sort((a, b) => a.timestamp - b.timestamp)
 
   const damageEvents: DamageEvent[] = []
   const processedIndices = new Set<number>()
 
-  for (let i = 0; i < filledDetails.length; i++) {
+  for (let i = 0; i < playerDamageDetails.length; i++) {
     if (processedIndices.has(i)) continue
 
-    const baseDetail = filledDetails[i]
+    const baseDetail = playerDamageDetails[i]
     const details: PlayerDamageDetail[] = [baseDetail]
     processedIndices.add(i)
 
     // 查找时间窗口内相同技能名称的其他伤害
-    for (let j = i + 1; j < filledDetails.length; j++) {
+    for (let j = i + 1; j < playerDamageDetails.length; j++) {
       if (processedIndices.has(j)) continue
 
-      const currentDetail = filledDetails[j]
+      const currentDetail = playerDamageDetails[j]
       const timeDiff = currentDetail.timestamp - baseDetail.timestamp
 
       // 超出时间窗口，停止查找
@@ -318,14 +298,27 @@ export function parseDamageEvents(
     const relativeTime = Math.round((firstDetail.timestamp - fightStartTime) / 10) / 100
     if (relativeTime < 0) continue
 
-    const abilityMeta = abilityMap?.get(firstDetail.abilityId)
-    const damageType = detectDamageTypeFromAbility(abilityMeta?.type ?? 0)
+    // 伤害属性：DOT 从 applydebuff 的 extraAbilityGameID 获取，否则从自身 abilityId 获取
+    let damageType: DamageType
+    const dotInfo = firstDetail.snapshotTimestamp
+      ? dotDebuffMap.get(`${firstDetail.abilityId}-${firstDetail.playerId}`)
+      : undefined
+    if (dotInfo) {
+      const sourceAbilityMeta = abilityMap?.get(dotInfo.extraAbilityGameID)
+      damageType = detectDamageTypeFromAbility(sourceAbilityMeta?.type ?? 0)
+    } else {
+      const abilityMeta = abilityMap?.get(firstDetail.abilityId)
+      damageType = detectDamageTypeFromAbility(abilityMeta?.type ?? 0)
+    }
 
     // 计算代表伤害值：按伤害属性选取受该属性影响最大的职业组的最高值
-    // 物理伤害 → 取法系+治疗的最高值（他们物防低）
-    // 魔法伤害 → 取近战+远物的最高值（他们魔防低）
-    // 其他情况 → 取非坦克中位数
     const representativeDamage = selectRepresentativeDamage(details, damageType, TANK_JOBS)
+
+    // DOT 快照时间（秒）
+    const snapshotTime = firstDetail.snapshotTimestamp
+      ? Math.round((firstDetail.snapshotTimestamp - fightStartTime) / 10) / 100
+      : undefined
+
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
       name: firstDetail.skillName,
@@ -335,6 +328,7 @@ export function parseDamageEvents(
       damageType,
       playerDamageDetails: details,
       packetId: firstDetail.packetId,
+      snapshotTime,
     })
   }
 

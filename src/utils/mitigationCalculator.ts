@@ -40,45 +40,55 @@ export class MitigationCalculator {
    * @param partyState 小队状态
    * @param time 当前时间（秒）
    * @param damageType 伤害类型（物理/魔法/特殊）
+   * @param snapshotTime DOT 快照时间（秒）— 百分比减伤以此时刻为准，盾值仍用 time
    * @returns 计算结果
    */
   calculate(
     originalDamage: number,
     partyState: PartyState,
     time: number,
-    damageType: DamageType = 'physical'
+    damageType: DamageType = 'physical',
+    snapshotTime?: number
   ): CalculationResult {
-    // 1. 获取生效的玩家状态（包含友方 Buff 和敌方 Debuff）
-    const activeStatuses = this.getActiveStatuses([{ statuses: partyState.statuses }], time)
+    // 百分比减伤使用快照时间（DOT）或实际时间（普通伤害）
+    const mitigationTime = snapshotTime ?? time
 
-    // 2. 计算百分比减伤
+    // 1 & 2. 遍历状态，计算百分比减伤 + 收集盾值状态
     let multiplier = 1.0
     const appliedStatuses: MitigationStatus[] = []
+    const shieldStatuses: MitigationStatus[] = []
 
-    for (const status of activeStatuses) {
+    for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
 
       if (meta.type === 'multiplier') {
-        const damageMultiplier = this.getDamageMultiplier(meta.performance, damageType)
-        multiplier *= damageMultiplier
-        appliedStatuses.push(status)
+        // 百分比减伤：以快照时间为准
+        if (mitigationTime >= status.startTime && mitigationTime <= status.endTime) {
+          const damageMultiplier = this.getDamageMultiplier(meta.performance, damageType)
+          multiplier *= damageMultiplier
+          appliedStatuses.push(status)
+        }
+      } else if (meta.type === 'absorbed') {
+        // 盾值：以实际时间为准
+        if (
+          time >= status.startTime &&
+          time <= status.endTime &&
+          status.remainingBarrier &&
+          status.remainingBarrier > 0
+        ) {
+          shieldStatuses.push(status)
+        }
       }
     }
 
     let damage = Math.round(originalDamage * multiplier)
 
     // 3. 计算盾值减伤
+    shieldStatuses.sort((a, b) => a.startTime - b.startTime)
+
     const statusUpdates = new Map<string, Partial<MitigationStatus>>()
     let playerDamage = damage
-
-    // 从 activeStatuses 中筛选盾值状态，并按开始时间排序
-    const shieldStatuses = activeStatuses
-      .filter(s => {
-        const meta = getStatusById(s.statusId)
-        return meta?.type === 'absorbed' && s.remainingBarrier && s.remainingBarrier > 0
-      })
-      .sort((a, b) => a.startTime - b.startTime)
 
     for (const status of shieldStatuses) {
       const absorbed = Math.min(playerDamage, status.remainingBarrier!)
@@ -134,29 +144,6 @@ export class MitigationCalculator {
       appliedStatuses,
       updatedPartyState,
     }
-  }
-
-  /**
-   * 获取指定时间点生效的状态
-   * @param entities 实体列表
-   * @param time 当前时间（秒）
-   * @returns 生效的状态列表
-   */
-  private getActiveStatuses(
-    entities: Array<{ statuses: MitigationStatus[] }>,
-    time: number
-  ): MitigationStatus[] {
-    const activeStatuses: MitigationStatus[] = []
-
-    for (const entity of entities) {
-      for (const status of entity.statuses) {
-        if (time >= status.startTime && time <= status.endTime) {
-          activeStatuses.push(status)
-        }
-      }
-    }
-
-    return activeStatuses
   }
 
   /**

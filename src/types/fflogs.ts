@@ -180,6 +180,8 @@ export interface FFLogsEvent {
   targetInstance?: number
   /** 盾值吸收量 */
   absorb?: number
+  /** 是否为 DOT/HOT tick */
+  tick?: boolean
   /** Buff 列表（字符串格式） */
   buffs?: string
   /** 目标资源状态（包含 HP、MP 等） */

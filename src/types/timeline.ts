@@ -139,6 +139,8 @@ export interface PlayerDamageDetail {
   hitPoints?: number
   /** 最大生命值 */
   maxHitPoints?: number
+  /** DOT 快照时间戳（毫秒）— 对应 applydebuff 时刻 */
+  snapshotTimestamp?: number
 }
 
 /**
@@ -163,6 +165,8 @@ export interface DamageEvent {
   playerDamageDetails?: PlayerDamageDetail[]
   /** 伤害包 ID（回放模式，用于关联状态快照） */
   packetId?: number
+  /** DOT 快照时间（秒）— 百分比减伤以此时刻为准而非 tick 时间 */
+  snapshotTime?: number
 }
 
 /**

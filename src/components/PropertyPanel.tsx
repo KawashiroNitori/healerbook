@@ -14,6 +14,7 @@ import PlayerDamageDetails from './PlayerDamageDetails'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { TimeInput } from '@/components/ui/time-input'
+import { Switch } from '@/components/ui/switch'
 import type { DamageType } from '@/types/timeline'
 
 export default function PropertyPanel() {
@@ -122,6 +123,35 @@ export default function PropertyPanel() {
               <option value="tankbuster">死刑</option>
             </select>
           </div>
+        </div>
+
+        {/* DOT 快照设置 */}
+        <div className="flex items-center gap-2 h-8">
+          <Switch
+            checked={event.snapshotTime != null}
+            onCheckedChange={checked => {
+              if (checked) {
+                updateDamageEvent(event.id, { snapshotTime: event.time })
+              } else {
+                updateDamageEvent(event.id, { snapshotTime: undefined })
+              }
+            }}
+            disabled={isReadOnly}
+          />
+          <span className="text-xs text-muted-foreground shrink-0">DoT</span>
+          {event.snapshotTime != null && (
+            <>
+              <span className="text-xs text-muted-foreground shrink-0 ml-auto">快照时刻</span>
+              <TimeInput
+                value={event.snapshotTime}
+                onChange={v => updateDamageEvent(event.id, { snapshotTime: v })}
+                min={-30}
+                size="sm"
+                disabled={isReadOnly}
+                className="w-[calc(50%-6px)]"
+              />
+            </>
+          )}
         </div>
 
         {/* Mitigation Result (仅编辑模式，死刑不参与) */}

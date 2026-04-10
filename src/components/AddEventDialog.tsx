@@ -8,6 +8,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { TimeInput } from '@/components/ui/time-input'
+import { Switch } from '@/components/ui/switch'
 import type { DamageType } from '@/types/timeline'
 
 interface AddEventDialogProps {
@@ -23,6 +24,8 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
   const [damage, setDamage] = useState(100000)
   const [type, setType] = useState<'aoe' | 'tankbuster'>('aoe')
   const [damageType, setDamageType] = useState<DamageType>('magical')
+  const [isDot, setIsDot] = useState(false)
+  const [snapshotTime, setSnapshotTime] = useState(defaultTime)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,6 +42,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
       damage,
       type,
       damageType,
+      snapshotTime: isDot ? snapshotTime : undefined,
     })
 
     toast.success('事件已添加')
@@ -107,6 +111,28 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               <option value="magical">魔法</option>
               <option value="darkness">特殊</option>
             </select>
+          </div>
+
+          <div className="flex items-center gap-2 h-8">
+            <Switch
+              checked={isDot}
+              onCheckedChange={checked => {
+                setIsDot(checked)
+                if (checked) setSnapshotTime(time)
+              }}
+            />
+            <span className="text-sm">DoT</span>
+            {isDot && (
+              <>
+                <span className="text-xs text-muted-foreground shrink-0 ml-auto">快照时刻</span>
+                <TimeInput
+                  value={snapshotTime}
+                  onChange={setSnapshotTime}
+                  min={-30}
+                  className="w-[calc(50%-6px)]"
+                />
+              </>
+            )}
           </div>
 
           <ModalFooter>

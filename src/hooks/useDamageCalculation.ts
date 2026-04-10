@@ -105,6 +105,9 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     let castIdx = 0
 
     for (const event of sortedDamageEvents) {
+      // DOT 事件的状态清理下限：需要保留快���时刻仍存活的状态
+      const filterTime = event.snapshotTime ?? event.time
+
       // 应用所有在此伤害事件之前的技能
       while (
         castIdx < sortedCastEvents.length &&
@@ -113,10 +116,12 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         const castEvent = sortedCastEvents[castIdx]
         const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
         if (action) {
-          // 传给 executor 前清理已过期的状态
+          // 传给 executor 前清理已过期的状态（保留 DOT 快照所需的状态）
           currentState = {
             ...currentState,
-            statuses: currentState.statuses.filter(s => s.endTime >= castEvent.timestamp),
+            statuses: currentState.statuses.filter(
+              s => s.endTime >= castEvent.timestamp || s.endTime >= filterTime
+            ),
           }
           const ctx: ActionExecutionContext = {
             actionId: castEvent.actionId,
@@ -130,10 +135,10 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         castIdx++
       }
 
-      // 传给 calculate 前清理已过期的状态
+      // 传给 calculate 前清理已���期的状态
       currentState = {
         ...currentState,
-        statuses: currentState.statuses.filter(s => s.endTime >= event.time),
+        statuses: currentState.statuses.filter(s => s.endTime >= filterTime),
       }
 
       // 死刑不参与团减计算，但状态步进仍需正常执行
@@ -143,7 +148,8 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         event.damage,
         currentState,
         event.time,
-        event.damageType || 'physical'
+        event.damageType || 'physical',
+        event.snapshotTime
       )
 
       results.set(event.id, { ...result, referenceMaxHP })
