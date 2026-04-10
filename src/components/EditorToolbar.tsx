@@ -142,252 +142,259 @@ export default function EditorToolbar({
   return (
     <>
       <TooltipProvider>
-        <div className="h-12 border-b bg-background flex items-center px-4 gap-2">
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-2">
-            <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-            <Slider
-              value={[zoomLevel]}
-              onValueChange={handleZoomChange}
-              min={10}
-              max={100}
-              className="w-24"
-              disabled={viewMode === 'table'}
-            />
-            <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-          </div>
+        <div className="h-12 border-b bg-background overflow-x-auto scrollbar-hide">
+          <div className="h-full w-max flex items-center px-4 gap-2">
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-2">
+              <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Slider
+                value={[zoomLevel]}
+                onValueChange={handleZoomChange}
+                min={10}
+                max={100}
+                className="w-24"
+                disabled={viewMode === 'table'}
+              />
+              <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+            </div>
 
-          <div className="w-px h-6 bg-border mx-1" />
+            <div className="w-px h-6 bg-border mx-1" />
 
-          {/* Undo / Redo */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleUndo}
-                disabled={isReadOnly || !canUndo}
-              >
-                <Undo2 className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">撤销</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleRedo}
-                disabled={isReadOnly || !canRedo}
-              >
-                <Redo2 className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">重做</TooltipContent>
-          </Tooltip>
-
-          <div className="w-px h-6 bg-border mx-1" />
-
-          {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
-          {isReplayMode ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900 dark:hover:text-blue-200"
-                  disabled={forceReadOnly}
-                >
-                  <BugPlay className="w-4 h-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="bottom" align="start" className="w-80">
-                <div className="space-y-3">
-                  <p className="font-semibold text-sm">回放模式</p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    当前正处于 FFLogs
-                    回放模式下，记录并再现了本次战斗中玩家所受到的所有伤害与当时的减伤情况。你可以快速寻找并分析某处的减伤是否欠缺，并检查队友的减伤执行情况。
-                    <br />
-                    在该模式下，时间轴不可被修改。若要在此基础上修改时间轴，请点击
-                    <b>解除回放模式</b>。
-                  </p>
-                  <div className="flex justify-end">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowExitReplayConfirm(true)}
-                    >
-                      解除回放模式
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
-                  onClick={toggleReadOnly}
-                  disabled={forceReadOnly}
-                >
-                  {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {isReadOnly ? '切换为编辑模式' : '切换为只读模式'}
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          <div className="w-px h-6 bg-border mx-1" />
-
-          {/* 视图菜单 */}
-          <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
-            <Tooltip open={viewMenuOpen ? false : undefined}>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">视图</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
-              <DropdownMenuRadioGroup
-                value={viewMode}
-                onValueChange={v => {
-                  const mode = v as 'timeline' | 'table'
-                  track('view-mode-change', { mode })
-                  onViewModeChange(mode)
-                }}
-              >
-                <DropdownMenuRadioItem value="timeline">时间轴视图</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="table">表格视图</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>伤害事件</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuCheckboxItem
-                    checked={showActualDamage}
-                    onCheckedChange={checked => {
-                      track('view-toggle-actual-damage', { checked })
-                      toggleShowActualDamage()
-                    }}
-                  >
-                    实际伤害
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={showOriginalDamage}
-                    onCheckedChange={checked => {
-                      track('view-toggle-original-damage', { checked })
-                      toggleShowOriginalDamage()
-                    }}
-                  >
-                    原始伤害
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="w-px h-6 bg-border mx-1" />
-
-          {/* Party Composition */}
-          <CompositionPopover />
-
-          {/* 数值设置 */}
-          {!isReplayMode && (
+            {/* Undo / Redo */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => setShowStatDataDialog(true)}
-                  disabled={isReadOnly || !timeline?.statData}
+                  onClick={handleUndo}
+                  disabled={isReadOnly || !canUndo}
                 >
-                  <Settings className="w-4 h-4" />
+                  <Undo2 className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">数值设置</TooltipContent>
+              <TooltipContent side="bottom">撤销</TooltipContent>
             </Tooltip>
-          )}
-
-          {/* 共享按钮 或 在本地创建副本 */}
-          {timeline && (
-            <>
-              <div className="w-px h-6 bg-border mx-1" />
-              {onCreateCopy ? (
-                <Button variant="outline" size="sm" className="h-7" onClick={onCreateCopy}>
-                  <Copy className="w-4 h-4" />
-                  在本地创建副本
-                </Button>
-              ) : (
-                <SharePopover
-                  timeline={timeline}
-                  viewMode={viewMode}
-                  onPublished={(newId, publishedAt, version) => {
-                    applyPublishResult(newId, publishedAt, version)
-                    const query = viewMode === 'table' ? '?view=table' : ''
-                    navigate(`/timeline/${newId}${query}`, { replace: true })
-                  }}
-                  onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
-                  onConflict={c => setConflict(c)}
-                />
-              )}
-            </>
-          )}
-
-          {/* 导出 */}
-          {timeline && (
-            <>
-              <div className="w-px h-6 bg-border mx-1" />
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">导出</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onSelect={() => setShowExportDialog(true)}>
-                    Excel 表格...
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
-
-          {/* Exit Replay Mode Confirmation */}
-          <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>解除回放模式</AlertDialogTitle>
-                <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>取消</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleExitReplayMode}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleRedo}
+                  disabled={isReadOnly || !canRedo}
                 >
-                  确认解除
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Redo2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">重做</TooltipContent>
+            </Tooltip>
+
+            <div className="w-px h-6 bg-border mx-1" />
+
+            {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
+            {isReplayMode ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900 dark:hover:text-blue-200"
+                    disabled={forceReadOnly}
+                  >
+                    <BugPlay className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="start" className="w-80">
+                  <div className="space-y-3">
+                    <p className="font-semibold text-sm">回放模式</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      当前正处于 FFLogs
+                      回放模式下，记录并再现了本次战斗中玩家所受到的所有伤害与当时的减伤情况。你可以快速寻找并分析某处的减伤是否欠缺，并检查队友的减伤执行情况。
+                      <br />
+                      在该模式下，时间轴不可被修改。若要在此基础上修改时间轴，请点击
+                      <b>解除回放模式</b>。
+                    </p>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setShowExitReplayConfirm(true)}
+                      >
+                        解除回放模式
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
+                    onClick={toggleReadOnly}
+                    disabled={forceReadOnly}
+                  >
+                    {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isReadOnly ? '切换为编辑模式' : '切换为只读模式'}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            <div className="w-px h-6 bg-border mx-1" />
+
+            {/* 视图菜单 */}
+            <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
+              <Tooltip open={viewMenuOpen ? false : undefined}>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">视图</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
+                <DropdownMenuRadioGroup
+                  value={viewMode}
+                  onValueChange={v => {
+                    const mode = v as 'timeline' | 'table'
+                    track('view-mode-change', { mode })
+                    onViewModeChange(mode)
+                  }}
+                >
+                  <DropdownMenuRadioItem value="timeline">时间轴视图</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="table">表格视图</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>伤害事件</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuCheckboxItem
+                      checked={showActualDamage}
+                      onCheckedChange={checked => {
+                        track('view-toggle-actual-damage', { checked })
+                        toggleShowActualDamage()
+                      }}
+                    >
+                      实际伤害
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={showOriginalDamage}
+                      onCheckedChange={checked => {
+                        track('view-toggle-original-damage', { checked })
+                        toggleShowOriginalDamage()
+                      }}
+                    >
+                      原始伤害
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="w-px h-6 bg-border mx-1" />
+
+            {/* Party Composition */}
+            <CompositionPopover />
+
+            {/* 数值设置 */}
+            {!isReplayMode && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setShowStatDataDialog(true)}
+                    disabled={isReadOnly || !timeline?.statData}
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">数值设置</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* 共享按钮 或 在本地创建副本 */}
+            {timeline && (
+              <>
+                <div className="w-px h-6 bg-border mx-1" />
+                {onCreateCopy ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 shrink-0 whitespace-nowrap"
+                    onClick={onCreateCopy}
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span className="hidden lg:inline">在本地创建副本</span>
+                  </Button>
+                ) : (
+                  <SharePopover
+                    timeline={timeline}
+                    viewMode={viewMode}
+                    onPublished={(newId, publishedAt, version) => {
+                      applyPublishResult(newId, publishedAt, version)
+                      const query = viewMode === 'table' ? '?view=table' : ''
+                      navigate(`/timeline/${newId}${query}`, { replace: true })
+                    }}
+                    onUpdated={(updatedAt, version) => applyUpdateResult(updatedAt, version)}
+                    onConflict={c => setConflict(c)}
+                  />
+                )}
+              </>
+            )}
+
+            {/* 导出 */}
+            {timeline && (
+              <>
+                <div className="w-px h-6 bg-border mx-1" />
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">导出</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onSelect={() => setShowExportDialog(true)}>
+                      Excel 表格...
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+
+            {/* Exit Replay Mode Confirmation */}
+            <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>解除回放模式</AlertDialogTitle>
+                  <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleExitReplayMode}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    确认解除
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </TooltipProvider>
 

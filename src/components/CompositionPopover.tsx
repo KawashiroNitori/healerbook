@@ -30,9 +30,9 @@ export default function CompositionPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 h-7 px-2 py-1 text-xs border rounded hover:bg-accent transition-colors">
-          <Users className="w-4 h-4" />
-          小队阵容
+        <button className="flex shrink-0 items-center gap-2 h-7 px-2 py-1 text-xs border rounded hover:bg-accent transition-colors whitespace-nowrap">
+          <Users className="w-4 h-4 shrink-0" />
+          <span className="hidden lg:inline">小队阵容</span>
           <span className="text-xs text-muted-foreground">
             {sortedPlayers.length}/{MAX_PARTY_SIZE}
           </span>

@@ -116,9 +116,13 @@ export default function SharePopover({
       </AlertDialog>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-7 gap-1 font-normal">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 gap-1 font-normal whitespace-nowrap"
+          >
             {isShared ? <Globe className="w-4 h-4" /> : <CloudUpload className="w-4 h-4" />}
-            共享
+            <span className="hidden lg:inline">共享</span>
             {hasChanges && <span className="text-orange-500">●</span>}
           </Button>
         </PopoverTrigger>
