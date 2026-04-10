@@ -182,6 +182,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
 
   for (const tableRow of rows) {
     const wsRow = ws.getRow(rowNum)
+    wsRow.height = 21
 
     if (tableRow.kind === 'annotation') {
       const { annotation } = tableRow
