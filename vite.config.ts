@@ -1,12 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { execSync } from 'child_process'
 import { cloudflare } from '@cloudflare/vite-plugin'
+
+function getCommitHash() {
+  if (process.env.CF_PAGES_COMMIT_SHA) return process.env.CF_PAGES_COMMIT_SHA.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+  } catch {
+    return 'dev'
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   define: {
-    __COMMIT_HASH__: JSON.stringify(process.env.CF_PAGES_COMMIT_SHA?.slice(0, 7) || 'dev'),
+    __COMMIT_HASH__: JSON.stringify(getCommitHash()),
   },
   plugins: [
     react(),
