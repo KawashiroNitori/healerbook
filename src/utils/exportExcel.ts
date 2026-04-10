@@ -112,12 +112,12 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     for (const group of playerGroups) {
       const job = group.job as Job
       const colCount = group.endCol - group.startCol + 1
-      // 根据可用宽度选择显示名：全名 → 两字简写 → 单字简写
+      // 每列容纳 1 个字：全名 → 两字简写 → 单字简写
       const fullName = getJobName(job)
       let displayName: string
-      if (fullName.length <= colCount * 2.5) {
+      if (fullName.length <= colCount) {
         displayName = fullName
-      } else if (getJobShortName(job).length <= colCount * 2.5) {
+      } else if (getJobShortName(job).length <= colCount) {
         displayName = getJobShortName(job)
       } else {
         displayName = getJobInitial(job)
