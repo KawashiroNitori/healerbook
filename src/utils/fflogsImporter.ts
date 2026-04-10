@@ -159,10 +159,46 @@ export function parseDamageEvents(
     if (!event.packetID || !event.targetID) continue
 
     const key = `${event.packetID}-${event.targetID}`
-    const detail = detailByPacketAndTarget.get(key)
-    if (!detail) continue
+    let detail = detailByPacketAndTarget.get(key)
 
-    // 填充数值字段（原始逻辑不变，从 damage 事件获取）
+    // 没有对应的 calculateddamage 事件时，从 damage 事件直接创建 detail
+    if (!detail) {
+      if (!playerMap.has(event.targetID)) continue
+
+      const abilityId = event.abilityGameID ?? 0
+      const abilityMeta = abilityMap?.get(abilityId)
+      const abilityName = abilityMeta?.name ?? '未知技能'
+
+      if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
+      if (abilityId === 16152) continue
+
+      const player = playerMap.get(event.targetID)
+      if (!player) continue
+
+      const job = JOB_MAP[player.type]
+      if (!job) continue
+
+      const chineseName = getActionChinese(abilityId)
+      const skillName = chineseName ?? abilityName
+
+      detail = {
+        timestamp: event.timestamp,
+        packetId: event.packetID,
+        sourceId: event.sourceID || 0,
+        playerId: event.targetID,
+        job,
+        abilityId,
+        skillName,
+        unmitigatedDamage: 0,
+        finalDamage: 0,
+        statuses: [],
+      }
+
+      playerDamageDetails.push(detail)
+      detailByPacketAndTarget.set(key, detail)
+    }
+
+    // 填充数值字段（从 damage 事件获取）
     let unmitigatedDamage = event.unmitigatedAmount ?? 0
     if (unmitigatedDamage === 0) {
       const finalAmount = event.amount ?? 0

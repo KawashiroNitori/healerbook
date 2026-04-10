@@ -444,17 +444,25 @@ export class FFLogsClientV2 {
     const { reportCode, start, end } = params
 
     // 为每种类型单独查询，并自动处理分页
-    const dataTypes: Array<string> = ['Casts', 'DamageTaken', 'Healing', 'CombatantInfo']
+    const dataTypes: Array<string> = [
+      'Casts',
+      'DamageTaken',
+      'Healing',
+      'CombatantInfo',
+      'Debuffs',
+      'Buffs',
+    ]
+    // const dataTypes: Array<string> = ['All']
 
     const query = `
-      query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $limit: Int) {
+      query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $includeResources: Boolean, $limit: Int) {
         reportData {
           report(code: $code) {
             events(
               startTime: $startTime
               endTime: $endTime
               dataType: $dataType
-              includeResources: true
+              includeResources: $includeResources
               limit: $limit
             ) {
               data
@@ -464,6 +472,8 @@ export class FFLogsClientV2 {
         }
       }
     `
+
+    const RESOURCE_DATA_TYPES = new Set(['DamageTaken', 'Healing'])
 
     // 为每种类型获取所有分页数据的函数
     const fetchAllEventsForType = async (dataType: string): Promise<FFLogsEvent[]> => {
@@ -477,6 +487,7 @@ export class FFLogsClientV2 {
           startTime: currentStart,
           endTime: end,
           dataType,
+          includeResources: RESOURCE_DATA_TYPES.has(dataType),
           limit: 10000,
         })) as {
           reportData: {

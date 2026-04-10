@@ -1258,6 +1258,116 @@ describe('parseDamageEvents', () => {
     expect(result[0].type).toBe('tankbuster')
   })
 
+  it('只有 damage 没有 calculateddamage 时应正常解析', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+      [3, { id: 3, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
+
+    // 只有 damage 事件，没有 calculateddamage
+    const events = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 8000,
+        absorbed: 0,
+        amount: 8000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 3,
+        unmitigatedAmount: 11000,
+        absorbed: 0,
+        amount: 11000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    // 不使用 withCalculatedDamage，直接传入只有 damage 的事件
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('Test Attack')
+    expect(result[0].time).toBe(5)
+    expect(result[0].damage).toBe(11000) // 魔法伤害取近战最高值
+    expect(result[0].playerDamageDetails).toHaveLength(3)
+    expect(result[0].playerDamageDetails![0].unmitigatedDamage).toBe(8000)
+    expect(result[0].playerDamageDetails![1].unmitigatedDamage).toBe(12000)
+    expect(result[0].playerDamageDetails![2].unmitigatedDamage).toBe(11000)
+  })
+
+  it('部分玩家只有 damage 没有 calculateddamage 时应补全', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'Healer1', type: 'WhiteMage' }],
+    ])
+    const abilityMap = makeAbilityMap(999999, 'Test Attack', 1024)
+
+    const events = [
+      // 玩家 1 有 calculateddamage + damage
+      {
+        type: 'calculateddamage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 1,
+        unmitigatedAmount: 8000,
+        absorbed: 0,
+        amount: 8000,
+        timestamp: fightStartTime + 5010,
+        sourceID: 999,
+      },
+      // 玩家 2 只有 damage，没有 calculateddamage
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 999999,
+        targetID: 2,
+        unmitigatedAmount: 12000,
+        absorbed: 0,
+        amount: 12000,
+        timestamp: fightStartTime + 5010,
+        sourceID: 999,
+      },
+    ]
+
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].playerDamageDetails).toHaveLength(2)
+
+    const tankDetail = result[0].playerDamageDetails!.find(d => d.playerId === 1)
+    const healerDetail = result[0].playerDamageDetails!.find(d => d.playerId === 2)
+    expect(tankDetail?.unmitigatedDamage).toBe(8000)
+    expect(healerDetail?.unmitigatedDamage).toBe(12000)
+    expect(healerDetail?.job).toBe('WHM')
+  })
+
   it('命中超过 2 人时即使全是坦克也应判定为 aoe', () => {
     const playerMap = new Map<number, V2Actor>([
       [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
