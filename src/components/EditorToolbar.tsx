@@ -16,6 +16,7 @@ import {
   Settings,
   Eye,
   Copy,
+  Download,
 } from 'lucide-react'
 import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -32,6 +33,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  DropdownMenuItem,
   DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -51,6 +53,7 @@ import CompositionPopover from './CompositionPopover'
 import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
 import StatDataDialog from './StatDataDialog'
+import ExportExcelDialog from './ExportExcelDialog'
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -93,6 +96,7 @@ export default function EditorToolbar({
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
 
   const canUndo = useStore(useTimelineStore.temporal, s => s.pastStates.length > 0)
@@ -342,6 +346,30 @@ export default function EditorToolbar({
             </>
           )}
 
+          {/* 导出 */}
+          {timeline && (
+            <>
+              <div className="w-px h-6 bg-border mx-1" />
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">导出</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => setShowExportDialog(true)}>
+                    Excel 表格...
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+
           {/* Exit Replay Mode Confirmation */}
           <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
             <AlertDialogContent>
@@ -393,6 +421,7 @@ export default function EditorToolbar({
         />
       )}
       <StatDataDialog open={showStatDataDialog} onClose={() => setShowStatDataDialog(false)} />
+      <ExportExcelDialog open={showExportDialog} onClose={() => setShowExportDialog(false)} />
     </>
   )
 }
