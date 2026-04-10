@@ -123,7 +123,12 @@ export default function SharePopover({
           >
             {isShared ? <Globe className="w-4 h-4" /> : <CloudUpload className="w-4 h-4" />}
             <span className="hidden lg:inline">共享</span>
-            {hasChanges && <span className="text-orange-500">●</span>}
+            {hasChanges && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+              </span>
+            )}
           </Button>
         </PopoverTrigger>
 
