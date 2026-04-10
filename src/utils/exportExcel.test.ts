@@ -213,8 +213,8 @@ describe('exportTimelineToExcel', () => {
     const row3 = ws.getRow(3)
     expect(row3.getCell(1).value).toBe('1:05.3')
     expect(row3.getCell(2).value).toBe('地狱之牙')
-    expect(row3.getCell(3).value).toBe(120000)
-    expect(row3.getCell(4).value).toBe(95000)
+    expect(row3.getCell(3).value).toBe('12.0w')
+    expect(row3.getCell(4).value).toBe('9.5w')
   })
 
   it('施放点标记为 ✓ 且有绿色背景', async () => {

@@ -9,7 +9,7 @@ import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import { computeLitCellsByEvent, computeCastMarkerCells, cellKey } from '@/utils/castWindow'
-import { formatTimeWithDecimal } from '@/utils/formatters'
+import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { getIconUrl } from '@/utils/iconUtils'
 import { getJobName } from '@/data/jobs'
 
@@ -38,6 +38,39 @@ const CELL_BORDER: Partial<ExcelJS.Borders> = {
   bottom: thinBorder(COLOR_BORDER),
   left: thinBorder(COLOR_BORDER),
   right: thinBorder(COLOR_BORDER),
+}
+
+/** 通过 Image + canvas 加载图片并导出为 base64（绕过 CORS） */
+function loadImageAsBase64(url: string): Promise<string | null> {
+  return new Promise(resolve => {
+    if (typeof Image === 'undefined') {
+      resolve(null)
+      return
+    }
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(null)
+          return
+        }
+        ctx.drawImage(img, 0, 0)
+        const dataUrl = canvas.toDataURL('image/png')
+        resolve(dataUrl.split(',')[1])
+      } catch {
+        // tainted canvas — CORS 不支持
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    setTimeout(() => resolve(null), 5000)
+    img.src = url
+  })
 }
 
 export async function exportTimelineToExcel(options: ExportExcelOptions): Promise<Uint8Array> {
@@ -152,8 +185,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     }
   })
 
-  // 技能图标：并行下载
-  const iconResults = await Promise.all(
+  // 技能图标：通过 Image + canvas 加载（绕过 CORS 限制）
+  await Promise.all(
     skillTracks.map(async (track, idx) => {
       const col = fixedColCount + 1 + idx
       const cell = row2.getCell(col)
@@ -164,29 +197,16 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       if (!url) return
 
       try {
-        const resp = await fetch(url, { signal: AbortSignal.timeout(5000) })
-        if (!resp.ok) return
-        const arrayBuffer = await resp.arrayBuffer()
-        // ExcelJS image buffer type — cast via unknown for browser/Node.js compatibility
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const buffer = new Uint8Array(arrayBuffer) as any
-
-        // 检测图片格式（简单通过 URL 判断）
-        const ext = url.split('.').pop()?.toLowerCase() ?? 'png'
-        const extension = (
-          ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'gif' ? 'gif' : 'png'
-        ) as 'png' | 'jpeg' | 'gif'
-
-        const imageId = wb.addImage({ buffer, extension })
-        // tl/br 填满单元格（0-indexed 坐标）
+        const base64 = await loadImageAsBase64(url)
+        if (!base64) return
+        const imageId = wb.addImage({ base64, extension: 'png' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ws.addImage(imageId, { tl: { col: col - 1, row: 1 }, br: { col, row: 2 } } as any)
       } catch {
-        // 下载失败，静默跳过
+        // 图标加载失败，静默跳过
       }
     })
   )
-  void iconResults
 
   // ---- 计算 lit cells 和 cast marker cells ----
   const litCellsByEvent = computeLitCellsByEvent(
@@ -243,8 +263,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       let dynCol = 3
       if (showOriginalDamage) {
         const cell = wsRow.getCell(dynCol)
-        cell.value = event.damage
-        cell.numFmt = '#,##0'
+        cell.value = formatDamageValue(event.damage)
         cell.alignment = { horizontal: 'right', vertical: 'middle' }
         cell.border = CELL_BORDER
         dynCol++
@@ -252,8 +271,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       if (showActualDamage) {
         const result = calculationResults.get(event.id)
         const cell = wsRow.getCell(dynCol)
-        cell.value = result?.finalDamage ?? null
-        cell.numFmt = '#,##0'
+        cell.value = result ? formatDamageValue(result.finalDamage) : ''
         cell.alignment = { horizontal: 'right', vertical: 'middle' }
         cell.border = CELL_BORDER
         dynCol++
