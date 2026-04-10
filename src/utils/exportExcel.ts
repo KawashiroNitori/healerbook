@@ -26,7 +26,6 @@ export interface ExportExcelOptions {
 // 颜色常量
 const COLOR_JOB_HEADER_BG = 'FFF3F4F6'
 const COLOR_GREEN_FILL = 'FF34D399'
-const COLOR_GREEN_FONT = 'FF065F46'
 const COLOR_YELLOW_FILL = 'FFFEF3C7'
 const COLOR_BORDER = 'FFE5E7EB'
 
@@ -60,7 +59,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
   // 计算固定列数
   const fixedCols: string[] = ['时间', '事件']
   if (showOriginalDamage) fixedCols.push('原始伤害')
-  if (showActualDamage) fixedCols.push('最终伤害')
+  if (showActualDamage) fixedCols.push('实际伤害')
   const fixedColCount = fixedCols.length
   const totalCols = fixedColCount + skillTracks.length
 
@@ -181,12 +180,12 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
         ) as 'png' | 'jpeg' | 'gif'
 
         const imageId = wb.addImage({ buffer, extension })
-        // 图标大小约 40x40px，列宽 5.5 ≈ 40px，行高 30
-        ws.addImage(imageId, {
-          tl: { col: col - 1, row: 1 }, // 0-indexed
-          ext: { width: 40, height: 30 },
-          editAs: 'oneCell',
-        })
+        // 图标居中于第二行的对应技能列（0-indexed 坐标）
+        const colZero = col - 1 // 0-indexed col
+        // ExcelJS 运行时支持 {col, row} 简写，类型定义要求完整 Anchor
+        const pos = { tl: { col: colZero + 0.1, row: 1.05 }, br: { col: colZero + 0.9, row: 1.95 } }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ws.addImage(imageId, pos as any)
       } catch {
         // 下载失败，静默跳过
       }
@@ -281,7 +280,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
         if (markerSet.has(key)) {
           cell.value = '✓'
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_GREEN_FILL } }
-          cell.font = { bold: true, color: { argb: COLOR_GREEN_FONT } }
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
         } else if (litSet.has(key)) {
           cell.value = null
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_GREEN_FILL } }

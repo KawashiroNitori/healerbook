@@ -138,7 +138,7 @@ describe('exportTimelineToExcel', () => {
     expect(wb.worksheets[0].name).toBe('我的减伤表')
   })
 
-  it('固定列正确：时间 + 名称 + 原始伤害 + 最终伤害', async () => {
+  it('固定列正确：时间 + 名称 + 原始伤害 + 实际伤害', async () => {
     const buffer = await exportTimelineToExcel({
       timeline: makeTimeline(),
       calculationResults: makeCalculationResults(),
@@ -156,7 +156,7 @@ describe('exportTimelineToExcel', () => {
     expect(row2.getCell(1).value).toBe('时间')
     expect(row2.getCell(2).value).toBe('事件')
     expect(row2.getCell(3).value).toBe('原始伤害')
-    expect(row2.getCell(4).value).toBe('最终伤害')
+    expect(row2.getCell(4).value).toBe('实际伤害')
   })
 
   it('隐藏原始伤害列时不导出该列', async () => {
@@ -174,10 +174,10 @@ describe('exportTimelineToExcel', () => {
     await wb.xlsx.load(buffer as unknown as Buffer)
     const ws = wb.worksheets[0]
     const row2 = ws.getRow(2)
-    expect(row2.getCell(3).value).toBe('最终伤害')
+    expect(row2.getCell(3).value).toBe('实际伤害')
   })
 
-  it('隐藏最终伤害列时不导出该列', async () => {
+  it('隐藏实际伤害列时不导出该列', async () => {
     const buffer = await exportTimelineToExcel({
       timeline: makeTimeline(),
       calculationResults: makeCalculationResults(),
@@ -246,7 +246,7 @@ describe('exportTimelineToExcel', () => {
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load(buffer as unknown as Buffer)
     const ws = wb.worksheets[0]
-    // 固定列：时间、事件、原始伤害、最终伤害 = 4列
+    // 固定列：时间、事件、原始伤害、实际伤害 = 4列
     // 技能列从第5列开始，第1个技能轨道是 WAR playerId=1 actionId=10
     const row3 = ws.getRow(3)
     const skillCol = 5 // 第一个技能列

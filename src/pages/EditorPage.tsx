@@ -331,15 +331,15 @@ export default function EditorPage() {
         </div>
       </header>
 
-      <EditorToolbar
-        onCreateCopy={isViewMode ? handleCreateCopy : undefined}
-        forceReadOnly={isViewMode}
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-      />
-
-      {/* Main Content */}
       <DamageCalculationContext.Provider value={calculationResults}>
+        <EditorToolbar
+          onCreateCopy={isViewMode ? handleCreateCopy : undefined}
+          forceReadOnly={isViewMode}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+        />
+
+        {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 overflow-hidden">
             <div ref={canvasContainerRef} className="h-full">

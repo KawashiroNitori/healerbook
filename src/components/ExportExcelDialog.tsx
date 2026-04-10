@@ -16,6 +16,7 @@ import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext
 import { deriveSkillTracks } from '@/utils/skillTracks'
 import { sortJobsByOrder, getJobName } from '@/data/jobs'
 import { exportTimelineToExcel } from '@/utils/exportExcel'
+import JobIcon from './JobIcon'
 
 interface ExportExcelDialogProps {
   open: boolean
@@ -146,6 +147,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
                         disabled={isExporting}
                         className="h-4 w-4 rounded border-border accent-primary"
                       />
+                      <JobIcon job={player.job} size="sm" />
                       <span className="text-sm">{getJobName(player.job)}</span>
                     </label>
                   )
@@ -154,24 +156,27 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
             </div>
           )}
 
-          {/* 原始伤害 */}
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-sm font-medium">原始伤害</span>
-            <Switch
-              checked={showOriginalDamage}
-              onCheckedChange={setShowOriginalDamage}
-              disabled={isExporting}
-            />
-          </div>
-
-          {/* 最终伤害 */}
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-sm font-medium">最终伤害</span>
-            <Switch
-              checked={showActualDamage}
-              onCheckedChange={setShowActualDamage}
-              disabled={isExporting}
-            />
+          {/* 显示列开关 */}
+          <div className="space-y-1.5">
+            <div className="text-sm font-medium">显示列</div>
+            <div className="flex items-center gap-6 px-2 py-1">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Switch
+                  checked={showOriginalDamage}
+                  onCheckedChange={setShowOriginalDamage}
+                  disabled={isExporting}
+                />
+                <span className="text-sm">原始伤害</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Switch
+                  checked={showActualDamage}
+                  onCheckedChange={setShowActualDamage}
+                  disabled={isExporting}
+                />
+                <span className="text-sm">实际伤害</span>
+              </label>
+            </div>
           </div>
         </div>
 
