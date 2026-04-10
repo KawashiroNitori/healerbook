@@ -255,7 +255,7 @@ export default function EditorToolbar({
               </TooltipTrigger>
               <TooltipContent side="bottom">视图</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
               <DropdownMenuRadioGroup
                 value={viewMode}
                 onValueChange={v => {
