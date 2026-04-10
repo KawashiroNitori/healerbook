@@ -76,12 +76,11 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     colIdx++
   }
   for (let i = 0; i < skillTracks.length; i++) {
-    ws.getColumn(fixedColCount + 1 + i).width = 5.5
+    ws.getColumn(fixedColCount + 1 + i).width = 2.5
   }
 
   // ---- Row 1: 职业合并表头 ----
   const row1 = ws.getRow(1)
-  row1.height = 20
 
   // 固定列留空
   for (let c = 1; c <= fixedColCount; c++) {
@@ -139,7 +138,6 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
 
   // ---- Row 2: 列标题 + 技能图标 ----
   const row2 = ws.getRow(2)
-  row2.height = 30
 
   // 固定列标题
   fixedCols.forEach((header, i) => {
@@ -180,12 +178,9 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
         ) as 'png' | 'jpeg' | 'gif'
 
         const imageId = wb.addImage({ buffer, extension })
-        // 图标居中于第二行的对应技能列（0-indexed 坐标）
-        const colZero = col - 1 // 0-indexed col
-        // ExcelJS 运行时支持 {col, row} 简写，类型定义要求完整 Anchor
-        const pos = { tl: { col: colZero + 0.1, row: 1.05 }, br: { col: colZero + 0.9, row: 1.95 } }
+        // tl/br 填满单元格（0-indexed 坐标）
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ws.addImage(imageId, pos as any)
+        ws.addImage(imageId, { tl: { col: col - 1, row: 1 }, br: { col, row: 2 } } as any)
       } catch {
         // 下载失败，静默跳过
       }
@@ -207,7 +202,6 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
 
   for (const tableRow of rows) {
     const wsRow = ws.getRow(rowNum)
-    wsRow.height = 30
 
     if (tableRow.kind === 'annotation') {
       const { annotation } = tableRow
