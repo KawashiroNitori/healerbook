@@ -93,6 +93,7 @@ export default function EditorToolbar({
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
+  const [viewMenuOpen, setViewMenuOpen] = useState(false)
 
   const canUndo = useStore(useTimelineStore.temporal, s => s.pastStates.length > 0)
   const canRedo = useStore(useTimelineStore.temporal, s => s.futureStates.length > 0)
@@ -243,8 +244,8 @@ export default function EditorToolbar({
           <div className="w-px h-6 bg-border mx-1" />
 
           {/* 视图菜单 */}
-          <DropdownMenu>
-            <Tooltip>
+          <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
+            <Tooltip open={viewMenuOpen ? false : undefined}>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-7 w-7">
