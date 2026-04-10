@@ -18,6 +18,10 @@ export interface JobMetadata {
   name: string
   /** 职业英文全称 */
   nameEn: string
+  /** 两字简写（用于导出表格等空间有限场景） */
+  shortName: string
+  /** 单字简写 */
+  initial: string
   /** 职业角色 */
   role: JobRole
   /** 职业图标字体类名（xivapi/classjob-icons） */
@@ -35,6 +39,8 @@ export const JOB_METADATA = {
     code: 'PLD',
     name: '骑士',
     nameEn: 'Paladin',
+    shortName: '骑士',
+    initial: '骑',
     role: 'tank',
     icon: 'xiv-class_job_019',
     order: 1,
@@ -43,6 +49,8 @@ export const JOB_METADATA = {
     code: 'WAR',
     name: '战士',
     nameEn: 'Warrior',
+    shortName: '战士',
+    initial: '战',
     role: 'tank',
     icon: 'xiv-class_job_021',
     order: 2,
@@ -51,6 +59,8 @@ export const JOB_METADATA = {
     code: 'DRK',
     name: '暗黑骑士',
     nameEn: 'Dark Knight',
+    shortName: '暗骑',
+    initial: '暗',
     role: 'tank',
     icon: 'xiv-class_job_032',
     order: 3,
@@ -59,6 +69,8 @@ export const JOB_METADATA = {
     code: 'GNB',
     name: '绝枪战士',
     nameEn: 'Gunbreaker',
+    shortName: '枪刃',
+    initial: '枪',
     role: 'tank',
     icon: 'xiv-class_job_037',
     order: 4,
@@ -69,6 +81,8 @@ export const JOB_METADATA = {
     code: 'WHM',
     name: '白魔法师',
     nameEn: 'White Mage',
+    shortName: '白魔',
+    initial: '白',
     role: 'healer',
     icon: 'xiv-class_job_024',
     order: 5,
@@ -77,6 +91,8 @@ export const JOB_METADATA = {
     code: 'SCH',
     name: '学者',
     nameEn: 'Scholar',
+    shortName: '学者',
+    initial: '学',
     role: 'healer',
     icon: 'xiv-class_job_028',
     order: 6,
@@ -85,6 +101,8 @@ export const JOB_METADATA = {
     code: 'AST',
     name: '占星术士',
     nameEn: 'Astrologian',
+    shortName: '占星',
+    initial: '占',
     role: 'healer',
     icon: 'xiv-class_job_033',
     order: 7,
@@ -93,6 +111,8 @@ export const JOB_METADATA = {
     code: 'SGE',
     name: '贤者',
     nameEn: 'Sage',
+    shortName: '贤者',
+    initial: '贤',
     role: 'healer',
     icon: 'xiv-class_job_040',
     order: 8,
@@ -103,6 +123,8 @@ export const JOB_METADATA = {
     code: 'MNK',
     name: '武僧',
     nameEn: 'Monk',
+    shortName: '武僧',
+    initial: '僧',
     role: 'melee',
     icon: 'xiv-class_job_020',
     order: 9,
@@ -111,6 +133,8 @@ export const JOB_METADATA = {
     code: 'DRG',
     name: '龙骑士',
     nameEn: 'Dragoon',
+    shortName: '龙骑',
+    initial: '龙',
     role: 'melee',
     icon: 'xiv-class_job_022',
     order: 10,
@@ -119,6 +143,8 @@ export const JOB_METADATA = {
     code: 'NIN',
     name: '忍者',
     nameEn: 'Ninja',
+    shortName: '忍者',
+    initial: '忍',
     role: 'melee',
     icon: 'xiv-class_job_030',
     order: 11,
@@ -127,6 +153,8 @@ export const JOB_METADATA = {
     code: 'SAM',
     name: '武士',
     nameEn: 'Samurai',
+    shortName: '武士',
+    initial: '侍',
     role: 'melee',
     icon: 'xiv-class_job_034',
     order: 12,
@@ -135,6 +163,8 @@ export const JOB_METADATA = {
     code: 'RPR',
     name: '钐镰客',
     nameEn: 'Reaper',
+    shortName: '镰刀',
+    initial: '镰',
     role: 'melee',
     icon: 'xiv-class_job_039',
     order: 13,
@@ -143,6 +173,8 @@ export const JOB_METADATA = {
     code: 'VPR',
     name: '蝰蛇剑士',
     nameEn: 'Viper',
+    shortName: '蝰蛇',
+    initial: '蛇',
     role: 'melee',
     icon: 'xiv-class_job_041',
     order: 14,
@@ -153,6 +185,8 @@ export const JOB_METADATA = {
     code: 'BRD',
     name: '吟游诗人',
     nameEn: 'Bard',
+    shortName: '诗人',
+    initial: '诗',
     role: 'ranged',
     icon: 'xiv-class_job_023',
     order: 15,
@@ -161,6 +195,8 @@ export const JOB_METADATA = {
     code: 'MCH',
     name: '机工士',
     nameEn: 'Machinist',
+    shortName: '机工',
+    initial: '机',
     role: 'ranged',
     icon: 'xiv-class_job_031',
     order: 16,
@@ -169,6 +205,8 @@ export const JOB_METADATA = {
     code: 'DNC',
     name: '舞者',
     nameEn: 'Dancer',
+    shortName: '舞者',
+    initial: '舞',
     role: 'ranged',
     icon: 'xiv-class_job_038',
     order: 17,
@@ -179,6 +217,8 @@ export const JOB_METADATA = {
     code: 'BLM',
     name: '黑魔法师',
     nameEn: 'Black Mage',
+    shortName: '黑魔',
+    initial: '黑',
     role: 'caster',
     icon: 'xiv-class_job_025',
     order: 18,
@@ -187,6 +227,8 @@ export const JOB_METADATA = {
     code: 'SMN',
     name: '召唤师',
     nameEn: 'Summoner',
+    shortName: '召唤',
+    initial: '召',
     role: 'caster',
     icon: 'xiv-class_job_027',
     order: 19,
@@ -195,6 +237,8 @@ export const JOB_METADATA = {
     code: 'RDM',
     name: '赤魔法师',
     nameEn: 'Red Mage',
+    shortName: '赤魔',
+    initial: '赤',
     role: 'caster',
     icon: 'xiv-class_job_035',
     order: 20,
@@ -203,6 +247,8 @@ export const JOB_METADATA = {
     code: 'PCT',
     name: '绘灵法师',
     nameEn: 'Pictomancer',
+    shortName: '画师',
+    initial: '画',
     role: 'caster',
     icon: 'xiv-class_job_042',
     order: 21,
@@ -248,6 +294,20 @@ export function getJobName(job: Job): string {
  */
 export function getJobNameEn(job: Job): string {
   return JOB_METADATA[job]?.nameEn || job
+}
+
+/**
+ * 获取职业的两字简写
+ */
+export function getJobShortName(job: Job): string {
+  return JOB_METADATA[job]?.shortName || job
+}
+
+/**
+ * 获取职业的单字简写
+ */
+export function getJobInitial(job: Job): string {
+  return JOB_METADATA[job]?.initial || job
 }
 
 /**

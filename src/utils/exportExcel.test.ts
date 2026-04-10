@@ -390,6 +390,7 @@ describe('exportTimelineToExcel', () => {
     const warCell = row1.getCell(5)
     const whmCell = row1.getCell(6)
     expect(warCell.value).toBe('战士')
-    expect(whmCell.value).toBe('白魔法师')
+    // WHM 只有 1 个技能列，宽度不够显示全名，用两字简写
+    expect(whmCell.value).toBe('白魔')
   })
 })

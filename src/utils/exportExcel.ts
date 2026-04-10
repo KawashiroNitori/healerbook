@@ -10,7 +10,8 @@ import type { CalculationResult } from '@/utils/mitigationCalculator'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import { computeLitCellsByEvent, computeCastMarkerCells, cellKey } from '@/utils/castWindow'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
-import { getJobName } from '@/data/jobs'
+import { getJobName, getJobShortName, getJobInitial } from '@/data/jobs'
+import type { Job } from '@/types/timeline'
 
 export interface ExportExcelOptions {
   timeline: Timeline
@@ -109,21 +110,27 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     })
 
     for (const group of playerGroups) {
-      const jobName = getJobName(group.job as Parameters<typeof getJobName>[0])
-      if (group.startCol === group.endCol) {
-        const cell = row1.getCell(group.startCol)
-        cell.value = jobName
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_JOB_HEADER_BG } }
-        cell.alignment = { horizontal: 'center', vertical: 'middle' }
-        cell.font = { bold: true }
+      const job = group.job as Job
+      const colCount = group.endCol - group.startCol + 1
+      // 根据可用宽度选择显示名：全名 → 两字简写 → 单字简写
+      const fullName = getJobName(job)
+      let displayName: string
+      if (fullName.length <= colCount * 2.5) {
+        displayName = fullName
+      } else if (getJobShortName(job).length <= colCount * 2.5) {
+        displayName = getJobShortName(job)
       } else {
-        ws.mergeCells(1, group.startCol, 1, group.endCol)
-        const cell = row1.getCell(group.startCol)
-        cell.value = jobName
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_JOB_HEADER_BG } }
-        cell.alignment = { horizontal: 'center', vertical: 'middle' }
-        cell.font = { bold: true }
+        displayName = getJobInitial(job)
       }
+
+      if (group.startCol < group.endCol) {
+        ws.mergeCells(1, group.startCol, 1, group.endCol)
+      }
+      const cell = row1.getCell(group.startCol)
+      cell.value = displayName
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_JOB_HEADER_BG } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.font = { bold: true }
     }
 
     // 为合并区域内的其他单元格也设置填充（ExcelJS 要求）
