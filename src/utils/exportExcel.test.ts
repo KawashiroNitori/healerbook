@@ -193,7 +193,8 @@ describe('exportTimelineToExcel', () => {
     const ws = wb.worksheets[0]
     const row2 = ws.getRow(2)
     expect(row2.getCell(3).value).toBe('原始伤害')
-    expect(row2.getCell(4).value).toBeNull()
+    // 第 4 列是技能名（非实际伤害列）
+    expect(row2.getCell(4).value).toBe('原初的直觉')
   })
 
   it('伤害事件数据行正确', async () => {

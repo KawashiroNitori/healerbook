@@ -10,7 +10,6 @@ import type { CalculationResult } from '@/utils/mitigationCalculator'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import { computeLitCellsByEvent, computeCastMarkerCells, cellKey } from '@/utils/castWindow'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
-import { getIconUrl } from '@/utils/iconUtils'
 import { getJobName } from '@/data/jobs'
 
 export interface ExportExcelOptions {
@@ -38,39 +37,6 @@ const CELL_BORDER: Partial<ExcelJS.Borders> = {
   bottom: thinBorder(COLOR_BORDER),
   left: thinBorder(COLOR_BORDER),
   right: thinBorder(COLOR_BORDER),
-}
-
-/** 通过 Image + canvas 加载图片并导出为 base64（绕过 CORS） */
-function loadImageAsBase64(url: string): Promise<string | null> {
-  return new Promise(resolve => {
-    if (typeof Image === 'undefined') {
-      resolve(null)
-      return
-    }
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.naturalWidth
-        canvas.height = img.naturalHeight
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          resolve(null)
-          return
-        }
-        ctx.drawImage(img, 0, 0)
-        const dataUrl = canvas.toDataURL('image/png')
-        resolve(dataUrl.split(',')[1])
-      } catch {
-        // tainted canvas — CORS 不支持
-        resolve(null)
-      }
-    }
-    img.onerror = () => resolve(null)
-    setTimeout(() => resolve(null), 5000)
-    img.src = url
-  })
 }
 
 export async function exportTimelineToExcel(options: ExportExcelOptions): Promise<Uint8Array> {
@@ -185,28 +151,15 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     }
   })
 
-  // 技能图标：通过 Image + canvas 加载（绕过 CORS 限制）
-  await Promise.all(
-    skillTracks.map(async (track, idx) => {
-      const col = fixedColCount + 1 + idx
-      const cell = row2.getCell(col)
-      cell.border = CELL_BORDER
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-
-      const url = getIconUrl(track.actionIcon)
-      if (!url) return
-
-      try {
-        const base64 = await loadImageAsBase64(url)
-        if (!base64) return
-        const imageId = wb.addImage({ base64, extension: 'png' })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ws.addImage(imageId, { tl: { col: col - 1, row: 1 }, br: { col, row: 2 } } as any)
-      } catch {
-        // 图标加载失败，静默跳过
-      }
-    })
-  )
+  // 技能列表头：写入技能名
+  for (let i = 0; i < skillTracks.length; i++) {
+    const col = fixedColCount + 1 + i
+    const cell = row2.getCell(col)
+    cell.value = skillTracks[i].actionName
+    cell.font = { size: 7 }
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    cell.border = CELL_BORDER
+  }
 
   // ---- 计算 lit cells 和 cast marker cells ----
   const litCellsByEvent = computeLitCellsByEvent(
