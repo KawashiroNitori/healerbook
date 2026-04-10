@@ -98,6 +98,7 @@ export default function EditorToolbar({
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   const canUndo = useStore(useTimelineStore.temporal, s => s.pastStates.length > 0)
   const canRedo = useStore(useTimelineStore.temporal, s => s.futureStates.length > 0)
@@ -356,8 +357,8 @@ export default function EditorToolbar({
             {timeline && (
               <>
                 <div className="w-px h-6 bg-border mx-1" />
-                <DropdownMenu>
-                  <Tooltip>
+                <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+                  <Tooltip open={exportMenuOpen ? false : undefined}>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -367,7 +368,7 @@ export default function EditorToolbar({
                     </TooltipTrigger>
                     <TooltipContent side="bottom">导出</TooltipContent>
                   </Tooltip>
-                  <DropdownMenuContent align="start">
+                  <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
                     <DropdownMenuItem onSelect={() => setShowExportDialog(true)}>
                       Excel 表格...
                     </DropdownMenuItem>
