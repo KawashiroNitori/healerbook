@@ -4,7 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Download, CircleHelp } from 'lucide-react'
+import { Plus, Download, CircleHelp, Info } from 'lucide-react'
 import {
   getAllTimelineMetadata,
   deleteTimeline,
@@ -26,6 +26,7 @@ import { useChangelogToast } from '@/hooks/useChangelogToast'
 const CreateTimelineDialog = lazy(() => import('@/components/CreateTimelineDialog'))
 const ImportFFLogsDialog = lazy(() => import('@/components/ImportFFLogsDialog'))
 const Top100Section = lazy(() => import('@/components/Top100Section'))
+const AboutDialog = lazy(() => import('@/components/AboutDialog'))
 
 export default function HomePage() {
   useChangelogToast()
@@ -34,6 +35,10 @@ export default function HomePage() {
   const queryClient = useQueryClient()
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showAboutDialog, setShowAboutDialog] = useState(false)
+  const [showAboutTip, setShowAboutTip] = useState(
+    () => !localStorage.getItem('about-tip-dismissed')
+  )
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [timelineToDelete, setTimelineToDelete] = useState<string | null>(null)
   const [deletePublishedConfirmOpen, setDeletePublishedConfirmOpen] = useState(false)
@@ -92,6 +97,29 @@ export default function HomePage() {
               <CircleHelp className="w-4 h-4" />
               <span className="hidden sm:inline">帮助</span>
             </a>
+            <button
+              onClick={() => {
+                if (showAboutTip) {
+                  localStorage.setItem('about-tip-dismissed', '1')
+                  setShowAboutTip(false)
+                }
+                track('about-click')
+                setShowAboutDialog(true)
+              }}
+              className="relative inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Info className="w-4 h-4" />
+              <span className="hidden sm:inline">关于</span>
+              {showAboutTip && (
+                <div className="absolute top-full right-0 mt-2 w-48 rounded-md border border-foreground/20 bg-popover p-3 text-xs text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95">
+                  <div className="absolute -top-1.5 right-4 h-3 w-3 rotate-45 border-l border-t border-foreground/20 bg-popover" />
+                  <p className="text-left">
+                    我建了一个 QQ 群，欢迎加入反馈意见、关注新功能更新
+                    <del className="text-muted-foreground">催更</del>、以及交流各自的减伤轴~
+                  </p>
+                </div>
+              )}
+            </button>
             <div className="w-px h-4 bg-border" />
             <a
               href="https://github.com/KawashiroNitori/healerbook"
@@ -198,6 +226,9 @@ export default function HomePage() {
 
       {/* Dialogs */}
       <Suspense fallback={null}>
+        {showAboutDialog && (
+          <AboutDialog open={showAboutDialog} onOpenChange={setShowAboutDialog} />
+        )}
         {showCreateDialog && (
           <CreateTimelineDialog
             open={showCreateDialog}
