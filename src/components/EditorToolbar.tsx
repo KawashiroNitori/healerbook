@@ -369,7 +369,12 @@ export default function EditorToolbar({
                     <TooltipContent side="bottom">导出</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
-                    <DropdownMenuItem onSelect={() => setShowExportDialog(true)}>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        track('excel-export-start')
+                        setShowExportDialog(true)
+                      }}
+                    >
                       Excel 表格...
                     </DropdownMenuItem>
                   </DropdownMenuContent>

@@ -17,6 +17,7 @@ import { deriveSkillTracks } from '@/utils/skillTracks'
 import { sortJobsByOrder, getJobName } from '@/data/jobs'
 import { exportTimelineToExcel } from '@/utils/exportExcel'
 import JobIcon from './JobIcon'
+import { track } from '@/utils/analytics'
 
 interface ExportExcelDialogProps {
   open: boolean
@@ -95,6 +96,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })
       saveAs(blob, `${fileName}.xlsx`)
+      track('excel-export', { showOriginalDamage, showActualDamage })
       toast.success('导出成功')
       onClose()
     } catch (err) {
