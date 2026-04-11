@@ -1,0 +1,169 @@
+#!/usr/bin/env node
+//
+// setup-worktree.mjs — 在 worktree 中快速初始化 submodule、环境文件和依赖
+//
+// 用法：
+//   在 worktree 目录下执行：
+//     node /path/to/setup-worktree.mjs
+//
+//   或指定主仓库路径：
+//     MAIN_REPO=/path/to/healerbook node setup-worktree.mjs
+//
+
+import { execSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, statSync, symlinkSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+
+function git(args, cwd) {
+  return execSync(`git ${args}`, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+}
+
+function run(cmd, cwd) {
+  execSync(cmd, { cwd, stdio: "inherit" });
+}
+
+// --- 定位路径 ---
+
+const WORKTREE = process.cwd();
+
+let gitCommonDir, gitDir;
+try {
+  gitCommonDir = resolve(git("rev-parse --git-common-dir", WORKTREE));
+  gitDir = resolve(git("rev-parse --git-dir", WORKTREE));
+} catch {
+  console.error("❌ 当前目录不是 git 仓库");
+  process.exit(1);
+}
+
+if (gitCommonDir === gitDir) {
+  console.error("❌ 当前目录不是 worktree，请在 worktree 中执行此脚本");
+  process.exit(1);
+}
+
+const MAIN_REPO = resolve(
+  process.env.SUPERSET_ROOT_PATH || process.env.MAIN_REPO || join(gitCommonDir, ".."),
+);
+const MAIN_MODULES = join(MAIN_REPO, ".git", "modules");
+const WT_GITDIR = resolve(git("rev-parse --absolute-git-dir", WORKTREE));
+
+console.log(`📁 Worktree:  ${WORKTREE}`);
+console.log(`📁 Main repo: ${MAIN_REPO}`);
+console.log();
+
+// --- 1. 快速初始化 submodule（本地 clone，不走网络）---
+
+function initSubmoduleLocal(smPath, mainModulesDir, destModulesDir, parentDir) {
+  const destWorkdir = join(WORKTREE, smPath);
+
+  let expectedCommit;
+  try {
+    const lsTreeCwd = parentDir || WORKTREE;
+    const lookupName = parentDir ? basename(smPath) : smPath;
+    const output = git(`ls-tree HEAD "${lookupName}"`, lsTreeCwd);
+    expectedCommit = output.split(/\s+/)[2];
+  } catch {
+    expectedCommit = "";
+  }
+
+  if (!expectedCommit) {
+    console.log(`  ⚠️  跳过 ${smPath}（未在当前 commit 中注册）`);
+    return;
+  }
+
+  // 检查 submodule 是否已存在（.git 文件或目录）
+  const dotGit = join(destWorkdir, ".git");
+  if (existsSync(dotGit)) {
+    console.log(`  ✅ ${smPath} 已存在，跳过`);
+    return;
+  }
+
+  if (!existsSync(mainModulesDir)) {
+    console.log(`  ⚠️  主仓库中 ${smPath} 的 git 对象不存在，回退到远程 clone`);
+    run(`git submodule update --init -- "${smPath}"`, WORKTREE);
+    return;
+  }
+
+  mkdirSync(dirname(destModulesDir), { recursive: true });
+
+  run(
+    `git clone --local --no-checkout --separate-git-dir "${destModulesDir}" "${mainModulesDir}" "${destWorkdir}"`,
+    WORKTREE,
+  );
+  git(`checkout ${expectedCommit} --quiet`, destWorkdir);
+
+  // 注册嵌套 submodule
+  try {
+    git("submodule init --quiet", destWorkdir);
+  } catch {
+    // 没有嵌套 submodule 时忽略
+  }
+
+  console.log(`  ✅ ${smPath} → ${expectedCommit}`);
+}
+
+console.log("🔗 初始化 submodule（本地 clone）...");
+
+// 从主仓库动态遍历所有 submodule（含嵌套），按层级顺序处理
+let submoduleList = "";
+try {
+  submoduleList = git(
+    'submodule foreach --quiet --recursive "echo $displaypath|$(git rev-parse --git-dir)|$toplevel"',
+    MAIN_REPO,
+  );
+} catch {
+  // 没有 submodule
+}
+
+if (submoduleList) {
+  for (const line of submoduleList.split("\n").filter(Boolean)) {
+    const [smDisplayPath, mainGitDir, smToplevel] = line.split("|");
+
+    // 将主仓库的 modules 路径映射到 worktree 的 modules 路径
+    const mainGitPrefix = join(MAIN_REPO, ".git") + (process.platform === "win32" ? "\\" : "/");
+    const relativeModules = resolve(mainGitDir).replace(mainGitPrefix, "");
+    const destModulesDir = join(WT_GITDIR, relativeModules);
+
+    // 确定父目录（用于 git ls-tree 查找期望的 commit）
+    const relativeToplevel = resolve(smToplevel).replace(resolve(MAIN_REPO), "");
+    const parentDir = relativeToplevel ? join(WORKTREE, relativeToplevel) : "";
+
+    initSubmoduleLocal(smDisplayPath, resolve(mainGitDir), destModulesDir, parentDir);
+  }
+}
+
+console.log();
+
+// --- 2. 链接环境文件 ---
+
+console.log("🔗 链接环境文件...");
+
+for (const f of [".dev.vars", ".env", ".wrangler"]) {
+  const source = join(MAIN_REPO, f);
+  const target = join(WORKTREE, f);
+
+  if (existsSync(target)) {
+    console.log(`  ⏭️  ${f} 已存在，跳过`);
+  } else if (existsSync(source)) {
+    // Windows 上对目录需要 'junction'，对文件需要 'file'
+    let type;
+    try {
+      type = statSync(source).isDirectory() ? "junction" : "file";
+    } catch {
+      type = "file";
+    }
+    symlinkSync(source, target, type);
+    console.log(`  ✅ ${f} → ${source}`);
+  } else {
+    console.log(`  ⚠️  ${source} 不存在，跳过`);
+  }
+}
+
+console.log();
+
+// --- 3. 安装依赖 ---
+
+console.log("📦 安装依赖...");
+run("pnpm install --prefer-offline", WORKTREE);
+console.log();
+
+console.log("🎉 Worktree 初始化完成！");

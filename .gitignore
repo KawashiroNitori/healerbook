@@ -41,5 +41,6 @@ docs/.vitepress/dist
 
 # Git worktrees
 .worktrees/
+.superset/
 
 public/latest-release.json
