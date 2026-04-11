@@ -11,7 +11,7 @@
 //
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, statSync, symlinkSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, statSync, symlinkSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 function git(args, cwd) {
@@ -144,15 +144,24 @@ for (const f of [".dev.vars", ".env", ".wrangler"]) {
   if (existsSync(target)) {
     console.log(`  ⏭️  ${f} 已存在，跳过`);
   } else if (existsSync(source)) {
-    // Windows 上对目录需要 'junction'，对文件需要 'file'
-    let type;
+    const isDir = statSync(source).isDirectory();
+    let linked = false;
     try {
-      type = statSync(source).isDirectory() ? "junction" : "file";
+      symlinkSync(source, target, isDir ? "junction" : "file");
+      linked = true;
     } catch {
-      type = "file";
+      // Windows 无权限创建符号链接时回退到复制
     }
-    symlinkSync(source, target, type);
-    console.log(`  ✅ ${f} → ${source}`);
+    if (linked) {
+      console.log(`  ✅ ${f} → ${source}（symlink）`);
+    } else {
+      if (isDir) {
+        cpSync(source, target, { recursive: true });
+      } else {
+        copyFileSync(source, target);
+      }
+      console.log(`  ✅ ${f} ← ${source}（copied）`);
+    }
   } else {
     console.log(`  ⚠️  ${source} 不存在，跳过`);
   }
