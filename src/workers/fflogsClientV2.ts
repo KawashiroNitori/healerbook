@@ -455,13 +455,14 @@ export class FFLogsClientV2 {
     // const dataTypes: Array<string> = ['All']
 
     const query = `
-      query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $includeResources: Boolean, $limit: Int) {
+      query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $hostilityType: HostilityType, $includeResources: Boolean, $limit: Int) {
         reportData {
           report(code: $code) {
             events(
               startTime: $startTime
               endTime: $endTime
               dataType: $dataType
+              hostilityType: $hostilityType
               includeResources: $includeResources
               limit: $limit
             ) {
@@ -475,8 +476,11 @@ export class FFLogsClientV2 {
 
     const RESOURCE_DATA_TYPES = new Set(['DamageTaken', 'Healing'])
 
-    // 为每种类型获取所有分页数据的函数
-    const fetchAllEventsForType = async (dataType: string): Promise<FFLogsEvent[]> => {
+    // 为某个类型 + hostilityType 组合获取所有分页数据
+    const fetchAllEventsForType = async (
+      dataType: string,
+      hostilityType: 'Friendlies' | 'Enemies'
+    ): Promise<FFLogsEvent[]> => {
       const events: FFLogsEvent[] = []
       let currentStart = start
       let hasMore = true
@@ -487,6 +491,7 @@ export class FFLogsClientV2 {
           startTime: currentStart,
           endTime: end,
           dataType,
+          hostilityType,
           includeResources: RESOURCE_DATA_TYPES.has(dataType),
           limit: 10000,
         })) as {
@@ -514,8 +519,19 @@ export class FFLogsClientV2 {
       return events
     }
 
+    // Casts 同时请求友方与敌方（敌方用于 Boss 技能读条），其他类型仅请求友方
+    const fetchTasks: Array<Promise<FFLogsEvent[]>> = dataTypes.flatMap(dataType => {
+      if (dataType === 'Casts') {
+        return [
+          fetchAllEventsForType(dataType, 'Friendlies'),
+          fetchAllEventsForType(dataType, 'Enemies'),
+        ]
+      }
+      return [fetchAllEventsForType(dataType, 'Friendlies')]
+    })
+
     // 并行获取所有类型的事件
-    const results = await Promise.all(dataTypes.map(dataType => fetchAllEventsForType(dataType)))
+    const results = await Promise.all(fetchTasks)
 
     // 合并所有事件
     const allEvents = results.flat()
