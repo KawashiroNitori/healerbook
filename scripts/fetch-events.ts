@@ -26,8 +26,9 @@ const FIGHT_ID: number | null = 20
 /** 事件过滤函数，返回 true 表示保留 */
 const filter = (event: FFLogsEvent): boolean => {
   return (
-    event.targetID === 34 &&
-    (event.abilityGameID === 1002951 || event.extraAbilityGameID === 1002951)
+    !['damage', 'heal', 'cast1', 'buff', 'absorb', 'limitbreak', 'gauge', 'tether'].some(k =>
+      event.type.includes(k)
+    ) && event.targetID === -1
   )
 }
 
@@ -76,26 +77,30 @@ async function main() {
   // 4. 过滤
   const filtered = data.events.filter(filter)
   console.error(`过滤后 ${filtered.length} 个事件`)
+  console.error(JSON.stringify(filtered, null, 2))
 
   // 5. 输出事件时间线
   const fightStart = fight.start_time
   for (const e of filtered) {
     const t = ((e.timestamp - fightStart) / 1000).toFixed(2)
     const target = e.targetID ?? '?'
+    const abilityGameID = e.abilityGameID ?? '?'
     if (e.type === 'applydebuff') {
-      console.error(`  [${t}s] applydebuff target=${target} duration=${e.duration}ms`)
+      console.error(
+        `  [${t}s] applydebuff target=${target} abilityGameID=${abilityGameID} duration=${e.duration}ms`
+      )
     } else if (e.type === 'damage') {
       console.error(
-        `  [${t}s] damage target=${target} amount=${e.amount ?? 0} unmit=${e.unmitigatedAmount ?? 0} mult=${e.multiplier ?? '?'} tick=${e.tick ?? false}`
+        `  [${t}s] damage target=${target} abilityGameID=${abilityGameID} amount=${e.amount ?? 0} unmit=${e.unmitigatedAmount ?? 0} mult=${e.multiplier ?? '?'} tick=${e.tick ?? false}`
       )
     } else if (e.type === 'removedebuff') {
-      console.error(`  [${t}s] removedebuff target=${target}`)
+      console.error(`  [${t}s] removedebuff target=${target} abilityGameID=${abilityGameID}`)
     } else if (e.type === 'absorbed') {
       console.error(
-        `  [${t}s] absorbed target=${target} amount=${e.amount ?? 0} abilityID=${e.abilityGameID}`
+        `  [${t}s] absorbed target=${target} abilityGameID=${abilityGameID} amount=${e.amount ?? 0}`
       )
     } else {
-      console.error(`  [${t}s] ${e.type} target=${target}`)
+      console.error(`  [${t}s] ${e.type} target=${target} abilityGameID=${abilityGameID}`)
     }
   }
   console.error('')
