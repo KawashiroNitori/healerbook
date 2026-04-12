@@ -132,15 +132,91 @@ describe('buildSoumaTimelineText', () => {
     })
     expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('')
   })
+
+  it('注释输出为 # 前缀行带时间标签，按时间合并到技能之间', () => {
+    const timeline = makeTimeline({
+      castEvents: [
+        makeCast({ actionId: 16536, timestamp: 10 }),
+        makeCast({ actionId: 7433, timestamp: 30 }),
+      ],
+      annotations: [
+        { id: 'a1', text: '开场减伤', time: 10, anchor: { type: 'damageTrack' } },
+        { id: 'a2', text: '接 2 连爆', time: 20, anchor: { type: 'damageTrack' } },
+      ],
+    })
+    const lines = buildSoumaTimelineText(timeline, 1, [16536, 7433], false).split('\n')
+    expect(lines).toEqual([
+      '# 00:10.0 开场减伤',
+      '00:10.0 "<节制>~"',
+      '# 00:20.0 接 2 连爆',
+      '00:30.0 "<全大赦>~"',
+    ])
+  })
+
+  it('同一时间点注释排在技能之前', () => {
+    const timeline = makeTimeline({
+      castEvents: [makeCast({ actionId: 16536, timestamp: 20 })],
+      annotations: [{ id: 'a1', text: '提示', time: 20, anchor: { type: 'damageTrack' } }],
+    })
+    const lines = buildSoumaTimelineText(timeline, 1, [16536], false).split('\n')
+    expect(lines[0]).toBe('# 00:20.0 提示')
+    expect(lines[1]).toMatch(/^00:20\.0 "<.+>~"$/)
+  })
+
+  it('多行注释每行独立前缀 # 且都带时间标签', () => {
+    const timeline = makeTimeline({
+      annotations: [
+        { id: 'a1', text: '第一行\n第二行\n第三行', time: 5, anchor: { type: 'damageTrack' } },
+      ],
+    })
+    const lines = buildSoumaTimelineText(timeline, 1, [], false).split('\n')
+    expect(lines).toEqual(['# 00:05.0 第一行', '# 00:05.0 第二行', '# 00:05.0 第三行'])
+  })
+
+  it('没有技能但有注释时仍输出注释', () => {
+    const timeline = makeTimeline({
+      annotations: [{ id: 'a1', text: '单独注释', time: 0, anchor: { type: 'damageTrack' } }],
+    })
+    expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('# 00:00.0 单独注释')
+  })
+
+  it('skillTrack anchor 的注释前缀加上技能 icon 语法', () => {
+    const timeline = makeTimeline({
+      annotations: [
+        {
+          id: 'a1',
+          text: '绑定技能注释',
+          time: 5,
+          anchor: { type: 'skillTrack', playerId: 1, actionId: 16536 },
+        },
+      ],
+    })
+    expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('# 00:05.0 <节制>绑定技能注释')
+  })
+
+  it('skillTrack 多行注释每行都带 icon 前缀', () => {
+    const timeline = makeTimeline({
+      annotations: [
+        {
+          id: 'a1',
+          text: '第一行\n第二行',
+          time: 5,
+          anchor: { type: 'skillTrack', playerId: 1, actionId: 16536 },
+        },
+      ],
+    })
+    const lines = buildSoumaTimelineText(timeline, 1, [], false).split('\n')
+    expect(lines).toEqual(['# 00:05.0 <节制>第一行', '# 00:05.0 <节制>第二行'])
+  })
 })
 
 import { wrapAsSoumaITimeline } from './soumaExporter'
 
 describe('wrapAsSoumaITimeline', () => {
-  it('name 拼接职业 code', () => {
+  it('name 拼接职业名称', () => {
     const timeline = makeTimeline({ name: 'M9S 规划' })
     const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
-    expect(wrapped.name).toBe('M9S 规划 - WHM')
+    expect(wrapped.name).toBe('M9S 规划 - 白魔法师')
   })
 
   it('condition.jobs 填入玩家职业', () => {
@@ -210,7 +286,7 @@ describe('exportSoumaTimeline', () => {
     const parsed = JSON.parse(decompressed!)
     expect(Array.isArray(parsed)).toBe(true)
     expect(parsed).toHaveLength(1)
-    expect(parsed[0].name).toBe('测试 - WHM')
+    expect(parsed[0].name).toBe('测试 - 白魔法师')
     expect(parsed[0].condition.zoneId).toBe('1321')
     expect(parsed[0].condition.jobs).toEqual(['WHM'])
     expect(parsed[0].timeline).toMatch(/^00:30\.0 "<.+>~" tts$/)

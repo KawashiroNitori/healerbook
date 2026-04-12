@@ -373,19 +373,19 @@ export default function EditorToolbar({
                   <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
                     <DropdownMenuItem
                       onSelect={() => {
-                        track('excel-export-start')
-                        setShowExportDialog(true)
-                      }}
-                    >
-                      Excel 表格...
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => {
                         track('souma-export-start')
                         setShowSoumaDialog(true)
                       }}
                     >
                       Souma 时间轴...
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        track('excel-export-start')
+                        setShowExportDialog(true)
+                      }}
+                    >
+                      Excel 表格...
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

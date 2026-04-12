@@ -9,7 +9,7 @@ import LZString from 'lz-string'
 import type { Timeline } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getEncounterById } from '@/data/raidEncounters'
-import type { Job } from '@/data/jobs'
+import { getJobName, type Job } from '@/data/jobs'
 
 /**
  * 格式化时间为 Souma 时间轴可接受的字符串。
@@ -30,7 +30,9 @@ export function formatSoumaTime(t: number): string {
 
 /**
  * 将指定玩家在时间轴上使用过的技能转换为 Souma 时间轴文本。
- * 每行格式：`mm:ss.d "<技能名>~"[ tts]`
+ * - 技能行：`mm:ss.d "<技能名>~"[ tts]`
+ * - 注释行：`# mm:ss.d 注释文本`（多行注释自动拆成多条 # 行）
+ * 注释与技能按时间合并排序；同一时间注释排在技能之前。
  */
 export function buildSoumaTimelineText(
   timeline: Timeline,
@@ -38,24 +40,47 @@ export function buildSoumaTimelineText(
   selectedActionIds: number[],
   ttsEnabled: boolean
 ): string {
-  if (selectedActionIds.length === 0) return ''
-
   const selectedSet = new Set(selectedActionIds)
-  const casts = timeline.castEvents
-    .filter(c => c.playerId === playerId && selectedSet.has(c.actionId))
-    .slice()
-    .sort((a, b) => a.timestamp - b.timestamp)
 
-  const lines: string[] = []
-  for (const cast of casts) {
-    const action = MITIGATION_DATA.actions.find(a => a.id === cast.actionId)
-    if (!action) continue
-    const time = formatSoumaTime(cast.timestamp)
-    const tts = ttsEnabled ? ' tts' : ''
-    lines.push(`${time} "<${action.name}>~"${tts}`)
+  type Entry = { time: number; order: number; text: string }
+  const entries: Entry[] = []
+
+  // 注释（全部包含，skillTrack anchor 会额外带上绑定技能的图标语法）
+  for (const ann of timeline.annotations ?? []) {
+    const timeLabel = formatSoumaTime(ann.time)
+    let iconPrefix = ''
+    if (ann.anchor.type === 'skillTrack') {
+      const anchorActionId = ann.anchor.actionId
+      const action = MITIGATION_DATA.actions.find(a => a.id === anchorActionId)
+      if (action) iconPrefix = `<${action.name}>`
+    }
+    for (const line of ann.text.split('\n')) {
+      entries.push({ time: ann.time, order: 0, text: `# ${timeLabel} ${iconPrefix}${line}` })
+    }
   }
 
-  return lines.join('\n')
+  // 技能
+  if (selectedActionIds.length > 0) {
+    for (const cast of timeline.castEvents) {
+      if (cast.playerId !== playerId || !selectedSet.has(cast.actionId)) continue
+      const action = MITIGATION_DATA.actions.find(a => a.id === cast.actionId)
+      if (!action) continue
+      const time = formatSoumaTime(cast.timestamp)
+      const tts = ttsEnabled ? ' tts' : ''
+      entries.push({
+        time: cast.timestamp,
+        order: 1,
+        text: `${time} "<${action.name}>~"${tts}`,
+      })
+    }
+  }
+
+  if (entries.length === 0) return ''
+
+  // 同一 time 内注释排在技能之前；相同 order 保持插入顺序（stable sort）
+  entries.sort((a, b) => a.time - b.time || a.order - b.order)
+
+  return entries.map(e => e.text).join('\n')
 }
 
 /** ff14-overlay-vue 的 ITimeline 最小形态 */
@@ -86,7 +111,7 @@ export function wrapAsSoumaITimeline(
   const zoneId = String(timeline.gameZoneId ?? staticZoneId ?? 0)
 
   return {
-    name: `${timeline.name} - ${jobCode}`,
+    name: `${timeline.name} - ${getJobName(jobCode)}`,
     condition: { zoneId, jobs: [jobCode] },
     timeline: timelineText,
     codeFight: 'Healerbook 导出',
