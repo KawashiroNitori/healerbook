@@ -94,6 +94,8 @@ export interface FFLogsV1Fight {
   bossPercentage?: number
   /** 战斗百分比 */
   fightPercentage?: number
+  /** FFXIV 游戏内区域 id（V2 查询填充，V1 原生无此字段） */
+  gameZoneID?: number
 }
 
 /**
@@ -138,6 +140,8 @@ export interface FFLogsFight {
   endTime: number
   /** 副本 ID */
   encounterID?: number
+  /** FFXIV 游戏内区域 id（仅 V2 查询包含，V1 回退为 undefined） */
+  gameZoneId?: number
 }
 
 /**
@@ -318,6 +322,8 @@ export interface FFLogsV2Fight {
   startTime: number
   endTime: number
   encounterID: number
+  /** FFXIV 游戏内区域（可为 null，对应某些异常战斗） */
+  gameZone?: { id: number } | null
 }
 
 export interface FFLogsV2PhaseMetadata {
