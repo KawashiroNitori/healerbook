@@ -39,6 +39,10 @@ export interface Timeline {
     reportCode: string
     fightId: number
   }
+  /** FFXIV 游戏内 ZoneID，用于 Souma 时间轴导出时的自动副本识别。
+   *  FFLogs 导入时从 ReportFight.gameZone.id 取值；本地新建时从 raidEncounters.ts 静态表查表写入。
+   *  存量时间轴可能无此字段，导出时将回退至静态表或 "0"。 */
+  gameZoneId?: number
   /** 副本信息 */
   encounter: Encounter
   /** 小队阵容 */
