@@ -7,6 +7,8 @@
 
 import type { Timeline } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { getEncounterById } from '@/data/raidEncounters'
+import type { Job } from '@/data/jobs'
 
 /**
  * 格式化时间为 Souma 时间轴可接受的字符串。
@@ -53,4 +55,40 @@ export function buildSoumaTimelineText(
   }
 
   return lines.join('\n')
+}
+
+/** ff14-overlay-vue 的 ITimeline 最小形态 */
+export interface SoumaITimeline {
+  name: string
+  condition: { zoneId: string; jobs: Job[] }
+  timeline: string
+  codeFight: string
+  create: string
+}
+
+/**
+ * 将 timeline + 玩家 + 行文本包装为 Souma 的 ITimeline。
+ * zoneId 使用三级 fallback：
+ *   1. timeline.gameZoneId
+ *   2. 静态表 getEncounterById(timeline.encounter.id)?.gameZoneId
+ *   3. "0"
+ */
+export function wrapAsSoumaITimeline(
+  timeline: Timeline,
+  playerId: number,
+  timelineText: string
+): SoumaITimeline {
+  const player = timeline.composition.players.find(p => p.id === playerId)
+  const jobCode = (player?.job ?? 'NONE') as Job
+
+  const staticZoneId = getEncounterById(timeline.encounter.id)?.gameZoneId
+  const zoneId = String(timeline.gameZoneId ?? staticZoneId ?? 0)
+
+  return {
+    name: `${timeline.name} - ${jobCode}`,
+    condition: { zoneId, jobs: [jobCode] },
+    timeline: timelineText,
+    codeFight: 'Healerbook 导出',
+    create: new Date().toLocaleString(),
+  }
 }

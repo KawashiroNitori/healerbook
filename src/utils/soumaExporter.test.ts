@@ -133,3 +133,58 @@ describe('buildSoumaTimelineText', () => {
     expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('')
   })
 })
+
+import { wrapAsSoumaITimeline } from './soumaExporter'
+
+describe('wrapAsSoumaITimeline', () => {
+  it('name 拼接职业 code', () => {
+    const timeline = makeTimeline({ name: 'M9S 规划' })
+    const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
+    expect(wrapped.name).toBe('M9S 规划 - WHM')
+  })
+
+  it('condition.jobs 填入玩家职业', () => {
+    const timeline = makeTimeline({
+      composition: { players: [{ id: 1, job: 'SCH' }] },
+    })
+    const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
+    expect(wrapped.condition.jobs).toEqual(['SCH'])
+  })
+
+  it('timeline.gameZoneId 存在时优先使用', () => {
+    const timeline = makeTimeline({ gameZoneId: 9999 })
+    const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
+    expect(wrapped.condition.zoneId).toBe('9999')
+  })
+
+  it('timeline.gameZoneId 缺失、encounter.id 命中静态表时回退静态表', () => {
+    const timeline = makeTimeline({
+      gameZoneId: undefined,
+      encounter: { id: 101, name: '', displayName: '', zone: '', damageEvents: [] },
+    })
+    const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
+    expect(wrapped.condition.zoneId).toBe('1321')
+  })
+
+  it('两者均缺失时回退 "0"', () => {
+    const timeline = makeTimeline({
+      gameZoneId: undefined,
+      encounter: { id: 999999, name: '', displayName: '', zone: '', damageEvents: [] },
+    })
+    const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
+    expect(wrapped.condition.zoneId).toBe('0')
+  })
+
+  it('codeFight / create 固定字段', () => {
+    const timeline = makeTimeline()
+    const wrapped = wrapAsSoumaITimeline(timeline, 1, 'text')
+    expect(wrapped.codeFight).toBe('Healerbook 导出')
+    expect(typeof wrapped.create).toBe('string')
+    expect(wrapped.create.length).toBeGreaterThan(0)
+  })
+
+  it('timeline 内容原样透传', () => {
+    const wrapped = wrapAsSoumaITimeline(makeTimeline(), 1, 'abc\ndef')
+    expect(wrapped.timeline).toBe('abc\ndef')
+  })
+})
