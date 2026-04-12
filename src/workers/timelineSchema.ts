@@ -107,6 +107,7 @@ const TimelineSchema = v.object({
   name: v.pipe(v.string(), v.maxLength(TIMELINE_NAME_MAX_LENGTH)),
   description: v.optional(v.pipe(v.string(), v.maxLength(TIMELINE_DESCRIPTION_MAX_LENGTH))),
   fflogsSource: v.optional(FFLogsSourceSchema),
+  gameZoneId: v.optional(v.number()),
   encounter: EncounterSchema,
   composition: CompositionSchema,
   damageEvents: v.array(DamageEventSchema),
