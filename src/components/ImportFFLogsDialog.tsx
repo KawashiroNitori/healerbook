@@ -172,6 +172,11 @@ export default function ImportFFLogsDialog({
         damageEvents: [],
       }
 
+      // 写入 gameZoneId（仅当 FFLogs 返回该字段时）
+      if (fight.gameZoneId != null) {
+        newTimeline.gameZoneId = fight.gameZoneId
+      }
+
       // 获取伤害事件（自动分页）
       setLoadingStep('正在获取战斗事件...')
 
