@@ -37,6 +37,7 @@ export function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string):
       startTime: fight.start_time,
       endTime: fight.end_time,
       encounterID: fight.boss,
+      gameZoneId: fight.gameZoneID,
     })),
     friendlies: v1Report.friendlies,
     enemies: v1Report.enemies,
