@@ -6,6 +6,8 @@
  */
 
 import { useMemo, useState } from 'react'
+import { Copy } from 'lucide-react'
+import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -20,6 +22,8 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { getJobName } from '@/data/jobs'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getIconUrl } from '@/utils/iconUtils'
+import { exportSoumaTimeline } from '@/utils/soumaExporter'
+import { track } from '@/utils/analytics'
 import { cn } from '@/lib/utils'
 
 interface ExportSoumaDialogProps {
@@ -73,6 +77,35 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
 
   // 玩家切换时重置手动选中状态
   const selectedActionIds = manualSelectedActionIds ?? defaultSelectedActionIds
+
+  const hasSelection = selectedActionIds.size > 0
+
+  const exportString = useMemo(() => {
+    if (playerId == null || !timeline) return ''
+    if (!hasSelection) return '请至少选择一个技能'
+    return exportSoumaTimeline({
+      timeline,
+      playerId,
+      selectedActionIds: Array.from(selectedActionIds),
+      ttsEnabled,
+    })
+  }, [timeline, playerId, selectedActionIds, ttsEnabled, hasSelection])
+
+  const handleCopy = async () => {
+    if (!hasSelection || playerId == null) return
+    try {
+      await navigator.clipboard.writeText(exportString)
+      toast.success('已复制到剪贴板')
+      const player = playerOptions.find(p => p.id === playerId)
+      track('souma-export-copy', {
+        job: player?.job,
+        skillCount: selectedActionIds.size,
+        ttsEnabled,
+      })
+    } catch {
+      toast.error('复制失败，请手动选中文本')
+    }
+  }
 
   if (!timeline) return null
 
@@ -181,6 +214,16 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
               </label>
               <Switch id="souma-tts-switch" checked={ttsEnabled} onCheckedChange={setTtsEnabled} />
             </div>
+
+            {/* 实时预览 */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-sm font-medium">压缩字符串</label>
+              <textarea
+                readOnly
+                value={exportString}
+                className="h-32 w-full resize-none rounded-md border bg-muted/30 p-2 font-mono text-xs"
+              />
+            </div>
           </div>
         )}
 
@@ -188,6 +231,12 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
           <Button variant="outline" onClick={onClose}>
             关闭
           </Button>
+          {hasCasts && (
+            <Button onClick={handleCopy} disabled={!hasSelection}>
+              <Copy className="mr-1.5 h-4 w-4" />
+              复制
+            </Button>
+          )}
         </ModalFooter>
       </ModalContent>
     </Modal>
