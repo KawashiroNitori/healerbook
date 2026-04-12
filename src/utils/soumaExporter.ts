@@ -5,6 +5,7 @@
  * 可直接被 ff14-overlay-vue 的时间轴模块导入。
  */
 
+import LZString from 'lz-string'
 import type { Timeline } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -91,4 +92,22 @@ export function wrapAsSoumaITimeline(
     codeFight: 'Healerbook 导出',
     create: new Date().toLocaleString(),
   }
+}
+
+export interface SoumaExportParams {
+  timeline: Timeline
+  playerId: number
+  selectedActionIds: number[]
+  ttsEnabled: boolean
+}
+
+/**
+ * 将 Healerbook 时间轴导出为 Souma 兼容的压缩字符串。
+ * 输出格式：`LZString.compressToBase64(JSON.stringify([ITimeline]))`
+ */
+export function exportSoumaTimeline(params: SoumaExportParams): string {
+  const { timeline, playerId, selectedActionIds, ttsEnabled } = params
+  const text = buildSoumaTimelineText(timeline, playerId, selectedActionIds, ttsEnabled)
+  const wrapped = wrapAsSoumaITimeline(timeline, playerId, text)
+  return LZString.compressToBase64(JSON.stringify([wrapped]))
 }

@@ -188,3 +188,44 @@ describe('wrapAsSoumaITimeline', () => {
     expect(wrapped.timeline).toBe('abc\ndef')
   })
 })
+
+import LZString from 'lz-string'
+import { exportSoumaTimeline } from './soumaExporter'
+
+describe('exportSoumaTimeline', () => {
+  it('roundtrip: 解压后是 ITimeline 数组且字段正确', () => {
+    const timeline = makeTimeline({
+      name: '测试',
+      gameZoneId: 1321,
+      castEvents: [makeCast({ actionId: 16536, timestamp: 30 })],
+    })
+    const compressed = exportSoumaTimeline({
+      timeline,
+      playerId: 1,
+      selectedActionIds: [16536],
+      ttsEnabled: true,
+    })
+    const decompressed = LZString.decompressFromBase64(compressed)
+    expect(decompressed).not.toBeNull()
+    const parsed = JSON.parse(decompressed!)
+    expect(Array.isArray(parsed)).toBe(true)
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0].name).toBe('测试 - WHM')
+    expect(parsed[0].condition.zoneId).toBe('1321')
+    expect(parsed[0].condition.jobs).toEqual(['WHM'])
+    expect(parsed[0].timeline).toMatch(/^00:30\.0 "<.+>~" tts$/)
+    expect(parsed[0].codeFight).toBe('Healerbook 导出')
+  })
+
+  it('空选时 timeline 字段为空字符串', () => {
+    const timeline = makeTimeline({ gameZoneId: 1321 })
+    const compressed = exportSoumaTimeline({
+      timeline,
+      playerId: 1,
+      selectedActionIds: [],
+      ttsEnabled: false,
+    })
+    const parsed = JSON.parse(LZString.decompressFromBase64(compressed)!)
+    expect(parsed[0].timeline).toBe('')
+  })
+})
