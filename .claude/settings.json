@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/redirect-superpowers-docs.mjs",
-            "statusMessage": "Checking superpowers doc path..."
+            "command": "node .claude/hooks/enforce-docs-paths.mjs",
+            "statusMessage": "Checking docs/ path..."
           }
         ]
       }
