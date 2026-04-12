@@ -17,6 +17,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { getTimeline, saveTimeline, unpublishTimeline } from '@/utils/timelineStorage'
+import { setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
@@ -165,7 +166,7 @@ export default function EditorPage() {
   // 切换到其他页面后再进入新时间轴应该从 0 开始。
   useEffect(() => {
     return () => {
-      useTimelineStore.getState().setSyncScrollProgress(0)
+      setSyncScrollProgress(0)
     }
   }, [])
 

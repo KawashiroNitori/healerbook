@@ -39,8 +39,6 @@ interface TimelineState {
   currentTimelineWidth: number
   /** 当前视口宽度（用于缩放时计算进度） */
   currentViewportWidth: number
-  /** 时间轴视图和表格视图共享的滚动进度（0-1），视图切换时同步位置 */
-  syncScrollProgress: number
   /** 自动保存定时器 */
   autoSaveTimer: number | null
 
@@ -69,8 +67,6 @@ interface TimelineState {
   setPendingScrollProgress: (progress: number | null) => void
   /** 更新滚动状态（用于缩放计算） */
   updateScrollState: (scrollLeft: number, timelineWidth: number, viewportWidth: number) => void
-  /** 设置共享滚动进度（两个视图切换同步用，0-1） */
-  setSyncScrollProgress: (progress: number) => void
   /** 带滚动进度保持的缩放 */
   zoomWithScrollPreservation: (delta: number) => void
   /** 更新时间轴名称 */
@@ -125,7 +121,6 @@ const initialState = {
   currentScrollLeft: 0,
   currentTimelineWidth: 0,
   currentViewportWidth: 0,
-  syncScrollProgress: 0,
   autoSaveTimer: null,
 }
 
@@ -271,8 +266,6 @@ export const useTimelineStore = create<TimelineState>()(
           currentTimelineWidth: timelineWidth,
           currentViewportWidth: viewportWidth,
         }),
-
-      setSyncScrollProgress: progress => set({ syncScrollProgress: progress }),
 
       zoomWithScrollPreservation: delta => {
         const state = get()

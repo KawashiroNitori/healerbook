@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
+import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import AddEventDialog from '../AddEventDialog'
 import AnnotationPopover from './AnnotationPopover'
 import TimelineContextMenu from './TimelineContextMenu'
@@ -480,7 +481,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   useEffect(() => {
     if (hasInitializedSyncRef.current || !layoutData || viewportWidth === 0) return
     hasInitializedSyncRef.current = true
-    const progress = useTimelineStore.getState().syncScrollProgress
+    const progress = getSyncScrollProgress()
     const maxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
     if (progress > 0 && maxScroll > 0) {
       setScrollLeft(progress * maxScroll)
@@ -494,7 +495,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       // 同步滚动进度（0-1），供视图切换时表格视图读取
       const maxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
       const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollLeft / maxScroll)) : 0
-      useTimelineStore.getState().setSyncScrollProgress(progress)
+      setSyncScrollProgress(progress)
     }
     // updateScrollState 来自 Zustand store，引用稳定
     // eslint-disable-next-line react-hooks/exhaustive-deps

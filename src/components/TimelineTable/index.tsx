@@ -20,6 +20,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { computeCastMarkerCells, computeLitCellsByEvent } from '@/utils/castWindow'
 import { mergeAndSortRows } from '@/utils/tableRows'
+import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { DamageEvent } from '@/types/timeline'
 import TableHeader from './TableHeader'
@@ -212,7 +213,7 @@ export default function TimelineTableView() {
     const maxScroll = wrapper.scrollHeight - wrapper.clientHeight
     if (maxScroll <= 0) return // 内容还没渲染，等下一轮
     hasInitializedSyncRef.current = true
-    const progress = useTimelineStore.getState().syncScrollProgress
+    const progress = getSyncScrollProgress()
     if (progress > 0) {
       wrapper.scrollTop = progress * maxScroll
     }
@@ -224,7 +225,7 @@ export default function TimelineTableView() {
     if (!wrapper) return
     const maxScroll = wrapper.scrollHeight - wrapper.clientHeight
     const progress = maxScroll > 0 ? Math.min(1, Math.max(0, wrapper.scrollTop / maxScroll)) : 0
-    useTimelineStore.getState().setSyncScrollProgress(progress)
+    setSyncScrollProgress(progress)
   }
 
   if (!timeline) return null
