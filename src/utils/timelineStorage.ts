@@ -4,6 +4,7 @@
 
 import type { Timeline, Composition } from '@/types/timeline'
 import { generateId } from '@/utils/id'
+import { getEncounterById } from '@/data/raidEncounters'
 
 const STORAGE_KEY = 'healerbook_timelines'
 
@@ -135,17 +136,20 @@ export function deleteTimeline(id: string): void {
  */
 export function createNewTimeline(encounterId: string, name: string): Timeline {
   const now = Math.floor(Date.now() / 1000)
+  const encounterIdNum = parseInt(encounterId) || 0
+  const staticEncounter = getEncounterById(encounterIdNum)
 
   return {
     id: generateId(),
     name,
     encounter: {
-      id: parseInt(encounterId) || 0,
+      id: encounterIdNum,
       name: name,
       displayName: name,
       zone: '',
       damageEvents: [],
     },
+    gameZoneId: staticEncounter?.gameZoneId,
     damageEvents: [],
     castEvents: [],
     statusEvents: [],
