@@ -8,6 +8,8 @@ export interface RaidEncounter {
   name: string
   // 简称（用于显示）
   shortName: string
+  // FFXIV 游戏内 ZoneID（人工维护，用于 Souma 时间轴导出）
+  gameZoneId: number
 }
 
 export interface RaidTier {
@@ -27,18 +29,18 @@ export const RAID_TIERS: RaidTier[] = [
     zone: 73,
     patch: '7.4',
     encounters: [
-      { id: 101, name: '致命美人', shortName: 'M9S' },
-      { id: 102, name: '极限兄弟', shortName: 'M10S' },
-      { id: 103, name: '霸王', shortName: 'M11S' },
-      { id: 104, name: '林德布鲁姆', shortName: 'M12S' },
-      { id: 105, name: '林德布鲁姆 II', shortName: 'M12S' },
+      { id: 101, name: '致命美人', shortName: 'M9S', gameZoneId: 1321 },
+      { id: 102, name: '极限兄弟', shortName: 'M10S', gameZoneId: 1323 },
+      { id: 103, name: '霸王', shortName: 'M11S', gameZoneId: 1325 },
+      { id: 104, name: '林德布鲁姆', shortName: 'M12S', gameZoneId: 1327 },
+      { id: 105, name: '林德布鲁姆 II', shortName: 'M12S', gameZoneId: 1327 },
     ],
   },
   {
     name: '光暗未来绝境战',
     zone: 65,
     patch: '7.1',
-    encounters: [{ id: 1079, name: '光暗未来绝境战', shortName: 'FRU' }],
+    encounters: [{ id: 1079, name: '光暗未来绝境战', shortName: 'FRU', gameZoneId: 1238 }],
   },
 ]
 
