@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectTrigger,
@@ -17,6 +18,9 @@ import {
 } from '@/components/ui/select'
 import { useTimelineStore } from '@/store/timelineStore'
 import { getJobName } from '@/data/jobs'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { getIconUrl } from '@/utils/iconUtils'
+import { cn } from '@/lib/utils'
 
 interface ExportSoumaDialogProps {
   open: boolean
@@ -70,9 +74,6 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
   // 玩家切换时重置手动选中状态
   const selectedActionIds = manualSelectedActionIds ?? defaultSelectedActionIds
 
-  // suppress unused warning for future tasks
-  void [selectedActionIds, setManualSelectedActionIds, ttsEnabled, setTtsEnabled, open]
-
   if (!timeline) return null
 
   const hasCasts = timeline.castEvents.length > 0
@@ -112,7 +113,74 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
                 </SelectContent>
               </Select>
             </div>
-            {/* 占位：技能网格 / TTS / 预览将在 Task 14/15 填入 */}
+            {/* 技能图标网格（仅列出该玩家用过的技能） */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">技能</label>
+              {(() => {
+                if (playerId == null) return null
+                const usedIds = Array.from(
+                  new Set(
+                    timeline.castEvents.filter(c => c.playerId === playerId).map(c => c.actionId)
+                  )
+                )
+                const actions = usedIds
+                  .map(id => MITIGATION_DATA.actions.find(a => a.id === id))
+                  .filter((a): a is NonNullable<typeof a> => a != null)
+
+                if (actions.length === 0) {
+                  return <div className="text-xs text-muted-foreground">该玩家未使用任何技能</div>
+                }
+
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {actions.map(action => {
+                      const selected = selectedActionIds.has(action.id)
+                      return (
+                        <button
+                          key={action.id}
+                          type="button"
+                          onClick={() => {
+                            setManualSelectedActionIds(prev => {
+                              const base = prev ?? defaultSelectedActionIds
+                              const next = new Set(base)
+                              if (next.has(action.id)) next.delete(action.id)
+                              else next.add(action.id)
+                              return next
+                            })
+                          }}
+                          className={cn(
+                            'relative h-10 w-10 overflow-hidden rounded-md border transition',
+                            selected
+                              ? 'border-primary ring-1 ring-primary'
+                              : 'border-border opacity-40 grayscale hover:opacity-70'
+                          )}
+                          title={action.name}
+                        >
+                          <img
+                            src={getIconUrl(action.icon)}
+                            alt={action.name}
+                            className="h-full w-full object-cover"
+                          />
+                          {selected && (
+                            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold leading-none text-white shadow">
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* TTS 开关 */}
+            <div className="flex items-center justify-between pt-1">
+              <label htmlFor="souma-tts-switch" className="text-sm font-medium">
+                启用 TTS 播报
+              </label>
+              <Switch id="souma-tts-switch" checked={ttsEnabled} onCheckedChange={setTtsEnabled} />
+            </div>
           </div>
         )}
 
