@@ -443,16 +443,23 @@ export class FFLogsClientV2 {
   async getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse> {
     const { reportCode, start, end } = params
 
-    // 为每种类型单独查询，并自动处理分页
-    const dataTypes: Array<string> = [
-      'Casts',
-      'DamageTaken',
-      'Healing',
-      'CombatantInfo',
-      'Debuffs',
-      'Buffs',
+    // 每条请求的参数（hostilityType 默认 Friendlies，includeResources 默认 false）
+    // - Casts 额外追加一条 Enemies 请求（用于 Boss 技能读条）
+    // - DamageTaken / Healing 需要 includeResources 以拿到玩家资源快照
+    type FetchSpec = {
+      dataType: string
+      hostilityType?: 'Friendlies' | 'Enemies'
+      includeResources?: boolean
+    }
+    const fetchSpecs: FetchSpec[] = [
+      { dataType: 'Casts' },
+      { dataType: 'Casts', hostilityType: 'Enemies' },
+      { dataType: 'DamageTaken', includeResources: true },
+      { dataType: 'Healing', includeResources: true },
+      { dataType: 'CombatantInfo' },
+      { dataType: 'Debuffs' },
+      { dataType: 'Buffs' },
     ]
-    // const dataTypes: Array<string> = ['All']
 
     const query = `
       query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $hostilityType: HostilityType, $includeResources: Boolean, $limit: Int) {
@@ -474,13 +481,8 @@ export class FFLogsClientV2 {
       }
     `
 
-    const RESOURCE_DATA_TYPES = new Set(['DamageTaken', 'Healing'])
-
-    // 为某个类型 + hostilityType 组合获取所有分页数据
-    const fetchAllEventsForType = async (
-      dataType: string,
-      hostilityType: 'Friendlies' | 'Enemies'
-    ): Promise<FFLogsEvent[]> => {
+    // 按给定参数抓取一条类型的全部分页数据
+    const fetchAllEventsForSpec = async (spec: FetchSpec): Promise<FFLogsEvent[]> => {
       const events: FFLogsEvent[] = []
       let currentStart = start
       let hasMore = true
@@ -490,9 +492,9 @@ export class FFLogsClientV2 {
           code: reportCode,
           startTime: currentStart,
           endTime: end,
-          dataType,
-          hostilityType,
-          includeResources: RESOURCE_DATA_TYPES.has(dataType),
+          dataType: spec.dataType,
+          hostilityType: spec.hostilityType ?? 'Friendlies',
+          includeResources: spec.includeResources ?? false,
           limit: 10000,
         })) as {
           reportData: {
@@ -519,19 +521,8 @@ export class FFLogsClientV2 {
       return events
     }
 
-    // Casts 同时请求友方与敌方（敌方用于 Boss 技能读条），其他类型仅请求友方
-    const fetchTasks: Array<Promise<FFLogsEvent[]>> = dataTypes.flatMap(dataType => {
-      if (dataType === 'Casts') {
-        return [
-          fetchAllEventsForType(dataType, 'Friendlies'),
-          fetchAllEventsForType(dataType, 'Enemies'),
-        ]
-      }
-      return [fetchAllEventsForType(dataType, 'Friendlies')]
-    })
-
     // 并行获取所有类型的事件
-    const results = await Promise.all(fetchTasks)
+    const results = await Promise.all(fetchSpecs.map(fetchAllEventsForSpec))
 
     // 合并所有事件
     const allEvents = results.flat()
