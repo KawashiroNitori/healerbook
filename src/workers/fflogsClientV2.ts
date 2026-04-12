@@ -248,6 +248,9 @@ export class FFLogsClientV2 {
               startTime
               endTime
               encounterID
+              gameZone {
+                id
+              }
             }
             masterData {
               abilities {
@@ -304,6 +307,7 @@ export class FFLogsClientV2 {
         boss: fight.encounterID,
         zoneID: 0,
         zoneName: '',
+        gameZoneID: fight.gameZone?.id != null ? Math.floor(fight.gameZone.id) : undefined,
         size: 8,
         hasEcho: false,
         bossPercentage: 0,
