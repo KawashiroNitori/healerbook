@@ -54,6 +54,7 @@ import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
 import StatDataDialog from './StatDataDialog'
 const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
+const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -97,6 +98,7 @@ export default function EditorToolbar({
   const [conflict, setConflict] = useState<ConflictError | null>(null)
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showSoumaDialog, setShowSoumaDialog] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
@@ -377,6 +379,14 @@ export default function EditorToolbar({
                     >
                       Excel 表格...
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        track('souma-export-start')
+                        setShowSoumaDialog(true)
+                      }}
+                    >
+                      Souma 时间轴...
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -437,6 +447,9 @@ export default function EditorToolbar({
       <Suspense fallback={null}>
         {showExportDialog && (
           <ExportExcelDialog open={showExportDialog} onClose={() => setShowExportDialog(false)} />
+        )}
+        {showSoumaDialog && (
+          <ExportSoumaDialog open={showSoumaDialog} onClose={() => setShowSoumaDialog(false)} />
         )}
       </Suspense>
     </>
