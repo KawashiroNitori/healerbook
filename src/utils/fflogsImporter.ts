@@ -482,8 +482,8 @@ export function parseCastEvents(
 /**
  * 解析 boss 的关键技能 sync 锚点
  *
- * 扫描 events 流里的 boss cast/begincast，通过内联的规则表（镜像自
- * ff14-overlay-vue timelineSpecialRules.ts）匹配 window/syncOnce/battleOnce，
+ * 扫描 events 流里的 boss cast/begincast，通过 SOUMA_SYNC_RULES
+ * （见 src/data/soumaSyncRules.ts）匹配 window/syncOnce/battleOnce，
  * 消解 battleOnce 去重后产出 SyncEvent[]。
  *
  * 设计说明：
