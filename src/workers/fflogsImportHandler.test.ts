@@ -15,6 +15,14 @@ interface JsonBody {
   damageEvents?: unknown
   castEvents?: unknown
   statusEvents?: unknown[]
+  syncEvents?: Array<{
+    time: number
+    type: string
+    actionId: number
+    actionName: string
+    window: [number, number]
+    syncOnce: boolean
+  }>
   isReplayMode?: boolean
   fflogsSource?: { reportCode: string; fightId: number }
   createdAt?: number
@@ -199,6 +207,41 @@ describe('handleFFLogsImport', () => {
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
       expect(timeline.fflogsSource!.fightId).toBe(10)
+    })
+
+    it('导入流程产出 syncEvents', async () => {
+      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5)]))
+      // boss sourceID 999 不在 friendlies（playerMap）中；begincast 空间斩 (0xa3da)
+      // timestamp = fightStartTime(0) + 10000 → time = 10s
+      mockGetEvents.mockResolvedValue({
+        events: [
+          {
+            type: 'begincast',
+            timestamp: 10000,
+            sourceID: 999,
+            abilityGameID: 0xa3da,
+          },
+        ],
+      })
+
+      const request = new Request(
+        'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
+      )
+      const response = await handleFFLogsImport(request, mockEnv)
+
+      expect(response.status).toBe(200)
+      const timeline = (await response.json()) as JsonBody
+      expect(timeline.syncEvents).toBeDefined()
+      expect(timeline.syncEvents!.length).toBeGreaterThanOrEqual(1)
+      expect(timeline.syncEvents).toContainEqual(
+        expect.objectContaining({
+          actionId: 0xa3da,
+          type: 'begincast',
+          window: [10, 10],
+          syncOnce: false,
+          time: 10,
+        })
+      )
     })
 
     it('匿名报告代码 a:ABC123 应正确传递给 getReport', async () => {
