@@ -730,3 +730,25 @@ export async function syncAllTop100(
 
   return { success, failed, errors }
 }
+
+/**
+ * GET /api/encounter-templates/:encounterId
+ * 返回副本模板（含预填充伤害事件）；KV 无数据时返回空列表
+ */
+export async function handleGetEncounterTemplate(
+  encounterId: number,
+  kv: KVNamespace
+): Promise<Response> {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=3600',
+  }
+  const data = await kv.get(getEncounterTemplateKVKey(encounterId), 'json')
+  if (!data) {
+    return new Response(JSON.stringify({ events: [], updatedAt: null }), { headers })
+  }
+  const template = data as EncounterTemplate
+  return new Response(JSON.stringify({ events: template.events, updatedAt: template.updatedAt }), {
+    headers,
+  })
+}

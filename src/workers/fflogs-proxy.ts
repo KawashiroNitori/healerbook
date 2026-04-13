@@ -17,6 +17,7 @@ import {
   extractFightStatistics,
   getTop100KVKey,
   getStatisticsKVKey,
+  handleGetEncounterTemplate,
   type Top100Data,
 } from './top100Sync'
 import { ALL_ENCOUNTERS, DEFAULT_ENCOUNTER_ID } from '@/data/raidEncounters'
@@ -113,6 +114,8 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
       return await handleTop100Encounter(request, env)
     } else if (path.startsWith('/api/statistics/')) {
       return await handleStatistics(request, env)
+    } else if (path.startsWith('/api/encounter-templates/')) {
+      return await handleEncounterTemplate(request, env)
     } else {
       return jsonResponse({ error: 'Not Found' }, 404)
     }
@@ -275,6 +278,21 @@ async function handleStatistics(request: Request, env: Env): Promise<Response> {
   }
 
   return jsonResponse(data)
+}
+
+/**
+ * GET /api/encounter-templates/:encounterId
+ */
+async function handleEncounterTemplate(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url)
+  const encounterIdStr = url.pathname.replace('/api/encounter-templates/', '')
+  const encounterId = parseInt(encounterIdStr, 10)
+
+  if (isNaN(encounterId)) {
+    return jsonResponse({ error: 'Invalid encounter ID' }, 400)
+  }
+
+  return handleGetEncounterTemplate(encounterId, env.healerbook)
 }
 
 /**

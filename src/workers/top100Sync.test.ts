@@ -8,6 +8,7 @@ import {
   aggregateStatistics,
   getEncounterTemplateKVKey,
   getFightStatisticsKVKey,
+  handleGetEncounterTemplate,
   type StoredDamageEvent,
   type EncounterTemplate,
   type FightStatistics,
@@ -452,5 +453,47 @@ describe('aggregateStatistics — encounter template 覆盖策略 A', () => {
     const template = stored as EncounterTemplate
     expect(template.templateSourceDurationMs).toBe(500_000)
     expect(template.events).toHaveLength(1)
+  })
+})
+
+describe('handleGetEncounterTemplate', () => {
+  it('KV 无数据 → 返回空事件列表', async () => {
+    const kv = createMockKV()
+    const res = await handleGetEncounterTemplate(9999, kv)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { events: unknown[]; updatedAt: string | null }
+    expect(body.events).toEqual([])
+    expect(body.updatedAt).toBeNull()
+  })
+
+  it('KV 有数据 → 返回 events + updatedAt', async () => {
+    const kv = createMockKV()
+    const template: EncounterTemplate = {
+      encounterId: 1234,
+      events: [
+        {
+          id: 'e1',
+          name: '死刑',
+          time: 10,
+          damage: 80000,
+          type: 'tankbuster',
+          damageType: 'physical',
+          abilityId: 40000,
+        },
+      ],
+      templateSourceDurationMs: 500_000,
+      updatedAt: '2026-04-14T00:00:00.000Z',
+    }
+    await kv.put(getEncounterTemplateKVKey(1234), JSON.stringify(template))
+
+    const res = await handleGetEncounterTemplate(1234, kv)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      events: Array<{ id: string }>
+      updatedAt: string | null
+    }
+    expect(body.events).toHaveLength(1)
+    expect(body.events[0].id).toBe('e1')
+    expect(body.updatedAt).toBe('2026-04-14T00:00:00.000Z')
   })
 })
