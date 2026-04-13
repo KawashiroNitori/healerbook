@@ -8,6 +8,7 @@ import {
   parseComposition,
   parseDamageEvents,
   parseCastEvents,
+  parseSyncEvents,
   findFirstDamageTimestamp,
   convertV1ToReport,
 } from '@/utils/fflogsImporter'
@@ -85,6 +86,13 @@ export async function handleFFLogsImport(request: Request, env: Env): Promise<Re
       abilityMap
     )
     const castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
+    // 解析 sync 事件（boss 关键技能锚点，用于 Souma 导出）
+    const syncEvents = parseSyncEvents(
+      eventsData.events || [],
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
 
     // 6. 构建时间轴名称
     let timelineName = fight.name || `战斗 ${fightId}`
@@ -110,6 +118,7 @@ export async function handleFFLogsImport(request: Request, env: Env): Promise<Re
       composition,
       damageEvents,
       castEvents,
+      syncEvents,
       statusEvents: [],
       annotations: [],
       isReplayMode: true,
