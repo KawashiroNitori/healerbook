@@ -15,6 +15,7 @@ import { calculatePercentile } from '@/utils/stats'
 import { JOB_MAP } from '@/data/jobMap'
 import type { DamageEvent } from '@/types/timeline'
 import { parseDamageEvents } from '@/utils/fflogsImporter'
+import { generateId } from '@/utils/id'
 
 /** KV 中存储的 TOP100 数据结构 */
 export interface Top100Data {
@@ -59,6 +60,78 @@ export interface FightStatistics {
   durationMs: number
   /** 精简 DamageEvent 列表，用于后续 encounter template 聚合 */
   damageEvents: StoredDamageEvent[]
+}
+
+/** 副本模板数据结构（KV 存储） */
+export interface EncounterTemplate {
+  encounterId: number
+  /** 完整 DamageEvent（带 id）。targetPlayerId / playerDamageDetails 始终为空 */
+  events: DamageEvent[]
+  /** 模板战斗的时长（毫秒），用于覆盖策略比较 */
+  templateSourceDurationMs: number
+  updatedAt: string
+}
+
+/** 获取 encounter template 的 KV 键名 */
+export function getEncounterTemplateKVKey(encounterId: number): string {
+  return `encounter-template:${encounterId}`
+}
+
+interface BuildEncounterTemplateInput {
+  /** 本批次所有战斗的 slim 事件列表 + 时长 */
+  candidates: Array<{ durationMs: number; events: StoredDamageEvent[] }>
+  /** abilityId → p50 伤害数字（来自 calculatePercentiles(mergedDamage)） */
+  p50Map: Record<number, number>
+  /** 过滤阈值：abilityId 必须在至少多少场中出现才保留 */
+  threshold: number
+}
+
+/**
+ * 从本批次候选场构建 encounter template
+ * - 挑 durationMs 最大的一场为模板
+ * - 过滤 abilityId 出现场数 < threshold 的事件（每场去重）
+ * - 用 p50Map 覆盖每个保留事件的 damage；无 p50 时保留模板原值
+ * - 生成 nanoid id 填入每个事件
+ *
+ * 返回 null 当 candidates 为空。
+ */
+export function buildEncounterTemplate(
+  input: BuildEncounterTemplateInput
+): { events: DamageEvent[]; templateSourceDurationMs: number } | null {
+  const { candidates, p50Map, threshold } = input
+  if (candidates.length === 0) return null
+
+  // 挑最长战斗
+  const templateFight = candidates.reduce((max, curr) =>
+    curr.durationMs > max.durationMs ? curr : max
+  )
+
+  // 统计 abilityId 出现场数（每场去重）
+  const abilityFightCount = new Map<number, number>()
+  for (const fight of candidates) {
+    const seenIds = new Set<number>()
+    for (const ev of fight.events) seenIds.add(ev.abilityId ?? 0)
+    for (const id of seenIds) {
+      abilityFightCount.set(id, (abilityFightCount.get(id) ?? 0) + 1)
+    }
+  }
+
+  // 过滤 + 组装完整 DamageEvent
+  const events: DamageEvent[] = templateFight.events
+    .filter(e => (abilityFightCount.get(e.abilityId ?? 0) ?? 0) >= threshold)
+    .map(e => ({
+      id: generateId(),
+      name: e.name,
+      time: e.time,
+      damage: p50Map[e.abilityId ?? 0] ?? e.damage,
+      type: e.type,
+      damageType: e.damageType,
+      packetId: e.packetId,
+      snapshotTime: e.snapshotTime,
+      abilityId: e.abilityId,
+    }))
+
+  return { events, templateSourceDurationMs: templateFight.durationMs }
 }
 
 /** 样本存储（低频访问，供定时任务读写） */
@@ -454,13 +527,19 @@ async function updateStatisticsTaskProgress(
 /**
  * 汇总所有战斗的统计数据，merge 历史样本后计算中位数
  */
-async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promise<void> {
+export async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promise<void> {
   console.log(`[Statistics] 开始汇总数据: encounter ${task.encounterId}`)
 
   const batchDamage: Record<number, number[]> = {}
   const batchMaxHP: Record<string, number[]> = {}
   const batchShield: Record<number, number[]> = {}
   const batchHeal: Record<number, number[]> = {}
+
+  // 新增：encounter template 候选
+  const fightTemplateCandidates: Array<{
+    durationMs: number
+    events: StoredDamageEvent[]
+  }> = []
 
   // Step 1: 读取本批次所有临时战斗数据
   for (const battle of task.fights) {
@@ -491,6 +570,19 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
       const id = Number(abilityId)
       if (!batchHeal[id]) batchHeal[id] = []
       batchHeal[id].push(...(heals as number[]))
+    }
+
+    // 新增：累积 template 候选
+    if (
+      Array.isArray(battleStats.damageEvents) &&
+      battleStats.damageEvents.length > 0 &&
+      typeof battleStats.durationMs === 'number' &&
+      battleStats.durationMs > 0
+    ) {
+      fightTemplateCandidates.push({
+        durationMs: battleStats.durationMs,
+        events: battleStats.damageEvents,
+      })
     }
   }
 
@@ -559,6 +651,40 @@ async function aggregateStatistics(task: StatisticsTask, kv: KVNamespace): Promi
   await kv.put(getStatisticsKVKey(task.encounterId), JSON.stringify(statistics), {
     expirationTtl: 25 * 60 * 60,
   })
+
+  // Step 5.5: 产出 encounter template（使用覆盖策略 A：新 batch 最长 >= 旧值才写）
+  const p50Map = calculatePercentiles(mergedDamage)
+  const built = buildEncounterTemplate({
+    candidates: fightTemplateCandidates,
+    p50Map,
+    threshold: 3,
+  })
+  if (built) {
+    const templateKey = getEncounterTemplateKVKey(task.encounterId)
+    const oldTemplateRaw = await kv.get(templateKey, 'json')
+    const oldTemplate = oldTemplateRaw as EncounterTemplate | null
+    const shouldOverwrite =
+      !oldTemplate || built.templateSourceDurationMs >= oldTemplate.templateSourceDurationMs
+
+    if (shouldOverwrite) {
+      const newTemplate: EncounterTemplate = {
+        encounterId: task.encounterId,
+        events: built.events,
+        templateSourceDurationMs: built.templateSourceDurationMs,
+        updatedAt: new Date().toISOString(),
+      }
+      await kv.put(templateKey, JSON.stringify(newTemplate), {
+        expirationTtl: 25 * 60 * 60,
+      })
+      console.log(
+        `[Template] ${task.encounterId}: 写入模板 (${built.events.length} 事件, duration ${built.templateSourceDurationMs}ms)`
+      )
+    } else {
+      console.log(
+        `[Template] ${task.encounterId}: 跳过写入 (新 ${built.templateSourceDurationMs}ms < 旧 ${oldTemplate!.templateSourceDurationMs}ms)`
+      )
+    }
+  }
 
   // Step 6: 清理临时数据
   await Promise.all([
