@@ -208,6 +208,150 @@ describe('buildSoumaTimelineText', () => {
     const lines = buildSoumaTimelineText(timeline, 1, [], false).split('\n')
     expect(lines).toEqual(['# 00:05.0 <节制>第一行', '# 00:05.0 <节制>第二行'])
   })
+
+  it('syncEvents 输出 cactbot 风格 sync 行', () => {
+    const timeline = makeTimeline({
+      syncEvents: [
+        {
+          time: 24.3,
+          type: 'begincast',
+          actionId: 0xa3da,
+          actionName: '空间斩',
+          window: [10, 10],
+          syncOnce: false,
+        },
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [], false)
+    expect(text).toBe('00:24.3 "空间斩" StartsUsing { id: "A3DA" } window 10,10')
+  })
+
+  it('cast 类型 sync 行使用 Ability', () => {
+    const timeline = makeTimeline({
+      syncEvents: [
+        {
+          time: 10,
+          type: 'cast',
+          actionId: 0xa770,
+          actionName: '在这停顿！',
+          window: [30, 30],
+          syncOnce: false,
+        },
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [], false)
+    expect(text).toBe('00:10.0 "在这停顿！" Ability { id: "A770" } window 30,30')
+  })
+
+  it('syncOnce=true 追加 once 关键字', () => {
+    const timeline = makeTimeline({
+      syncEvents: [
+        {
+          time: 45,
+          type: 'begincast',
+          actionId: 0xa3f1,
+          actionName: '空间灭斩',
+          window: [20, 20],
+          syncOnce: true,
+        },
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [], false)
+    expect(text).toBe('00:45.0 "空间灭斩" StartsUsing { id: "A3F1" } window 20,20 once')
+  })
+
+  it('sync 行与技能行按时间穿插排序', () => {
+    const timeline = makeTimeline({
+      castEvents: [
+        makeCast({ actionId: 16536, timestamp: 15 }),
+        makeCast({ actionId: 7433, timestamp: 35 }),
+      ],
+      syncEvents: [
+        {
+          time: 10,
+          type: 'begincast',
+          actionId: 0xa3da,
+          actionName: '空间斩',
+          window: [10, 10],
+          syncOnce: false,
+        },
+        {
+          time: 25,
+          type: 'cast',
+          actionId: 0xa770,
+          actionName: '在这停顿',
+          window: [30, 30],
+          syncOnce: false,
+        },
+      ],
+    })
+    const lines = buildSoumaTimelineText(timeline, 1, [16536, 7433], false).split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[0]).toContain('00:10.0') // sync
+    expect(lines[0]).toContain('StartsUsing')
+    expect(lines[1]).toMatch(/^00:15\.0 "<.+>~"$/) // 技能
+    expect(lines[2]).toContain('00:25.0') // sync
+    expect(lines[2]).toContain('Ability')
+    expect(lines[3]).toMatch(/^00:35\.0 "<.+>~"$/) // 技能
+  })
+
+  it('同秒撞车时 sync 排在注释和技能之后', () => {
+    const timeline = makeTimeline({
+      castEvents: [makeCast({ actionId: 16536, timestamp: 20 })],
+      annotations: [{ id: 'a1', text: '提示', time: 20, anchor: { type: 'damageTrack' } }],
+      syncEvents: [
+        {
+          time: 20,
+          type: 'begincast',
+          actionId: 0xa3da,
+          actionName: '空间斩',
+          window: [10, 10],
+          syncOnce: false,
+        },
+      ],
+    })
+    const lines = buildSoumaTimelineText(timeline, 1, [16536], false).split('\n')
+    expect(lines[0]).toBe('# 00:20.0 提示')
+    expect(lines[1]).toMatch(/^00:20\.0 "<.+>~"$/)
+    expect(lines[2]).toContain('StartsUsing')
+  })
+
+  it('syncEvents 为空时不产出任何 sync 行', () => {
+    const timeline = makeTimeline({
+      castEvents: [makeCast({ actionId: 16536, timestamp: 10 })],
+      syncEvents: [],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [16536], false)
+    expect(text.split('\n')).toHaveLength(1)
+    expect(text).not.toContain('StartsUsing')
+    expect(text).not.toContain('Ability')
+  })
+
+  it('syncEvents 未定义（存量 timeline）时不产出任何 sync 行', () => {
+    const timeline = makeTimeline({
+      castEvents: [makeCast({ actionId: 16536, timestamp: 10 })],
+      // syncEvents 故意不设置
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [16536], false)
+    expect(text.split('\n')).toHaveLength(1)
+  })
+
+  it('负时间 sync 行用 formatSoumaTime 的 -X.X 格式', () => {
+    const timeline = makeTimeline({
+      syncEvents: [
+        {
+          time: -2.3,
+          type: 'begincast',
+          actionId: 0xa3da,
+          actionName: '空间斩',
+          window: [10, 10],
+          syncOnce: false,
+        },
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [], false)
+    expect(text).toBe('-2.3 "空间斩" StartsUsing { id: "A3DA" } window 10,10')
+  })
 })
 
 import { wrapAsSoumaITimeline } from './soumaExporter'

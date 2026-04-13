@@ -75,6 +75,19 @@ export function buildSoumaTimelineText(
     }
   }
 
+  // sync 事件（boss 关键技能锚点）
+  for (const sync of timeline.syncEvents ?? []) {
+    const time = formatSoumaTime(sync.time)
+    const regexType = sync.type === 'begincast' ? 'StartsUsing' : 'Ability'
+    const hex = sync.actionId.toString(16).toUpperCase()
+    const once = sync.syncOnce ? ' once' : ''
+    entries.push({
+      time: sync.time,
+      order: 2,
+      text: `${time} "${sync.actionName}" ${regexType} { id: "${hex}" } window ${sync.window[0]},${sync.window[1]}${once}`,
+    })
+  }
+
   if (entries.length === 0) return ''
 
   // 同一 time 内注释排在技能之前；相同 order 保持插入顺序（stable sort）
