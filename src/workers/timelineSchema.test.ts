@@ -39,6 +39,7 @@ const FULL_TIMELINE: Required<
     | 'isReplayMode'
     | 'statData'
     | 'gameZoneId'
+    | 'syncEvents'
     | 'isShared'
     | 'everPublished'
     | 'hasLocalChanges'
@@ -52,6 +53,7 @@ const FULL_TIMELINE: Required<
     | 'isReplayMode'
     | 'statData'
     | 'gameZoneId'
+    | 'syncEvents'
     | 'isShared'
     | 'everPublished'
     | 'hasLocalChanges'
@@ -62,6 +64,16 @@ const FULL_TIMELINE: Required<
   description: 'desc',
   fflogsSource: { reportCode: 'abc', fightId: 1 },
   gameZoneId: 1321,
+  syncEvents: [
+    {
+      time: 24.3,
+      type: 'begincast',
+      actionId: 0xa3da,
+      actionName: '空间斩',
+      window: [10, 10],
+      syncOnce: false,
+    },
+  ],
   encounter: { id: 101, name: 'M9S', displayName: 'M9S', zone: '', damageEvents: [] },
   composition: { players: [{ id: 1, job: 'WHM' }] },
   damageEvents: [],
@@ -105,5 +117,20 @@ describe('timelineSchema 漂移保护', () => {
     const result = validateCreateRequest({ timeline: FULL_TIMELINE })
     if (!result.success) throw new Error('schema rejected full fixture')
     expect((result.output.timeline as { gameZoneId?: number }).gameZoneId).toBe(1321)
+  })
+
+  it('syncEvents 在 roundtrip 后等值保留', () => {
+    const result = validateCreateRequest({ timeline: FULL_TIMELINE })
+    if (!result.success) throw new Error('schema rejected full fixture')
+    const output = result.output.timeline as { syncEvents?: Array<Record<string, unknown>> }
+    expect(output.syncEvents).toHaveLength(1)
+    expect(output.syncEvents?.[0]).toEqual({
+      time: 24.3,
+      type: 'begincast',
+      actionId: 0xa3da,
+      actionName: '空间斩',
+      window: [10, 10],
+      syncOnce: false,
+    })
   })
 })

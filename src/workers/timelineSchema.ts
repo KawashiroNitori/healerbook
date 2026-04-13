@@ -100,6 +100,15 @@ const AnnotationSchema = v.object({
   anchor: AnnotationAnchorSchema,
 })
 
+const SyncEventSchema = v.object({
+  time: v.number(),
+  type: v.picklist(['begincast', 'cast']),
+  actionId: v.number(),
+  actionName: v.string(),
+  window: v.tuple([v.number(), v.number()]),
+  syncOnce: v.boolean(),
+})
+
 /**
  * 时间轴数据 schema
  */
@@ -113,6 +122,7 @@ const TimelineSchema = v.object({
   damageEvents: v.array(DamageEventSchema),
   castEvents: v.array(CastEventSchema),
   annotations: v.optional(v.array(AnnotationSchema)),
+  syncEvents: v.optional(v.array(SyncEventSchema)),
   isReplayMode: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),

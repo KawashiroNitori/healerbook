@@ -43,6 +43,10 @@ export interface Timeline {
    *  FFLogs 导入时从 ReportFight.gameZone.id 取值；本地新建时从 raidEncounters.ts 静态表查表写入。
    *  存量时间轴可能无此字段，导出时将回退至静态表或 "0"。 */
   gameZoneId?: number
+  /** Souma 导出用的 boss 关键技能 sync 锚点。
+   *  FFLogs 导入时由 parseSyncEvents 生成，本地新建时间轴为 undefined。
+   *  存量时间轴可能无此字段，导出时不产出 sync 行即可。 */
+  syncEvents?: SyncEvent[]
   /** 副本信息 */
   encounter: Encounter
   /** 小队阵容 */
@@ -221,6 +225,28 @@ export interface Annotation {
   time: number
   /** 锚定目标 */
   anchor: AnnotationAnchor
+}
+
+/**
+ * Souma 时间轴 sync 锚点
+ *
+ * 来自 FFLogs 导入期对 ff14-overlay-vue 规则表（timelineSpecialRules.ts）的命中结果。
+ * 导入时 battleOnce 去重已消解，这里存的都是"会渲染到 sync 行的"独立事件。
+ * 导出时由 buildSoumaTimelineText 渲染为 cactbot netregex 风格的 sync 行。
+ */
+export interface SyncEvent {
+  /** 相对战斗起点的秒，与 CastEvent.timestamp 口径一致，可为负 */
+  time: number
+  /** 'begincast' → StartsUsing；'cast' → Ability */
+  type: 'begincast' | 'cast'
+  /** FFXIV action id（十进制存储，导出时转十六进制） */
+  actionId: number
+  /** 中文名优先，回退 abilityMap 英文名，最后 fallback unknown_<hex> */
+  actionName: string
+  /** 来自规则表，[before, after] 秒 */
+  window: [number, number]
+  /** 来自规则表，控制输出行是否带 `once` 关键字 */
+  syncOnce: boolean
 }
 
 /**
