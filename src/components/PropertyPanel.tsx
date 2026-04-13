@@ -72,7 +72,7 @@ export default function PropertyPanel() {
             <TimeInput
               value={event.time}
               onChange={v => updateDamageEvent(event.id, { time: v })}
-              min={-30}
+              min={0}
               size="sm"
               disabled={isReadOnly}
             />
@@ -145,7 +145,7 @@ export default function PropertyPanel() {
               <TimeInput
                 value={event.snapshotTime}
                 onChange={v => updateDamageEvent(event.id, { snapshotTime: v })}
-                min={-30}
+                min={0}
                 size="sm"
                 disabled={isReadOnly}
                 className="w-[calc(50%-6px)]"

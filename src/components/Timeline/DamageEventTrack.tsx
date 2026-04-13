@@ -147,7 +147,8 @@ export default function DamageEventTrack({
           if (!layer) return
           const pos = layer.getRelativePointerPosition()
           if (!pos) return
-          const time = Math.max(TIMELINE_START_TIME, Math.round((pos.x / zoomLevel) * 10) / 10)
+          const time = Math.round((pos.x / zoomLevel) * 10) / 10
+          if (time < 0) return
           onDblClick(time)
         }}
         onContextMenu={e => {

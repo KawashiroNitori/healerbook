@@ -354,10 +354,17 @@ export const useTimelineStore = create<TimelineState>()(
         set(state => {
           if (!state.timeline) return state
 
+          const clamped: DamageEvent = {
+            ...event,
+            time: Math.max(0, event.time),
+            snapshotTime:
+              event.snapshotTime != null ? Math.max(0, event.snapshotTime) : event.snapshotTime,
+          }
+
           return {
             timeline: {
               ...state.timeline,
-              damageEvents: [...state.timeline.damageEvents, event],
+              damageEvents: [...state.timeline.damageEvents, clamped],
             },
           }
         })
@@ -368,11 +375,15 @@ export const useTimelineStore = create<TimelineState>()(
         set(state => {
           if (!state.timeline) return state
 
+          const clamped: Partial<DamageEvent> = { ...updates }
+          if (clamped.time != null) clamped.time = Math.max(0, clamped.time)
+          if (clamped.snapshotTime != null) clamped.snapshotTime = Math.max(0, clamped.snapshotTime)
+
           return {
             timeline: {
               ...state.timeline,
               damageEvents: state.timeline.damageEvents.map(event =>
-                event.id === eventId ? { ...event, ...updates } : event
+                event.id === eventId ? { ...event, ...clamped } : event
               ),
             },
           }

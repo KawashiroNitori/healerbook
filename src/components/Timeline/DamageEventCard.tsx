@@ -142,10 +142,12 @@ const DamageEventCard = memo(function DamageEventCard({
       }}
       onDragStart={onDragStart}
       onDragMove={e => {
+        if (e.target.x() < 0) e.target.x(0)
         onDragMove(e.target.x())
         e.target.getStage()?.batchDraw()
       }}
       onDragEnd={e => {
+        if (e.target.x() < 0) e.target.x(0)
         onDragEnd(e.target.x())
       }}
       onContextMenu={onContextMenu}

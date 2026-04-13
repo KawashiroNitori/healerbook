@@ -190,6 +190,7 @@ export default function TimelineContextMenu({
         {menu.type === 'damageTrackEmpty' && (
           <>
             <DropdownMenuItem
+              disabled={menu.time < 0}
               onClick={() => {
                 onAddDamageEvent(menu.time)
                 onClose()

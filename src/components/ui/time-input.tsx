@@ -149,7 +149,7 @@ function TimeInput({
         dispatch({ type: 'moveSegment', dir: 'right' })
         return
       case '-':
-        if (segment === 'mm') {
+        if (segment === 'mm' && cfg.min < 0) {
           e.preventDefault()
           dispatch({ type: 'negate' })
         }
