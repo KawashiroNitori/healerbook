@@ -107,7 +107,7 @@ console.log("🔗 初始化 submodule（本地 clone）...");
 let submoduleList = "";
 try {
   submoduleList = git(
-    'submodule foreach --quiet --recursive "echo $displaypath|$(git rev-parse --git-dir)|$toplevel"',
+    `submodule foreach --quiet --recursive 'echo "$displaypath|$(git rev-parse --git-dir)|$toplevel"'`,
     MAIN_REPO,
   );
 } catch {
