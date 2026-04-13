@@ -5,11 +5,13 @@
  * 时间轴模块直接导入的压缩字符串，一键复制。
  */
 
-import { useMemo, useState } from 'react'
-import { Copy, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Copy, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -208,11 +210,21 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
     setActionIdsForJob(currentJob, Array.from(next))
   }
 
+  const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
+
   const handleCopy = async () => {
     if (!hasSelection) return
     try {
       await navigator.clipboard.writeText(exportString)
-      toast.success('已复制到剪贴板')
+      setCopied(true)
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
       track('souma-export-copy', {
         job: currentJob,
         skillCount: selected.size,
@@ -276,11 +288,10 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
                       ? 'border-primary ring-1 ring-primary'
                       : 'border-border opacity-60 saturate-50 hover:opacity-90 hover:saturate-100'
                   )}
-                  title={action.name}
                 >
                   <img
                     src={getIconUrl(action.icon)}
-                    alt={action.name}
+                    alt=""
                     className="h-full w-full object-cover"
                   />
                   {isSelected && (
@@ -306,20 +317,25 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
       {/* 实时预览 + 复制 */}
       <div className="space-y-1.5 pt-1">
         <label className="text-sm font-medium">导出结果</label>
-        <div className="flex gap-2">
-          <input
+        <ButtonGroup className="w-full">
+          <Input
             type="text"
             readOnly
             value={exportString}
             onFocus={e => e.currentTarget.select()}
             onClick={e => e.currentTarget.select()}
-            className="flex-1 rounded-md border bg-muted/30 p-2 font-mono text-xs"
+            className="font-mono text-xs"
           />
-          <Button onClick={handleCopy} disabled={!hasSelection}>
-            <Copy className="mr-1.5 h-4 w-4" />
-            复制
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="复制"
+            onClick={handleCopy}
+            disabled={!hasSelection}
+          >
+            {copied ? <Check /> : <Copy />}
           </Button>
-        </div>
+        </ButtonGroup>
       </div>
     </>
   )
