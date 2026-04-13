@@ -3,6 +3,7 @@
  * 时间轴存储工具测试
  */
 
+import type { DamageEvent } from '@/types/timeline'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createNewTimeline, saveTimeline, getAllTimelineMetadata } from './timelineStorage'
 
@@ -26,6 +27,52 @@ describe('createNewTimeline', () => {
     expect(typeof timeline.updatedAt).toBe('number')
     expect(timeline.createdAt).toBeGreaterThanOrEqual(before)
     expect(timeline.createdAt).toBeLessThanOrEqual(after)
+  })
+})
+
+describe('createNewTimeline — initialDamageEvents', () => {
+  it('未传第三参数时 damageEvents 为空数组', () => {
+    const timeline = createNewTimeline('1234', 'test')
+    expect(timeline.damageEvents).toEqual([])
+  })
+
+  it('传入事件数组时 damageEvents 被填充', () => {
+    const events: DamageEvent[] = [
+      {
+        id: 'e1',
+        name: '死刑',
+        time: 10,
+        damage: 80000,
+        type: 'tankbuster',
+        damageType: 'physical',
+      },
+    ]
+    const timeline = createNewTimeline('1234', 'test', events)
+    expect(timeline.damageEvents).toHaveLength(1)
+    expect(timeline.damageEvents[0].id).toBe('e1')
+  })
+
+  it('浅 copy 防御：修改传入数组不影响新时间轴', () => {
+    const events: DamageEvent[] = [
+      {
+        id: 'e1',
+        name: '死刑',
+        time: 10,
+        damage: 80000,
+        type: 'tankbuster',
+        damageType: 'physical',
+      },
+    ]
+    const timeline = createNewTimeline('1234', 'test', events)
+    events.push({
+      id: 'e2',
+      name: 'extra',
+      time: 20,
+      damage: 1000,
+      type: 'aoe',
+      damageType: 'magical',
+    })
+    expect(timeline.damageEvents).toHaveLength(1)
   })
 })
 

@@ -2,7 +2,7 @@
  * 时间轴本地存储工具
  */
 
-import type { Timeline, Composition } from '@/types/timeline'
+import type { Timeline, Composition, DamageEvent } from '@/types/timeline'
 import { generateId } from '@/utils/id'
 import { getEncounterById } from '@/data/raidEncounters'
 
@@ -134,7 +134,11 @@ export function deleteTimeline(id: string): void {
 /**
  * 创建新时间轴
  */
-export function createNewTimeline(encounterId: string, name: string): Timeline {
+export function createNewTimeline(
+  encounterId: string,
+  name: string,
+  initialDamageEvents?: DamageEvent[]
+): Timeline {
   const now = Math.floor(Date.now() / 1000)
   const encounterIdNum = parseInt(encounterId) || 0
   const staticEncounter = getEncounterById(encounterIdNum)
@@ -150,7 +154,7 @@ export function createNewTimeline(encounterId: string, name: string): Timeline {
       damageEvents: [],
     },
     gameZoneId: staticEncounter?.gameZoneId,
-    damageEvents: [],
+    damageEvents: initialDamageEvents ? [...initialDamageEvents] : [],
     castEvents: [],
     statusEvents: [],
     annotations: [],
