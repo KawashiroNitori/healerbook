@@ -1,7 +1,9 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { describe, it, expect } from 'vitest'
+import * as v from 'valibot'
 import { handleTimelines } from './timelines'
+import { TimelineSchema } from './timelineSchema'
 import type { Env } from './fflogs-proxy'
 
 // D1 行结构（对应 timelines 表）
@@ -582,6 +584,30 @@ describe('PUT /api/timelines/:id 数据校验', () => {
       1
     )
     expect(res.status).toBe(400)
+  })
+})
+
+describe('TimelineSchema — abilityId strip 回归', () => {
+  it('parse 时 DamageEvent.abilityId 应被自动忽略（不写入 D1）', () => {
+    const payload = {
+      ...MINIMAL_TIMELINE,
+      damageEvents: [
+        {
+          id: 'e1',
+          name: '死刑',
+          time: 10,
+          damage: 80000,
+          type: 'tankbuster',
+          damageType: 'physical',
+          abilityId: 40000, // 未在 schema 中声明
+        },
+      ],
+    }
+
+    const parsed = v.parse(TimelineSchema, payload)
+    const eventOut = parsed.damageEvents[0] as Record<string, unknown>
+    expect(eventOut.id).toBe('e1')
+    expect(eventOut.abilityId).toBeUndefined()
   })
 })
 

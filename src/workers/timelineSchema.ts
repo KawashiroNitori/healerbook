@@ -112,7 +112,7 @@ const SyncEventSchema = v.object({
 /**
  * 时间轴数据 schema
  */
-const TimelineSchema = v.object({
+export const TimelineSchema = v.object({
   name: v.pipe(v.string(), v.maxLength(TIMELINE_NAME_MAX_LENGTH)),
   description: v.optional(v.pipe(v.string(), v.maxLength(TIMELINE_DESCRIPTION_MAX_LENGTH))),
   fflogsSource: v.optional(FFLogsSourceSchema),
