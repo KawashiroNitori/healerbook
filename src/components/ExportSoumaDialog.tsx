@@ -6,11 +6,12 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Copy, X } from 'lucide-react'
+import { Check, Copy, HelpCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -104,7 +105,37 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
           <X className="h-4 w-4" />
         </button>
         <ModalHeader>
-          <ModalTitle>导出 Souma 时间轴</ModalTitle>
+          <ModalTitle className="flex items-center gap-1.5">
+            导出 Souma 时间轴
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="关于 Souma 时间轴"
+                  className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-80 text-xs leading-relaxed">
+                <p>
+                  Souma 治疗/减伤时间轴是由 Souma 制作的 ACT
+                  悬浮窗，可以根据自定义的时间轴在副本进程中对技能进行实时提醒。
+                </p>
+                <p className="mt-2">
+                  <a
+                    href="https://souma.diemoe.net/ff14-overlay-vue/#/timelineSettings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:opacity-80"
+                  >
+                    点击这里
+                  </a>{' '}
+                  将导出的数据导入到悬浮窗中进行使用。
+                </p>
+              </PopoverContent>
+            </Popover>
+          </ModalTitle>
         </ModalHeader>
 
         {!hasCasts ? (
