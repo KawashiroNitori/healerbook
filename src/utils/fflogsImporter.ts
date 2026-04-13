@@ -521,7 +521,8 @@ export function parseSyncEvents(
 
     const chineseName = getActionChinese(actionId)
     const abilityName = abilityMap?.get(actionId)?.name
-    const actionName = chineseName ?? abilityName ?? `unknown_${actionId.toString(16)}`
+    const actionName =
+      chineseName ?? abilityName ?? `unknown_${actionId.toString(16).toUpperCase()}`
 
     syncEvents.push({
       time: (event.timestamp - fightStartTime) / 1000,
