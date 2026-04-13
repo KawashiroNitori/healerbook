@@ -70,7 +70,7 @@ export interface Timeline {
 - [ ] **Step 2：确认 TypeScript 编译无错误**
 
 ```bash
-cd D:/programs/healerbook && pnpm tsc --noEmit 2>&1 | head -20
+pnpm tsc --noEmit 2>&1 | head -20
 ```
 
 预期：无新增错误（只有类型定义变更，可选字段不破坏现有代码）
@@ -162,7 +162,7 @@ describe('saveTimeline - description 元数据同步', () => {
 - [ ] **Step 2：运行测试，确认失败**
 
 ```bash
-cd D:/programs/healerbook && pnpm test:run src/utils/timelineStorage.test.ts
+pnpm test:run src/utils/timelineStorage.test.ts
 ```
 
 预期：FAIL（`createNewTimeline` 还在用旧格式 ID，`TimelineMetadata` 无 `description`）
@@ -216,7 +216,7 @@ id: generateId(),
 - [ ] **Step 4：运行测试，确认通过**
 
 ```bash
-cd D:/programs/healerbook && pnpm test:run src/utils/timelineStorage.test.ts
+pnpm test:run src/utils/timelineStorage.test.ts
 ```
 
 预期：全部 PASS
@@ -224,7 +224,7 @@ cd D:/programs/healerbook && pnpm test:run src/utils/timelineStorage.test.ts
 - [ ] **Step 5：运行全量测试，确认无回归**
 
 ```bash
-cd D:/programs/healerbook && pnpm test:run
+pnpm test:run
 ```
 
 预期：全部 PASS
@@ -424,7 +424,7 @@ git commit -m "feat: FFLogs 导入对话框新增 description 输入，记录 ff
 - [ ] **Step 4：运行全量测试，确认无回归**
 
 ```bash
-cd D:/programs/healerbook && pnpm test:run
+pnpm test:run
 ```
 
 预期：全部 PASS

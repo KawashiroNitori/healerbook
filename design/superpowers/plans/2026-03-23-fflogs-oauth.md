@@ -594,7 +594,7 @@ export function useAuth(): AuthContextValue {
 检查是否有 `.env.example`：
 
 ```bash
-ls /Users/lizhibo/.superset/worktrees/healerbook/feat/fflogs-oauth/.env* 2>/dev/null
+ls .env* 2>/dev/null
 ```
 
 如果有 `.env.example`，添加：

@@ -8,6 +8,11 @@
             "type": "command",
             "command": "node .claude/hooks/enforce-docs-paths.mjs",
             "statusMessage": "Checking docs/ path..."
+          },
+          {
+            "type": "command",
+            "command": "node .claude/hooks/check-local-paths.mjs",
+            "statusMessage": "Scanning for local paths..."
           }
         ]
       }
