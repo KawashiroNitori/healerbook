@@ -86,7 +86,21 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     }
 
     // 编辑模式：使用 PartyState，单次时间轴扫描
-    if (!partyState) return results
+    if (!partyState) {
+      // 无小队时产出 trivial 结果：不做减伤计算，但仍把原始伤害暴露给 UI
+      // 覆盖场景：预填充的空白时间轴还未设置阵容，但 damageEvents 已经存在
+      for (const event of timeline.damageEvents) {
+        if (event.type === 'tankbuster') continue
+        results.set(event.id, {
+          originalDamage: event.damage,
+          finalDamage: event.damage,
+          maxDamage: event.damage,
+          mitigationPercentage: 0,
+          appliedStatuses: [],
+        })
+      }
+      return results
+    }
 
     // 合并用户覆盖值 + statistics + 默认值
     const resolved = resolveStatData(timeline.statData, statistics, timeline.composition)

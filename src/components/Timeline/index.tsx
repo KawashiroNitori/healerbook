@@ -1266,93 +1266,104 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         </div>
       </div>
 
-      {/* 可滚动区域：技能轨道 */}
-      <div className="flex flex-1 overflow-hidden select-none">
-        {/* 左侧技能标签（含滚动条） */}
-        <div
-          ref={labelColumnRef}
-          className="flex-shrink-0 border-r bg-background overflow-hidden relative"
-          style={{ width: labelColumnWidth + SCROLLBAR_WIDTH }}
-        >
+      {/* 可滚动区域：技能轨道（空阵容时显示提示） */}
+      {skillTracks.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center select-none bg-background">
+          <div className="text-center text-sm text-muted-foreground">
+            <p>尚未设置小队阵容</p>
+            <p className="mt-1 text-xs">
+              点击顶部工具栏「小队阵容」添加玩家，即可在此处规划减伤技能
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden select-none">
+          {/* 左侧技能标签（含滚动条） */}
           <div
-            ref={labelColumnContainerRef}
-            style={{ height: skillTracksHeight, transform: `translateY(-${clampedScrollTop}px)` }}
+            ref={labelColumnRef}
+            className="flex-shrink-0 border-r bg-background overflow-hidden relative"
+            style={{ width: labelColumnWidth + SCROLLBAR_WIDTH }}
           >
-            <SkillTrackLabels
-              skillTracks={skillTracks}
-              trackHeight={skillTrackHeight}
-              actions={actions}
-              scrollbarWidth={SCROLLBAR_WIDTH}
-              onHoverAction={handleHoverActionFromDom}
-              onClickAction={handleClickActionFromDom}
-              onUnhoverAction={hideTooltip}
+            <div
+              ref={labelColumnContainerRef}
+              style={{ height: skillTracksHeight, transform: `translateY(-${clampedScrollTop}px)` }}
+            >
+              <SkillTrackLabels
+                skillTracks={skillTracks}
+                trackHeight={skillTrackHeight}
+                actions={actions}
+                scrollbarWidth={SCROLLBAR_WIDTH}
+                onHoverAction={handleHoverActionFromDom}
+                onClickAction={handleClickActionFromDom}
+                onUnhoverAction={hideTooltip}
+              />
+            </div>
+            {/* 垂直滚动条，绝对定位在左侧，不随内容滚动 */}
+            <VerticalScrollbar
+              ref={scrollbarRef}
+              viewportHeight={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
+              contentHeight={skillTracksHeight}
+              scrollTop={clampedScrollTop}
+              maxScrollTop={maxScrollTop}
+              onScroll={newScrollTop => {
+                setScrollTop(newScrollTop)
+                visualScrollTopRef.current = newScrollTop
+                clampedScrollRef.current = {
+                  scrollLeft: clampedScrollRef.current.scrollLeft,
+                  scrollTop: newScrollTop,
+                }
+                handleDirectScroll(clampedScrollRef.current.scrollLeft, newScrollTop)
+              }}
             />
           </div>
-          {/* 垂直滚动条，绝对定位在左侧，不随内容滚动 */}
-          <VerticalScrollbar
-            ref={scrollbarRef}
-            viewportHeight={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
-            contentHeight={skillTracksHeight}
-            scrollTop={clampedScrollTop}
-            maxScrollTop={maxScrollTop}
-            onScroll={newScrollTop => {
-              setScrollTop(newScrollTop)
-              visualScrollTopRef.current = newScrollTop
-              clampedScrollRef.current = {
-                scrollLeft: clampedScrollRef.current.scrollLeft,
-                scrollTop: newScrollTop,
-              }
-              handleDirectScroll(clampedScrollRef.current.scrollLeft, newScrollTop)
-            }}
-          />
-        </div>
 
-        {/* 右侧技能轨道 Stage */}
-        <div className="flex-1 overflow-hidden" style={{ cursor: 'default' }}>
-          <Stage
-            width={viewportWidth}
-            height={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
-            ref={stageRef}
-          >
-            <SkillTracksCanvas
-              timeline={timeline}
-              skillTracks={skillTracks}
-              actions={actions}
-              displayActionOverrides={displayActionOverrides}
-              zoomLevel={zoomLevel}
-              timelineWidth={timelineWidth}
-              trackHeight={skillTrackHeight}
-              maxTime={maxTime}
-              selectedCastEventId={selectedCastEventId}
-              draggingEventPosition={draggingEventPosition}
-              scrollLeft={clampedScrollLeft}
-              scrollTop={clampedScrollTop}
-              viewportWidth={viewportWidth}
-              bgLayerRef={mainBgLayerRef}
-              eventLayerRef={mainEventLayerRef}
-              overlayLayerRef={mainOverlayLayerRef}
-              crosshairLineRef={crosshairMainLineRef}
-              trackHighlightRef={trackHighlightRef}
-              onSelectCastEvent={handleSelectCastEvent}
-              onUpdateCastEvent={handleCastEventDragEnd}
-              onContextMenu={handleContextMenu}
-              onDoubleClickTrack={handleDoubleClickTrack}
-              onHoverAction={handleHoverAction}
-              onHoverActionEnd={hideTooltip}
-              onClickAction={handleClickAction}
-              isReadOnly={isReadOnly}
-              annotations={skillTrackAnnotations}
-              pinnedAnnotationId={pinnedAnnotationId}
-              onAnnotationHover={handleAnnotationHover}
-              onAnnotationHoverEnd={handleAnnotationHoverEnd}
-              onAnnotationClick={handleAnnotationClick}
-              onAnnotationContextMenu={handleAnnotationContextMenu}
-              onAnnotationDragStart={handleAnnotationDragStart}
-              onAnnotationDragEnd={handleAnnotationDragEnd}
-            />
-          </Stage>
+          {/* 右侧技能轨道 Stage */}
+          <div className="flex-1 overflow-hidden" style={{ cursor: 'default' }}>
+            <Stage
+              width={viewportWidth}
+              height={Math.max(height - fixedAreaHeight - minimapHeight, 1)}
+              ref={stageRef}
+            >
+              <SkillTracksCanvas
+                timeline={timeline}
+                skillTracks={skillTracks}
+                actions={actions}
+                displayActionOverrides={displayActionOverrides}
+                zoomLevel={zoomLevel}
+                timelineWidth={timelineWidth}
+                trackHeight={skillTrackHeight}
+                maxTime={maxTime}
+                selectedCastEventId={selectedCastEventId}
+                draggingEventPosition={draggingEventPosition}
+                scrollLeft={clampedScrollLeft}
+                scrollTop={clampedScrollTop}
+                viewportWidth={viewportWidth}
+                bgLayerRef={mainBgLayerRef}
+                eventLayerRef={mainEventLayerRef}
+                overlayLayerRef={mainOverlayLayerRef}
+                crosshairLineRef={crosshairMainLineRef}
+                trackHighlightRef={trackHighlightRef}
+                onSelectCastEvent={handleSelectCastEvent}
+                onUpdateCastEvent={handleCastEventDragEnd}
+                onContextMenu={handleContextMenu}
+                onDoubleClickTrack={handleDoubleClickTrack}
+                onHoverAction={handleHoverAction}
+                onHoverActionEnd={hideTooltip}
+                onClickAction={handleClickAction}
+                isReadOnly={isReadOnly}
+                annotations={skillTrackAnnotations}
+                pinnedAnnotationId={pinnedAnnotationId}
+                onAnnotationHover={handleAnnotationHover}
+                onAnnotationHoverEnd={handleAnnotationHoverEnd}
+                onAnnotationClick={handleAnnotationClick}
+                onAnnotationContextMenu={handleAnnotationContextMenu}
+                onAnnotationDragStart={handleAnnotationDragStart}
+                onAnnotationDragEnd={handleAnnotationDragEnd}
+              />
+            </Stage>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 缩略图导航 */}
       <TimelineMinimap
