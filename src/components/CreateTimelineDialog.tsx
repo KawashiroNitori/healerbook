@@ -1,8 +1,12 @@
 /**
  * 创建时间轴对话框
+ *
+ * 打开或切换副本时预取 encounter template；submit 时从 query cache 同步取数据
+ * 并作为初始 damageEvents 传给 createNewTimeline。取不到数据就静默退化为空白时间轴。
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { toast } from 'sonner'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
@@ -18,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { RAID_TIERS } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
+import { fetchEncounterTemplate, type EncounterTemplateResponse } from '@/api/encounterTemplate'
 
 interface CreateTimelineDialogProps {
   open: boolean
@@ -32,6 +37,20 @@ export default function CreateTimelineDialog({
 }: CreateTimelineDialogProps) {
   const [name, setName] = useState('')
   const [encounterId, setEncounterId] = useState(RAID_TIERS[0]?.encounters[0]?.id.toString() || '')
+  const queryClient = useQueryClient()
+
+  // 对话框打开或副本切换时预取模板
+  useEffect(() => {
+    if (!open) return
+    const encounterIdNum = parseInt(encounterId)
+    if (encounterIdNum > 0) {
+      queryClient.prefetchQuery({
+        queryKey: ['encounter-template', encounterIdNum],
+        queryFn: () => fetchEncounterTemplate(encounterIdNum),
+        staleTime: 1000 * 60 * 60,
+      })
+    }
+  }, [open, encounterId, queryClient])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,9 +60,16 @@ export default function CreateTimelineDialog({
       return
     }
 
-    const timeline = createNewTimeline(encounterId, name.trim())
+    const encounterIdNum = parseInt(encounterId)
+    const cached = queryClient.getQueryData<EncounterTemplateResponse>([
+      'encounter-template',
+      encounterIdNum,
+    ])
+    const initialEvents = cached?.events
+
+    const timeline = createNewTimeline(encounterId, name.trim(), initialEvents)
     saveTimeline(timeline)
-    track('timeline-create', { method: 'manual', encounterId: Number(encounterId) })
+    track('timeline-create', { method: 'manual', encounterId: encounterIdNum })
     onCreated()
     window.open(`/timeline/${timeline.id}`, '_blank')
   }
