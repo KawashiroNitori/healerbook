@@ -175,6 +175,8 @@ export interface DamageEvent {
   packetId?: number
   /** DOT 快照时间（秒）— 百分比减伤以此时刻为准而非 tick 时间 */
   snapshotTime?: number
+  /** 采集/聚合阶段使用的技能 ID，不参与持久化（valibot schema 会自动 strip） */
+  abilityId?: number
 }
 
 /**
