@@ -8,11 +8,13 @@
 
 import { FFLogsClientV2, type RankingEntry } from './fflogsClientV2'
 import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
-import type { FFLogsEvent, FFLogsV1Report } from '@/types/fflogs'
+import type { FFLogsEvent, FFLogsV1Report, FFLogsAbility } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import { calculatePercentile } from '@/utils/stats'
 import { JOB_MAP } from '@/data/jobMap'
+import type { DamageEvent } from '@/types/timeline'
+import { parseDamageEvents } from '@/utils/fflogsImporter'
 
 /** KV 中存储的 TOP100 数据结构 */
 export interface Top100Data {
@@ -21,6 +23,27 @@ export interface Top100Data {
   entries: RankingEntry[]
   /** ISO 8601 时间戳 */
   updatedAt: string
+}
+
+/** fight-stats 存储用的精简 DamageEvent，剥离 id / 玩家具体目标 / 明细 */
+export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'targetPlayerId' | 'playerDamageDetails'>
+
+/**
+ * 将 parseDamageEvents 输出的完整 DamageEvent 精简为存储格式
+ * - 丢弃 id / targetPlayerId / playerDamageDetails
+ * - 从 playerDamageDetails[0] 提取 abilityId（同 packetId 的 detail 共享 abilityId）
+ */
+export function slimDamageEvents(full: DamageEvent[]): StoredDamageEvent[] {
+  return full.map(e => ({
+    name: e.name,
+    time: e.time,
+    damage: e.damage,
+    type: e.type,
+    damageType: e.damageType,
+    packetId: e.packetId,
+    snapshotTime: e.snapshotTime,
+    abilityId: e.playerDamageDetails?.[0]?.abilityId ?? 0,
+  }))
 }
 
 /** 单场战斗的原始统计数据 */
@@ -32,6 +55,10 @@ export interface FightStatistics {
   maxHPByJob: Record<Job, number[]>
   shieldByAbility: Record<number, number[]>
   healByAbility: Record<number, number[]>
+  /** 战斗时长（毫秒）= fight.end_time - fight.start_time */
+  durationMs: number
+  /** 精简 DamageEvent 列表，用于后续 encounter template 聚合 */
+  damageEvents: StoredDamageEvent[]
 }
 
 /** 样本存储（低频访问，供定时任务读写） */
@@ -323,6 +350,26 @@ export async function extractFightStatistics(
     const maxHPData = extractMaxHPData(eventsResponse.events, report)
     const healData = extractHealData(eventsResponse.events)
 
+    // 构造 playerMap 和 abilityMap 以供 parseDamageEvents 使用
+    const playerMap = new Map<number, { id: number; name: string; type: string }>()
+    for (const actor of report.friendlies ?? []) {
+      playerMap.set(actor.id, { id: actor.id, name: actor.name, type: actor.type })
+    }
+    const abilityMap = new Map<number, FFLogsAbility>()
+    for (const ability of report.abilities ?? []) {
+      abilityMap.set(ability.gameID, ability)
+    }
+
+    // 解析完整 DamageEvent 后精简存储
+    const fullDamageEvents = parseDamageEvents(
+      eventsResponse.events,
+      fight.start_time,
+      playerMap,
+      abilityMap
+    )
+    const slimEvents = slimDamageEvents(fullDamageEvents)
+    const durationMs = fight.end_time - fight.start_time
+
     // 保存到临时 KV
     const battleStats: FightStatistics = {
       encounterId,
@@ -332,6 +379,8 @@ export async function extractFightStatistics(
       maxHPByJob: maxHPData,
       shieldByAbility: shieldData,
       healByAbility: healData,
+      durationMs,
+      damageEvents: slimEvents,
     }
 
     await kv.put(

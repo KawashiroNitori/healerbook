@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { mergeWithReservoirSampling, getSamplesKVKey, calculatePercentiles } from './top100Sync'
+import {
+  mergeWithReservoirSampling,
+  getSamplesKVKey,
+  calculatePercentiles,
+  slimDamageEvents,
+} from './top100Sync'
 import { calculatePercentile } from '@/utils/stats'
+import type { DamageEvent } from '@/types/timeline'
 
 describe('mergeWithReservoirSampling', () => {
   it('总量未超上限时直接追加', () => {
@@ -65,5 +71,64 @@ describe('calculatePercentiles', () => {
     const result = calculatePercentiles({ 100: [], 200: [5] })
     expect(result[100]).toBeUndefined()
     expect(result[200]).toBe(5)
+  })
+})
+
+describe('slimDamageEvents', () => {
+  it('剥离 id / targetPlayerId / playerDamageDetails 并提取 abilityId', () => {
+    const full: DamageEvent[] = [
+      {
+        id: 'event-123',
+        name: '死刑',
+        time: 12.3,
+        damage: 80000,
+        type: 'tankbuster',
+        damageType: 'physical',
+        targetPlayerId: 5,
+        playerDamageDetails: [
+          {
+            timestamp: 12345,
+            packetId: 1,
+            sourceId: 99,
+            playerId: 5,
+            job: 'WAR',
+            abilityId: 40000,
+            skillName: '死刑',
+            unmitigatedDamage: 80000,
+            finalDamage: 40000,
+            statuses: [],
+          },
+        ],
+        packetId: 1,
+      },
+    ]
+    const result = slimDamageEvents(full)
+    expect(result).toEqual([
+      {
+        name: '死刑',
+        time: 12.3,
+        damage: 80000,
+        type: 'tankbuster',
+        damageType: 'physical',
+        packetId: 1,
+        abilityId: 40000,
+        snapshotTime: undefined,
+      },
+    ])
+  })
+
+  it('playerDamageDetails 为空时 abilityId 为 0', () => {
+    const full: DamageEvent[] = [
+      {
+        id: 'x',
+        name: '未知',
+        time: 0,
+        damage: 0,
+        type: 'aoe',
+        damageType: 'magical',
+      },
+    ]
+    const result = slimDamageEvents(full)
+    expect(result[0].abilityId).toBe(0)
   })
 })
