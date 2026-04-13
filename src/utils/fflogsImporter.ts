@@ -9,7 +9,140 @@ import type {
   CastEvent,
   PlayerDamageDetail,
   DamageType,
+  SyncEvent,
 } from '@/types/timeline'
+// 规则表直接内联自 submodule（3rdparty/ff14-overlay-vue/src/resources/timelineSpecialRules.ts）。
+// 原本应调用 submodule 导出的 factory()，但该文件会通过 types/fflogs.d.ts 传递 import 到
+// types/timeline.ts，而后者含 cactbot 依赖 + TS enum（与本项目 erasableSyntaxOnly 不兼容），
+// 触发 tsc -b 失败。因此此处维护一份轻量镜像，仅保留 parseSyncEvents 需要的字段。
+// 未来 submodule 修复上述问题或我们提供 types 替身后，可切回 factory() 调用。
+type WindowRule = {
+  type: 'begincast' | 'cast'
+  window: [number, number]
+  syncOnce?: boolean
+  battleOnce?: boolean
+}
+const WINDOW_ACTION_TABLE: ReadonlyMap<number, WindowRule> = new Map<number, WindowRule>([
+  // 海德林转场 众生离绝
+  [26155, { type: 'cast', window: [999, 999], battleOnce: true }],
+  // 佐迪亚克转场 悼念
+  [28027, { type: 'cast', window: [999, 999], battleOnce: true }],
+  // P3S 转场 黑暗不死鸟
+  [26340, { type: 'cast', window: [999, 999], battleOnce: true }],
+  // 绝龙诗 万物终结
+  [25533, { type: 'begincast', window: [60, 60] }],
+  // 绝龙诗 灭绝之诗
+  [26376, { type: 'cast', window: [999, 999], battleOnce: true }],
+  // 绝龙诗 邪龙爪牙
+  [26814, { type: 'begincast', window: [999, 999], battleOnce: true }],
+  // 绝龙诗 空间牢狱
+  [25313, { type: 'begincast', window: [200, 200] }],
+  // 绝龙诗 圣徒化
+  [27526, { type: 'begincast', window: [999, 999], battleOnce: true }],
+  // 绝龙诗 P6 Nidhogg v2
+  [26215, { type: 'cast', window: [500, 30], battleOnce: true }],
+  // 绝龙诗 P6.5 Eyes v2
+  [29050, { type: 'begincast', window: [200, 30], battleOnce: true }],
+  // 绝龙诗 冲击波
+  [29156, { type: 'cast', window: [20, 20] }],
+  // 绝龙诗 邪念之火
+  [27973, { type: 'cast', window: [20, 20] }],
+  // 绝龙诗 绝命怒嚎
+  [27937, { type: 'begincast', window: [20, 20] }],
+  // 绝龙诗 骑龙剑百京核爆
+  [28059, { type: 'begincast', window: [20, 20] }],
+  [28060, { type: 'begincast', window: [20, 20] }],
+  [28061, { type: 'begincast', window: [20, 20] }],
+  // 绝龙诗 圣龙吐息
+  [27956, { type: 'begincast', window: [20, 20] }],
+  [27957, { type: 'begincast', window: [20, 20] }],
+  // 绝龙诗 灭杀的誓言
+  [27952, { type: 'begincast', window: [30, 30] }],
+  // 绝龙诗 无尽轮回
+  [27969, { type: 'begincast', window: [20, 20] }],
+  [27971, { type: 'begincast', window: [20, 20] }],
+  // 绝龙诗 神圣之翼
+  [27939, { type: 'begincast', window: [20, 20] }],
+  // 绝龙诗 邪炎俯冲
+  [27966, { type: 'begincast', window: [20, 20] }],
+  // 绝龙诗 纯洁心灵
+  [25316, { type: 'begincast', window: [999, 999], battleOnce: true }],
+  // 绝龙诗 阿斯卡隆之仁·隐秘
+  [25544, { type: 'begincast', window: [10, 10] }],
+  // 绝龙诗 腾龙枪
+  [26379, { type: 'begincast', window: [10, 10] }],
+  // 绝欧米茄 防御程序
+  [31552, { type: 'begincast', window: [30, 30] }],
+  // 绝欧米茄 你好，世界
+  [31573, { type: 'begincast', window: [30, 30] }],
+  // 绝欧米茄 波动炮
+  [31617, { type: 'begincast', window: [8, 8] }],
+  // 绝欧米茄 代号：*能*·德尔塔
+  [31624, { type: 'begincast', window: [30, 30] }],
+  // 绝欧米茄 宇宙记忆
+  [31649, { type: 'begincast', window: [30, 30] }],
+  // 绝亚 流体摆动
+  [0x49b0, { type: 'cast', window: [10, 2.5], syncOnce: true }],
+  // 绝亚 鹰式破坏炮
+  [0x4830, { type: 'cast', window: [200, 60], syncOnce: true, battleOnce: true }],
+  // 绝亚 正义飞踢
+  [0x4854, { type: 'cast', window: [250, 65], syncOnce: true, battleOnce: true }],
+  // 绝亚 时间停止
+  [0x485a, { type: 'begincast', window: [500, 500], syncOnce: true, battleOnce: true }],
+  // 绝亚 神圣审判
+  [0x4878, { type: 'begincast', window: [67, 67], syncOnce: true }],
+  [0x4879, { type: 'cast', window: [67, 67], syncOnce: true }],
+  // 绝亚 unknown
+  [0x4a8b, { type: 'cast', window: [900, 200], syncOnce: true, battleOnce: true }],
+  // 绝伊甸 P2 四重强击
+  [0x9cff, { type: 'begincast', window: [200, 20], syncOnce: true }],
+  // 绝伊甸 P3 地狱审判
+  [0x9d49, { type: 'begincast', window: [500, 20], syncOnce: true, battleOnce: true }],
+  // 绝伊甸 P4 具象化
+  [0x9d36, { type: 'begincast', window: [999, 30], syncOnce: true, battleOnce: true }],
+  // 绝伊甸 P5 光尘之剑
+  [0x9d72, { type: 'begincast', window: [30, 30], syncOnce: true }],
+  // 绝神兵 P2 深红旋风
+  [0x2b5f, { type: 'begincast', window: [310, 30], syncOnce: true, battleOnce: true }],
+  // 绝神兵 P3 大地粉碎
+  [0x2cfd, { type: 'begincast', window: [600, 30], syncOnce: true, battleOnce: true }],
+  // 绝神兵 P4 雾散爆发
+  [0x2b72, { type: 'begincast', window: [100, 30], syncOnce: true, battleOnce: true }],
+  // 绝神兵 魔导核爆
+  [0x2b87, { type: 'begincast', window: [60, 60], syncOnce: true }],
+  // 绝神兵 追击之究极幻想
+  [0x2b76, { type: 'begincast', window: [100, 100], syncOnce: true, battleOnce: true }],
+  // 绝神兵 爆击之究极幻想
+  [0x2d4c, { type: 'begincast', window: [100, 100], syncOnce: true, battleOnce: true }],
+  // 绝神兵 乱击之究极幻想
+  [0x2d4d, { type: 'begincast', window: [100, 100], syncOnce: true, battleOnce: true }],
+  // M5S 经典铭心
+  [0xa721, { type: 'begincast', window: [9.6, 2], syncOnce: true }],
+  // M5S 激热跳舞街
+  [0xa756, { type: 'cast', window: [77.2, 30], syncOnce: true, battleOnce: true }],
+  // M5S 在这停顿！
+  [0xa76f, { type: 'cast', window: [30, 30], syncOnce: false }],
+  // M5S 欢庆时刻
+  [0xa723, { type: 'cast', window: [30, 30], syncOnce: false }],
+  // M5S 在这停顿！
+  [0xa770, { type: 'cast', window: [30, 30], syncOnce: false }],
+  // M8S 空间斩
+  [0xa3da, { type: 'begincast', window: [10, 10], syncOnce: false }],
+  // M8S 风之狼吼
+  [0xa3d0, { type: 'begincast', window: [20, 30], syncOnce: true }],
+  // M8S 土之狼吼
+  [0xa3d3, { type: 'begincast', window: [20, 20], syncOnce: true }],
+  // M8S 风尘光狼斩
+  [0xa749, { type: 'begincast', window: [60, 60], syncOnce: true, battleOnce: true }],
+  // M8S 空间灭斩
+  [0xa3f1, { type: 'begincast', window: [20, 20], syncOnce: true }],
+  // M8S --middle--
+  [0xa38f, { type: 'cast', window: [60, 60], syncOnce: true, battleOnce: true }],
+  // M8S --sync--
+  [0xa82d, { type: 'cast', window: [60, 60], syncOnce: true, battleOnce: true }],
+  // 极火车 无尽狂奔
+  [0xb24d, { type: 'cast', window: [60, 60], syncOnce: true, battleOnce: true }],
+])
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
@@ -475,4 +608,61 @@ export function parseCastEvents(
   }
 
   return castEventsResult
+}
+
+/**
+ * 解析 boss 的关键技能 sync 锚点
+ *
+ * 扫描 events 流里的 boss cast/begincast，通过内联的规则表（镜像自
+ * ff14-overlay-vue timelineSpecialRules.ts）匹配 window/syncOnce/battleOnce，
+ * 消解 battleOnce 去重后产出 SyncEvent[]。
+ *
+ * 设计说明：
+ * - battleOnce 是 "import 期 preprocessor flag"，不进 SyncEvent 存储层；与 Souma
+ *   原生 FflogsImport.vue 的行为一致（它也从不把 battleOnce 写进 timeline 数据）
+ * - syncOnce 是 "运行期匹配策略 flag"，每条 SyncEvent 独立存储（Souma 也这样）
+ * - 规则匹配必须同时满足 actionId 与 type（begincast/cast 有别）
+ * - time<0 的 pre-pull 读条保留，由调用方自行决定是否过滤
+ */
+export function parseSyncEvents(
+  events: FFLogsEvent[],
+  fightStartTime: number,
+  playerMap: Map<number, { id: number; name: string; type: string }>,
+  abilityMap?: Map<number, FFLogsAbility>
+): SyncEvent[] {
+  const battleOnceSeen = new Set<number>()
+  const syncEvents: SyncEvent[] = []
+
+  for (const event of events) {
+    if (event.type !== 'cast' && event.type !== 'begincast') continue
+    const actionId = event.abilityGameID
+    if (!actionId) continue
+    // 友方（包含召唤物/宠物）事件排除；非友方即 boss/NPC，命中规则表的才会保留
+    if (event.sourceID != null && playerMap.has(event.sourceID)) continue
+
+    // 规则匹配：同 actionId 且同 type 才算命中（与 submodule factory 行为一致）
+    const rule = WINDOW_ACTION_TABLE.get(actionId)
+    if (!rule || rule.type !== event.type) continue
+
+    const battleOnce = Boolean(rule.battleOnce)
+    if (battleOnce) {
+      if (battleOnceSeen.has(actionId)) continue
+      battleOnceSeen.add(actionId)
+    }
+
+    const chineseName = getActionChinese(actionId)
+    const abilityName = abilityMap?.get(actionId)?.name
+    const actionName = chineseName ?? abilityName ?? `unknown_${actionId.toString(16)}`
+
+    syncEvents.push({
+      time: (event.timestamp - fightStartTime) / 1000,
+      type: event.type,
+      actionId,
+      actionName,
+      window: rule.window,
+      syncOnce: Boolean(rule.syncOnce),
+    })
+  }
+
+  return syncEvents
 }

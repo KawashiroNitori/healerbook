@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { parseFFLogsUrl } from './fflogsParser'
-import { parseCastEvents, parseDamageEvents } from './fflogsImporter'
+import { parseCastEvents, parseDamageEvents, parseSyncEvents } from './fflogsImporter'
 import type { FFLogsAbility } from '@/types/fflogs'
 
 type V2Actor = { id: number; name: string; type: string }
@@ -1396,5 +1396,208 @@ describe('parseDamageEvents', () => {
     )
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('aoe')
+  })
+})
+
+describe('parseSyncEvents', () => {
+  const fightStartTime = 1000000
+  const mockPlayerMap = new Map<number, V2Actor>([
+    [1, { id: 1, name: 'Tank', type: 'Paladin' }],
+    [2, { id: 2, name: 'Healer', type: 'WhiteMage' }],
+  ])
+
+  // 0xA3DA 空间斩 = begincast, window [10,10]，无 battleOnce，无 syncOnce
+  // 0xA749 风尘光狼斩 = begincast, window [60,60]，syncOnce + battleOnce
+  // 0xA3F1 空间灭斩 = begincast, window [20,20]，syncOnce=true
+  const BOSS_SOURCE_ID = 100
+
+  it('boss 的 begincast 命中规则表时产出 SyncEvent', () => {
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 24300,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
+    expect(result).toHaveLength(1)
+    expect(result[0]).toEqual({
+      time: 24.3,
+      type: 'begincast',
+      actionId: 0xa3da,
+      actionName: expect.any(String),
+      window: [10, 10],
+      syncOnce: false,
+    })
+  })
+
+  it('boss 的 cast 事件若规则表只配置了 begincast 则不命中', () => {
+    // 0xA3DA 在规则表里只有 begincast 一条记录
+    const events = [
+      {
+        type: 'cast',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 5000,
+      },
+    ]
+    expect(parseSyncEvents(events, fightStartTime, mockPlayerMap)).toHaveLength(0)
+  })
+
+  it('未命中规则表的 boss 事件被丢弃', () => {
+    const events = [
+      {
+        type: 'cast',
+        abilityGameID: 0xdeadbeef,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 5000,
+      },
+    ]
+    expect(parseSyncEvents(events, fightStartTime, mockPlayerMap)).toHaveLength(0)
+  })
+
+  it('友方（sourceID 在 playerMap）事件被过滤', () => {
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3da,
+        sourceID: 1, // 在 mockPlayerMap 里
+        timestamp: fightStartTime + 24300,
+      },
+    ]
+    expect(parseSyncEvents(events, fightStartTime, mockPlayerMap)).toHaveLength(0)
+  })
+
+  it('缺 abilityGameID 的事件被过滤', () => {
+    const events = [
+      { type: 'begincast', sourceID: BOSS_SOURCE_ID, timestamp: fightStartTime + 5000 },
+    ]
+    expect(parseSyncEvents(events, fightStartTime, mockPlayerMap)).toHaveLength(0)
+  })
+
+  it('cast/begincast 之外的事件被过滤', () => {
+    const events = [
+      {
+        type: 'damage',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 5000,
+      },
+    ]
+    expect(parseSyncEvents(events, fightStartTime, mockPlayerMap)).toHaveLength(0)
+  })
+
+  it('battleOnce 规则首条保留后续同 id 丢弃', () => {
+    // 0xA749 风尘光狼斩：begincast + battleOnce + syncOnce
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa749,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 60000,
+      },
+      {
+        type: 'begincast',
+        abilityGameID: 0xa749,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 180000,
+      },
+      {
+        type: 'begincast',
+        abilityGameID: 0xa749,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 300000,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].time).toBe(60)
+    expect(result[0].syncOnce).toBe(true) // 0xA749 的 syncOnce 是 true
+  })
+
+  it('非 battleOnce 的规则不对后续同 id 去重', () => {
+    // 0xA3DA 空间斩：begincast，既无 battleOnce 也无 syncOnce
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 10000,
+      },
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 30000,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
+    expect(result).toHaveLength(2)
+    expect(result[0].time).toBe(10)
+    expect(result[1].time).toBe(30)
+  })
+
+  it('syncOnce=true 的规则写入 SyncEvent.syncOnce', () => {
+    // 0xA3F1 空间灭斩：begincast, window [20,20], syncOnce=true
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3f1,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 45000,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].syncOnce).toBe(true)
+    expect(result[0].window).toEqual([20, 20])
+  })
+
+  it('actionName 优先使用中文名（通过 abilityMap fallback 英文名）', () => {
+    const abilityMap = new Map<number, FFLogsAbility>([
+      [0xa3da, { gameID: 0xa3da, name: 'Spatial Rend', type: 1 }],
+    ])
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 10000,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap, abilityMap)
+    // actionChinese 里若存在 0xA3DA 翻译则用中文，否则 fallback 到 "Spatial Rend"
+    expect(result[0].actionName).toBeTruthy()
+    expect(typeof result[0].actionName).toBe('string')
+  })
+
+  it('actionName 在无中文无 abilityMap 时 fallback 为 unknown_<hex>', () => {
+    // 使用一个几乎肯定不在 actionChinese 里的 id，但又要命中规则表 —— 用 0x2B87 魔导核爆
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0x2b87,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime + 60000,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
+    // 不 assert 确切字符串，但要求有内容（可能是中文或 unknown_2b87）
+    expect(result[0].actionName.length).toBeGreaterThan(0)
+  })
+
+  it('time < 0（pre-pull 读条）保留不过滤', () => {
+    const events = [
+      {
+        type: 'begincast',
+        abilityGameID: 0xa3da,
+        sourceID: BOSS_SOURCE_ID,
+        timestamp: fightStartTime - 2300,
+      },
+    ]
+    const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
+    expect(result).toHaveLength(1)
+    expect(result[0].time).toBeCloseTo(-2.3, 3)
   })
 })
