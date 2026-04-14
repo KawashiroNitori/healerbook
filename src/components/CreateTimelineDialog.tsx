@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { toast } from 'sonner'
 import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
+import { useUIStore } from '@/store/uiStore'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import {
   Select,
@@ -69,6 +70,7 @@ export default function CreateTimelineDialog({
 
     const timeline = createNewTimeline(encounterId, name.trim(), initialEvents)
     saveTimeline(timeline)
+    useUIStore.setState({ isReadOnly: false })
     track('timeline-create', { method: 'manual', encounterId: encounterIdNum })
     onCreated()
     window.open(`/timeline/${timeline.id}`, '_blank')
