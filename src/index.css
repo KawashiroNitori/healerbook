@@ -23,7 +23,7 @@
     @apply bg-background text-foreground;
   }
 
-  /* 首页：始终显示滚动条 */
+  /* 始终显示滚动条，避免内容高度变化或切页时的布局跳变 */
   html {
     overflow-y: scroll;
   }
@@ -32,6 +32,17 @@
   html:has(.editor-page) {
     overflow: hidden;
     touch-action: pan-x pan-y;
+  }
+
+  /*
+   * 滚动条永远可见（html overflow-y: scroll），Radix Dialog 打开时滚动条并不会
+   * 真的消失，但 react-remove-scroll 默认仍会给 body 加 margin-right / padding-right
+   * 做补偿，导致内容向左跳变。这里用更高特异性的选择器抵消掉它。
+   * 目标规则：body[data-scroll-locked] （0,1,1），用 html body[data-scroll-locked] （0,1,2）覆盖。
+   */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
   }
 }
 

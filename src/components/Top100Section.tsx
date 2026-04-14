@@ -12,7 +12,7 @@ import ImportFFLogsDialog from '@/components/ImportFFLogsDialog'
 import JobIcon from '@/components/JobIcon'
 import { JOB_MAP } from '@/data/jobMap'
 import { buildMitigationKey } from '@/utils/rosterUtils'
-import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job } from '@/types/timeline'
 import { track } from '@/utils/analytics'
@@ -89,13 +89,9 @@ function isSubsequence(subset: number[], superset: number[]): boolean {
 function CompositionFilter({
   selectedJobs,
   onJobsChange,
-  open,
-  onClose,
 }: {
   selectedJobs: Job[]
   onJobsChange: (jobs: Job[]) => void
-  open: boolean
-  onClose: () => void
 }) {
   const dpsJobs = getDPSJobs()
   const meleeJobs = dpsJobs.filter(job => getJobRole(job) === 'melee')
@@ -123,72 +119,67 @@ function CompositionFilter({
   }
 
   return (
-    <Modal open={open} onClose={onClose}>
-      <ModalContent>
-        <ModalHeader>
-          <ModalTitle>阵容过滤</ModalTitle>
-        </ModalHeader>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-semibold">阵容过滤</h4>
+          <p className="text-xs text-muted-foreground">只看你们小队有的减伤</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectedJobs.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground">{selectedJobs.length}/8</p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onJobsChange([])}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Eraser className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>清空</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+      </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">只看你们小队有的减伤</p>
-            <div className="flex items-center gap-2">
-              {selectedJobs.length > 0 && (
-                <>
-                  <p className="text-xs text-muted-foreground">{selectedJobs.length}/8</p>
-                  <Tooltip>
+      {/* 按职业类型分组 */}
+      <div className="space-y-3">
+        {Object.entries(jobsByRole).map(([role, jobs]) => (
+          <div key={role}>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">{role}</h4>
+            <div className="flex flex-wrap gap-2">
+              {jobs.map(job => {
+                const isSelected = selectedJobs.includes(job)
+                const isDisabled = !isSelected && selectedJobs.length >= 8
+                return (
+                  <Tooltip key={job}>
                     <TooltipTrigger asChild>
                       <button
-                        onClick={() => onJobsChange([])}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => toggleJob(job)}
+                        disabled={isDisabled}
+                        className={`transition-all ${
+                          isSelected
+                            ? 'opacity-100 scale-100'
+                            : isDisabled
+                              ? 'opacity-20 cursor-not-allowed'
+                              : 'opacity-40 scale-95 hover:opacity-60'
+                        }`}
                       >
-                        <Eraser className="w-4 h-4" />
+                        <JobIcon job={job} size="md" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>清空</TooltipContent>
+                    <TooltipContent>{getJobName(job)}</TooltipContent>
                   </Tooltip>
-                </>
-              )}
+                )
+              })}
             </div>
           </div>
-
-          {/* 按职业类型分组 */}
-          <div className="space-y-3">
-            {Object.entries(jobsByRole).map(([role, jobs]) => (
-              <div key={role}>
-                <h4 className="text-xs font-medium text-muted-foreground mb-2">{role}</h4>
-                <div className="flex flex-wrap gap-2">
-                  {jobs.map(job => {
-                    const isSelected = selectedJobs.includes(job)
-                    const isDisabled = !isSelected && selectedJobs.length >= 8
-                    return (
-                      <Tooltip key={job}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => toggleJob(job)}
-                            disabled={isDisabled}
-                            className={`transition-all ${
-                              isSelected
-                                ? 'opacity-100 scale-100'
-                                : isDisabled
-                                  ? 'opacity-20 cursor-not-allowed'
-                                  : 'opacity-40 scale-95 hover:opacity-60'
-                            }`}
-                          >
-                            <JobIcon job={job} size="md" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>{getJobName(job)}</TooltipContent>
-                      </Tooltip>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </ModalContent>
-    </Modal>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -358,7 +349,6 @@ function EncounterTable({
 export default function Top100Section() {
   const [importUrl, setImportUrl] = useState<string | null>(null)
   const [activeTierIdx, setActiveTierIdx] = useState(RAID_TIERS.length - 1) // 默认最新赛季
-  const [showFilterDialog, setShowFilterDialog] = useState(false)
 
   // 从 LocalStorage 读取已选职业
   const [selectedJobs, setSelectedJobs] = useState<Job[]>(() => {
@@ -401,24 +391,34 @@ export default function Top100Section() {
         <div className="flex items-center gap-2 mb-1">
           <h2 className="text-xl font-semibold">TOP100 参考方案</h2>
           <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setShowFilterDialog(true)}
-                  className={`flex items-center gap-1.5 text-sm p-1.5 rounded transition-colors ${
-                    selectedJobs.length > 0
-                      ? 'text-primary bg-primary/10'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                  }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  {selectedJobs.length > 0 && (
-                    <span className="text-xs">({selectedJobs.length})</span>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>阵容过滤</TooltipContent>
-            </Tooltip>
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={`flex items-center gap-1.5 text-sm p-1.5 rounded transition-colors ${
+                        selectedJobs.length > 0
+                          ? 'text-primary bg-primary/10'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                    >
+                      <Filter className="w-4 h-4" />
+                      {selectedJobs.length > 0 && (
+                        <span className="text-xs">({selectedJobs.length})</span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>阵容过滤</TooltipContent>
+              </Tooltip>
+              <PopoverContent
+                align="start"
+                className="w-80"
+                onOpenAutoFocus={e => e.preventDefault()}
+              >
+                <CompositionFilter selectedJobs={selectedJobs} onJobsChange={handleJobsChange} />
+              </PopoverContent>
+            </Popover>
           </TooltipProvider>
         </div>
         <p className="text-sm text-muted-foreground">拿不定主意？看看别人怎么做的</p>
@@ -465,14 +465,6 @@ export default function Top100Section() {
           ))}
         </div>
       )}
-
-      {/* 阵容过滤对话框 */}
-      <CompositionFilter
-        selectedJobs={selectedJobs}
-        onJobsChange={handleJobsChange}
-        open={showFilterDialog}
-        onClose={() => setShowFilterDialog(false)}
-      />
 
       {/* 导入对话框 */}
       {importUrl && (

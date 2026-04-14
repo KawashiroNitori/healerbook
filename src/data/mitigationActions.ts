@@ -135,7 +135,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           uniqueGroup: [baseShieldId, sageShieldId],
         })(ctx)
       },
-      statDataEntries: [{ type: 'heal', key: 185, label: '鼓舞' }],
+      statDataEntries: [{ type: 'heal', key: 185, label: '鼓舞激励之策' }],
     },
     {
       id: 16542,
