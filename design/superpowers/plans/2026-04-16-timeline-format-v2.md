@@ -305,33 +305,43 @@ git commit -m "feat(timeline): 添加 V2 持久化格式类型定义"
 - Modify: `src/types/timeline.ts`
 - Modify: `src/components/TimelineTable/TableDataRow.tsx:54-60`
 
-这一步**纯类型清理**，目的是把 runtime 零消费的字段从类型里去掉，让后续的 V2 转换更干净。由于这些字段本就没有消费路径，删除后 `pnpm exec tsc --noEmit` 和业务测试应全部通过。
+这一步**纯类型清理**。实施阶段的字段审计发现 3 个字段虽然不进入 V2 持久化，但**仍需保留在内存 `Timeline` 类型中**（见 spec `内存层面的变动` 一节）：
 
-删除以下字段：
+- **`PlayerDamageDetail.job`** —— `PlayerDamageDetails.tsx` 和 `Timeline/index.tsx` 需要渲染 job icon/name；fflogsImporter 的 `detectDamageType` 也依赖它做坦克判定
+- **`DamageEvent.packetId`** —— `top100Sync.ts` 通过 `StoredDamageEvent = Omit<DamageEvent, ...>` 继承该字段，消费来自 `parseDamageEvents` 的 fresh 内存 Timeline，走自己的 KV 管道
+- **`PlayerDamageDetail.abilityId`** —— 同上
 
-| 类型                 | 字段                                                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `DamageEvent`        | `packetId`、`targetPlayerId`、`abilityId`（`abilityId` 当前已被 schema strip，但类型上还保留作为 "采集阶段"字段，也可一起删） |
-| `PlayerDamageDetail` | `job`、`abilityId`、`sourceId`、`packetId`                                                                                    |
-| `StatusSnapshot`     | `targetPlayerId`                                                                                                              |
-| `CastEvent`          | `job`、`targetPlayerId`                                                                                                       |
-| 整个死接口           | `TimelineExport`（全仓零引用）                                                                                                |
+这 3 个字段的 V2 序列化/反序列化策略由 Task 5 处理（`toV2` 剥离；`hydrateFromV2` 对 `job` 从 composition 重推，对 `packetId/abilityId` 保持 `undefined`）。
+
+### Task 3 实际删除的字段
+
+| 类型                 | 字段                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `DamageEvent`        | `packetId` **不删**、`targetPlayerId` ✅ 删、`abilityId`（如果类型上有）✅ 删               |
+| `PlayerDamageDetail` | `job` **不删**、`abilityId` **不删**、`sourceId` ✅ 删、`packetId` ✅ 删、`skillName` ✅ 删 |
+| `StatusSnapshot`     | `targetPlayerId` ✅ 删                                                                      |
+| `CastEvent`          | `job` ✅ 删、`targetPlayerId` ✅ 删                                                         |
+| 整个死接口           | `TimelineExport` ✅ 删（全仓零引用）                                                        |
+
+**注意**：`PlayerDamageDetail.skillName` 被加入删除清单（原计划漏列），`fflogsImporter.ts:287` 的 `currentDetail.skillName === baseDetail.skillName` 合并逻辑需要改为局部变量。
 
 - [ ] **Step 1: Remove dead fields from `src/types/timeline.ts`**
 
 Open `src/types/timeline.ts`，按下述清单删除对应字段与相关 JSDoc。保留其他字段原样。
 
 ```ts
-// StatusSnapshot
+// StatusSnapshot：删除 targetPlayerId
 export interface StatusSnapshot {
   statusId: number
   absorb?: number
 }
 
-// PlayerDamageDetail
+// PlayerDamageDetail：删除 sourceId / packetId / skillName；保留 job / abilityId
 export interface PlayerDamageDetail {
   timestamp: number
   playerId: number
+  job: Job // 仍保留：UI 渲染 + 坦克判定
+  abilityId: number // 仍保留：top100Sync 消费
   unmitigatedDamage: number
   finalDamage: number
   overkill?: number
@@ -342,7 +352,7 @@ export interface PlayerDamageDetail {
   snapshotTimestamp?: number
 }
 
-// DamageEvent
+// DamageEvent：删除 targetPlayerId / abilityId；保留 packetId
 export interface DamageEvent {
   id: string
   name: string
@@ -350,11 +360,12 @@ export interface DamageEvent {
   damage: number
   type: DamageEventType
   damageType: DamageType
+  packetId?: number // 仍保留：top100Sync.slimDamageEvents 消费
   playerDamageDetails?: PlayerDamageDetail[]
   snapshotTime?: number
 }
 
-// CastEvent
+// CastEvent：删除 job / targetPlayerId
 export interface CastEvent {
   id: string
   actionId: number
@@ -427,24 +438,25 @@ const detail: PlayerDamageDetail = {
 ```ts
 const detail: PlayerDamageDetail = {
   timestamp: event.timestamp,
-  playerId: ...,
-  unmitigatedDamage: ...,
-  finalDamage: ...,
+  playerId: /* ... */,
+  job: /* ... */,               // 保留：UI 渲染 + detectDamageType 依赖
+  abilityId: abilityGameId,     // 保留：top100Sync.slimDamageEvents 通过 pdd[0] 读取
+  unmitigatedDamage: /* ... */,
+  finalDamage: /* ... */,
   statuses: [],
-  // ... 其他仍保留在 PlayerDamageDetail 类型中的字段
+  // ... 其他仍保留的 optional 字段
 }
 ```
 
-**但保留局部变量** `packetId`, `sourceId`, `abilityId`, `job`, `skillName` 因为它们还要用于构造去重 key、DOT 关联、交叉验证：
+**删除的字段**：`sourceId`、`packetId`、`skillName`。它们仍然作为**局部变量**存在（用于去重 key、DOT 关联、detail 合并），但不再写入 detail 本身：
 
 ```ts
 const packetId = event.packetID
 const sourceId = event.sourceID || 0
-const abilityId = event.abilityGameID ?? 0
-const skillName = getActionChinese(abilityId) || abilityMap?.get(abilityId)?.name || ''
+const skillName = getActionChinese(abilityGameId) || abilityMap?.get(abilityGameId)?.name || ''
 ```
 
-这些变量继续在其出现的 key 构造（`${ts}-${detail.playerId}-${sourceId}-${abilityId}`、`${abilityId}-${playerId}`、`event-${timestamp}-${abilityId}` 等）中使用，但**不写入 Timeline**。
+**注意 detail 合并**：原来 `fflogsImporter.ts:287` 的 `if (currentDetail.skillName === baseDetail.skillName)` 需要改写——detail 不再携带 `skillName`。最简方案是在 group 的外层用一个并行 Map 保存 `detail → skillName`，合并判断时从 Map 读。
 
 2. **`DamageEvent` 构造**（约 `src/utils/fflogsImporter.ts:326-335`）：
 
@@ -468,17 +480,18 @@ const event: DamageEvent = {
 
 ```ts
 const event: DamageEvent = {
-  id: `event-${firstDetail.timestamp}-${abilityId}`,  // abilityId 来自局部变量
-  name: ...,
-  time: ...,
-  damage: ...,
-  type: ...,
-  damageType: ...,
+  id: `event-${firstDetail.timestamp}-${abilityGameId}`, // abilityId 来自局部变量
+  name: skillName, // skillName 来自局部变量
+  time: /* ... */,
+  damage: /* ... */,
+  type: /* ... */,
+  damageType: /* ... */,
+  packetId: firstPacketId, // 保留：top100Sync 消费；从旁路 Map 或局部变量取
   playerDamageDetails: details,
 }
 ```
 
-删除 `targetPlayerId` 和 `packetId` 两行。
+删除 `targetPlayerId` 一行。**`packetId` 保留**（它仍在 DamageEvent 类型上，由 top100Sync 消费），但不再通过 `firstDetail.packetId` 取（detail 已不存 packetId），改为从 group 外的旁路结构（如 `Map<groupKey, number>`）或 fflogsImporter 内部的局部变量传入。
 
 3. **`StatusSnapshot` 构造**（约 `src/utils/fflogsImporter.ts:204-212`）：
 
@@ -559,7 +572,7 @@ Expected: PASS，或仅 `timelineSchema.test.ts` / `timelines.test.ts` 有与 V1
 
 ```bash
 git add src/types/timeline.ts src/components/TimelineTable/TableDataRow.tsx src/utils/fflogsImporter.ts src/utils/fflogsImporter.test.ts
-git commit -m "refactor(timeline): 移除 runtime 零消费的 9 个死字段"
+git commit -m "refactor(timeline): 移除 runtime 零消费的 7 个死字段"
 ```
 
 ---
@@ -572,6 +585,22 @@ git commit -m "refactor(timeline): 移除 runtime 零消费的 9 个死字段"
 - Create: `src/utils/timelineFormat.test.ts`
 
 这一步实现"内存 → V2"和"V2 → 内存"的双向转换，暂不包含 V1 迁移。V1 迁移在下一个 task。
+
+### 3 个内存保留 / V2 剥离字段的处理
+
+实施阶段的审计决定了 3 个字段采用非对称处理（见 spec `内存层面的变动` 一节）：
+
+| 字段                           | `toV2`（序列化） | `hydrateFromV2`（反序列化）                                         |
+| ------------------------------ | ---------------- | ------------------------------------------------------------------- |
+| `PlayerDamageDetail.job`       | **剥离**         | 从 `composition.players.find(p => p.id === detail.p)?.job` 反查填入 |
+| `PlayerDamageDetail.abilityId` | **剥离**         | 保持 `undefined`（top100Sync 不走 hydrate 路径）                    |
+| `DamageEvent.packetId`         | **剥离**         | 保持 `undefined`（同上）                                            |
+
+这意味着：
+
+- `toV2` 的白名单中**不包含**这 3 个字段
+- `hydrateFromV2` 构造 PDD 时需要**接收 composition 作为参数**以反查 job
+- `hydrateFromV2` 的 JSDoc 应明确标注："从 V2 反序列化的 Timeline 里，`DamageEvent.packetId` 和 `PlayerDamageDetail.abilityId` 始终为 `undefined`，该路径不应被 `top100Sync` 消费"
 
 - [ ] **Step 1: Write failing tests for `toV2` + `hydrateFromV2` roundtrip**
 

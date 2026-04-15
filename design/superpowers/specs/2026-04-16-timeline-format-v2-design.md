@@ -225,16 +225,33 @@ interface V2SyncEvent {
 
 ## 内存层面的变动
 
-**只改 `src/utils/fflogsImporter.ts`**：把以下字段从 Timeline 的写入中移除（改为局部变量，构造 key / DOT 关联 / 交叉验证用完即弃）：
+字段审计在实施阶段发现 3 处遗漏：`PlayerDamageDetail.job`（被 `PlayerDamageDetails.tsx` 和 `Timeline/index.tsx` 渲染）、`DamageEvent.packetId` 和 `PlayerDamageDetail.abilityId`（被 `top100Sync.ts` 消费——它是 Worker 里的独立管道，从 `parseDamageEvents` 直接拿内存 Timeline，不走 V2 反序列化路径）。这 3 个字段因此采用**"内存保留 / V2 剥离 / hydrate 重推"**的不对称处理。
 
-- `DamageEvent.packetId`、`DamageEvent.targetPlayerId`
-- `PlayerDamageDetail.abilityId`、`PlayerDamageDetail.sourceId`、`PlayerDamageDetail.packetId`、`PlayerDamageDetail.job`
+### 类型字段删除清单
+
+从 `src/types/timeline.ts` 内存类型里**真正删除**的字段：
+
+- `DamageEvent.targetPlayerId`、`DamageEvent.abilityId`（后者 V1 schema 已 strip）
+- `PlayerDamageDetail.sourceId`、`PlayerDamageDetail.packetId`、`PlayerDamageDetail.skillName`
 - `CastEvent.job`、`CastEvent.targetPlayerId`
 - `StatusSnapshot.targetPlayerId`
+- 死接口 `TimelineExport`
 
-**同时更新 `src/types/timeline.ts`**：对应类型字段全部删除。
+`src/utils/fflogsImporter.ts` 里这些字段的写入改为局部变量，因为它们仍然在构造 key / DOT 关联 / 交叉验证里需要。
 
-**检索结果保障**：这 9 个字段的读取点在设计阶段已逐个审计，runtime 零引用。详见本文档前述 "非目标" 之后的字段枚举。
+### 内存保留但 V2 不持久化的 3 个字段
+
+这 3 个字段**继续存在于内存 `Timeline` 类型里**（不改类型），但**不进入 V2 格式**，并通过以下策略保证数据可用：
+
+| 字段                           | 内存来源            | V2 处理     | hydrate 策略                                                                   |
+| ------------------------------ | ------------------- | ----------- | ------------------------------------------------------------------------------ |
+| `PlayerDamageDetail.job`       | fflogsImporter 写入 | 不出现在 V2 | 从 `composition.players[detail.playerId].job` 反查填入                         |
+| `DamageEvent.packetId`         | fflogsImporter 写入 | 不出现在 V2 | 保持 `undefined` —— 只有 top100Sync 消费，top100Sync 永远看的是 fresh 内存对象 |
+| `PlayerDamageDetail.abilityId` | fflogsImporter 写入 | 不出现在 V2 | 保持 `undefined` —— 同上                                                       |
+
+**抽象漏洞**：从 V2 hydrate 的 Timeline 里，`DamageEvent.packetId` 和 `PlayerDamageDetail.abilityId` 为 `undefined`。此路径不存在消费方——top100Sync 处理的是 FFLogs import 新鲜产出的内存 Timeline，不是 V2 反序列化的。`hydrateFromV2` 的 JSDoc 会显式标注该边界。
+
+**检索结果保障**：上述字段枚举在实施阶段通过 `top100Sync.ts`、`PlayerDamageDetails.tsx`、`Timeline/index.tsx`、`fflogsImporter.ts` 的完整 grep 审计得出。
 
 **`TableDataRow.tsx:54-60`** 的 `getTankbusterDetail` 简化为：
 
