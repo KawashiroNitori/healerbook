@@ -148,8 +148,8 @@ export function createNewTimeline(
     name,
     encounter: {
       id: encounterIdNum,
-      name: name,
-      displayName: name,
+      name: staticEncounter?.shortName ?? name,
+      displayName: staticEncounter?.name ?? name,
       zone: '',
       damageEvents: [],
     },
