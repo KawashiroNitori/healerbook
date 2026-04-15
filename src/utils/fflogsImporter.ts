@@ -122,6 +122,7 @@ export function parseDamageEvents(
   const detailSkillNames = new Map<PlayerDamageDetail, string>()
   const detailSourceIds = new Map<PlayerDamageDetail, number>()
   const detailPacketIds = new Map<PlayerDamageDetail, number>()
+  const detailSnapshotTimestamps = new Map<PlayerDamageDetail, number>()
 
   for (const event of events) {
     // 追踪 applydebuff 用于 DOT 快照
@@ -173,7 +174,6 @@ export function parseDamageEvents(
         unmitigatedDamage: 0,
         finalDamage: 0,
         statuses: [],
-        snapshotTimestamp: dotInfo?.timestamp,
       }
 
       playerDamageDetails.push(detail)
@@ -181,6 +181,9 @@ export function parseDamageEvents(
       detailSkillNames.set(detail, skillName)
       detailSourceIds.set(detail, event.sourceID || 0)
       detailPacketIds.set(detail, event.packetID)
+      if (dotInfo?.timestamp !== undefined) {
+        detailSnapshotTimestamps.set(detail, dotInfo.timestamp)
+      }
     }
 
     // calculateddamage 仅用于创建 detail，不携带数值字段
@@ -309,9 +312,11 @@ export function parseDamageEvents(
 
     // 伤害属性：DOT 从 applydebuff 的 extraAbilityGameID 获取，否则从自身 abilityId 获取
     let damageType: DamageType
-    const dotInfo = firstDetail.snapshotTimestamp
-      ? dotDebuffMap.get(`${firstDetail.abilityId}-${firstDetail.playerId}`)
-      : undefined
+    const firstSnapshotTimestamp = detailSnapshotTimestamps.get(firstDetail)
+    const dotInfo =
+      firstSnapshotTimestamp !== undefined
+        ? dotDebuffMap.get(`${firstDetail.abilityId}-${firstDetail.playerId}`)
+        : undefined
     if (dotInfo) {
       const sourceAbilityMeta = abilityMap?.get(dotInfo.extraAbilityGameID)
       damageType = detectDamageTypeFromAbility(sourceAbilityMeta?.type ?? 0)
@@ -324,9 +329,10 @@ export function parseDamageEvents(
     const representativeDamage = selectRepresentativeDamage(details, damageType, TANK_JOBS)
 
     // DOT 快照时间（秒）
-    const snapshotTime = firstDetail.snapshotTimestamp
-      ? Math.round((firstDetail.snapshotTimestamp - fightStartTime) / 10) / 100
-      : undefined
+    const snapshotTime =
+      firstSnapshotTimestamp !== undefined
+        ? Math.round((firstSnapshotTimestamp - fightStartTime) / 10) / 100
+        : undefined
 
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
