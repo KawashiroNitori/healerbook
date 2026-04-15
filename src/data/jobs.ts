@@ -87,16 +87,6 @@ export const JOB_METADATA = {
     icon: 'xiv-class_job_024',
     order: 5,
   },
-  SCH: {
-    code: 'SCH',
-    name: '学者',
-    nameEn: 'Scholar',
-    shortName: '学者',
-    initial: '学',
-    role: 'healer',
-    icon: 'xiv-class_job_028',
-    order: 6,
-  },
   AST: {
     code: 'AST',
     name: '占星术士',
@@ -105,7 +95,7 @@ export const JOB_METADATA = {
     initial: '占',
     role: 'healer',
     icon: 'xiv-class_job_033',
-    order: 7,
+    order: 6,
   },
   SGE: {
     code: 'SGE',
@@ -115,6 +105,16 @@ export const JOB_METADATA = {
     initial: '贤',
     role: 'healer',
     icon: 'xiv-class_job_040',
+    order: 7,
+  },
+  SCH: {
+    code: 'SCH',
+    name: '学者',
+    nameEn: 'Scholar',
+    shortName: '学者',
+    initial: '学',
+    role: 'healer',
+    icon: 'xiv-class_job_028',
     order: 8,
   },
 
