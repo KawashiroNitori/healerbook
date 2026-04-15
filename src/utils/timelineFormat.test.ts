@@ -233,8 +233,8 @@ describe('toV2 / hydrateFromV2 (replay mode)', () => {
     expect(detail.statuses).toEqual([{ statusId: 1001 }, { statusId: 1002, absorb: 5000 }])
     // hydrate 时 job 从 composition 反查
     expect(detail.job).toBe('PLD')
-    // abilityId / packetId 在 hydrate 时为默认值
-    expect(detail.abilityId).toBe(0)
+    // abilityId / packetId 在 hydrate 后为 undefined
+    expect(detail.abilityId).toBeUndefined()
     expect(back.damageEvents[0].packetId).toBeUndefined()
   })
 })

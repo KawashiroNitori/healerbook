@@ -238,7 +238,7 @@ export function parseDamageEvents(
   for (const detail of playerDamageDetails) {
     const ts = damageTimestamps.get(detail) ?? detail.timestamp
     const sourceId = detailSourceIds.get(detail) ?? 0
-    const key = `${ts}-${detail.playerId}-${sourceId}-${detail.abilityId}`
+    const key = `${ts}-${detail.playerId}-${sourceId}-${detail.abilityId ?? 0}`
     detailByDamageTs.set(key, detail)
   }
 
@@ -313,15 +313,16 @@ export function parseDamageEvents(
     // 伤害属性：DOT 从 applydebuff 的 extraAbilityGameID 获取，否则从自身 abilityId 获取
     let damageType: DamageType
     const firstSnapshotTimestamp = detailSnapshotTimestamps.get(firstDetail)
+    const firstAbilityId = firstDetail.abilityId ?? 0
     const dotInfo =
       firstSnapshotTimestamp !== undefined
-        ? dotDebuffMap.get(`${firstDetail.abilityId}-${firstDetail.playerId}`)
+        ? dotDebuffMap.get(`${firstAbilityId}-${firstDetail.playerId}`)
         : undefined
     if (dotInfo) {
       const sourceAbilityMeta = abilityMap?.get(dotInfo.extraAbilityGameID)
       damageType = detectDamageTypeFromAbility(sourceAbilityMeta?.type ?? 0)
     } else {
-      const abilityMeta = abilityMap?.get(firstDetail.abilityId)
+      const abilityMeta = abilityMap?.get(firstAbilityId)
       damageType = detectDamageTypeFromAbility(abilityMeta?.type ?? 0)
     }
 
@@ -335,7 +336,7 @@ export function parseDamageEvents(
         : undefined
 
     damageEvents.push({
-      id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
+      id: `event-${firstDetail.timestamp}-${firstAbilityId}`,
       name: detailSkillNames.get(firstDetail) ?? '',
       time: relativeTime,
       damage: representativeDamage,

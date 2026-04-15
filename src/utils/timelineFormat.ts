@@ -211,13 +211,12 @@ function fromV2PlayerDamageDetail(
   d: V2PlayerDamageDetail,
   composition: Composition
 ): PlayerDamageDetail {
-  // job 从 composition 反查；abilityId 留 0 作为 sentinel（非持久化字段）
+  // job 从 composition 反查；abilityId 不持久化，hydrate 后为 undefined
   const job = (composition.players.find(p => p.id === d.p)?.job ?? 'PLD') as Job
   const out: PlayerDamageDetail = {
     timestamp: d.ts,
     playerId: d.p,
     job,
-    abilityId: 0, // hydrate 默认值；top100Sync 不走此路径
     unmitigatedDamage: d.u,
     finalDamage: d.f,
     statuses: d.ss.map(fromV2StatusSnapshot),
@@ -297,7 +296,7 @@ function compositionFromSlots(c: string[]): Composition {
  * 从 V2 持久化格式反序列化为内存 Timeline。
  *
  * 重要边界：从 V2 反序列化的 Timeline 里，`DamageEvent.packetId` 和
- * `PlayerDamageDetail.abilityId` 不被持久化，hydrate 后分别为 `undefined` / `0`。
+ * `PlayerDamageDetail.abilityId` 不被持久化，hydrate 后均为 `undefined`。
  * 此路径不应被 `top100Sync` 消费（top100Sync 总是处理 FFLogs import 新鲜产生的
  * 内存 Timeline，不走 V2 反序列化）。`PlayerDamageDetail.job` 从 composition
  * 反查填入。

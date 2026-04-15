@@ -123,8 +123,8 @@ export interface PlayerDamageDetail {
   playerId: number
   /** 玩家职业（UI 展示 + fflogsImporter.detectDamageType 消费） */
   job: Job
-  /** 伤害技能 ID（top100Sync.slimDamageEvents 通过 [0].abilityId 消费） */
-  abilityId: number
+  /** 可选：FFLogs 导入时写入并由 top100Sync.slimDamageEvents 消费；V2 hydrate 后为 undefined（该路径不被 top100Sync 消费） */
+  abilityId?: number
   /** 原始伤害 */
   unmitigatedDamage: number
   /** 最终伤害 */
