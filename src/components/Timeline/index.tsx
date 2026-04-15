@@ -723,7 +723,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       actionId: track.actionId,
       timestamp: time,
       playerId: track.playerId,
-      job: track.job,
     }
     addCastEvent(castEvent)
   }
@@ -800,7 +799,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         actionId,
         timestamp: time,
         playerId: track.playerId,
-        job: track.job,
       })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

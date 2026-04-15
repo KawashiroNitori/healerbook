@@ -117,6 +117,11 @@ export function parseDamageEvents(
   const playerDamageDetails: PlayerDamageDetail[] = []
   const damageTimestamps = new Map<PlayerDamageDetail, number>()
   const detailByPacketAndTarget = new Map<string, PlayerDamageDetail>()
+  // 以 detail 对象身份为键的并行 Map，记录导入期使用的临时元数据。
+  // PlayerDamageDetail 类型不再持有这些字段，但聚合阶段仍需要它们。
+  const detailSkillNames = new Map<PlayerDamageDetail, string>()
+  const detailSourceIds = new Map<PlayerDamageDetail, number>()
+  const detailPacketIds = new Map<PlayerDamageDetail, number>()
 
   for (const event of events) {
     // 追踪 applydebuff 用于 DOT 快照
@@ -162,12 +167,9 @@ export function parseDamageEvents(
 
       detail = {
         timestamp: event.timestamp,
-        packetId: event.packetID,
-        sourceId: event.sourceID || 0,
         playerId: event.targetID,
         job,
         abilityId,
-        skillName,
         unmitigatedDamage: 0,
         finalDamage: 0,
         statuses: [],
@@ -176,6 +178,9 @@ export function parseDamageEvents(
 
       playerDamageDetails.push(detail)
       detailByPacketAndTarget.set(key, detail)
+      detailSkillNames.set(detail, skillName)
+      detailSourceIds.set(detail, event.sourceID || 0)
+      detailPacketIds.set(detail, event.packetID)
     }
 
     // calculateddamage 仅用于创建 detail，不携带数值字段
@@ -206,7 +211,6 @@ export function parseDamageEvents(
         if (statusMeta) {
           detail.statuses.push({
             statusId,
-            targetPlayerId: event.targetID,
             absorb: undefined,
           })
         }
@@ -230,7 +234,8 @@ export function parseDamageEvents(
   const detailByDamageTs = new Map<string, PlayerDamageDetail>()
   for (const detail of playerDamageDetails) {
     const ts = damageTimestamps.get(detail) ?? detail.timestamp
-    const key = `${ts}-${detail.playerId}-${detail.sourceId}-${detail.abilityId}`
+    const sourceId = detailSourceIds.get(detail) ?? 0
+    const key = `${ts}-${detail.playerId}-${sourceId}-${detail.abilityId}`
     detailByDamageTs.set(key, detail)
   }
 
@@ -270,6 +275,7 @@ export function parseDamageEvents(
     if (processedIndices.has(i)) continue
 
     const baseDetail = playerDamageDetails[i]
+    const baseSkillName = detailSkillNames.get(baseDetail) ?? ''
     const details: PlayerDamageDetail[] = [baseDetail]
     processedIndices.add(i)
 
@@ -284,7 +290,7 @@ export function parseDamageEvents(
       if (timeDiff > TIME_WINDOW) break
 
       // 相同技能名称，合并
-      if (currentDetail.skillName === baseDetail.skillName) {
+      if (detailSkillNames.get(currentDetail) === baseSkillName) {
         details.push(currentDetail)
         processedIndices.add(j)
       }
@@ -324,13 +330,13 @@ export function parseDamageEvents(
 
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstDetail.abilityId}`,
-      name: firstDetail.skillName,
+      name: detailSkillNames.get(firstDetail) ?? '',
       time: relativeTime,
       damage: representativeDamage,
       type: detectDamageType(details, TANK_JOBS),
       damageType,
       playerDamageDetails: details,
-      packetId: firstDetail.packetId,
+      packetId: detailPacketIds.get(firstDetail),
       snapshotTime,
     })
   }
@@ -471,8 +477,6 @@ export function parseCastEvents(
       actionId: effectiveAbilityId,
       timestamp: (event.timestamp - fightStartTime) / 1000,
       playerId: event.sourceID,
-      job,
-      targetPlayerId: event.targetID,
     })
   }
 

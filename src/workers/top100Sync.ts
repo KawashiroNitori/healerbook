@@ -26,12 +26,15 @@ export interface Top100Data {
   updatedAt: string
 }
 
-/** fight-stats 存储用的精简 DamageEvent，剥离 id / 玩家具体目标 / 明细 */
-export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'targetPlayerId' | 'playerDamageDetails'>
+/** fight-stats 存储用的精简 DamageEvent，剥离 id / 明细，并额外附带 abilityId */
+export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'playerDamageDetails'> & {
+  /** 从 playerDamageDetails[0] 提取的技能 ID，供后续 encounter template 聚合使用 */
+  abilityId?: number
+}
 
 /**
  * 将 parseDamageEvents 输出的完整 DamageEvent 精简为存储格式
- * - 丢弃 id / targetPlayerId / playerDamageDetails
+ * - 丢弃 id / playerDamageDetails
  * - 从 playerDamageDetails[0] 提取 abilityId（同 packetId 的 detail 共享 abilityId）
  */
 export function slimDamageEvents(full: DamageEvent[]): StoredDamageEvent[] {
@@ -62,11 +65,14 @@ export interface FightStatistics {
   damageEvents: StoredDamageEvent[]
 }
 
+/** 模板事件：DamageEvent + abilityId（仅模板聚合/过滤内部使用，非持久化字段） */
+export type EncounterTemplateEvent = DamageEvent & { abilityId?: number }
+
 /** 副本模板数据结构（KV 存储） */
 export interface EncounterTemplate {
   encounterId: number
-  /** 完整 DamageEvent（带 id）。targetPlayerId / playerDamageDetails 始终为空 */
-  events: DamageEvent[]
+  /** 完整 DamageEvent（带 id）+ abilityId。playerDamageDetails 始终为空 */
+  events: EncounterTemplateEvent[]
   /** 模板战斗的时长（毫秒），用于覆盖策略比较 */
   templateSourceDurationMs: number
   updatedAt: string
@@ -97,7 +103,7 @@ interface BuildEncounterTemplateInput {
  */
 export function buildEncounterTemplate(
   input: BuildEncounterTemplateInput
-): { events: DamageEvent[]; templateSourceDurationMs: number } | null {
+): { events: EncounterTemplateEvent[]; templateSourceDurationMs: number } | null {
   const { candidates, p50Map, threshold } = input
   if (candidates.length === 0) return null
 
@@ -117,7 +123,7 @@ export function buildEncounterTemplate(
   }
 
   // 过滤 + 组装完整 DamageEvent
-  const events: DamageEvent[] = templateFight.events
+  const events: EncounterTemplateEvent[] = templateFight.events
     .filter(e => (abilityFightCount.get(e.abilityId ?? 0) ?? 0) >= threshold)
     .map(e => ({
       id: generateId(),

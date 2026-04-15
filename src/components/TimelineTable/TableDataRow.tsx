@@ -53,9 +53,6 @@ function formatDamage(n: number | undefined): string {
  */
 function getTankbusterDetail(event: DamageEvent) {
   if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) return undefined
-  if (event.targetPlayerId !== undefined) {
-    return event.playerDamageDetails.find(d => d.playerId === event.targetPlayerId)
-  }
   return event.playerDamageDetails[0]
 }
 

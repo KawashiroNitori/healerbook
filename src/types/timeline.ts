@@ -109,8 +109,6 @@ export interface ShieldInfo {
 export interface StatusSnapshot {
   /** 状态 ID */
   statusId: number
-  /** 目标玩家 ID */
-  targetPlayerId?: number
   /** 盾值（仅盾值类型状态） */
   absorb?: number
 }
@@ -121,18 +119,12 @@ export interface StatusSnapshot {
 export interface PlayerDamageDetail {
   /** 时间戳（毫秒） */
   timestamp: number
-  /** 伤害包 ID */
-  packetId: number
-  /** 攻击者 ID */
-  sourceId: number
   /** 玩家 ID */
   playerId: number
-  /** 玩家职业 */
+  /** 玩家职业（UI 展示 + fflogsImporter.detectDamageType 消费） */
   job: Job
-  /** 伤害技能 ID */
+  /** 伤害技能 ID（top100Sync.slimDamageEvents 通过 [0].abilityId 消费） */
   abilityId: number
-  /** 技能名称 */
-  skillName: string
   /** 原始伤害 */
   unmitigatedDamage: number
   /** 最终伤害 */
@@ -167,16 +159,12 @@ export interface DamageEvent {
   type: DamageEventType
   /** 伤害类型 */
   damageType: DamageType
-  /** 目标玩家 ID（可选，用于单体伤害） */
-  targetPlayerId?: number
   /** 每个玩家的伤害详情 */
   playerDamageDetails?: PlayerDamageDetail[]
-  /** 伤害包 ID（回放模式，用于关联状态快照） */
+  /** 伤害包 ID（top100Sync.slimDamageEvents 消费） */
   packetId?: number
   /** DOT 快照时间（秒）— 百分比减伤以此时刻为准而非 tick 时间 */
   snapshotTime?: number
-  /** 采集/聚合阶段使用的技能 ID，不参与持久化（valibot schema 会自动 strip） */
-  abilityId?: number
 }
 
 /**
@@ -202,10 +190,6 @@ export interface CastEvent {
   timestamp: number
   /** 使用者玩家 ID */
   playerId: number
-  /** 使用者职业 */
-  job: Job
-  /** 目标玩家 ID（可选，用于单体技能） */
-  targetPlayerId?: number
 }
 
 /**
@@ -249,18 +233,6 @@ export interface SyncEvent {
   window: [number, number]
   /** 来自规则表，控制输出行是否带 `once` 关键字 */
   syncOnce: boolean
-}
-
-/**
- * 时间轴导出格式（JSON）
- */
-export interface TimelineExport {
-  /** 版本号 */
-  version: string
-  /** 时间轴数据 */
-  timeline: Timeline
-  /** 导出时间 */
-  exportedAt: string
 }
 
 /**

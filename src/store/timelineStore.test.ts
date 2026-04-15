@@ -180,9 +180,7 @@ describe('undo/redo - temporal 中间件', () => {
     const store = useTimelineStore.getState()
     const timelineWithCast: Timeline = {
       ...mockTimeline,
-      castEvents: [
-        { id: 'cast-1', actionId: 16536, timestamp: 5, playerId: 1, job: 'PLD' as const },
-      ],
+      castEvents: [{ id: 'cast-1', actionId: 16536, timestamp: 5, playerId: 1 }],
     }
     store.setTimeline(timelineWithCast)
 
@@ -201,8 +199,8 @@ describe('undo/redo - temporal 中间件', () => {
     const timelineWithCast: Timeline = {
       ...mockTimeline,
       castEvents: [
-        { id: 'cast-1', actionId: 16536, timestamp: 5, playerId: 1, job: 'PLD' as const },
-        { id: 'cast-2', actionId: 16534, timestamp: 10, playerId: 2, job: 'WHM' as const },
+        { id: 'cast-1', actionId: 16536, timestamp: 5, playerId: 1 },
+        { id: 'cast-2', actionId: 16534, timestamp: 10, playerId: 2 },
       ],
     }
     store.setTimeline(timelineWithCast)

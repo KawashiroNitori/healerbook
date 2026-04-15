@@ -105,7 +105,6 @@ export default function TimelineTableView() {
         actionId: track.actionId,
         timestamp: event.time,
         playerId: track.playerId,
-        job: track.job,
       })
     },
     [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent]

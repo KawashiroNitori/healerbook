@@ -84,7 +84,7 @@ describe('calculatePercentiles', () => {
 })
 
 describe('slimDamageEvents', () => {
-  it('剥离 id / targetPlayerId / playerDamageDetails 并提取 abilityId', () => {
+  it('剥离 id / playerDamageDetails 并提取 abilityId', () => {
     const full: DamageEvent[] = [
       {
         id: 'event-123',
@@ -93,16 +93,12 @@ describe('slimDamageEvents', () => {
         damage: 80000,
         type: 'tankbuster',
         damageType: 'physical',
-        targetPlayerId: 5,
         playerDamageDetails: [
           {
             timestamp: 12345,
-            packetId: 1,
-            sourceId: 99,
             playerId: 5,
             job: 'WAR',
             abilityId: 40000,
-            skillName: '死刑',
             unmitigatedDamage: 80000,
             finalDamage: 40000,
             statuses: [],

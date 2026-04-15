@@ -183,32 +183,17 @@ const CastEventIcon = memo(function CastEventIcon({
       {action ? (
         <SkillIcon iconPath={(displayAction ?? action).icon} isSelected={isSelected} />
       ) : (
-        <>
-          {/* 降级方案 */}
-          <Rect
-            x={0}
-            y={-15}
-            width={30}
-            height={30}
-            fill={isSelected ? '#3b82f6' : '#ef4444'}
-            cornerRadius={4}
-            shadowEnabled={false}
-            perfectDrawEnabled={false}
-          />
-          <Text
-            x={0}
-            y={-8}
-            width={30}
-            text={castEvent.job}
-            fontSize={10}
-            fill="#ffffff"
-            align="center"
-            fontStyle="bold"
-            fontFamily="Arial, sans-serif"
-            perfectDrawEnabled={false}
-            listening={false}
-          />
-        </>
+        // 降级方案：未知 actionId 时显示红色方块
+        <Rect
+          x={0}
+          y={-15}
+          width={30}
+          height={30}
+          fill={isSelected ? '#3b82f6' : '#ef4444'}
+          cornerRadius={4}
+          shadowEnabled={false}
+          perfectDrawEnabled={false}
+        />
       )}
 
       {/* 全宽透明鼠标响应层（覆盖图标 + 持续时间条 + 冷却时间条，仅控制高亮和光标） */}
