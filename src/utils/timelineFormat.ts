@@ -1,0 +1,336 @@
+/**
+ * Timeline 持久化格式转换层。
+ *
+ * 职责：
+ * - toV2 / hydrateFromV2：内存 Timeline ↔ V2
+ * - serializeForServer：POST/PUT 用（不含运行时字段）
+ * - toLocalStored：localStorage 用（V2 + 运行时元数据扁平内联）
+ * - migrateV1ToV2 / parseFromAny：将在下一个 task 中添加
+ *
+ * 设计：design/superpowers/specs/2026-04-16-timeline-format-v2-design.md
+ */
+
+import type {
+  Annotation,
+  CastEvent,
+  Composition,
+  DamageEvent,
+  DamageEventType,
+  DamageType,
+  Job,
+  PlayerDamageDetail,
+  StatusSnapshot,
+  SyncEvent,
+  Timeline,
+} from '@/types/timeline'
+import { MAX_PARTY_SIZE } from '@/types/timeline'
+import type { TimelineStatData } from '@/types/statData'
+import type {
+  V2Annotation,
+  V2CastEvents,
+  V2DamageEvent,
+  V2PlayerDamageDetail,
+  V2StatusSnapshot,
+  V2SyncEvent,
+  V2Timeline,
+} from '@/types/timelineV2'
+import { getEncounterById } from '@/data/raidEncounters'
+import { generateId } from '@/utils/id'
+import { nextShortId, resetIdCounter } from '@/utils/shortId'
+
+// ──────────────────────────────────────────────────────────────
+// 枚举映射
+// ──────────────────────────────────────────────────────────────
+
+const DAMAGE_EVENT_TYPE_TO_NUM: Record<DamageEventType, 0 | 1> = {
+  aoe: 0,
+  tankbuster: 1,
+}
+const NUM_TO_DAMAGE_EVENT_TYPE: readonly DamageEventType[] = ['aoe', 'tankbuster']
+
+const DAMAGE_TYPE_TO_NUM: Record<DamageType, 0 | 1 | 2> = {
+  physical: 0,
+  magical: 1,
+  darkness: 2,
+}
+const NUM_TO_DAMAGE_TYPE: readonly DamageType[] = ['physical', 'magical', 'darkness']
+
+const SYNC_TYPE_TO_NUM: Record<'begincast' | 'cast', 0 | 1> = {
+  begincast: 0,
+  cast: 1,
+}
+const NUM_TO_SYNC_TYPE: readonly ('begincast' | 'cast')[] = ['begincast', 'cast']
+
+// ──────────────────────────────────────────────────────────────
+// 内存 → V2
+// ──────────────────────────────────────────────────────────────
+
+function toV2StatusSnapshot(s: StatusSnapshot): V2StatusSnapshot {
+  const out: V2StatusSnapshot = { s: s.statusId }
+  if (s.absorb !== undefined) out.ab = s.absorb
+  return out
+}
+
+function toV2PlayerDamageDetail(d: PlayerDamageDetail): V2PlayerDamageDetail {
+  // 剥离 job 和 abilityId（内存保留但 V2 不持久化）
+  const out: V2PlayerDamageDetail = {
+    ts: d.timestamp,
+    p: d.playerId,
+    u: d.unmitigatedDamage,
+    f: d.finalDamage,
+    ss: d.statuses.map(toV2StatusSnapshot),
+  }
+  if (d.overkill !== undefined) out.o = d.overkill
+  if (d.multiplier !== undefined) out.m = d.multiplier
+  if (d.hitPoints !== undefined) out.hp = d.hitPoints
+  if (d.maxHitPoints !== undefined) out.mhp = d.maxHitPoints
+  return out
+}
+
+function toV2DamageEvent(e: DamageEvent): V2DamageEvent {
+  // 剥离 packetId（内存保留但 V2 不持久化）
+  const out: V2DamageEvent = {
+    n: e.name,
+    t: e.time,
+    d: e.damage,
+    ty: DAMAGE_EVENT_TYPE_TO_NUM[e.type],
+    dt: DAMAGE_TYPE_TO_NUM[e.damageType],
+  }
+  if (e.snapshotTime !== undefined) out.st = e.snapshotTime
+  if (e.playerDamageDetails && e.playerDamageDetails.length > 0) {
+    out.pdd = e.playerDamageDetails.map(toV2PlayerDamageDetail)
+  }
+  return out
+}
+
+function toV2CastEvents(events: CastEvent[]): V2CastEvents {
+  const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp)
+  return {
+    a: sorted.map(e => e.actionId),
+    t: sorted.map(e => e.timestamp),
+    p: sorted.map(e => e.playerId),
+  }
+}
+
+function toV2Annotation(a: Annotation): V2Annotation {
+  return {
+    x: a.text,
+    t: a.time,
+    k: a.anchor.type === 'damageTrack' ? 0 : [a.anchor.playerId, a.anchor.actionId],
+  }
+}
+
+function toV2SyncEvent(e: SyncEvent): V2SyncEvent {
+  const out: V2SyncEvent = {
+    t: e.time,
+    ty: SYNC_TYPE_TO_NUM[e.type],
+    a: e.actionId,
+    w: e.window,
+  }
+  if (e.actionName) out.nm = e.actionName
+  if (e.syncOnce) out.so = 1
+  return out
+}
+
+function compositionToV2(c: Composition): string[] {
+  const slots = Array<string>(MAX_PARTY_SIZE).fill('')
+  for (const p of c.players) {
+    if (p.id >= 0 && p.id < MAX_PARTY_SIZE) {
+      slots[p.id] = p.job
+    }
+  }
+  // 尾部 truncate
+  let lastNonEmpty = slots.length - 1
+  while (lastNonEmpty >= 0 && slots[lastNonEmpty] === '') lastNonEmpty--
+  return slots.slice(0, lastNonEmpty + 1)
+}
+
+export function toV2(timeline: Timeline): V2Timeline {
+  const out: V2Timeline = {
+    v: 2,
+    n: timeline.name,
+    e: timeline.encounter.id,
+    c: compositionToV2(timeline.composition),
+    de: timeline.damageEvents.map(toV2DamageEvent),
+    ce: toV2CastEvents(timeline.castEvents),
+    ca: timeline.createdAt,
+    ua: timeline.updatedAt,
+  }
+  if (timeline.description !== undefined) out.desc = timeline.description
+  if (timeline.fflogsSource) {
+    out.fs = {
+      rc: timeline.fflogsSource.reportCode,
+      fi: timeline.fflogsSource.fightId,
+    }
+  }
+  if (timeline.gameZoneId !== undefined) out.gz = timeline.gameZoneId
+  const an = (timeline.annotations ?? []).map(toV2Annotation)
+  if (an.length > 0) out.an = an
+  const se = (timeline.syncEvents ?? []).map(toV2SyncEvent)
+  if (se.length > 0) out.se = se
+  if (timeline.isReplayMode) out.r = 1
+  return out
+}
+
+export const serializeForServer = toV2
+
+// ──────────────────────────────────────────────────────────────
+// 本地存储形态
+// ──────────────────────────────────────────────────────────────
+
+export interface LocalStored extends V2Timeline {
+  id: string
+  isShared?: boolean
+  serverVersion?: number
+  hasLocalChanges?: boolean
+  everPublished?: boolean
+  statData?: TimelineStatData
+}
+
+export function toLocalStored(timeline: Timeline): LocalStored {
+  const out: LocalStored = { ...toV2(timeline), id: timeline.id }
+  if (timeline.isShared !== undefined) out.isShared = timeline.isShared
+  if (timeline.serverVersion !== undefined) out.serverVersion = timeline.serverVersion
+  if (timeline.hasLocalChanges !== undefined) out.hasLocalChanges = timeline.hasLocalChanges
+  if (timeline.everPublished !== undefined) out.everPublished = timeline.everPublished
+  if (timeline.statData !== undefined) out.statData = timeline.statData
+  return out
+}
+
+// ──────────────────────────────────────────────────────────────
+// V2 → 内存
+// ──────────────────────────────────────────────────────────────
+
+function fromV2StatusSnapshot(s: V2StatusSnapshot): StatusSnapshot {
+  const out: StatusSnapshot = { statusId: s.s }
+  if (s.ab !== undefined) out.absorb = s.ab
+  return out
+}
+
+function fromV2PlayerDamageDetail(
+  d: V2PlayerDamageDetail,
+  composition: Composition
+): PlayerDamageDetail {
+  // job 从 composition 反查；abilityId 留 0 作为 sentinel（非持久化字段）
+  const job = (composition.players.find(p => p.id === d.p)?.job ?? 'PLD') as Job
+  const out: PlayerDamageDetail = {
+    timestamp: d.ts,
+    playerId: d.p,
+    job,
+    abilityId: 0, // hydrate 默认值；top100Sync 不走此路径
+    unmitigatedDamage: d.u,
+    finalDamage: d.f,
+    statuses: d.ss.map(fromV2StatusSnapshot),
+  }
+  if (d.o !== undefined) out.overkill = d.o
+  if (d.m !== undefined) out.multiplier = d.m
+  if (d.hp !== undefined) out.hitPoints = d.hp
+  if (d.mhp !== undefined) out.maxHitPoints = d.mhp
+  return out
+}
+
+function fromV2DamageEvent(e: V2DamageEvent, composition: Composition): DamageEvent {
+  const out: DamageEvent = {
+    id: nextShortId(),
+    name: e.n,
+    time: e.t,
+    damage: e.d,
+    type: NUM_TO_DAMAGE_EVENT_TYPE[e.ty],
+    damageType: NUM_TO_DAMAGE_TYPE[e.dt],
+  }
+  if (e.st !== undefined) out.snapshotTime = e.st
+  if (e.pdd && e.pdd.length > 0) {
+    out.playerDamageDetails = e.pdd.map(d => fromV2PlayerDamageDetail(d, composition))
+  }
+  // packetId 留 undefined；top100Sync 不走此路径
+  return out
+}
+
+function fromV2CastEvents(ce: V2CastEvents): CastEvent[] {
+  const len = ce.a.length
+  const out: CastEvent[] = new Array(len)
+  for (let i = 0; i < len; i++) {
+    out[i] = {
+      id: nextShortId(),
+      actionId: ce.a[i],
+      timestamp: ce.t[i],
+      playerId: ce.p[i],
+    }
+  }
+  return out
+}
+
+function fromV2Annotation(a: V2Annotation): Annotation {
+  const anchor: Annotation['anchor'] =
+    a.k === 0 ? { type: 'damageTrack' } : { type: 'skillTrack', playerId: a.k[0], actionId: a.k[1] }
+  return {
+    id: nextShortId(),
+    text: a.x,
+    time: a.t,
+    anchor,
+  }
+}
+
+function fromV2SyncEvent(e: V2SyncEvent): SyncEvent {
+  return {
+    time: e.t,
+    type: NUM_TO_SYNC_TYPE[e.ty],
+    actionId: e.a,
+    actionName: e.nm ?? `unknown_${e.a.toString(16)}`,
+    window: e.w,
+    syncOnce: e.so === 1,
+  }
+}
+
+function compositionFromSlots(c: string[]): Composition {
+  const players: Composition['players'] = []
+  for (let i = 0; i < c.length; i++) {
+    const job = c[i]
+    if (job) {
+      players.push({ id: i, job: job as Job })
+    }
+  }
+  return { players }
+}
+
+/**
+ * 从 V2 持久化格式反序列化为内存 Timeline。
+ *
+ * 重要边界：从 V2 反序列化的 Timeline 里，`DamageEvent.packetId` 和
+ * `PlayerDamageDetail.abilityId` 不被持久化，hydrate 后分别为 `undefined` / `0`。
+ * 此路径不应被 `top100Sync` 消费（top100Sync 总是处理 FFLogs import 新鲜产生的
+ * 内存 Timeline，不走 V2 反序列化）。`PlayerDamageDetail.job` 从 composition
+ * 反查填入。
+ */
+export function hydrateFromV2(v2: V2Timeline, overrides: Partial<Timeline> = {}): Timeline {
+  resetIdCounter()
+  const composition = compositionFromSlots(v2.c)
+  const staticEncounter = getEncounterById(v2.e)
+
+  const base: Timeline = {
+    id: overrides.id ?? generateId(),
+    name: v2.n,
+    encounter: {
+      id: v2.e,
+      name: staticEncounter?.shortName ?? v2.n,
+      displayName: staticEncounter?.name ?? v2.n,
+      zone: '',
+      damageEvents: [],
+    },
+    composition,
+    damageEvents: v2.de.map(e => fromV2DamageEvent(e, composition)),
+    castEvents: fromV2CastEvents(v2.ce),
+    statusEvents: [],
+    annotations: v2.an ? v2.an.map(fromV2Annotation) : [],
+    createdAt: v2.ca,
+    updatedAt: v2.ua,
+  }
+
+  if (v2.desc !== undefined) base.description = v2.desc
+  if (v2.fs) base.fflogsSource = { reportCode: v2.fs.rc, fightId: v2.fs.fi }
+  if (v2.gz !== undefined) base.gameZoneId = v2.gz
+  if (v2.se) base.syncEvents = v2.se.map(fromV2SyncEvent)
+  if (v2.r === 1) base.isReplayMode = true
+
+  return { ...base, ...overrides }
+}
