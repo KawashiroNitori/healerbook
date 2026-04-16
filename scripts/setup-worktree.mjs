@@ -137,7 +137,7 @@ console.log();
 
 console.log("🔗 链接环境文件...");
 
-for (const f of [".dev.vars", ".env", ".wrangler"]) {
+for (const f of [".dev.vars", ".env"]) {
   const source = join(MAIN_REPO, f);
   const target = join(WORKTREE, f);
 
@@ -173,6 +173,17 @@ console.log();
 
 console.log("📦 安装依赖...");
 run("pnpm install --prefer-offline", WORKTREE);
+console.log();
+
+// --- 4. 初始化 D1 本地数据库 ---
+
+console.log("🗄️ 初始化 D1 本地数据库...");
+try {
+  run("pnpm exec wrangler d1 migrations apply healerbook_timelines --local", WORKTREE);
+  console.log("  ✅ D1 migrations 已应用");
+} catch {
+  console.log("  ⚠️  D1 migrations 应用失败，可手动执行：pnpm exec wrangler d1 migrations apply healerbook_timelines --local");
+}
 console.log();
 
 console.log("🎉 Worktree 初始化完成！");
