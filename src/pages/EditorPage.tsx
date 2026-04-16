@@ -7,7 +7,7 @@
  *   view   — localStorage 无，API 返回 isAuthor=false：只读查看他人时间轴
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { House, Loader2 } from 'lucide-react'
@@ -102,6 +102,20 @@ export default function EditorPage() {
   useEncounterStatistics(timeline?.encounter?.id)
   const calculationResults = useDamageCalculation(timeline)
 
+  // 离开页面（id 变化或卸载）时清空 store
+  useEffect(() => {
+    return () => {
+      useUIStore.setState({ isReadOnly: false })
+      setTimeline(null)
+    }
+  }, [id, setTimeline])
+
+  // localTimeline 是否已同步到 store（避免 apiData 变化导致重复 setTimeline）
+  const localSyncedRef = useRef(false)
+  useEffect(() => {
+    localSyncedRef.current = false
+  }, [id])
+
   // ── 副作用：将加载结果同步到 store ───────────────────────────────────────
   useEffect(() => {
     if (localTimeline) {
@@ -116,10 +130,14 @@ export default function EditorPage() {
         }
         saveTimeline(updated)
         setTimeline(updated)
-      } else {
+        localSyncedRef.current = true
+      } else if (!localSyncedRef.current) {
         setTimeline(localTimeline)
+        localSyncedRef.current = true
       }
-      return () => setTimeline(null)
+      // 不返回 cleanup：localTimeline 分支不依赖 apiData，
+      // apiData 变化导致的 effect 重跑不应触及 store
+      return
     }
 
     if (!apiData) return
@@ -153,11 +171,6 @@ export default function EditorPage() {
         timelineId: serverTimeline.id,
         encounterId: serverTimeline.encounter?.id,
       })
-    }
-
-    return () => {
-      useUIStore.setState({ isReadOnly: false })
-      setTimeline(null)
     }
   }, [localTimeline, apiData, error, setTimeline])
 

@@ -75,6 +75,9 @@ function rowToSharedTimeline(row: DbRow): SharedTimeline {
   const content = JSON.parse(row.content) as Record<string, unknown>
   return {
     ...content,
+    // handlePost/handlePut 把 n 从 content 中剥离存入结构化列，
+    // 这里补回 V2 短 key，确保 parseFromAny → hydrateFromV2 能正确读取
+    n: row.name,
     id: row.id,
     name: row.name,
     authorId: row.author_id,
@@ -250,13 +253,18 @@ async function handleList(request: Request, env: Env): Promise<Response> {
 
   const items: TimelineListItem[] = result.results.map(r => {
     const content = JSON.parse(r.content) as Record<string, unknown>
+    const slots = content.c as string[] | undefined
     return {
       id: r.id,
       name: r.name,
       publishedAt: r.published_at,
       updatedAt: r.updated_at,
       version: r.version,
-      composition: content.c ?? null,
+      composition: slots
+        ? {
+            players: slots.map((job, i) => ({ id: i, job })).filter(p => p.job !== ''),
+          }
+        : null,
     }
   })
 

@@ -377,8 +377,9 @@ describe('GET /api/timelines/:id', () => {
     // content 中存的是 V2 短键（n 被提取到 D1 name 列，content 中无 n）
     expect(body.timeline.de).toBeDefined()
     expect(body.timeline.ce).toBeDefined()
-    // name 从 D1 列覆盖到 timeline 上
+    // name 从 D1 列覆盖到 timeline 上（长 key + V2 短 key 都存在）
     expect(body.timeline.name).toBe('测试时间轴')
+    expect(body.timeline.n).toBe('测试时间轴')
     expect(body.version).toBe(1)
     expect(body.authorName).toBe('User1')
   })
@@ -409,10 +410,15 @@ describe('GET /api/timelines（列表）', () => {
     expect(body).toEqual([])
   })
 
-  it('只返回该用户的时间轴，按 updated_at 倒序', async () => {
+  it('只返回该用户的时间轴，按 updated_at 倒序，composition 为对象格式', async () => {
+    // content 中的 c 字段是 V2 string[]，handleList 应转为 Composition 对象
+    const contentWithComp = JSON.stringify({
+      ...JSON.parse(makeDbRow().content),
+      c: ['PLD', 'WAR'],
+    })
     const db = makeMockD1([
-      makeDbRow({ id: 'a1', updated_at: 100, author_id: 'user1' }),
-      makeDbRow({ id: 'a2', updated_at: 200, author_id: 'user1' }),
+      makeDbRow({ id: 'a1', updated_at: 100, author_id: 'user1', content: contentWithComp }),
+      makeDbRow({ id: 'a2', updated_at: 200, author_id: 'user1', content: contentWithComp }),
       makeDbRow({ id: 'b1', updated_at: 300, author_id: 'user2' }),
     ])
     const env = makeMockEnv(db)
@@ -431,6 +437,7 @@ describe('GET /api/timelines（列表）', () => {
       publishedAt: number
       updatedAt: number
       version: number
+      composition: unknown
     }>
     expect(body).toHaveLength(2)
     expect(body[0].id).toBe('a2')
@@ -439,6 +446,13 @@ describe('GET /api/timelines（列表）', () => {
       body.every(item => 'publishedAt' in item && 'updatedAt' in item && 'version' in item)
     ).toBe(true)
     expect(body.every(item => !('authorId' in item) && !('content' in item))).toBe(true)
+    // composition 应为 Composition 对象格式，非 V2 的 string[]
+    expect(body[0].composition).toEqual({
+      players: [
+        { id: 0, job: 'PLD' },
+        { id: 1, job: 'WAR' },
+      ],
+    })
   })
 })
 
