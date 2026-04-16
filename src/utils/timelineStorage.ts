@@ -42,14 +42,16 @@ export function getTimeline(id: string): Timeline | null {
     const data = localStorage.getItem(`${STORAGE_KEY}_${id}`)
     if (!data) return null
     const raw = JSON.parse(data)
-    return parseFromAny(raw, {
+    const overrides: Partial<Timeline> = {
       id: raw.id ?? id,
       isShared: raw.isShared,
       serverVersion: raw.serverVersion,
       hasLocalChanges: raw.hasLocalChanges,
       everPublished: raw.everPublished,
-      statData: raw.statData,
-    })
+    }
+    // V1 LocalStored 兼容：旧数据 statData 在顶层而非 sd
+    if (raw.statData !== undefined) overrides.statData = raw.statData
+    return parseFromAny(raw, overrides)
   } catch (error) {
     console.error('Failed to load timeline:', error)
     return null
@@ -100,14 +102,15 @@ export function unpublishTimeline(id: string): void {
     const data = localStorage.getItem(`${STORAGE_KEY}_${id}`)
     if (!data) return
     const raw = JSON.parse(data)
-    const timeline = parseFromAny(raw, {
+    const overrides: Partial<Timeline> = {
       id: raw.id ?? id,
       isShared: raw.isShared,
       serverVersion: raw.serverVersion,
       hasLocalChanges: raw.hasLocalChanges,
       everPublished: raw.everPublished,
-      statData: raw.statData,
-    })
+    }
+    if (raw.statData !== undefined) overrides.statData = raw.statData
+    const timeline = parseFromAny(raw, overrides)
     const updated: Timeline = {
       ...timeline,
       isShared: false,

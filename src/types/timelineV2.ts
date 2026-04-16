@@ -96,6 +96,8 @@ export interface V2SyncEvent {
   so?: 1
 }
 
+import type { TimelineStatData } from './statData'
+
 export interface V2Timeline {
   v: 2
   /** name */
@@ -120,6 +122,8 @@ export interface V2Timeline {
   se?: V2SyncEvent[]
   /** isReplayMode；false 时字段缺席 */
   r?: 1
+  /** statData（技能数值覆盖） */
+  sd?: TimelineStatData
   /** createdAt */
   ca: number
   /** updatedAt */

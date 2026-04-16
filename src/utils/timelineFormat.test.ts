@@ -128,6 +128,32 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     })
   })
 
+  it('statData roundtrip 通过 sd 字段', () => {
+    const tl: Timeline = {
+      ...makeEditorTimeline(),
+      statData: {
+        referenceMaxHP: 100000,
+        shieldByAbility: { 1001: 5000 },
+        critShieldByAbility: { 1001: 7500 },
+        healByAbility: { 2001: 12000 },
+        critHealByAbility: { 2001: 18000 },
+      },
+    }
+    const v2 = toV2(tl)
+    expect(v2.sd).toEqual(tl.statData)
+    const back = hydrateFromV2(v2, { id: 'tl_xxx' })
+    expect(back.statData).toEqual(tl.statData)
+  })
+
+  it('statData 为 undefined 时 sd 不存在', () => {
+    const tl = makeEditorTimeline()
+    expect(tl.statData).toBeUndefined()
+    const v2 = toV2(tl)
+    expect(v2.sd).toBeUndefined()
+    const back = hydrateFromV2(v2, { id: 'tl_xxx' })
+    expect(back.statData).toBeUndefined()
+  })
+
   it('hydrate 时为 DE/CE/Annotation 发号不冲突', () => {
     const tl = makeEditorTimeline()
     const v2 = toV2(tl)
@@ -140,7 +166,7 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('composition 中间空槽在 roundtrip 后保留空位', () => {
+  it('composition playerId 重映射为连续 0..N-1', () => {
     const tl = makeEditorTimeline()
     tl.composition.players = [
       { id: 0, job: 'PLD' },
@@ -148,13 +174,79 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
       { id: 4, job: 'DRG' },
     ]
     const v2 = toV2(tl)
-    expect(v2.c).toEqual(['PLD', '', 'WHM', '', 'DRG'])
+    // remap: 0→0, 2→1, 4→2，无空槽
+    expect(v2.c).toEqual(['PLD', 'WHM', 'DRG'])
     const back = hydrateFromV2(v2, { id: 'tl_xxx' })
     expect(back.composition.players).toEqual([
       { id: 0, job: 'PLD' },
-      { id: 2, job: 'WHM' },
-      { id: 4, job: 'DRG' },
+      { id: 1, job: 'WHM' },
+      { id: 2, job: 'DRG' },
     ])
+  })
+
+  it('FFLogs 大 playerId 重映射后 composition 和 pdd 一致', () => {
+    const tl = makeEditorTimeline()
+    tl.composition.players = [
+      { id: 2, job: 'SAM' },
+      { id: 4, job: 'DRK' },
+      { id: 5, job: 'DNC' },
+      { id: 6, job: 'SCH' },
+      { id: 9, job: 'WHM' },
+      { id: 100, job: 'WAR' },
+      { id: 214, job: 'GNB' },
+      { id: 216, job: 'BRD' },
+    ]
+    tl.damageEvents = [
+      {
+        id: 'e0',
+        name: '暴风破',
+        time: 14,
+        damage: 80000,
+        type: 'aoe',
+        damageType: 'physical',
+        playerDamageDetails: [
+          {
+            timestamp: 1000,
+            playerId: 9,
+            job: 'WHM',
+            unmitigatedDamage: 39000,
+            finalDamage: 0,
+            statuses: [],
+          },
+          {
+            timestamp: 1000,
+            playerId: 100,
+            job: 'WAR',
+            unmitigatedDamage: 80000,
+            finalDamage: 0,
+            statuses: [],
+          },
+          {
+            timestamp: 1000,
+            playerId: 216,
+            job: 'BRD',
+            unmitigatedDamage: 79000,
+            finalDamage: 0,
+            statuses: [],
+          },
+        ],
+      },
+    ]
+    tl.castEvents = [{ id: 'c0', actionId: 7432, timestamp: 5, playerId: 100 }]
+    const v2 = toV2(tl)
+    // remap: 2→0, 4→1, 5→2, 6→3, 9→4, 100→5, 214→6, 216→7
+    expect(v2.c).toEqual(['SAM', 'DRK', 'DNC', 'SCH', 'WHM', 'WAR', 'GNB', 'BRD'])
+    expect(v2.de[0].pdd![0].p).toBe(4) // 9→4
+    expect(v2.de[0].pdd![1].p).toBe(5) // 100→5
+    expect(v2.de[0].pdd![2].p).toBe(7) // 216→7
+    expect(v2.ce.p[0]).toBe(5) // 100→5
+
+    const back = hydrateFromV2(v2, { id: 'tl_xxx' })
+    expect(back.composition.players).toHaveLength(8)
+    expect(back.composition.players[4]).toEqual({ id: 4, job: 'WHM' })
+    expect(back.composition.players[5]).toEqual({ id: 5, job: 'WAR' })
+    expect(back.damageEvents[0].playerDamageDetails![0].playerId).toBe(4)
+    expect(back.damageEvents[0].playerDamageDetails![0].job).toBe('WHM')
   })
 
   it('composition 尾部 truncate 反序列化补足到 8', () => {
@@ -264,6 +356,21 @@ describe('serializeForServer / toLocalStored', () => {
     expect(v2).not.toHaveProperty('hasLocalChanges')
     expect(v2).not.toHaveProperty('everPublished')
     expect(v2).not.toHaveProperty('statData')
+  })
+
+  it('serializeForServer 包含 sd 字段', () => {
+    const tl: Timeline = {
+      ...makeEditorTimeline(),
+      statData: {
+        referenceMaxHP: 80000,
+        shieldByAbility: { 1001: 5000 },
+        critShieldByAbility: {},
+        healByAbility: {},
+        critHealByAbility: {},
+      },
+    }
+    const v2 = serializeForServer(tl)
+    expect(v2.sd).toEqual(tl.statData)
   })
 
   it('toLocalStored 携带运行时字段', () => {

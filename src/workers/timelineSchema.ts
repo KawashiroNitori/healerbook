@@ -71,6 +71,16 @@ const V2FFLogsSourceSchema = v.object({
   fi: v.number(),
 })
 
+const NumberRecordSchema = v.record(v.string(), v.number())
+
+const V2StatDataSchema = v.object({
+  referenceMaxHP: v.optional(v.number()),
+  shieldByAbility: NumberRecordSchema,
+  critShieldByAbility: NumberRecordSchema,
+  healByAbility: NumberRecordSchema,
+  critHealByAbility: NumberRecordSchema,
+})
+
 /**
  * V2 时间轴数据 schema
  */
@@ -86,6 +96,7 @@ export const V2TimelineSchema = v.object({
   ce: V2CastEventsSchema,
   an: v.optional(v.array(V2AnnotationSchema)),
   se: v.optional(v.array(V2SyncEventSchema)),
+  sd: v.optional(V2StatDataSchema),
   r: v.optional(v.literal(1)),
   ca: v.number(),
   ua: v.number(),

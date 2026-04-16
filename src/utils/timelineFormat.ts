@@ -24,7 +24,6 @@ import type {
   Timeline,
 } from '@/types/timeline'
 import { MAX_PARTY_SIZE } from '@/types/timeline'
-import type { TimelineStatData } from '@/types/statData'
 import type {
   V2Annotation,
   V2CastEvents,
@@ -71,11 +70,14 @@ function toV2StatusSnapshot(s: StatusSnapshot): V2StatusSnapshot {
   return out
 }
 
-function toV2PlayerDamageDetail(d: PlayerDamageDetail): V2PlayerDamageDetail {
+function toV2PlayerDamageDetail(
+  d: PlayerDamageDetail,
+  remap: Map<number, number>
+): V2PlayerDamageDetail {
   // 剥离 job 和 abilityId（内存保留但 V2 不持久化）
   const out: V2PlayerDamageDetail = {
     ts: d.timestamp,
-    p: d.playerId,
+    p: remap.get(d.playerId) ?? d.playerId,
     u: d.unmitigatedDamage,
     f: d.finalDamage,
     ss: d.statuses.map(toV2StatusSnapshot),
@@ -87,7 +89,7 @@ function toV2PlayerDamageDetail(d: PlayerDamageDetail): V2PlayerDamageDetail {
   return out
 }
 
-function toV2DamageEvent(e: DamageEvent): V2DamageEvent {
+function toV2DamageEvent(e: DamageEvent, remap: Map<number, number>): V2DamageEvent {
   // 剥离 packetId（内存保留但 V2 不持久化）
   const out: V2DamageEvent = {
     n: e.name,
@@ -98,25 +100,28 @@ function toV2DamageEvent(e: DamageEvent): V2DamageEvent {
   }
   if (e.snapshotTime !== undefined) out.st = e.snapshotTime
   if (e.playerDamageDetails && e.playerDamageDetails.length > 0) {
-    out.pdd = e.playerDamageDetails.map(toV2PlayerDamageDetail)
+    out.pdd = e.playerDamageDetails.map(d => toV2PlayerDamageDetail(d, remap))
   }
   return out
 }
 
-function toV2CastEvents(events: CastEvent[]): V2CastEvents {
+function toV2CastEvents(events: CastEvent[], remap: Map<number, number>): V2CastEvents {
   const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp)
   return {
     a: sorted.map(e => e.actionId),
     t: sorted.map(e => e.timestamp),
-    p: sorted.map(e => e.playerId),
+    p: sorted.map(e => remap.get(e.playerId) ?? e.playerId),
   }
 }
 
-function toV2Annotation(a: Annotation): V2Annotation {
+function toV2Annotation(a: Annotation, remap: Map<number, number>): V2Annotation {
   return {
     x: a.text,
     t: a.time,
-    k: a.anchor.type === 'damageTrack' ? 0 : [a.anchor.playerId, a.anchor.actionId],
+    k:
+      a.anchor.type === 'damageTrack'
+        ? 0
+        : [remap.get(a.anchor.playerId) ?? a.anchor.playerId, a.anchor.actionId],
   }
 }
 
@@ -132,11 +137,23 @@ function toV2SyncEvent(e: SyncEvent): V2SyncEvent {
   return out
 }
 
-function compositionToV2(c: Composition): string[] {
+/**
+ * 构建 playerId 重映射表：原始 id → 0..N-1 连续索引。
+ * 按原始 id 升序排列，确保映射稳定。
+ */
+function buildPlayerIdRemap(c: Composition): Map<number, number> {
+  const sorted = [...c.players].sort((a, b) => a.id - b.id)
+  const remap = new Map<number, number>()
+  sorted.forEach((p, i) => remap.set(p.id, i))
+  return remap
+}
+
+function compositionToV2(c: Composition, remap: Map<number, number>): string[] {
   const slots = Array<string>(MAX_PARTY_SIZE).fill('')
   for (const p of c.players) {
-    if (p.id >= 0 && p.id < MAX_PARTY_SIZE) {
-      slots[p.id] = p.job
+    const idx = remap.get(p.id) ?? p.id
+    if (idx >= 0 && idx < MAX_PARTY_SIZE) {
+      slots[idx] = p.job
     }
   }
   // 尾部 truncate
@@ -146,13 +163,14 @@ function compositionToV2(c: Composition): string[] {
 }
 
 export function toV2(timeline: Timeline): V2Timeline {
+  const remap = buildPlayerIdRemap(timeline.composition)
   const out: V2Timeline = {
     v: 2,
     n: timeline.name,
     e: timeline.encounter.id,
-    c: compositionToV2(timeline.composition),
-    de: timeline.damageEvents.map(toV2DamageEvent),
-    ce: toV2CastEvents(timeline.castEvents),
+    c: compositionToV2(timeline.composition, remap),
+    de: timeline.damageEvents.map(e => toV2DamageEvent(e, remap)),
+    ce: toV2CastEvents(timeline.castEvents, remap),
     ca: timeline.createdAt,
     ua: timeline.updatedAt,
   }
@@ -164,11 +182,12 @@ export function toV2(timeline: Timeline): V2Timeline {
     }
   }
   if (timeline.gameZoneId !== undefined) out.gz = timeline.gameZoneId
-  const an = (timeline.annotations ?? []).map(toV2Annotation)
+  const an = (timeline.annotations ?? []).map(a => toV2Annotation(a, remap))
   if (an.length > 0) out.an = an
   const se = (timeline.syncEvents ?? []).map(toV2SyncEvent)
   if (se.length > 0) out.se = se
   if (timeline.isReplayMode) out.r = 1
+  if (timeline.statData !== undefined) out.sd = timeline.statData
   return out
 }
 
@@ -184,7 +203,6 @@ export interface LocalStored extends V2Timeline {
   serverVersion?: number
   hasLocalChanges?: boolean
   everPublished?: boolean
-  statData?: TimelineStatData
 }
 
 export function toLocalStored(timeline: Timeline): LocalStored {
@@ -193,7 +211,6 @@ export function toLocalStored(timeline: Timeline): LocalStored {
   if (timeline.serverVersion !== undefined) out.serverVersion = timeline.serverVersion
   if (timeline.hasLocalChanges !== undefined) out.hasLocalChanges = timeline.hasLocalChanges
   if (timeline.everPublished !== undefined) out.everPublished = timeline.everPublished
-  if (timeline.statData !== undefined) out.statData = timeline.statData
   return out
 }
 
@@ -330,6 +347,7 @@ export function hydrateFromV2(v2: V2Timeline, overrides: Partial<Timeline> = {})
   if (v2.gz !== undefined) base.gameZoneId = v2.gz
   if (v2.se) base.syncEvents = v2.se.map(fromV2SyncEvent)
   if (v2.r === 1) base.isReplayMode = true
+  if (v2.sd !== undefined) base.statData = v2.sd
 
   return { ...base, ...overrides }
 }

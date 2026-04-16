@@ -181,4 +181,27 @@ describe('timelineSchema V2', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('statData (sd) 可选且保留', () => {
+    const sd = {
+      referenceMaxHP: 80000,
+      shieldByAbility: { '1001': 5000 },
+      critShieldByAbility: {},
+      healByAbility: { '2001': 12000 },
+      critHealByAbility: {},
+    }
+    const result = validateCreateRequest({
+      timeline: { ...MINIMAL_V2, sd },
+    })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect((result.output.timeline as { sd?: unknown }).sd).toEqual(sd)
+  })
+
+  it('statData (sd) 字段类型错误 → 校验失败', () => {
+    const result = validateCreateRequest({
+      timeline: { ...MINIMAL_V2, sd: { shieldByAbility: 'invalid' } },
+    })
+    expect(result.success).toBe(false)
+  })
 })
