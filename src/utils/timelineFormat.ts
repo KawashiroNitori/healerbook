@@ -137,18 +137,23 @@ function toV2SyncEvent(e: SyncEvent): V2SyncEvent {
   return out
 }
 
+/** 最小化 composition 接口，同时兼容 V1（job: string）和内存（job: Job） */
+interface CompositionLike {
+  players: ReadonlyArray<{ id: number; job: string }>
+}
+
 /**
  * 构建 playerId 重映射表：原始 id → 0..N-1 连续索引。
  * 按原始 id 升序排列，确保映射稳定。
  */
-function buildPlayerIdRemap(c: Composition): Map<number, number> {
+function buildPlayerIdRemap(c: CompositionLike): Map<number, number> {
   const sorted = [...c.players].sort((a, b) => a.id - b.id)
   const remap = new Map<number, number>()
   sorted.forEach((p, i) => remap.set(p.id, i))
   return remap
 }
 
-function compositionToV2(c: Composition, remap: Map<number, number>): string[] {
+function compositionToV2(c: CompositionLike, remap: Map<number, number>): string[] {
   const slots = Array<string>(MAX_PARTY_SIZE).fill('')
   for (const p of c.players) {
     const idx = remap.get(p.id) ?? p.id
@@ -450,11 +455,14 @@ function migrateV1StatusSnapshot(s: V1StatusSnapshot): V2StatusSnapshot {
   return out
 }
 
-function migrateV1PlayerDamageDetail(d: V1PlayerDamageDetail): V2PlayerDamageDetail {
+function migrateV1PlayerDamageDetail(
+  d: V1PlayerDamageDetail,
+  remap: Map<number, number>
+): V2PlayerDamageDetail {
   // strip: packetId, sourceId, skillName, job, abilityId
   const out: V2PlayerDamageDetail = {
     ts: d.timestamp,
-    p: d.playerId,
+    p: remap.get(d.playerId) ?? d.playerId,
     u: d.unmitigatedDamage,
     f: d.finalDamage,
     ss: d.statuses.map(migrateV1StatusSnapshot),
@@ -466,7 +474,7 @@ function migrateV1PlayerDamageDetail(d: V1PlayerDamageDetail): V2PlayerDamageDet
   return out
 }
 
-function migrateV1DamageEvent(e: V1DamageEvent): V2DamageEvent {
+function migrateV1DamageEvent(e: V1DamageEvent, remap: Map<number, number>): V2DamageEvent {
   // strip: id, targetPlayerId, packetId
   const out: V2DamageEvent = {
     n: e.name,
@@ -477,16 +485,19 @@ function migrateV1DamageEvent(e: V1DamageEvent): V2DamageEvent {
   }
   if (e.snapshotTime !== undefined) out.st = e.snapshotTime
   if (e.playerDamageDetails && e.playerDamageDetails.length > 0) {
-    out.pdd = e.playerDamageDetails.map(migrateV1PlayerDamageDetail)
+    out.pdd = e.playerDamageDetails.map(d => migrateV1PlayerDamageDetail(d, remap))
   }
   return out
 }
 
-function migrateV1Annotation(a: V1Annotation): V2Annotation {
+function migrateV1Annotation(a: V1Annotation, remap: Map<number, number>): V2Annotation {
   return {
     x: a.text,
     t: a.time,
-    k: a.anchor.type === 'damageTrack' ? 0 : [a.anchor.playerId ?? 0, a.anchor.actionId ?? 0],
+    k:
+      a.anchor.type === 'damageTrack'
+        ? 0
+        : [remap.get(a.anchor.playerId ?? 0) ?? a.anchor.playerId ?? 0, a.anchor.actionId ?? 0],
   }
 }
 
@@ -503,23 +514,17 @@ function migrateV1SyncEvent(e: V1SyncEvent): V2SyncEvent {
 }
 
 export function migrateV1ToV2(v1: V1Timeline): V2Timeline {
-  // composition: reuse compositionToV2-equivalent logic
-  const slots = Array<string>(MAX_PARTY_SIZE).fill('')
-  for (const p of v1.composition.players) {
-    if (p.id >= 0 && p.id < MAX_PARTY_SIZE) {
-      slots[p.id] = p.job
-    }
-  }
-  let lastNonEmpty = slots.length - 1
-  while (lastNonEmpty >= 0 && slots[lastNonEmpty] === '') lastNonEmpty--
-  const c = slots.slice(0, lastNonEmpty + 1)
+  // 构建 playerId 重映射：原始 ID → 0..N-1
+  const remap = buildPlayerIdRemap(v1.composition)
+
+  const c = compositionToV2(v1.composition, remap)
 
   // CE sorted by timestamp
   const sortedCE = [...v1.castEvents].sort((a, b) => a.timestamp - b.timestamp)
   const ce: V2CastEvents = {
     a: sortedCE.map(e => e.actionId),
     t: sortedCE.map(e => e.timestamp),
-    p: sortedCE.map(e => e.playerId),
+    p: sortedCE.map(e => remap.get(e.playerId) ?? e.playerId),
   }
 
   const out: V2Timeline = {
@@ -527,7 +532,7 @@ export function migrateV1ToV2(v1: V1Timeline): V2Timeline {
     n: v1.name,
     e: v1.encounter.id,
     c,
-    de: v1.damageEvents.map(migrateV1DamageEvent),
+    de: v1.damageEvents.map(e => migrateV1DamageEvent(e, remap)),
     ce,
     ca: v1.createdAt,
     ua: v1.updatedAt,
@@ -538,7 +543,7 @@ export function migrateV1ToV2(v1: V1Timeline): V2Timeline {
     out.fs = { rc: v1.fflogsSource.reportCode, fi: v1.fflogsSource.fightId }
   }
   if (v1.gameZoneId !== undefined) out.gz = v1.gameZoneId
-  const an = (v1.annotations ?? []).map(migrateV1Annotation)
+  const an = (v1.annotations ?? []).map(a => migrateV1Annotation(a, remap))
   if (an.length > 0) out.an = an
   const se = (v1.syncEvents ?? []).map(migrateV1SyncEvent)
   if (se.length > 0) out.se = se

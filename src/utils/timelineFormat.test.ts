@@ -574,6 +574,69 @@ describe('migrateV1ToV2', () => {
     // status: targetPlayerId stripped
     expect(pdd.ss).toEqual([{ s: 1001 }, { s: 1002, ab: 5000 }])
   })
+
+  it('V1 大 playerId（FFLogs actor ID）重映射到 0..N-1', () => {
+    const v1 = {
+      ...makeV1EditorTimeline(),
+      composition: {
+        players: [
+          { id: 2, job: 'SGE' },
+          { id: 84, job: 'WHM' },
+          { id: 92, job: 'MCH' },
+          { id: 93, job: 'DRK' },
+          { id: 94, job: 'SAM' },
+          { id: 95, job: 'RDM' },
+          { id: 96, job: 'VPR' },
+          { id: 97, job: 'PLD' },
+        ],
+      },
+      castEvents: [
+        { id: 'ce-1', actionId: 7432, timestamp: 8, playerId: 84, job: 'WHM' },
+        { id: 'ce-2', actionId: 7433, timestamp: 5, playerId: 93, job: 'DRK' },
+      ],
+      damageEvents: [
+        {
+          id: 'de-1',
+          name: '死刑',
+          time: 10,
+          damage: 120000,
+          type: 'tankbuster',
+          damageType: 'physical',
+          playerDamageDetails: [
+            {
+              timestamp: 100,
+              playerId: 97,
+              unmitigatedDamage: 120000,
+              finalDamage: 60000,
+              statuses: [],
+            },
+          ],
+        },
+      ],
+      annotations: [
+        {
+          id: 'an-1',
+          text: 'WHM 礼仪',
+          time: 25,
+          anchor: { type: 'skillTrack', playerId: 84, actionId: 7432 },
+        },
+      ],
+    }
+
+    const v2 = migrateV1ToV2(v1)
+
+    // composition: 8 玩家全部保留，按原始 ID 升序映射到 0..7
+    expect(v2.c).toEqual(['SGE', 'WHM', 'MCH', 'DRK', 'SAM', 'RDM', 'VPR', 'PLD'])
+
+    // castEvents: playerId 84→1, 93→3
+    expect(v2.ce.p).toEqual([3, 1]) // sorted by timestamp: 5(93→3) before 8(84→1)
+
+    // playerDamageDetails: playerId 97→7
+    expect(v2.de[0].pdd![0].p).toBe(7)
+
+    // annotation: playerId 84→1
+    expect(v2.an![0].k).toEqual([1, 7432])
+  })
 })
 
 // ──────────────────────────────────────────────────────────────
