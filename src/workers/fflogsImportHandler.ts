@@ -16,6 +16,7 @@ import { getEncounterWithTier } from '@/data/raidEncounters'
 import type { Timeline } from '@/types/timeline'
 import { createClient, jsonResponse, type Env } from './fflogs-proxy'
 import { generateId } from '@/utils/id'
+import { serializeForServer } from '@/utils/timelineFormat'
 
 export async function handleFFLogsImport(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
@@ -127,7 +128,7 @@ export async function handleFFLogsImport(request: Request, env: Env): Promise<Re
       updatedAt: now,
     }
 
-    return jsonResponse(timeline)
+    return jsonResponse(serializeForServer(timeline))
   } catch (error) {
     console.error('[FFLogs Import] Error:', error)
     return jsonResponse(

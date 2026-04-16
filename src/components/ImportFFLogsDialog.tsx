@@ -18,7 +18,8 @@ import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/com
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
 import { apiClient } from '@/api/apiClient'
-import type { Timeline } from '@/types/timeline'
+import { parseFromAny } from '@/utils/timelineFormat'
+import { generateId } from '@/utils/id'
 
 interface ImportFFLogsDialogProps {
   open: boolean
@@ -95,7 +96,8 @@ export default function ImportFFLogsDialog({
         throw new Error(body.error || `HTTP ${response.status}`)
       }
 
-      const newTimeline = (await response.json()) as Timeline
+      const raw = await response.json()
+      const newTimeline = parseFromAny(raw, { id: generateId() })
       newTimeline.description = `导入自 ${url}`
 
       saveTimeline(newTimeline)

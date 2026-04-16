@@ -9,24 +9,25 @@ import type { FFLogsV1Report } from '../types/fflogs'
 
 interface JsonBody {
   error?: string
-  id?: string
-  name?: string
-  composition?: unknown
-  damageEvents?: unknown
-  castEvents?: unknown
-  statusEvents?: unknown[]
-  syncEvents?: Array<{
-    time: number
-    type: string
-    actionId: number
-    actionName: string
-    window: [number, number]
-    syncOnce: boolean
+  // V2 format fields
+  v?: number
+  n?: string
+  e?: number
+  c?: unknown
+  de?: unknown
+  ce?: unknown
+  se?: Array<{
+    t: number
+    ty: number
+    a: number
+    nm?: string
+    w: [number, number]
+    so?: 1
   }>
-  isReplayMode?: boolean
-  fflogsSource?: { reportCode: string; fightId: number }
-  createdAt?: number
-  updatedAt?: number
+  r?: 1
+  fs?: { rc: string; fi: number }
+  ca?: number
+  ua?: number
 }
 
 // Mock createClient
@@ -176,17 +177,16 @@ describe('handleFFLogsImport', () => {
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
 
-      // 验证关键字段存在
-      expect(timeline.id).toBe('test-id-123')
-      expect(timeline.name).toBeDefined()
-      expect(timeline.composition).toBeDefined()
-      expect(timeline.damageEvents).toBeDefined()
-      expect(timeline.castEvents).toBeDefined()
-      expect(timeline.statusEvents).toEqual([])
-      expect(timeline.isReplayMode).toBe(true)
-      expect(timeline.fflogsSource).toEqual({ reportCode: 'ABC123', fightId: 5 })
-      expect(timeline.createdAt).toBeTypeOf('number')
-      expect(timeline.updatedAt).toBeTypeOf('number')
+      // 验证 V2 格式关键字段
+      expect(timeline.v).toBe(2)
+      expect(timeline.n).toBeDefined()
+      expect(timeline.c).toBeDefined()
+      expect(timeline.de).toBeDefined()
+      expect(timeline.ce).toBeDefined()
+      expect(timeline.r).toBe(1)
+      expect(timeline.fs).toEqual({ rc: 'ABC123', fi: 5 })
+      expect(timeline.ca).toBeTypeOf('number')
+      expect(timeline.ua).toBeTypeOf('number')
 
       // 验证调用参数
       expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'ABC123' })
@@ -206,7 +206,7 @@ describe('handleFFLogsImport', () => {
 
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
-      expect(timeline.fflogsSource!.fightId).toBe(10)
+      expect(timeline.fs!.fi).toBe(10)
     })
 
     it('导入流程产出 syncEvents', async () => {
@@ -231,15 +231,14 @@ describe('handleFFLogsImport', () => {
 
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
-      expect(timeline.syncEvents).toBeDefined()
-      expect(timeline.syncEvents!.length).toBeGreaterThanOrEqual(1)
-      expect(timeline.syncEvents).toContainEqual(
+      expect(timeline.se).toBeDefined()
+      expect(timeline.se!.length).toBeGreaterThanOrEqual(1)
+      expect(timeline.se).toContainEqual(
         expect.objectContaining({
-          actionId: 0xa3da,
-          type: 'begincast',
-          window: [10, 10],
-          syncOnce: false,
-          time: 10,
+          a: 0xa3da,
+          ty: 0, // begincast
+          w: [10, 10],
+          t: 10,
         })
       )
     })
