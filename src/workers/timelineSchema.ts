@@ -1,12 +1,11 @@
 /**
- * 时间轴数据校验 schema（Valibot）
+ * 时间轴数据校验 schema（Valibot）— V2 短键格式
  *
  * 用于 POST/PUT 接口，校验并剥离不在正常时间轴中出现的字段和不正确的类型。
  */
 
 import * as v from 'valibot'
 import { JOB_METADATA } from '@/data/jobs'
-import { DAMAGE_TYPES, DAMAGE_EVENT_TYPES } from '@/types/timeline'
 import {
   TIMELINE_NAME_MAX_LENGTH,
   TIMELINE_DESCRIPTION_MAX_LENGTH,
@@ -14,132 +13,96 @@ import {
   ANNOTATION_TEXT_MAX_LENGTH,
 } from '@/constants/limits'
 
-const JobSchema = v.picklist(Object.keys(JOB_METADATA) as [string, ...string[]])
-
-const DamageTypeSchema = v.picklist(DAMAGE_TYPES)
-
-const StatusSnapshotSchema = v.object({
-  statusId: v.number(),
-  targetPlayerId: v.optional(v.number()),
-  absorb: v.optional(v.number()),
-})
-
-const PlayerDamageDetailSchema = v.object({
-  timestamp: v.number(),
-  packetId: v.number(),
-  sourceId: v.number(),
-  playerId: v.number(),
-  job: JobSchema,
-  abilityId: v.number(),
-  skillName: v.string(),
-  unmitigatedDamage: v.number(),
-  finalDamage: v.number(),
-  overkill: v.optional(v.number()),
-  multiplier: v.optional(v.number()),
-  statuses: v.array(StatusSnapshotSchema),
-  hitPoints: v.optional(v.number()),
-  maxHitPoints: v.optional(v.number()),
-})
-
-const DamageEventSchema = v.object({
-  id: v.string(),
-  name: v.pipe(v.string(), v.maxLength(DAMAGE_EVENT_NAME_MAX_LENGTH)),
-  time: v.number(),
-  damage: v.number(),
-  type: v.picklist(DAMAGE_EVENT_TYPES),
-  damageType: DamageTypeSchema,
-  targetPlayerId: v.optional(v.number()),
-  playerDamageDetails: v.optional(v.array(PlayerDamageDetailSchema)),
-  packetId: v.optional(v.number()),
-})
-
-const CastEventSchema = v.object({
-  id: v.string(),
-  actionId: v.number(),
-  timestamp: v.number(),
-  playerId: v.number(),
-  job: JobSchema,
-  targetPlayerId: v.optional(v.number()),
-})
-
-const CompositionSchema = v.object({
-  players: v.array(
-    v.object({
-      id: v.number(),
-      job: JobSchema,
-    })
-  ),
-})
-
-const EncounterSchema = v.object({
-  id: v.number(),
-  name: v.string(),
-  displayName: v.string(),
-  zone: v.string(),
-  damageEvents: v.array(DamageEventSchema),
-})
-
-const FFLogsSourceSchema = v.object({
-  reportCode: v.string(),
-  fightId: v.number(),
-})
-
-const AnnotationAnchorSchema = v.variant('type', [
-  v.object({ type: v.literal('damageTrack') }),
-  v.object({
-    type: v.literal('skillTrack'),
-    playerId: v.number(),
-    actionId: v.number(),
-  }),
+const JobOrEmptySchema = v.union([
+  v.picklist(Object.keys(JOB_METADATA) as [string, ...string[]]),
+  v.literal(''),
 ])
 
-const AnnotationSchema = v.object({
-  id: v.string(),
-  text: v.pipe(v.string(), v.maxLength(ANNOTATION_TEXT_MAX_LENGTH)),
-  time: v.number(),
-  anchor: AnnotationAnchorSchema,
+const V2StatusSnapshotSchema = v.object({
+  s: v.number(),
+  ab: v.optional(v.number()),
 })
 
-const SyncEventSchema = v.object({
-  time: v.number(),
-  type: v.picklist(['begincast', 'cast']),
-  actionId: v.number(),
-  actionName: v.string(),
-  window: v.tuple([v.number(), v.number()]),
-  syncOnce: v.boolean(),
+const V2PlayerDamageDetailSchema = v.object({
+  ts: v.number(),
+  p: v.number(),
+  u: v.number(),
+  f: v.number(),
+  o: v.optional(v.number()),
+  m: v.optional(v.number()),
+  hp: v.optional(v.number()),
+  mhp: v.optional(v.number()),
+  ss: v.array(V2StatusSnapshotSchema),
+})
+
+const V2DamageEventSchema = v.object({
+  n: v.pipe(v.string(), v.maxLength(DAMAGE_EVENT_NAME_MAX_LENGTH)),
+  t: v.number(),
+  d: v.number(),
+  ty: v.union([v.literal(0), v.literal(1)]),
+  dt: v.union([v.literal(0), v.literal(1), v.literal(2)]),
+  st: v.optional(v.number()),
+  pdd: v.optional(v.array(V2PlayerDamageDetailSchema)),
+})
+
+const V2CastEventsSchema = v.object({
+  a: v.array(v.number()),
+  t: v.array(v.number()),
+  p: v.array(v.number()),
+})
+
+const V2AnnotationSchema = v.object({
+  x: v.pipe(v.string(), v.maxLength(ANNOTATION_TEXT_MAX_LENGTH)),
+  t: v.number(),
+  k: v.union([v.literal(0), v.tuple([v.number(), v.number()])]),
+})
+
+const V2SyncEventSchema = v.object({
+  t: v.number(),
+  ty: v.union([v.literal(0), v.literal(1)]),
+  a: v.number(),
+  nm: v.optional(v.string()),
+  w: v.tuple([v.number(), v.number()]),
+  so: v.optional(v.literal(1)),
+})
+
+const V2FFLogsSourceSchema = v.object({
+  rc: v.string(),
+  fi: v.number(),
 })
 
 /**
- * 时间轴数据 schema
+ * V2 时间轴数据 schema
  */
-export const TimelineSchema = v.object({
-  name: v.pipe(v.string(), v.maxLength(TIMELINE_NAME_MAX_LENGTH)),
-  description: v.optional(v.pipe(v.string(), v.maxLength(TIMELINE_DESCRIPTION_MAX_LENGTH))),
-  fflogsSource: v.optional(FFLogsSourceSchema),
-  gameZoneId: v.optional(v.number()),
-  encounter: EncounterSchema,
-  composition: CompositionSchema,
-  damageEvents: v.array(DamageEventSchema),
-  castEvents: v.array(CastEventSchema),
-  annotations: v.optional(v.array(AnnotationSchema)),
-  syncEvents: v.optional(v.array(SyncEventSchema)),
-  isReplayMode: v.optional(v.boolean()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
+export const V2TimelineSchema = v.object({
+  v: v.literal(2),
+  n: v.pipe(v.string(), v.maxLength(TIMELINE_NAME_MAX_LENGTH)),
+  desc: v.optional(v.pipe(v.string(), v.maxLength(TIMELINE_DESCRIPTION_MAX_LENGTH))),
+  fs: v.optional(V2FFLogsSourceSchema),
+  gz: v.optional(v.number()),
+  e: v.number(),
+  c: v.array(JobOrEmptySchema),
+  de: v.array(V2DamageEventSchema),
+  ce: V2CastEventsSchema,
+  an: v.optional(v.array(V2AnnotationSchema)),
+  se: v.optional(v.array(V2SyncEventSchema)),
+  r: v.optional(v.literal(1)),
+  ca: v.number(),
+  ua: v.number(),
 })
 
 /**
  * POST /api/timelines 请求体 schema
  */
 export const CreateTimelineRequestSchema = v.object({
-  timeline: TimelineSchema,
+  timeline: V2TimelineSchema,
 })
 
 /**
  * PUT /api/timelines/:id 请求体 schema
  */
 export const UpdateTimelineRequestSchema = v.object({
-  timeline: TimelineSchema,
+  timeline: V2TimelineSchema,
   expectedVersion: v.optional(v.number()),
 })
 

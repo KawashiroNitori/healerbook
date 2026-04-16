@@ -108,14 +108,14 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
   const { timeline } = result.output
   const now = Math.floor(Date.now() / 1000)
   const newId = generateId()
-  const { name: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
+  const { n: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
   const content = JSON.stringify(rest)
 
   await env.healerbook_timelines
     .prepare(
       'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(newId, timeline.name, auth.userId, auth.username, now, now, 1, content)
+    .bind(newId, timeline.n, auth.userId, auth.username, now, now, 1, content)
     .run()
 
   return jsonRes({ id: newId, publishedAt: now, version: 1 }, 201, env.ALLOWED_ORIGIN)
@@ -155,8 +155,8 @@ async function handlePut(request: Request, env: Env, id: string): Promise<Respon
   const { timeline, expectedVersion } = validation.output
   const now = Math.floor(Date.now() / 1000)
 
-  const newName = timeline.name ?? row.name
-  const { name: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
+  const newName = timeline.n ?? row.name
+  const { n: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
   const content = JSON.stringify(rest)
 
   let dbResult: { meta: { changes: number } }
@@ -256,7 +256,7 @@ async function handleList(request: Request, env: Env): Promise<Response> {
       publishedAt: r.published_at,
       updatedAt: r.updated_at,
       version: r.version,
-      composition: content.composition ?? null,
+      composition: content.c ?? null,
     }
   })
 
