@@ -49,7 +49,7 @@ export default function EditorPage() {
     else next.delete('view')
     setSearchParams(next, { replace: true })
   }
-  const accessToken = useAuthStore(s => s.accessToken)
+  const isLoggedIn = useAuthStore(s => !!s.accessToken)
   const { timeline, setTimeline, updateTimelineName, updateTimelineDescription } =
     useTimelineStore()
   const mitigationActions = useMitigationStore(s => s.actions)
@@ -71,7 +71,7 @@ export default function EditorPage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['shared-timeline', id, accessToken],
+    queryKey: ['shared-timeline', id, isLoggedIn],
     queryFn: () => fetchSharedTimeline(id!),
     // everPublished 的本地时间轴也查询，以便检测服务端已取消发布的情况
     enabled: !!id && (localTimeline === null || !!localTimeline?.everPublished),
