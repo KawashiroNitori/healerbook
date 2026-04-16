@@ -5,6 +5,7 @@
 import type { Timeline, Composition, DamageEvent } from '@/types/timeline'
 import { generateId } from '@/utils/id'
 import { getEncounterById } from '@/data/raidEncounters'
+import { parseFromAny, toLocalStored } from '@/utils/timelineFormat'
 
 const STORAGE_KEY = 'healerbook_timelines'
 
@@ -40,7 +41,15 @@ export function getTimeline(id: string): Timeline | null {
   try {
     const data = localStorage.getItem(`${STORAGE_KEY}_${id}`)
     if (!data) return null
-    return JSON.parse(data)
+    const raw = JSON.parse(data)
+    return parseFromAny(raw, {
+      id: raw.id ?? id,
+      isShared: raw.isShared,
+      serverVersion: raw.serverVersion,
+      hasLocalChanges: raw.hasLocalChanges,
+      everPublished: raw.everPublished,
+      statData: raw.statData,
+    })
   } catch (error) {
     console.error('Failed to load timeline:', error)
     return null
@@ -52,8 +61,8 @@ export function getTimeline(id: string): Timeline | null {
  */
 export function saveTimeline(timeline: Timeline): void {
   try {
-    // 保存时间轴数据
-    localStorage.setItem(`${STORAGE_KEY}_${timeline.id}`, JSON.stringify(timeline))
+    // 保存时间轴数据（V2 格式）
+    localStorage.setItem(`${STORAGE_KEY}_${timeline.id}`, JSON.stringify(toLocalStored(timeline)))
 
     // 更新元数据列表
     const metadata = getAllTimelineMetadata()
@@ -90,14 +99,22 @@ export function unpublishTimeline(id: string): void {
   try {
     const data = localStorage.getItem(`${STORAGE_KEY}_${id}`)
     if (!data) return
-    const timeline: Timeline = JSON.parse(data)
+    const raw = JSON.parse(data)
+    const timeline = parseFromAny(raw, {
+      id: raw.id ?? id,
+      isShared: raw.isShared,
+      serverVersion: raw.serverVersion,
+      hasLocalChanges: raw.hasLocalChanges,
+      everPublished: raw.everPublished,
+      statData: raw.statData,
+    })
     const updated: Timeline = {
       ...timeline,
       isShared: false,
       hasLocalChanges: false,
       serverVersion: undefined,
     }
-    localStorage.setItem(`${STORAGE_KEY}_${id}`, JSON.stringify(updated))
+    localStorage.setItem(`${STORAGE_KEY}_${id}`, JSON.stringify(toLocalStored(updated)))
 
     // 同步元数据（移除 isShared 标记）
     const metadata = getAllTimelineMetadata()
