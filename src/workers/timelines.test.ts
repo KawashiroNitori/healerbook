@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import * as v from 'valibot'
 import { handleTimelines } from './timelines'
-import { TimelineSchema } from './timelineSchema'
+import { V2TimelineSchema } from './timelineSchema'
 import type { Env } from './fflogs-proxy'
 
 // D1 行结构（对应 timelines 表）
@@ -130,23 +130,23 @@ async function makeAccessToken(userId: string, name: string, secret: string): Pr
 }
 
 const MINIMAL_TIMELINE = {
-  id: 'local123',
-  name: '测试时间轴',
-  encounter: { id: 1001, name: '副本', displayName: '副本', zone: '', damageEvents: [] },
-  composition: { players: [] },
-  damageEvents: [],
-  castEvents: [],
-  createdAt: 1742780000,
-  updatedAt: 1742780000,
+  v: 2 as const,
+  n: '测试时间轴',
+  e: 1001,
+  c: [] as string[],
+  de: [] as unknown[],
+  ce: { a: [] as number[], t: [] as number[], p: [] as number[] },
+  ca: 1742780000,
+  ua: 1742780000,
 }
 
-// 用于预填 D1 mock 的初始行（content 排除 id 和 name，与 buildContent 行为一致）
+// 用于预填 D1 mock 的初始行（content 排除 n，与 handlePost 行为一致）
 function makeDbRow(overrides: Partial<DbRow> = {}): DbRow {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { name, id: _id, ...content } = MINIMAL_TIMELINE
+  const { n: _name, ...content } = MINIMAL_TIMELINE
   return {
     id: 'server123',
-    name,
+    name: MINIMAL_TIMELINE.n,
     author_id: 'user1',
     author_name: 'User1',
     published_at: 1742780000,
@@ -189,28 +189,48 @@ describe('POST /api/timelines', () => {
     expect(typeof body.publishedAt).toBe('number')
   })
 
-  it('请求体缺少 encounter 时返回 400', async () => {
+  it('请求体缺少 e (encounter) 时返回 400', async () => {
     const env = makeMockEnv(makeMockD1())
     const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
 
     const req = new Request('https://example.com/api/timelines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ timeline: { name: '没有 encounter', createdAt: 1742780000 } }),
+      body: JSON.stringify({
+        timeline: {
+          v: 2,
+          n: '没有 encounter',
+          c: [],
+          de: [],
+          ce: { a: [], t: [], p: [] },
+          ca: 1000,
+          ua: 1000,
+        },
+      }),
     })
 
     const res = await handleTimelines(req, env)
     expect(res.status).toBe(400)
   })
 
-  it('请求体缺少 createdAt 时返回 400', async () => {
+  it('请求体缺少 ca (createdAt) 时返回 400', async () => {
     const env = makeMockEnv(makeMockD1())
     const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
 
     const req = new Request('https://example.com/api/timelines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ timeline: { name: '没有 createdAt', encounter: { id: 1 } } }),
+      body: JSON.stringify({
+        timeline: {
+          v: 2,
+          n: '没有 createdAt',
+          e: 1,
+          c: [],
+          de: [],
+          ce: { a: [], t: [], p: [] },
+          ua: 1000,
+        },
+      }),
     })
 
     const res = await handleTimelines(req, env)
@@ -340,7 +360,7 @@ describe('GET /api/timelines/:id', () => {
     expect(body.isAuthor).toBe(true)
   })
 
-  it('GET 返回的 timeline 字段包含 encounter 等内容', async () => {
+  it('GET 返回的 timeline 字段包含 V2 短键内容', async () => {
     const db = makeMockD1([makeDbRow()])
     const env = makeMockEnv(db)
 
@@ -354,8 +374,10 @@ describe('GET /api/timelines/:id', () => {
       version: number
       authorName: string
     }
-    expect(body.timeline.encounter).toBeDefined()
-    expect(body.timeline.damageEvents).toBeDefined()
+    // content 中存的是 V2 短键（n 被提取到 D1 name 列，content 中无 n）
+    expect(body.timeline.de).toBeDefined()
+    expect(body.timeline.ce).toBeDefined()
+    // name 从 D1 列覆盖到 timeline 上
     expect(body.timeline.name).toBe('测试时间轴')
     expect(body.version).toBe(1)
     expect(body.authorName).toBe('User1')
@@ -445,40 +467,38 @@ describe('POST /api/timelines 数据校验', () => {
     expect(res.status).toBe(201)
   })
 
-  it('name 类型错误时返回 400', async () => {
-    const res = await postTimeline({ ...MINIMAL_TIMELINE, name: 12345 })
+  it('n 类型错误时返回 400', async () => {
+    const res = await postTimeline({ ...MINIMAL_TIMELINE, n: 12345 })
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: string; details: string }
     expect(body.error).toBe('Validation failed')
   })
 
-  it('encounter 结构不完整时返回 400', async () => {
-    const res = await postTimeline({ ...MINIMAL_TIMELINE, encounter: { id: 'not-a-number' } })
+  it('e 类型不是 number 时返回 400', async () => {
+    const res = await postTimeline({ ...MINIMAL_TIMELINE, e: 'not-a-number' })
     expect(res.status).toBe(400)
   })
 
-  it('damageEvents 包含无效 type 时返回 400', async () => {
+  it('de 包含无效 ty (type) 时返回 400', async () => {
     const res = await postTimeline({
       ...MINIMAL_TIMELINE,
-      damageEvents: [
-        { id: '1', name: 'test', time: 10, damage: 100, type: 'invalid', damageType: 'physical' },
-      ],
+      de: [{ n: 'test', t: 10, d: 100, ty: 99, dt: 0 }],
     })
     expect(res.status).toBe(400)
   })
 
-  it('castEvents 包含无效 job 时返回 400', async () => {
+  it('ce 结构无效时返回 400', async () => {
     const res = await postTimeline({
       ...MINIMAL_TIMELINE,
-      castEvents: [{ id: '1', actionId: 1, timestamp: 10, playerId: 1, job: 'INVALID_JOB' }],
+      ce: { a: [1], t: [10], p: ['not-a-number'] },
     })
     expect(res.status).toBe(400)
   })
 
-  it('composition.players 包含无效 job 时返回 400', async () => {
+  it('c 包含无效 job 时返回 400', async () => {
     const res = await postTimeline({
       ...MINIMAL_TIMELINE,
-      composition: { players: [{ id: 1, job: 'FAKE' }] },
+      c: ['FAKE'],
     })
     expect(res.status).toBe(400)
   })
@@ -486,52 +506,28 @@ describe('POST /api/timelines 数据校验', () => {
   it('有效的完整数据通过校验', async () => {
     const res = await postTimeline({
       ...MINIMAL_TIMELINE,
-      composition: {
-        players: [
-          { id: 1, job: 'WAR' },
-          { id: 2, job: 'WHM' },
-        ],
-      },
-      damageEvents: [
-        { id: 'd1', name: 'AOE', time: 30, damage: 50000, type: 'aoe', damageType: 'magical' },
-      ],
-      castEvents: [{ id: 'c1', actionId: 100, timestamp: 25, playerId: 2, job: 'WHM' }],
+      c: ['WAR', 'WHM'],
+      de: [{ n: 'AOE', t: 30, d: 50000, ty: 0, dt: 1 }],
+      ce: { a: [100], t: [25], p: [2] },
     })
     expect(res.status).toBe(201)
   })
 
-  it('包含合法 annotations 时通过校验', async () => {
+  it('包含合法 an (annotations) 时通过校验', async () => {
     const res = await postTimeline({
       ...MINIMAL_TIMELINE,
-      annotations: [
-        {
-          id: 'ann1',
-          text: '注意减伤',
-          time: 30,
-          anchor: { type: 'damageTrack' },
-        },
-        {
-          id: 'ann2',
-          text: '铁壁在这里',
-          time: 45,
-          anchor: { type: 'skillTrack', playerId: 1, actionId: 100 },
-        },
+      an: [
+        { x: '注意减伤', t: 30, k: 0 },
+        { x: '铁壁在这里', t: 45, k: [1, 100] },
       ],
     })
     expect(res.status).toBe(201)
   })
 
-  it('annotations 中 text 超过 200 字符时返回 400', async () => {
+  it('an 中 x 超过 200 字符时返回 400', async () => {
     const res = await postTimeline({
       ...MINIMAL_TIMELINE,
-      annotations: [
-        {
-          id: 'ann1',
-          text: 'a'.repeat(201),
-          time: 30,
-          anchor: { type: 'damageTrack' },
-        },
-      ],
+      an: [{ x: 'a'.repeat(201), t: 30, k: 0 }],
     })
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: string }
@@ -568,18 +564,16 @@ describe('PUT /api/timelines/:id 数据校验', () => {
     expect(res.status).toBe(200)
   })
 
-  it('name 类型错误时返回 400', async () => {
-    const res = await putTimeline({ ...MINIMAL_TIMELINE, name: { nested: true } }, 1)
+  it('n 类型错误时返回 400', async () => {
+    const res = await putTimeline({ ...MINIMAL_TIMELINE, n: { nested: true } }, 1)
     expect(res.status).toBe(400)
   })
 
-  it('damageType 值不在枚举中时返回 400', async () => {
+  it('dt 值不在枚举中时返回 400', async () => {
     const res = await putTimeline(
       {
         ...MINIMAL_TIMELINE,
-        damageEvents: [
-          { id: '1', name: 'test', time: 10, damage: 100, type: 'aoe', damageType: 'holy' },
-        ],
+        de: [{ n: 'test', t: 10, d: 100, ty: 0, dt: 99 }],
       },
       1
     )
@@ -587,26 +581,25 @@ describe('PUT /api/timelines/:id 数据校验', () => {
   })
 })
 
-describe('TimelineSchema — abilityId strip 回归', () => {
-  it('parse 时 DamageEvent.abilityId 应被自动忽略（不写入 D1）', () => {
+describe('V2TimelineSchema — 多余字段 strip 回归', () => {
+  it('parse 时 DamageEvent 中的多余字段应被自动忽略（不写入 D1）', () => {
     const payload = {
       ...MINIMAL_TIMELINE,
-      damageEvents: [
+      de: [
         {
-          id: 'e1',
-          name: '死刑',
-          time: 10,
-          damage: 80000,
-          type: 'tankbuster',
-          damageType: 'physical',
+          n: '死刑',
+          t: 10,
+          d: 80000,
+          ty: 1 as const,
+          dt: 0 as const,
           abilityId: 40000, // 未在 schema 中声明
         },
       ],
     }
 
-    const parsed = v.parse(TimelineSchema, payload)
-    const eventOut = parsed.damageEvents[0] as Record<string, unknown>
-    expect(eventOut.id).toBe('e1')
+    const parsed = v.parse(V2TimelineSchema, payload)
+    const eventOut = parsed.de[0] as Record<string, unknown>
+    expect(eventOut.n).toBe('死刑')
     expect(eventOut.abilityId).toBeUndefined()
   })
 })
