@@ -5,25 +5,10 @@
 import { HTTPError } from 'ky'
 import { apiClient } from './apiClient'
 import type { Timeline, Composition } from '@/types/timeline'
-
-// 上传到服务器的字段（白名单）
-export interface UploadPayload {
-  id: string
-  name: string
-  description?: string
-  fflogsSource?: Timeline['fflogsSource']
-  encounter: Timeline['encounter']
-  composition: Timeline['composition']
-  damageEvents: Timeline['damageEvents']
-  castEvents: Timeline['castEvents']
-  annotations?: Timeline['annotations']
-  isReplayMode?: boolean
-  createdAt: number
-  updatedAt: number
-}
+import { parseFromAny, serializeForServer } from '@/utils/timelineFormat'
 
 export interface SharedTimelineResponse {
-  timeline: UploadPayload
+  timeline: Timeline
   authorName: string
   publishedAt: number
   version: number
@@ -48,30 +33,13 @@ export interface ConflictError {
   serverUpdatedAt: number
 }
 
-function buildPayload(timeline: Timeline): UploadPayload {
-  return {
-    id: timeline.id,
-    name: timeline.name,
-    ...(timeline.description !== undefined && { description: timeline.description }),
-    ...(timeline.fflogsSource !== undefined && { fflogsSource: timeline.fflogsSource }),
-    encounter: timeline.encounter,
-    composition: timeline.composition,
-    damageEvents: timeline.damageEvents,
-    castEvents: timeline.castEvents,
-    ...(timeline.annotations?.length ? { annotations: timeline.annotations } : {}),
-    ...(timeline.isReplayMode !== undefined && { isReplayMode: timeline.isReplayMode }),
-    createdAt: timeline.createdAt,
-    updatedAt: timeline.updatedAt,
-  }
-}
-
 /**
  * 首次发布时间轴
  */
 export async function publishTimeline(timeline: Timeline): Promise<PublishResult> {
   try {
     return await apiClient
-      .post('timelines', { json: { timeline: buildPayload(timeline) } })
+      .post('timelines', { json: { timeline: serializeForServer(timeline) } })
       .json<PublishResult>()
   } catch (err) {
     if (err instanceof HTTPError) {
@@ -92,7 +60,7 @@ export async function updateTimeline(
   expectedVersion?: number
 ): Promise<UpdateResult | ConflictError> {
   const payload = {
-    timeline: buildPayload(timeline),
+    timeline: serializeForServer(timeline),
     ...(expectedVersion !== undefined ? { expectedVersion } : {}),
   }
 
@@ -151,13 +119,28 @@ export async function deleteSharedTimeline(id: string): Promise<void> {
   }
 }
 
+interface RawSharedTimelineResponse {
+  timeline: unknown // raw JSON — may be V1 or V2
+  authorName: string
+  publishedAt: number
+  version: number
+  isAuthor: boolean
+}
+
 /**
  * 获取共享的时间轴（公开）
  * 若已登录，Worker 会根据 Authorization 头计算 isAuthor
  */
 export async function fetchSharedTimeline(id: string): Promise<SharedTimelineResponse> {
   try {
-    return await apiClient.get(`timelines/${id}`).json<SharedTimelineResponse>()
+    const raw = await apiClient.get(`timelines/${id}`).json<RawSharedTimelineResponse>()
+    return {
+      timeline: parseFromAny(raw.timeline, { id }),
+      authorName: raw.authorName,
+      publishedAt: raw.publishedAt,
+      version: raw.version,
+      isAuthor: raw.isAuthor,
+    }
   } catch (err) {
     if (err instanceof HTTPError && err.response.status === 404) {
       throw new Error('NOT_FOUND')
