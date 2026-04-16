@@ -5,7 +5,7 @@
  * - toV2 / hydrateFromV2：内存 Timeline ↔ V2
  * - serializeForServer：POST/PUT 用（不含运行时字段）
  * - toLocalStored：localStorage 用（V2 + 运行时元数据扁平内联）
- * - migrateV1ToV2 / parseFromAny：将在下一个 task 中添加
+ * - migrateV1ToV2 / parseFromAny：V1 遗留格式迁移 + 统一入站入口
  *
  * 设计：design/superpowers/specs/2026-04-16-timeline-format-v2-design.md
  */
@@ -332,4 +332,214 @@ export function hydrateFromV2(v2: V2Timeline, overrides: Partial<Timeline> = {})
   if (v2.r === 1) base.isReplayMode = true
 
   return { ...base, ...overrides }
+}
+
+// ──────────────────────────────────────────────────────────────
+// V1 遗留类型
+// TODO(v2-sunset): remove after D1 bulk migration
+// ──────────────────────────────────────────────────────────────
+
+interface V1StatusSnapshot {
+  statusId: number
+  targetPlayerId?: number
+  absorb?: number
+}
+interface V1PlayerDamageDetail {
+  timestamp: number
+  packetId?: number
+  sourceId?: number
+  playerId: number
+  job?: string
+  abilityId?: number
+  skillName?: string
+  unmitigatedDamage: number
+  finalDamage: number
+  overkill?: number
+  multiplier?: number
+  statuses: V1StatusSnapshot[]
+  hitPoints?: number
+  maxHitPoints?: number
+  snapshotTimestamp?: number
+}
+interface V1DamageEvent {
+  id?: string
+  name: string
+  time: number
+  damage: number
+  type: string // V1 data may have any value
+  damageType: string // V1 data may have any value
+  targetPlayerId?: number
+  playerDamageDetails?: V1PlayerDamageDetail[]
+  packetId?: number
+  snapshotTime?: number
+}
+interface V1CastEvent {
+  id?: string
+  actionId: number
+  timestamp: number
+  playerId: number
+  job?: string
+  targetPlayerId?: number
+}
+interface V1Annotation {
+  id?: string
+  text: string
+  time: number
+  anchor: { type: string; playerId?: number; actionId?: number }
+}
+interface V1SyncEvent {
+  time: number
+  type: string
+  actionId: number
+  actionName: string
+  window: [number, number]
+  syncOnce: boolean
+}
+interface V1Composition {
+  players: Array<{ id: number; job: string }>
+}
+interface V1Encounter {
+  id: number
+  name?: string
+  displayName?: string
+  zone?: string
+  damageEvents?: unknown[]
+}
+interface V1Timeline {
+  name: string
+  description?: string
+  fflogsSource?: { reportCode: string; fightId: number }
+  gameZoneId?: number
+  encounter: V1Encounter
+  composition: V1Composition
+  damageEvents: V1DamageEvent[]
+  castEvents: V1CastEvent[]
+  annotations?: V1Annotation[]
+  syncEvents?: V1SyncEvent[]
+  isReplayMode?: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+// ──────────────────────────────────────────────────────────────
+// V1 → V2 迁移
+// ──────────────────────────────────────────────────────────────
+
+function migrateV1StatusSnapshot(s: V1StatusSnapshot): V2StatusSnapshot {
+  const out: V2StatusSnapshot = { s: s.statusId }
+  if (s.absorb !== undefined) out.ab = s.absorb
+  // strip targetPlayerId
+  return out
+}
+
+function migrateV1PlayerDamageDetail(d: V1PlayerDamageDetail): V2PlayerDamageDetail {
+  // strip: packetId, sourceId, skillName, job, abilityId
+  const out: V2PlayerDamageDetail = {
+    ts: d.timestamp,
+    p: d.playerId,
+    u: d.unmitigatedDamage,
+    f: d.finalDamage,
+    ss: d.statuses.map(migrateV1StatusSnapshot),
+  }
+  if (d.overkill !== undefined) out.o = d.overkill
+  if (d.multiplier !== undefined) out.m = d.multiplier
+  if (d.hitPoints !== undefined) out.hp = d.hitPoints
+  if (d.maxHitPoints !== undefined) out.mhp = d.maxHitPoints
+  return out
+}
+
+function migrateV1DamageEvent(e: V1DamageEvent): V2DamageEvent {
+  // strip: id, targetPlayerId, packetId
+  const out: V2DamageEvent = {
+    n: e.name,
+    t: e.time,
+    d: e.damage,
+    ty: DAMAGE_EVENT_TYPE_TO_NUM[e.type as DamageEventType] ?? 0,
+    dt: DAMAGE_TYPE_TO_NUM[e.damageType as DamageType] ?? 0,
+  }
+  if (e.snapshotTime !== undefined) out.st = e.snapshotTime
+  if (e.playerDamageDetails && e.playerDamageDetails.length > 0) {
+    out.pdd = e.playerDamageDetails.map(migrateV1PlayerDamageDetail)
+  }
+  return out
+}
+
+function migrateV1Annotation(a: V1Annotation): V2Annotation {
+  return {
+    x: a.text,
+    t: a.time,
+    k: a.anchor.type === 'damageTrack' ? 0 : [a.anchor.playerId ?? 0, a.anchor.actionId ?? 0],
+  }
+}
+
+function migrateV1SyncEvent(e: V1SyncEvent): V2SyncEvent {
+  const out: V2SyncEvent = {
+    t: e.time,
+    ty: SYNC_TYPE_TO_NUM[e.type as 'begincast' | 'cast'] ?? 0,
+    a: e.actionId,
+    w: e.window,
+  }
+  if (e.actionName) out.nm = e.actionName
+  if (e.syncOnce) out.so = 1
+  return out
+}
+
+export function migrateV1ToV2(v1: V1Timeline): V2Timeline {
+  // composition: reuse compositionToV2-equivalent logic
+  const slots = Array<string>(MAX_PARTY_SIZE).fill('')
+  for (const p of v1.composition.players) {
+    if (p.id >= 0 && p.id < MAX_PARTY_SIZE) {
+      slots[p.id] = p.job
+    }
+  }
+  let lastNonEmpty = slots.length - 1
+  while (lastNonEmpty >= 0 && slots[lastNonEmpty] === '') lastNonEmpty--
+  const c = slots.slice(0, lastNonEmpty + 1)
+
+  // CE sorted by timestamp
+  const sortedCE = [...v1.castEvents].sort((a, b) => a.timestamp - b.timestamp)
+  const ce: V2CastEvents = {
+    a: sortedCE.map(e => e.actionId),
+    t: sortedCE.map(e => e.timestamp),
+    p: sortedCE.map(e => e.playerId),
+  }
+
+  const out: V2Timeline = {
+    v: 2,
+    n: v1.name,
+    e: v1.encounter.id,
+    c,
+    de: v1.damageEvents.map(migrateV1DamageEvent),
+    ce,
+    ca: v1.createdAt,
+    ua: v1.updatedAt,
+  }
+
+  if (v1.description !== undefined) out.desc = v1.description
+  if (v1.fflogsSource) {
+    out.fs = { rc: v1.fflogsSource.reportCode, fi: v1.fflogsSource.fightId }
+  }
+  if (v1.gameZoneId !== undefined) out.gz = v1.gameZoneId
+  const an = (v1.annotations ?? []).map(migrateV1Annotation)
+  if (an.length > 0) out.an = an
+  const se = (v1.syncEvents ?? []).map(migrateV1SyncEvent)
+  if (se.length > 0) out.se = se
+  if (v1.isReplayMode) out.r = 1
+
+  return out
+}
+
+// ──────────────────────────────────────────────────────────────
+// 统一入站入口
+// ──────────────────────────────────────────────────────────────
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+export function parseFromAny(raw: unknown, overrides: Partial<Timeline> = {}): Timeline {
+  if (!isPlainObject(raw)) throw new Error('Invalid timeline: not a plain object')
+  const v2 =
+    raw.v === 2 ? (raw as unknown as V2Timeline) : migrateV1ToV2(raw as unknown as V1Timeline)
+  return hydrateFromV2(v2, overrides)
 }
