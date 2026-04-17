@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Info } from 'lucide-react'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
 import {
@@ -319,12 +319,15 @@ export default function ImportFFLogsDialog({
             {validationError && <p className="text-xs text-destructive mt-1">{validationError}</p>}
 
             {duplicate && (
-              <div className="flex items-center gap-2 text-xs mt-1">
-                <span className="text-muted-foreground">该战斗记录已经导入过</span>
+              <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-3 py-2 mt-2">
+                <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                  该战斗记录已经导入过
+                </p>
                 <button
                   type="button"
                   onClick={() => window.open(`/timeline/${duplicate.id}`, '_blank')}
-                  className="text-primary hover:underline"
+                  className="ml-auto text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
                 >
                   查看
                 </button>
