@@ -362,8 +362,9 @@ export default function Top100Section() {
   const [refreshTick, setRefreshTick] = useState(0)
 
   const importedSources = useMemo(() => {
+    void refreshTick // 作为重建信号：bump 即失效
     return new Set(buildFFLogsSourceIndex().keys())
-  }, [refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps -- refreshTick 用于强制重建索引
+  }, [refreshTick])
 
   // 从 LocalStorage 读取已选职业
   const [selectedJobs, setSelectedJobs] = useState<Job[]>(() => {
