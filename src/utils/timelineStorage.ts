@@ -152,6 +152,31 @@ export function deleteTimeline(id: string): void {
 }
 
 /**
+ * 构建 FFLogs 来源索引
+ *
+ * 遍历本地所有时间轴，提取带 fflogsSource 的条目，按 `${reportCode}:${fightId}` 聚合。
+ * 相同 key 有多条时保留 updatedAt 最大的一条。
+ * 损坏或读取失败的条目静默跳过。
+ */
+export function buildFFLogsSourceIndex(): Map<string, TimelineMetadata> {
+  const index = new Map<string, TimelineMetadata>()
+  const metadataList = getAllTimelineMetadata()
+
+  for (const metadata of metadataList) {
+    const timeline = getTimeline(metadata.id)
+    if (!timeline?.fflogsSource) continue
+
+    const key = `${timeline.fflogsSource.reportCode}:${timeline.fflogsSource.fightId}`
+    const existing = index.get(key)
+    if (!existing || metadata.updatedAt > existing.updatedAt) {
+      index.set(key, metadata)
+    }
+  }
+
+  return index
+}
+
+/**
  * 创建新时间轴
  */
 export function createNewTimeline(
