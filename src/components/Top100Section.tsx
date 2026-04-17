@@ -266,27 +266,36 @@ function EncounterTable({
                           {entry.rank}
                         </td>
                         <td className="px-3 py-2">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <JobIcon job={JOB_MAP[entry.jobClass] as Job} size="sm" />
-                              <span className="font-medium text-sm">{entry.characterName}</span>
-                              {entry.serverName && (
-                                <span className="text-xs text-muted-foreground">
-                                  <Server className="w-3 h-3 inline mr-0.5" />
-                                  {entry.serverName}
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <JobIcon job={JOB_MAP[entry.jobClass] as Job} size="sm" />
+                                <span className="font-medium text-sm">{entry.characterName}</span>
+                                {entry.serverName && (
+                                  <span className="text-xs text-muted-foreground">
+                                    <Server className="w-3 h-3 inline mr-0.5" />
+                                    {entry.serverName}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <JobIcon job={JOB_MAP[entry.jobClassTwo] as Job} size="sm" />
+                                <span className="font-medium text-sm">
+                                  {entry.characterNameTwo}
                                 </span>
-                              )}
+                                {entry.serverNameTwo && (
+                                  <span className="text-xs text-muted-foreground">
+                                    <Server className="w-3 h-3 inline mr-0.5" />
+                                    {entry.serverNameTwo}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <JobIcon job={JOB_MAP[entry.jobClassTwo] as Job} size="sm" />
-                              <span className="font-medium text-sm">{entry.characterNameTwo}</span>
-                              {entry.serverNameTwo && (
-                                <span className="text-xs text-muted-foreground">
-                                  <Server className="w-3 h-3 inline mr-0.5" />
-                                  {entry.serverNameTwo}
-                                </span>
-                              )}
-                            </div>
+                            {importedSources.has(`${entry.reportCode}:${entry.fightID}`) && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                已导入
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2 align-middle">
@@ -307,26 +316,19 @@ function EncounterTable({
                           {formatDuration(entry.duration)}
                         </td>
                         <td className="text-center px-3 py-2 align-middle">
-                          <div className="inline-flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                track('top100-import', {
-                                  encounterId: encounter.id,
-                                  rank: entry.rank,
-                                  filtered: isFiltered,
-                                })
-                                onImport(buildFFLogsUrl(entry.reportCode, entry.fightID))
-                              }}
-                              className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
-                            >
-                              导入
-                            </button>
-                            {importedSources.has(`${entry.reportCode}:${entry.fightID}`) && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                已导入
-                              </span>
-                            )}
-                          </div>
+                          <button
+                            onClick={() => {
+                              track('top100-import', {
+                                encounterId: encounter.id,
+                                rank: entry.rank,
+                                filtered: isFiltered,
+                              })
+                              onImport(buildFFLogsUrl(entry.reportCode, entry.fightID))
+                            }}
+                            className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
+                          >
+                            导入
+                          </button>
                         </td>
                       </tr>
                     ))}
