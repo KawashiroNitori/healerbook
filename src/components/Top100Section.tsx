@@ -4,7 +4,7 @@
  * 从 Worker API 获取各副本的 TOP100 治疗排行，展示在首页
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Clock, RefreshCw, ChevronDown, ChevronRight, Server, Filter, Eraser } from 'lucide-react'
 import { RAID_TIERS, type RaidEncounter } from '@/data/raidEncounters'
@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Job } from '@/types/timeline'
 import { track } from '@/utils/analytics'
+import { buildFFLogsSourceIndex } from '@/utils/timelineStorage'
 import { getTankJobs, getHealerJobs, getDPSJobs, getJobRole, getJobName } from '@/data/jobs'
 
 // ---- 类型定义 ----
@@ -188,12 +189,14 @@ function EncounterTable({
   data,
   filterMitigationKey,
   isFiltered,
+  importedSources,
   onImport,
 }: {
   encounter: RaidEncounter
   data: Top100Data | null | undefined
   filterMitigationKey: number[] | null
   isFiltered: boolean
+  importedSources: Set<string>
   onImport: (url: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -304,19 +307,26 @@ function EncounterTable({
                           {formatDuration(entry.duration)}
                         </td>
                         <td className="text-center px-3 py-2 align-middle">
-                          <button
-                            onClick={() => {
-                              track('top100-import', {
-                                encounterId: encounter.id,
-                                rank: entry.rank,
-                                filtered: isFiltered,
-                              })
-                              onImport(buildFFLogsUrl(entry.reportCode, entry.fightID))
-                            }}
-                            className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
-                          >
-                            导入
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                track('top100-import', {
+                                  encounterId: encounter.id,
+                                  rank: entry.rank,
+                                  filtered: isFiltered,
+                                })
+                                onImport(buildFFLogsUrl(entry.reportCode, entry.fightID))
+                              }}
+                              className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
+                            >
+                              导入
+                            </button>
+                            {importedSources.has(`${entry.reportCode}:${entry.fightID}`) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                已导入
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -349,6 +359,11 @@ function EncounterTable({
 export default function Top100Section() {
   const [importUrl, setImportUrl] = useState<string | null>(null)
   const [activeTierIdx, setActiveTierIdx] = useState(RAID_TIERS.length - 1) // 默认最新赛季
+  const [refreshTick, setRefreshTick] = useState(0)
+
+  const importedSources = useMemo(() => {
+    return new Set(buildFFLogsSourceIndex().keys())
+  }, [refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps -- refreshTick 用于强制重建索引
 
   // 从 LocalStorage 读取已选职业
   const [selectedJobs, setSelectedJobs] = useState<Job[]>(() => {
@@ -460,6 +475,7 @@ export default function Top100Section() {
               data={data?.[encounter.id]}
               filterMitigationKey={filterMitigationKey}
               isFiltered={filterMitigationKey !== null}
+              importedSources={importedSources}
               onImport={setImportUrl}
             />
           ))}
@@ -472,7 +488,10 @@ export default function Top100Section() {
           open={true}
           initialUrl={importUrl}
           onClose={() => setImportUrl(null)}
-          onImported={() => setImportUrl(null)}
+          onImported={() => {
+            setImportUrl(null)
+            setRefreshTick(t => t + 1)
+          }}
         />
       )}
     </section>
