@@ -2,7 +2,7 @@
  * FFLogs 导入对话框
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createFFLogsClient } from '@/api/fflogsClient'
@@ -13,7 +13,7 @@ import {
   parseSyncEvents,
   findFirstDamageTimestamp,
 } from '@/utils/fflogsImporter'
-import { createNewTimeline, saveTimeline } from '@/utils/timelineStorage'
+import { createNewTimeline, saveTimeline, buildFFLogsSourceIndex } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
@@ -45,6 +45,15 @@ export default function ImportFFLogsDialog({
   const parsed = url ? parseFFLogsUrl(url) : null
   const isValid = !!parsed?.reportCode
   const validationError = url && !isValid ? '无法识别 FFLogs 链接，请检查 URL 格式' : ''
+
+  // 查找本地是否已导入相同 reportCode+fightId 的时间轴
+  const duplicate = useMemo(() => {
+    if (!parsed?.reportCode || parsed.isLastFight || parsed.fightId == null) {
+      return null
+    }
+    const index = buildFFLogsSourceIndex()
+    return index.get(`${parsed.reportCode}:${parsed.fightId}`) ?? null
+  }, [parsed?.reportCode, parsed?.fightId, parsed?.isLastFight])
 
   // 自动聚焦输入框并检测剪贴板
   useEffect(() => {
@@ -308,6 +317,19 @@ export default function ImportFFLogsDialog({
             <p className="text-xs text-muted-foreground mt-1">粘贴 FFLogs 战斗链接或报告代码</p>
 
             {validationError && <p className="text-xs text-destructive mt-1">{validationError}</p>}
+
+            {duplicate && (
+              <div className="flex items-center gap-2 text-xs mt-1">
+                <span className="text-muted-foreground">该战斗记录已经导入过</span>
+                <button
+                  type="button"
+                  onClick={() => window.open(`/timeline/${duplicate.id}`, '_blank')}
+                  className="text-primary hover:underline"
+                >
+                  查看
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (
