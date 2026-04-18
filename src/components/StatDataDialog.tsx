@@ -11,6 +11,7 @@ import { ChevronDown } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
 import JobIcon from '@/components/JobIcon'
@@ -104,10 +105,12 @@ function NumberInput({
   value,
   placeholder,
   onChange,
+  disabled = false,
 }: {
   value: number | undefined
   placeholder: string
   onChange: (value: number | undefined) => void
+  disabled?: boolean
 }) {
   const [text, setText] = useState(value != null ? String(value) : '')
   const [focused, setFocused] = useState(false)
@@ -140,6 +143,7 @@ function NumberInput({
       type="text"
       value={text}
       placeholder={placeholder}
+      disabled={disabled}
       onChange={e => setText(e.target.value)}
       onFocus={() => setFocused(true)}
       onBlur={() => {
@@ -149,7 +153,7 @@ function NumberInput({
       onKeyDown={e => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
       }}
-      className="w-28 px-2 py-1 text-right text-sm tabular-nums border border-border rounded-md bg-background placeholder:text-muted-foreground/50"
+      className="w-28 px-2 py-1 text-right text-sm tabular-nums border border-border rounded-md bg-background placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-60"
     />
   )
 }
@@ -161,12 +165,14 @@ function ActionEntryRow({
   value,
   placeholder,
   onChange,
+  disabled = false,
 }: {
   action: MitigationAction
   entry: StatDataEntry
   value: number | undefined
   placeholder: string
   onChange: (value: number | undefined) => void
+  disabled?: boolean
 }) {
   return (
     <div className="flex items-center justify-between py-1.5">
@@ -181,7 +187,12 @@ function ActionEntryRow({
           <div className="text-xs text-muted-foreground">{getEntryLabel(entry)}</div>
         </div>
       </div>
-      <NumberInput value={value} placeholder={placeholder} onChange={onChange} />
+      <NumberInput
+        value={value}
+        placeholder={placeholder}
+        onChange={onChange}
+        disabled={disabled}
+      />
     </div>
   )
 }
@@ -191,6 +202,7 @@ interface StatDataDialogInnerProps {
   composition: Composition
   onSave: (data: TimelineStatData) => void
   onClose: () => void
+  isReadOnly: boolean
 }
 
 function StatDataDialogInner({
@@ -198,6 +210,7 @@ function StatDataDialogInner({
   composition,
   onSave,
   onClose,
+  isReadOnly,
 }: StatDataDialogInnerProps) {
   const statistics = useTimelineStore(state => state.statistics)
 
@@ -264,6 +277,7 @@ function StatDataDialogInner({
               value={localStatData.referenceMaxHP}
               placeholder={String(getFallbackMaxHP(statistics))}
               onChange={v => setLocalStatData(prev => ({ ...prev, referenceMaxHP: v }))}
+              disabled={isReadOnly}
             />
             <span className="text-xs text-muted-foreground">非坦职业最低 HP</span>
           </div>
@@ -301,6 +315,7 @@ function StatDataDialogInner({
                     value={getEntryValue(localStatData, entry)}
                     placeholder={String(getFallbackValue(statistics, entry.type, entry.key))}
                     onChange={v => setLocalStatData(prev => setEntryValue(prev, entry, v))}
+                    disabled={isReadOnly}
                   />
                 ))}
               </div>
@@ -320,7 +335,8 @@ function StatDataDialogInner({
         <button
           type="button"
           onClick={handleSave}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          disabled={isReadOnly}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
         >
           保存
         </button>
@@ -333,6 +349,7 @@ export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
   const { timeline, updateStatData } = useTimelineStore()
   const statData = timeline?.statData
   const composition = timeline?.composition
+  const isReadOnly = useEditorReadOnly()
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -347,6 +364,7 @@ export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
             composition={composition}
             onSave={updateStatData}
             onClose={onClose}
+            isReadOnly={isReadOnly}
           />
         )}
       </ModalContent>

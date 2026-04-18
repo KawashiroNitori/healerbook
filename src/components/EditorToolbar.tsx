@@ -163,37 +163,41 @@ export default function EditorToolbar({
 
             <div className="w-px h-6 bg-border mx-1" />
 
-            {/* Undo / Redo */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handleUndo}
-                  disabled={isReadOnly || !canUndo}
-                >
-                  <Undo2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">撤销</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handleRedo}
-                  disabled={isReadOnly || !canRedo}
-                >
-                  <Redo2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">重做</TooltipContent>
-            </Tooltip>
+            {/* Undo / Redo（回放模式下不展示） */}
+            {!isReplayMode && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleUndo}
+                      disabled={isReadOnly || !canUndo}
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">撤销</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleRedo}
+                      disabled={isReadOnly || !canRedo}
+                    >
+                      <Redo2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">重做</TooltipContent>
+                </Tooltip>
 
-            <div className="w-px h-6 bg-border mx-1" />
+                <div className="w-px h-6 bg-border mx-1" />
+              </>
+            )}
 
             {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
             {isReplayMode ? (
@@ -248,8 +252,6 @@ export default function EditorToolbar({
                 </TooltipContent>
               </Tooltip>
             )}
-
-            <div className="w-px h-6 bg-border mx-1" />
 
             {/* 视图菜单 */}
             <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
@@ -307,23 +309,21 @@ export default function EditorToolbar({
             {/* Party Composition */}
             <CompositionPopover />
 
-            {/* 数值设置 */}
-            {!isReplayMode && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setShowStatDataDialog(true)}
-                    disabled={isReadOnly || !timeline?.statData}
-                  >
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">数值设置</TooltipContent>
-              </Tooltip>
-            )}
+            {/* 数值设置：只读下也可打开查看，对话框内写入控件由只读态控制 */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setShowStatDataDialog(true)}
+                  disabled={!timeline?.statData}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">数值设置</TooltipContent>
+            </Tooltip>
 
             {/* 共享按钮 或 在本地创建副本 */}
             {timeline && (
