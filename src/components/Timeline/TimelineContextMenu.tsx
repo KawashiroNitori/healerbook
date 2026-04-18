@@ -59,7 +59,7 @@ interface TimelineContextMenuProps {
   isReadOnly: boolean
   onClose: () => void
   onDeleteCast: (castEventId: string) => void
-  onAddCast: (actionId: number, time: number) => void
+  onAddCast: (actionId: number, playerId: number, time: number) => void
   onCopyDamageEventText: (eventId: string) => void
   onCopyDamageEvent: (eventId: string) => void
   onDeleteDamageEvent: (eventId: string) => void
@@ -126,7 +126,7 @@ export default function TimelineContextMenu({
           <>
             <DropdownMenuItem
               onClick={() => {
-                onAddCast(menu.actionId, menu.time)
+                onAddCast(menu.actionId, menu.playerId, menu.time)
                 onClose()
               }}
             >

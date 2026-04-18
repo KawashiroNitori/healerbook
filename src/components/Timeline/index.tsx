@@ -35,7 +35,7 @@ import VerticalScrollbar, {
 } from './VerticalScrollbar'
 import type { TimelineMinimapHandle } from './TimelineMinimap'
 import type { SkillTrack } from '@/utils/skillTracks'
-import type { CastEvent, AnnotationAnchor } from '@/types/timeline'
+import type { AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
@@ -45,6 +45,32 @@ import { deriveSkillTracks } from '@/utils/skillTracks'
 interface TimelineCanvasProps {
   width: number
   height: number
+}
+
+// 注释文字气泡（悬浮/固定两种场景共用）
+function AnnotationBubble({
+  text,
+  basePos,
+}: {
+  text: string
+  basePos: { x: number; y: number; scrollY: boolean }
+}) {
+  return (
+    <div
+      className="fixed z-50 bg-popover text-popover-foreground border rounded-md shadow-md"
+      style={
+        {
+          left: `calc(${basePos.x}px - var(--tl-scroll-x, 0px))`,
+          top: basePos.scrollY
+            ? `calc(${basePos.y}px - var(--tl-scroll-y, 0px))`
+            : `${basePos.y}px`,
+          pointerEvents: 'none',
+        } as React.CSSProperties
+      }
+    >
+      <div className="px-3 py-2 text-xs max-w-[240px] whitespace-pre-wrap break-words">{text}</div>
+    </div>
+  )
 }
 
 export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
@@ -306,8 +332,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       laneCount,
       LANE_ROW_HEIGHT,
       displayActionOverrides,
+      maxTime,
     }
   }, [timeline, zoomLevel, actions, hiddenPlayerIds, isDamageTrackCollapsed])
+
+  // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
+  const hideCrosshair = useCallback(() => {
+    crosshairFixedLineRef.current?.visible(false)
+    crosshairMainLineRef.current?.visible(false)
+    trackHighlightRef.current?.visible(false)
+    timeIndicatorLineRef.current?.visible(false)
+    timeIndicatorTextRef.current?.visible(false)
+    fixedStageRef.current?.batchDraw()
+    stageRef.current?.batchDraw()
+  }, [])
 
   // 十字准线：鼠标移动事件（直接操作 Konva 节点，不触发 React 重渲染）
   const createCrosshairMoveHandler = useCallback(
@@ -317,14 +355,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           if (hoverTimeRef.current !== null) {
             hoverTimeRef.current = null
             hoverTrackIndexRef.current = null
-            // 隐藏所有十字准线元素
-            crosshairFixedLineRef.current?.visible(false)
-            crosshairMainLineRef.current?.visible(false)
-            trackHighlightRef.current?.visible(false)
-            timeIndicatorLineRef.current?.visible(false)
-            timeIndicatorTextRef.current?.visible(false)
-            fixedStageRef.current?.batchDraw()
-            stageRef.current?.batchDraw()
+            hideCrosshair()
           }
           return
         }
@@ -395,32 +426,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       layoutData?.skillTracks.length,
       layoutData?.fixedAreaHeight,
       layoutData?.skillTracksHeight,
+      hideCrosshair,
     ]
   )
 
   // 十字准线：鼠标离开事件
-  const handleCrosshairLeave = useCallback((e: MouseEvent) => {
-    // 检查鼠标是否移到了另一个 Stage 容器，如果是则不清除
-    const relatedTarget = e.relatedTarget as Element | null
-    const fixedContainer = fixedStageRef.current?.container()
-    const mainContainer = stageRef.current?.container()
-    if (
-      relatedTarget &&
-      (fixedContainer?.contains(relatedTarget) || mainContainer?.contains(relatedTarget))
-    ) {
-      return
-    }
-    hoverTimeRef.current = null
-    hoverTrackIndexRef.current = null
-    // 隐藏所有十字准线元素
-    crosshairFixedLineRef.current?.visible(false)
-    crosshairMainLineRef.current?.visible(false)
-    trackHighlightRef.current?.visible(false)
-    timeIndicatorLineRef.current?.visible(false)
-    timeIndicatorTextRef.current?.visible(false)
-    fixedStageRef.current?.batchDraw()
-    stageRef.current?.batchDraw()
-  }, [])
+  const handleCrosshairLeave = useCallback(
+    (e: MouseEvent) => {
+      // 检查鼠标是否移到了另一个 Stage 容器，如果是则不清除
+      const relatedTarget = e.relatedTarget as Element | null
+      const fixedContainer = fixedStageRef.current?.container()
+      const mainContainer = stageRef.current?.container()
+      if (
+        relatedTarget &&
+        (fixedContainer?.contains(relatedTarget) || mainContainer?.contains(relatedTarget))
+      ) {
+        return
+      }
+      hoverTimeRef.current = null
+      hoverTrackIndexRef.current = null
+      hideCrosshair()
+    },
+    [hideCrosshair]
+  )
 
   // 绑定十字准线鼠标事件
   useEffect(() => {
@@ -583,29 +611,49 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [width, zoomLevel, setZoomLevel])
 
-  // 撤销
-  useHotkeys(
-    'mod+z',
-    () => {
-      useTimelineStore.temporal.getState().undo()
-      selectEvent(null)
-      selectCastEvent(null)
-      triggerAutoSave()
+  // 复制 / 粘贴伤害事件（热键与右键菜单共用）
+  const handleContextMenuCopyDamageEvent = useCallback(
+    (eventId: string) => {
+      if (!timeline) return
+      const event = timeline.damageEvents.find(e => e.id === eventId)
+      if (!event) return
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, time: _time, ...rest } = event
+      setClipboard(rest)
+      toast.success('已复制伤害事件')
     },
-    { enabled: !isReadOnly, preventDefault: true }
+    [timeline]
   )
 
-  // 重做
-  useHotkeys(
-    'mod+shift+z',
-    () => {
-      useTimelineStore.temporal.getState().redo()
-      selectEvent(null)
-      selectCastEvent(null)
-      triggerAutoSave()
+  const handleContextMenuPasteDamageEvent = useCallback(
+    (time: number) => {
+      if (!clipboard) return
+      const { addDamageEvent } = useTimelineStore.getState()
+      addDamageEvent({
+        ...clipboard,
+        id: `event-${Date.now()}`,
+        time,
+      })
+      toast.success('已粘贴伤害事件')
     },
-    { enabled: !isReadOnly, preventDefault: true }
+    [clipboard]
   )
+
+  // 撤销 / 重做
+  const runUndoRedo = (op: 'undo' | 'redo') => {
+    useTimelineStore.temporal.getState()[op]()
+    selectEvent(null)
+    selectCastEvent(null)
+    triggerAutoSave()
+  }
+  useHotkeys('mod+z', () => runUndoRedo('undo'), {
+    enabled: !isReadOnly,
+    preventDefault: true,
+  })
+  useHotkeys('mod+shift+z', () => runUndoRedo('redo'), {
+    enabled: !isReadOnly,
+    preventDefault: true,
+  })
 
   // 删除选中的事件或注释
   useHotkeys(
@@ -628,16 +676,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   useHotkeys(
     'mod+c',
     () => {
-      if (!selectedEventId || !timeline) return
-      const event = timeline.damageEvents.find(e => e.id === selectedEventId)
-      if (!event) return
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, time: _time, ...rest } = event
-      setClipboard(rest)
-      toast.success('已复制伤害事件')
+      if (!selectedEventId) return
+      handleContextMenuCopyDamageEvent(selectedEventId)
     },
     { enabled: !isReadOnly },
-    [selectedEventId, timeline]
+    [selectedEventId, handleContextMenuCopyDamageEvent]
   )
 
   // 粘贴伤害事件（在鼠标悬浮位置，若无则在视口中央）
@@ -648,51 +691,37 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const pasteTime =
         hoverTimeRef.current ??
         (clampedScrollRef.current.scrollLeft + viewportWidth / 2) / zoomLevel
-      const { addDamageEvent } = useTimelineStore.getState()
-      addDamageEvent({
-        ...clipboard,
-        id: `event-${Date.now()}`,
-        time: Math.round(pasteTime * 10) / 10,
-      })
-      toast.success('已粘贴伤害事件')
+      handleContextMenuPasteDamageEvent(Math.round(pasteTime * 10) / 10)
     },
     { enabled: !isReadOnly, preventDefault: true },
-    [clipboard, viewportWidth, zoomLevel]
+    [clipboard, viewportWidth, zoomLevel, handleContextMenuPasteDamageEvent]
   )
 
-  // 处理技能悬浮提示
-  const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
-    if (isDraggingRef.current) return
+  // 计算技能图标的 tooltip 锚点矩形
+  const getActionAnchorRect = (e: KonvaEventObject<MouseEvent | TouchEvent>): DOMRect | null => {
     const stage = e.target.getStage()
-    if (!stage) return
+    if (!stage) return null
     const stageBounds = stage.container().getBoundingClientRect()
     let node: Konva.Node = e.target
     while (node.getClassName() !== 'Group' && node.getParent()) {
       node = node.getParent()!
     }
     const absPos = node.getAbsolutePosition()
-    const screenX = stageBounds.left + absPos.x
-    const screenY = stageBounds.top + absPos.y
-    const anchorRect = new DOMRect(screenX, screenY - 15, 30, 30)
-    showTooltip(action, anchorRect, ['b', 't', 'l', 'r'])
+    return new DOMRect(stageBounds.left + absPos.x, stageBounds.top + absPos.y - 15, 30, 30)
+  }
+
+  const handleHoverAction = (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => {
+    if (isDraggingRef.current) return
+    const rect = getActionAnchorRect(e)
+    if (rect) showTooltip(action, rect, ['b', 't', 'l', 'r'])
   }
 
   const handleClickAction = (
     action: MitigationAction,
     e: KonvaEventObject<MouseEvent | TouchEvent>
   ) => {
-    const stage = e.target.getStage()
-    if (!stage) return
-    const stageBounds = stage.container().getBoundingClientRect()
-    let node: Konva.Node = e.target
-    while (node.getClassName() !== 'Group' && node.getParent()) {
-      node = node.getParent()!
-    }
-    const absPos = node.getAbsolutePosition()
-    const screenX = stageBounds.left + absPos.x
-    const screenY = stageBounds.top + absPos.y
-    const anchorRect = new DOMRect(screenX, screenY - 15, 30, 30)
-    toggleTooltip(action, anchorRect, ['b', 't', 'l', 'r'])
+    const rect = getActionAnchorRect(e)
+    if (rect) toggleTooltip(action, rect, ['b', 't', 'l', 'r'])
   }
 
   const handleHoverActionFromDom = (action: MitigationAction, anchorRect: DOMRect) => {
@@ -704,27 +733,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     toggleTooltip(action, anchorRect)
   }
 
-  // 处理双击轨道添加技能
-  const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
-    if (!timeline || isReadOnly) return
+  // 向指定轨道添加技能（含重叠检查与提示）
+  const addCastAt = (actionId: number, playerId: number, time: number) => {
+    if (!timeline) return
 
-    // 如果刚刚完成了平移操作，阻止误触发
-    if (panJustEndedRef.current || Date.now() - lastPanEndTimeRef.current < 300) return
-
-    if (checkOverlap(time, track.playerId, track.actionId)) {
-      toast.error('无法添加技能', {
-        description: `该技能与已有技能重叠`,
-      })
+    if (checkOverlap(time, playerId, actionId)) {
+      toast.error('无法添加技能', { description: '该技能与已有技能重叠' })
       return
     }
 
-    const castEvent: CastEvent = {
+    addCastEvent({
       id: `cast-${Date.now()}`,
-      actionId: track.actionId,
+      actionId,
       timestamp: time,
-      playerId: track.playerId,
-    }
-    addCastEvent(castEvent)
+      playerId,
+    })
+  }
+
+  // 处理双击轨道添加技能
+  const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
+    if (isReadOnly) return
+    // 如果刚刚完成了平移操作，阻止误触发
+    if (panJustEndedRef.current || Date.now() - lastPanEndTimeRef.current < 300) return
+    addCastAt(track.actionId, track.playerId, time)
   }
 
   // 处理伤害事件拖动
@@ -783,27 +814,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setContextMenu(null)
   }, [])
 
-  const handleContextMenuAddCast = useCallback(
-    (actionId: number, time: number) => {
-      if (!timeline) return
-      const track = layoutData?.skillTracks.find(t => t.actionId === actionId)
-      if (!track) return
-
-      if (checkOverlap(time, track.playerId, actionId)) {
-        toast.error('无法添加技能', { description: '该技能与已有技能重叠' })
-        return
-      }
-
-      addCastEvent({
-        id: `cast-${Date.now()}`,
-        actionId,
-        timestamp: time,
-        playerId: track.playerId,
-      })
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [timeline, layoutData?.skillTracks, addCastEvent]
-  )
+  const handleContextMenuAddCast = (actionId: number, playerId: number, time: number) => {
+    addCastAt(actionId, playerId, time)
+  }
 
   const handleCopyDamageEventText = useCallback(
     (eventId: string) => {
@@ -923,36 +936,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [timeline, calculationResults]
   )
 
-  const handleContextMenuCopyDamageEvent = useCallback(
-    (eventId: string) => {
-      if (!timeline) return
-      const event = timeline.damageEvents.find(e => e.id === eventId)
-      if (!event) return
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, time: _time, ...rest } = event
-      setClipboard(rest)
-      toast.success('已复制伤害事件')
-    },
-    [timeline]
-  )
-
   const handleContextMenuAddDamageEvent = useCallback((time: number) => {
     setAddEventAt(time)
   }, [])
-
-  const handleContextMenuPasteDamageEvent = useCallback(
-    (time: number) => {
-      if (!clipboard) return
-      const { addDamageEvent } = useTimelineStore.getState()
-      addDamageEvent({
-        ...clipboard,
-        id: `event-${Date.now()}`,
-        time,
-      })
-      toast.success('已粘贴伤害事件')
-    },
-    [clipboard]
-  )
 
   const handleAddAnnotation = useCallback(
     (time: number, anchor: AnnotationAnchor) => {
@@ -1072,6 +1058,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     skillTracksHeight,
     LANE_ROW_HEIGHT,
     displayActionOverrides,
+    maxTime,
   } = layoutData
 
   const damageTrackAnnotations = (timeline.annotations ?? []).filter(
@@ -1119,15 +1106,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     : null
   const hoverBasePos = hoverAnnotation ? getAnnotationBasePos(hoverAnnotation) : null
   const pinnedBasePos = pinnedAnnotation ? getAnnotationBasePos(pinnedAnnotation) : null
-
-  // 计算时间轴总长度
-  const lastEventTime = Math.max(
-    0,
-    ...timeline.damageEvents.map(e => e.time),
-    ...timeline.castEvents.map(ce => ce.timestamp)
-  )
-
-  const maxTime = Math.max(300, lastEventTime + 60)
 
   return (
     <div
@@ -1402,42 +1380,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       {/* 注释悬浮查看（pointer-events: none，通过 CSS 变量实时跟随滚动） */}
       {hoverAnnotation && hoverBasePos && !editingAnnotation && !pinnedAnnotation && (
-        <div
-          className="fixed z-50 bg-popover text-popover-foreground border rounded-md shadow-md"
-          style={
-            {
-              left: `calc(${hoverBasePos.x}px - var(--tl-scroll-x, 0px))`,
-              top: hoverBasePos.scrollY
-                ? `calc(${hoverBasePos.y}px - var(--tl-scroll-y, 0px))`
-                : `${hoverBasePos.y}px`,
-              pointerEvents: 'none',
-            } as React.CSSProperties
-          }
-        >
-          <div className="px-3 py-2 text-xs max-w-[240px] whitespace-pre-wrap break-words">
-            {hoverAnnotation.text}
-          </div>
-        </div>
+        <AnnotationBubble text={hoverAnnotation.text} basePos={hoverBasePos} />
       )}
 
       {/* 注释固定显示（点击切换，通过 CSS 变量实时跟随滚动） */}
       {pinnedAnnotation && pinnedBasePos && !editingAnnotation && !isDraggingAnnotation && (
-        <div
-          className="fixed z-50 bg-popover text-popover-foreground border rounded-md shadow-md"
-          style={
-            {
-              left: `calc(${pinnedBasePos.x}px - var(--tl-scroll-x, 0px))`,
-              top: pinnedBasePos.scrollY
-                ? `calc(${pinnedBasePos.y}px - var(--tl-scroll-y, 0px))`
-                : `${pinnedBasePos.y}px`,
-              pointerEvents: 'none',
-            } as React.CSSProperties
-          }
-        >
-          <div className="px-3 py-2 text-xs max-w-[240px] whitespace-pre-wrap break-words">
-            {pinnedAnnotation.text}
-          </div>
-        </div>
+        <AnnotationBubble text={pinnedAnnotation.text} basePos={pinnedBasePos} />
       )}
 
       {/* 注释编辑 */}
