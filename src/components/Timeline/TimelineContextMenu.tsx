@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MousePointerClick } from 'lucide-react'
 import type { DamageEvent, AnnotationAnchor } from '@/types/timeline'
+import { modKey, deleteKeyLabel } from '@/utils/platform'
 
 export type ContextMenuState =
   | {
@@ -70,11 +71,6 @@ interface TimelineContextMenuProps {
   onDeleteAnnotation: (annotationId: string) => void
 }
 
-const isMac =
-  // @ts-expect-error userAgentData is not yet in all TS lib types
-  navigator.userAgentData?.platform === 'macOS' || /Mac/.test(navigator.platform)
-const modKey = isMac ? '⌘' : 'Ctrl+'
-
 export default function TimelineContextMenu({
   menu,
   clipboard,
@@ -118,7 +114,7 @@ export default function TimelineContextMenu({
             }}
           >
             删除
-            <DropdownMenuShortcut>{isMac ? '⌫' : 'Del'}</DropdownMenuShortcut>
+            <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
           </DropdownMenuItem>
         )}
 
@@ -180,7 +176,7 @@ export default function TimelineContextMenu({
                   }}
                 >
                   删除
-                  <DropdownMenuShortcut>{isMac ? '⌫' : 'Del'}</DropdownMenuShortcut>
+                  <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </>
             )}
@@ -243,7 +239,7 @@ export default function TimelineContextMenu({
                 }}
               >
                 删除
-                <DropdownMenuShortcut>{isMac ? '⌫' : 'Del'}</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
           </>

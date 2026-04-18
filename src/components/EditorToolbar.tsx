@@ -24,7 +24,9 @@ import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { modKeyLabel, shiftKeyLabel } from '@/utils/platform'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   DropdownMenu,
@@ -178,7 +180,13 @@ export default function EditorToolbar({
                       <Undo2 className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">撤销</TooltipContent>
+                  <TooltipContent side="bottom" className="flex items-center gap-1.5">
+                    撤销
+                    <KbdGroup>
+                      <Kbd>{modKeyLabel}</Kbd>
+                      <Kbd>Z</Kbd>
+                    </KbdGroup>
+                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -192,7 +200,14 @@ export default function EditorToolbar({
                       <Redo2 className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">重做</TooltipContent>
+                  <TooltipContent side="bottom" className="flex items-center gap-1.5">
+                    重做
+                    <KbdGroup>
+                      <Kbd>{modKeyLabel}</Kbd>
+                      <Kbd>{shiftKeyLabel}</Kbd>
+                      <Kbd>Z</Kbd>
+                    </KbdGroup>
+                  </TooltipContent>
                 </Tooltip>
 
                 <div className="w-px h-6 bg-border mx-1" />
