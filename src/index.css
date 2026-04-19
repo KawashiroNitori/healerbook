@@ -44,6 +44,30 @@
     margin-right: 0 !important;
     padding-right: 0 !important;
   }
+
+  /* 主题化滚动条（适配明暗模式） */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border) / 0.6) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border) / 0.6);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--border));
+  }
 }
 
 /* 自定义滚动条样式 */
