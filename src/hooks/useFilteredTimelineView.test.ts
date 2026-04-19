@@ -241,10 +241,10 @@ describe('useFilteredTimelineView', () => {
     expect(result.current.filteredCastEvents).toHaveLength(3)
   })
 
-  it('builtin:tank：只保留 tankbuster 与坦克玩家的 cast', () => {
+  it('builtin:tank：保留所有 damage 与坦克玩家的 cast', () => {
     useFilterStore.setState({ activeFilterId: 'builtin:tank' })
     const { result } = renderHook(() => useFilteredTimelineView())
-    expect(result.current.filteredDamageEvents.map(e => e.id)).toEqual(['d2'])
+    expect(result.current.filteredDamageEvents.map(e => e.id)).toEqual(['d1', 'd2'])
     expect(result.current.filteredCastEvents.map(e => e.id)).toEqual(['c1'])
   })
 
