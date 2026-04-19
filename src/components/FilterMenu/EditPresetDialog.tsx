@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useFilterStore } from '@/store/filterStore'
+import { useTooltipStore } from '@/store/tooltipStore'
 import {
   JOB_ORDER,
   ROLE_ORDER,
@@ -37,6 +38,8 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
   const allActions = useMitigationStore(s => s.actions)
   const addPreset = useFilterStore(s => s.addPreset)
   const updatePreset = useFilterStore(s => s.updatePreset)
+  const showTooltip = useTooltipStore(s => s.showTooltip)
+  const hideTooltip = useTooltipStore(s => s.hideTooltip)
 
   const visibleActions = useMemo(() => allActions.filter(a => !a.hidden), [allActions])
 
@@ -193,7 +196,15 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                                   key={action.id}
                                   type="button"
                                   onClick={() => toggleAction(job, action.id)}
-                                  title={action.name}
+                                  onMouseEnter={e =>
+                                    showTooltip(action, e.currentTarget.getBoundingClientRect(), [
+                                      'b',
+                                      't',
+                                      'r',
+                                      'l',
+                                    ])
+                                  }
+                                  onMouseLeave={hideTooltip}
                                   className={cn(
                                     'relative h-8 w-8 overflow-hidden rounded-md border transition',
                                     isSelected
