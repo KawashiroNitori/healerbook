@@ -26,7 +26,6 @@ interface ExportExcelDialogProps {
 
 export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogProps) {
   const timeline = useTimelineStore(s => s.timeline)
-  const globalHiddenPlayerIds = useUIStore(s => s.hiddenPlayerIds)
   const globalShowOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const globalShowActualDamage = useUIStore(s => s.showActualDamage)
   const actions = useMitigationStore(s => s.actions)
@@ -42,7 +41,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
   useEffect(() => {
     if (open && timeline) {
       setFileName(timeline.name || '减伤表')
-      setHiddenPlayerIds(new Set(globalHiddenPlayerIds))
+      setHiddenPlayerIds(new Set())
       setShowOriginalDamage(globalShowOriginalDamage)
       setShowActualDamage(globalShowActualDamage)
     }
