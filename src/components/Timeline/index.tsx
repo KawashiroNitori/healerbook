@@ -41,6 +41,7 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
+import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 
 interface TimelineCanvasProps {
   width: number
@@ -167,6 +168,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
   const skillTracks = useSkillTracks()
+  const { filteredDamageEvents } = useFilteredTimelineView()
 
   // 平移/缩放交互 Hook 的共享 refs
   const panZoomRefs: PanZoomRefs = {
@@ -261,13 +263,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     let laneCount: number
     if (isDamageTrackCollapsed) {
       // 折叠模式：所有事件重叠在同一行
-      for (const event of timeline.damageEvents) {
+      for (const event of filteredDamageEvents) {
         damageEventRowMap.set(event.id, 0)
       }
       laneCount = 1
     } else {
       const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
-      const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
+      const sortedDamageEvents = [...filteredDamageEvents].sort((a, b) => a.time - b.time)
       for (const event of sortedDamageEvents) {
         const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
         if (laneIndex !== -1) {
@@ -330,7 +332,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       displayActionOverrides,
       maxTime,
     }
-  }, [timeline, zoomLevel, actions, skillTracks, isDamageTrackCollapsed])
+  }, [timeline, zoomLevel, actions, skillTracks, isDamageTrackCollapsed, filteredDamageEvents])
 
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
@@ -1168,7 +1170,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               />
 
               <DamageEventTrack
-                events={timeline.damageEvents}
+                events={filteredDamageEvents}
                 selectedEventId={selectedEventId}
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}

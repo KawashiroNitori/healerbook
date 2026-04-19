@@ -16,6 +16,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useUIStore } from '@/store/uiStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
+import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { computeCastMarkerCells, computeLitCellsByEvent } from '@/utils/castWindow'
@@ -46,6 +47,7 @@ export default function TimelineTableView() {
   const skillTracks = useSkillTracks()
   const calculationResults = useDamageCalculationResults()
   const isReadOnly = useEditorReadOnly()
+  const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
   const actionsById = useMemo(() => {
     const map = new Map<number, (typeof actions)[number]>()
@@ -55,13 +57,13 @@ export default function TimelineTableView() {
 
   const litCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()
-    return computeLitCellsByEvent(timeline.damageEvents, timeline.castEvents, actionsById)
-  }, [timeline, actionsById])
+    return computeLitCellsByEvent(filteredDamageEvents, filteredCastEvents, actionsById)
+  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById])
 
   const markerCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()
-    return computeCastMarkerCells(timeline.damageEvents, timeline.castEvents)
-  }, [timeline])
+    return computeCastMarkerCells(filteredDamageEvents, filteredCastEvents)
+  }, [timeline, filteredDamageEvents, filteredCastEvents])
 
   // 单元格点击：在该行事件时刻放置/移除对应技能
   // - 带图标的单元格（marker，即 cast 起点）→ 移除对应 cast
@@ -112,8 +114,8 @@ export default function TimelineTableView() {
 
   const rows = useMemo(() => {
     if (!timeline) return []
-    return mergeAndSortRows(timeline.damageEvents, timeline.annotations ?? [])
-  }, [timeline])
+    return mergeAndSortRows(filteredDamageEvents, timeline.annotations ?? [])
+  }, [filteredDamageEvents, timeline])
 
   // 跟踪外层滚动容器的尺寸：用于右侧阴影显隐和注释内容宽度
   const wrapperRef = useRef<HTMLDivElement>(null)

@@ -10,6 +10,7 @@ import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext
 import { TIMELINE_START_TIME, getCanvasColors } from './constants'
 import { useUIStore } from '@/store/uiStore'
 import { getFallbackMaxHP } from '@/utils/statDataUtils'
+import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -53,6 +54,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
     const { timeline } = useTimelineStore()
     const eventResults = useDamageCalculationResults()
     const theme = useUIStore(s => s.theme)
+    const { filteredDamageEvents } = useFilteredTimelineView()
 
     // 计算缩略图的缩放比例（减去内边距）
     const padding = 16 // p-2 = 8px * 2
@@ -199,7 +201,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
 
       // 计算最大伤害值用于归一化（优先使用最终伤害）
       const maxDamage = Math.max(
-        ...timeline.damageEvents.map(e => eventResults.get(e.id)?.finalDamage ?? e.damage),
+        ...filteredDamageEvents.map(e => eventResults.get(e.id)?.finalDamage ?? e.damage),
         1
       )
 
@@ -231,7 +233,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       stripeCtx.stroke()
       const fatalPattern = ctx.createPattern(stripeCanvas, 'repeat')!
 
-      timeline.damageEvents.forEach(event => {
+      filteredDamageEvents.forEach(event => {
         const x = (event.time - TIMELINE_START_TIME) * zoomLevel * minimapScale
         const eventWidth = Math.max(3, 5 * minimapScale)
 
@@ -338,7 +340,16 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       // 画视口指示器
       drawViewportRect(scrollLeft)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeline, eventResults, canvasWidth, height, zoomLevel, minimapScale, theme])
+    }, [
+      timeline,
+      eventResults,
+      canvasWidth,
+      height,
+      zoomLevel,
+      minimapScale,
+      theme,
+      filteredDamageEvents,
+    ])
 
     // React 驱动的视口更新（drag 结束 / zoom 后同步）
     useEffect(() => {
