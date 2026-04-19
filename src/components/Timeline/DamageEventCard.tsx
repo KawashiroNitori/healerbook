@@ -61,7 +61,7 @@ const DamageEventCard = memo(function DamageEventCard({
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
-  const isTankbuster = event.type === 'tankbuster'
+  const isTankOnly = event.type === 'tankbuster' || event.type === 'auto'
   const x = event.time * zoomLevel
   const y = yOffset + row * rowHeight + rowHeight / 2
 
@@ -85,7 +85,6 @@ const DamageEventCard = memo(function DamageEventCard({
     !hasOverkill && !isLethal && refHP != null && calculatedEvent!.finalDamage >= refHP * 0.9
 
   const getDamageText = (): string => {
-    if (isTankbuster) return '死刑'
     if (!showActualDamage && !showOriginalDamage) return ''
 
     const actualValue = hasOverkill ? calculatedEvent?.maxDamage : calculatedEvent?.finalDamage
@@ -158,12 +157,12 @@ const DamageEventCard = memo(function DamageEventCard({
         y={-15}
         width={150}
         height={30}
-        fill={isTankbuster ? colors.cardBgTankbuster : colors.cardBg}
-        stroke={isSelected ? '#3b82f6' : isTankbuster ? colors.textSecondary : colors.gridLine}
+        fill={isTankOnly ? colors.cardBgTankbuster : colors.cardBg}
+        stroke={isSelected ? '#3b82f6' : isTankOnly ? colors.textSecondary : colors.gridLine}
         strokeWidth={isSelected ? 2 : 1}
-        dash={isTankbuster && !isSelected ? [4, 3] : undefined}
+        dash={isTankOnly && !isSelected ? [4, 3] : undefined}
         cornerRadius={4}
-        opacity={isTankbuster ? 0.7 : 1}
+        opacity={isTankOnly ? 0.7 : 1}
         shadowEnabled={false}
         perfectDrawEnabled={false}
       />
