@@ -63,7 +63,7 @@ export default function FilterMenu() {
             ))}
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setManageOpen(true)}>管理预设…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setManageOpen(true)}>自定义…</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
