@@ -31,7 +31,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:dps-raidwide',
-    name: '仅 DPS 团减',
+    name: '仅 DPS',
     rule: {
       damageTypes: ['aoe'],
       jobRoles: ['melee', 'ranged', 'caster'],
@@ -43,7 +43,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:tank',
     name: '仅坦克',
     rule: {
-      damageTypes: ['tankbuster'],
+      damageTypes: ['aoe', 'tankbuster'],
       jobRoles: ['tank'],
       categories: ['shield', 'percentage'],
     },
