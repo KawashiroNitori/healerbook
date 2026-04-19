@@ -1,7 +1,5 @@
-import { useState } from 'react'
-import { Users, X, Eye, EyeOff } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import CompositionDialog from './CompositionDialog'
@@ -12,9 +10,7 @@ import type { Composition } from '@/types/timeline'
 
 export default function CompositionPopover() {
   const { timeline, updateComposition } = useTimelineStore()
-  const { hiddenPlayerIds, togglePlayerVisibility, isolatePlayer } = useUIStore()
   const isReadOnly = useEditorReadOnly()
-  const [hoveredPlayerId, setHoveredPlayerId] = useState<number | null>(null)
 
   const composition = timeline?.composition || { players: [] }
   const sortedPlayers = [...composition.players].sort((a, b) => {
@@ -22,10 +18,6 @@ export default function CompositionPopover() {
     return jobs.indexOf(a.job) - jobs.indexOf(b.job)
   })
   const handleSave = (newComposition: Composition) => updateComposition(newComposition)
-
-  const handleRemove = (playerId: number) => {
-    updateComposition({ players: composition.players.filter(p => p.id !== playerId) })
-  }
 
   return (
     <Popover>
@@ -47,46 +39,9 @@ export default function CompositionPopover() {
               <div
                 key={player.id}
                 className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/50"
-                onMouseEnter={() => setHoveredPlayerId(player.id)}
-                onMouseLeave={() => setHoveredPlayerId(null)}
               >
                 <JobIcon job={player.job} size="sm" />
-                <span
-                  className={`text-sm flex-1 ${hiddenPlayerIds.has(player.id) ? 'text-muted-foreground line-through' : ''}`}
-                >
-                  {getJobName(player.job)}
-                </span>
-                {(hoveredPlayerId === player.id || hiddenPlayerIds.has(player.id)) && (
-                  <>
-                    <button
-                      onClick={e => {
-                        if (e.shiftKey) {
-                          isolatePlayer(
-                            player.id,
-                            composition.players.map(p => p.id)
-                          )
-                        } else {
-                          togglePlayerVisibility(player.id)
-                        }
-                      }}
-                      className="p-0.5 hover:bg-muted rounded"
-                    >
-                      {hiddenPlayerIds.has(player.id) ? (
-                        <EyeOff className="w-3 h-3 text-muted-foreground" />
-                      ) : (
-                        <Eye className="w-3 h-3 text-muted-foreground" />
-                      )}
-                    </button>
-                    {!isReadOnly && (
-                      <button
-                        onClick={() => handleRemove(player.id)}
-                        className="p-0.5 hover:bg-muted rounded"
-                      >
-                        <X className="w-3 h-3 text-muted-foreground" />
-                      </button>
-                    )}
-                  </>
-                )}
+                <span className="text-sm flex-1">{getJobName(player.job)}</span>
               </div>
             ))
           )}
