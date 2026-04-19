@@ -183,7 +183,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
 
           <div className="space-y-3">
             <label className="text-sm font-medium">技能选择</label>
-            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 scrollbar-thin">
               {ROLE_ORDER.map(role => {
                 const jobsInRole = jobsByRole[role]
                 if (jobsInRole.length === 0) return null
