@@ -161,7 +161,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     removeAnnotation,
   } = useTimelineStore()
   const { actions } = useMitigationStore()
-  const { hiddenPlayerIds, isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
+  const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const calculationResults = useDamageCalculationResults()
 
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
@@ -248,13 +248,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const labelColumnWidth = 70
   const minimapHeight = 80 + 16 + 1 // canvas(80) + p-2 padding(16) + border-t(1)
 
-  // 计算布局数据（仅在 timeline/zoomLevel/actions/hiddenPlayerIds 变化时重新计算）
+  // 计算布局数据（仅在 timeline/zoomLevel/actions 变化时重新计算）
   const layoutData = useMemo(() => {
     if (!timeline) return null
 
     // 获取阵容和技能轨道信息
     const composition = timeline.composition || { players: [] }
-    const skillTracks = deriveSkillTracks(composition, hiddenPlayerIds, actions)
+    const skillTracks = deriveSkillTracks(composition, new Set(), actions)
 
     // 泳道算法：为每个伤害事件分配行
     const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
@@ -334,7 +334,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       displayActionOverrides,
       maxTime,
     }
-  }, [timeline, zoomLevel, actions, hiddenPlayerIds, isDamageTrackCollapsed])
+  }, [timeline, zoomLevel, actions, isDamageTrackCollapsed])
 
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
