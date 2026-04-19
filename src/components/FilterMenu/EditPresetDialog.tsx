@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import type { FilterPreset, CustomFilterRule } from '@/types/filter'
 import type { DamageEventType } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
+import { track } from '@/utils/analytics'
 
 interface Props {
   open: boolean
@@ -125,11 +126,30 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
   const handleSave = () => {
     if (!canSave) return
     const rule: CustomFilterRule = { damageTypes, selectedActionsByJob }
+    const actionsCount = Object.values(selectedActionsByJob).reduce(
+      (sum, ids) => sum + (ids?.length ?? 0),
+      0
+    )
+    const jobsCount = Object.values(selectedActionsByJob).filter(
+      ids => (ids?.length ?? 0) > 0
+    ).length
     if (preset?.kind === 'custom') {
       updatePreset(preset.id, { name: name.trim(), rule })
+      track('filter-preset-save', {
+        mode: 'update',
+        damageTypes: damageTypes.join(','),
+        actionsCount,
+        jobsCount,
+      })
       toast.success('已保存')
     } else {
       addPreset(name.trim(), rule)
+      track('filter-preset-save', {
+        mode: 'create',
+        damageTypes: damageTypes.join(','),
+        actionsCount,
+        jobsCount,
+      })
       toast.success('已创建')
     }
     onClose()

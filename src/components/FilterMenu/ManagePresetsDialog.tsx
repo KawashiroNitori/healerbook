@@ -25,6 +25,7 @@ import { useFilterStore } from '@/store/filterStore'
 import SortablePresetRow from './SortablePresetRow'
 import EditPresetDialog from './EditPresetDialog'
 import type { FilterPreset } from '@/types/filter'
+import { track } from '@/utils/analytics'
 
 interface Props {
   open: boolean
@@ -51,6 +52,12 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
     const to = customPresets.findIndex(p => p.id === over.id)
     if (from < 0 || to < 0) return
     reorderPresets(from, to)
+    track('filter-preset-reorder')
+  }
+
+  const handleDelete = (preset: FilterPreset) => {
+    deletePreset(preset.id)
+    track('filter-preset-delete', { id: preset.id })
   }
 
   const openNew = () => {
@@ -104,7 +111,7 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
                         key={preset.id}
                         preset={preset}
                         onEdit={() => openEdit(preset)}
-                        onDelete={() => deletePreset(preset.id)}
+                        onDelete={() => handleDelete(preset)}
                       />
                     ))}
                   </div>

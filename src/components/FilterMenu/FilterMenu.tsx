@@ -30,7 +30,8 @@ export default function FilterMenu() {
   const [manageOpen, setManageOpen] = useState(false)
 
   const handleChange = (id: string) => {
-    track('filter-change', { id })
+    const name = [...BUILTIN_PRESETS, ...customPresets].find(p => p.id === id)?.name ?? id
+    track('filter-change', { name })
     setActiveFilter(id)
   }
 
@@ -63,7 +64,14 @@ export default function FilterMenu() {
             ))}
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setManageOpen(true)}>自定义…</DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              track('filter-preset-manage-open')
+              setManageOpen(true)
+            }}
+          >
+            自定义…
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
