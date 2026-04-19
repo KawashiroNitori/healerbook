@@ -23,6 +23,8 @@ export default function FilterMenu() {
   const activeFilterId = useFilterStore(s => s.activeFilterId)
   const setActiveFilter = useFilterStore(s => s.setActiveFilter)
   const customPresets = useFilterStore(s => s.customPresets)
+  const activePreset =
+    [...BUILTIN_PRESETS, ...customPresets].find(p => p.id === activeFilterId) ?? BUILTIN_PRESETS[0]
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
@@ -38,8 +40,9 @@ export default function FilterMenu() {
         <Tooltip open={menuOpen ? false : undefined}>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                <Filter className="w-4 h-4" />
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2">
+                <Filter className="w-4 h-4 shrink-0" />
+                <span className="text-xs max-w-[8rem] truncate">{activePreset.name}</span>
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
