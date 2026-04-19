@@ -147,15 +147,15 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
         <div className="space-y-5 py-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">预设名称</label>
-            <div className="flex items-center gap-2">
+            <div className="relative">
               <Input
                 value={name}
                 onChange={e => setName(e.target.value.slice(0, MAX_NAME))}
                 maxLength={MAX_NAME}
                 placeholder="输入预设名称"
-                className="flex-1"
+                className="pr-14"
               />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
                 {name.length} / {MAX_NAME}
               </span>
             </div>
