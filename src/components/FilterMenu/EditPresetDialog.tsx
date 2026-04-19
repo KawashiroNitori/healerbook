@@ -94,6 +94,22 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
     }))
   }
 
+  const toggleRoleAll = (jobs: Job[]) => {
+    const relevantJobs = jobs.filter(job => (actionsByJob.get(job) ?? []).length > 0)
+    const allSelected = relevantJobs.every(job => {
+      const jobActionIds = actionsByJob.get(job)!.map(a => a.id)
+      const currentIds = selectedActionsByJob[job] ?? []
+      return jobActionIds.every(id => currentIds.includes(id))
+    })
+    setSelectedActionsByJob(prev => {
+      const next = { ...prev }
+      for (const job of relevantJobs) {
+        next[job] = allSelected ? [] : actionsByJob.get(job)!.map(a => a.id)
+      }
+      return next
+    })
+  }
+
   const canSave = name.trim().length > 0
 
   const handleSave = () => {
@@ -161,11 +177,33 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
               {ROLE_ORDER.map(role => {
                 const jobsInRole = jobsByRole[role]
                 if (jobsInRole.length === 0) return null
+                const relevantJobs = jobsInRole.filter(
+                  job => (actionsByJob.get(job) ?? []).length > 0
+                )
+                const roleAllSelected =
+                  relevantJobs.length > 0 &&
+                  relevantJobs.every(job => {
+                    const jobActionIds = actionsByJob.get(job)!.map(a => a.id)
+                    const currentIds = selectedActionsByJob[job] ?? []
+                    return jobActionIds.every(id => currentIds.includes(id))
+                  })
                 return (
                   <div key={role} className="space-y-2">
-                    <h4 className="text-xs font-medium text-muted-foreground">
-                      {ROLE_LABELS[role]}
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-medium text-muted-foreground">
+                        {ROLE_LABELS[role]}
+                      </h4>
+                      {relevantJobs.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => toggleRoleAll(jobsInRole)}
+                        >
+                          {roleAllSelected ? '取消全选' : '全选'}
+                        </Button>
+                      )}
+                    </div>
                     {jobsInRole.map(job => {
                       const jobActions = actionsByJob.get(job) ?? []
                       if (jobActions.length === 0) return null
