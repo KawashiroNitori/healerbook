@@ -11,13 +11,22 @@ if (!existsSync(changelogPath)) {
 const changelog = readFileSync(changelogPath, 'utf-8')
 
 // 提取第一个 ## date 到下一个 ## 之间的内容
-const match = changelog.match(/^## (\d{4}-\d{2}-\d{2})\s*\n([\s\S]*?)(?=\n## |\n*$)/m)
+// 注意 lookahead 用 `(?![\s\S])` 表示真·字符串结尾（/m 模式下 `$` 会匹配每行末尾，会截断多行条目）
+const match = changelog.match(/^## (\d{4}-\d{2}-\d{2})\s*\n([\s\S]*?)(?=\n## |\n*(?![\s\S]))/m)
 if (!match) {
   console.warn('Warning: no changelog entry found in docs/changelog.md, skipping generation')
   process.exit(0)
 }
 
-const [, date, content] = match
+const [, date] = match
+let content = match[2]
+
+// 解析 <!-- viewUrl: /foo --> 标记（必须紧跟在 ## date 之后的第一行）
+const viewUrlHeaderMatch = content.match(/^\s*<!--\s*viewUrl:\s*(\S+?)\s*-->\s*\n/)
+const viewUrl = viewUrlHeaderMatch ? viewUrlHeaderMatch[1] : undefined
+if (viewUrlHeaderMatch) {
+  content = content.slice(viewUrlHeaderMatch[0].length)
+}
 
 // 过滤掉图片、表格、代码块、HTML 块等占地面积大的元素
 const lines = content.trim().split('\n')
@@ -48,6 +57,6 @@ if (!filteredText) {
 const html = await marked(filteredText)
 const id = createHash('sha256').update(filteredText).digest('hex').slice(0, 8)
 
-const output = JSON.stringify({ id, date, html }, null, 2)
+const output = JSON.stringify({ id, date, html, ...(viewUrl ? { viewUrl } : {}) }, null, 2)
 writeFileSync('public/latest-release.json', output)
-console.log(`Extracted latest release: ${date} (${id})`)
+console.log(`Extracted latest release: ${date} (${id})${viewUrl ? ` → ${viewUrl}` : ''}`)

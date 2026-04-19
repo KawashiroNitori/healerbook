@@ -9,6 +9,8 @@ interface LatestRelease {
   id: string
   date: string
   html: string
+  /** 可选：覆盖"查看详情"按钮的跳转目标（在 changelog 条目首行用 `<!-- viewUrl: ... -->` 声明） */
+  viewUrl?: string
 }
 
 export function useChangelogToast() {
@@ -49,7 +51,7 @@ export function useChangelogToast() {
                   className="text-sm font-medium bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 transition-colors"
                   onClick={() => {
                     track('changelog-toast-view', { releaseId: latest.id })
-                    window.open(CHANGELOG_URL, '_blank')
+                    window.open(latest.viewUrl ?? CHANGELOG_URL, '_blank')
                     markSeen()
                     toast.dismiss(toastId)
                   }}

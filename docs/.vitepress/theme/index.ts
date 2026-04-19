@@ -8,6 +8,11 @@ import {
   Eye,
   EyeOff,
   X,
+  Filter,
+  Plus,
+  Pencil,
+  Trash2,
+  GripVertical,
 } from 'lucide-vue-next'
 import './custom.css'
 
@@ -22,5 +27,10 @@ export default {
     app.component('Eye', Eye)
     app.component('EyeOff', EyeOff)
     app.component('XIcon', X)
+    app.component('Filter', Filter)
+    app.component('Plus', Plus)
+    app.component('Pencil', Pencil)
+    app.component('Trash2', Trash2)
+    app.component('GripVertical', GripVertical)
   },
 }
