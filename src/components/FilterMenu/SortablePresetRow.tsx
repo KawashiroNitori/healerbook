@@ -65,9 +65,7 @@ export default function SortablePresetRow({ preset, onEdit, onDelete }: Props) {
           </Button>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="end" className="w-auto p-3 space-y-2">
-          <p className="text-sm">
-            确认删除预设「<span className="font-medium">{preset.name}</span>」？
-          </p>
+          <p className="text-sm">确认删除？</p>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>
               取消
