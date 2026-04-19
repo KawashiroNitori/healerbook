@@ -171,11 +171,21 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                       return (
                         <div
                           key={job}
-                          className="flex items-center gap-2 py-1 border-t border-border/50 first:border-t-0"
+                          className="py-1.5 border-t border-border/50 first:border-t-0"
                         >
-                          <JobIcon job={job} size="sm" />
-                          <span className="text-xs w-10 shrink-0">{getJobName(job)}</span>
-                          <div className="flex flex-wrap gap-1.5 flex-1">
+                          <div className="flex items-center gap-2">
+                            <JobIcon job={job} size="sm" />
+                            <span className="text-xs flex-1">{getJobName(job)}</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs shrink-0"
+                              onClick={() => toggleJobAll(job)}
+                            >
+                              {allSelected ? '取消全选' : '全选'}
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5 pl-6">
                             {jobActions.map(action => {
                               const isSelected = currentIds.includes(action.id)
                               return (
@@ -205,14 +215,6 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                               )
                             })}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-xs shrink-0"
-                            onClick={() => toggleJobAll(job)}
-                          >
-                            {allSelected ? '取消全选' : '全选'}
-                          </Button>
                         </div>
                       )
                     })}
