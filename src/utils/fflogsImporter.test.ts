@@ -882,7 +882,7 @@ describe('parseDamageEvents', () => {
     expect(tankDetail?.finalDamage).toBe(9500)
   })
 
-  it('应该过滤掉普通攻击', () => {
+  it('应该将命名匹配普攻正则的事件标记为 auto 类型', () => {
     const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
     const abilityMap = makeAbilityMap(1, 'Attack', 128)
 
@@ -906,7 +906,143 @@ describe('parseDamageEvents', () => {
       playerMap,
       abilityMap
     )
-    expect(result).toHaveLength(0)
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('auto')
+  })
+
+  it('启发式：同名事件数 > 10 且 80%+ 全坦克命中时应标记为 auto', () => {
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
+    const abilityMap = makeAbilityMap(100001, 'Sneaky Auto', 128)
+
+    const events: Record<string, unknown>[] = []
+    // 11 次全命中坦克，规避 regex 命中且 > 10 次阈值
+    for (let i = 0; i < 11; i++) {
+      events.push({
+        type: 'damage',
+        packetID: 5000 + i,
+        abilityGameID: 100001,
+        targetID: 1,
+        unmitigatedAmount: 2000,
+        absorbed: 0,
+        amount: 2000,
+        timestamp: fightStartTime + 1000 + i * 2000,
+        sourceID: 999,
+      })
+    }
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(11)
+    expect(result.every(e => e.type === 'auto')).toBe(true)
+  })
+
+  it('启发式：同名事件数 ≤ 10 时不触发 auto 启发式', () => {
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
+    const abilityMap = makeAbilityMap(100001, 'Frequent Tank Hit', 128)
+
+    const events: Record<string, unknown>[] = []
+    for (let i = 0; i < 10; i++) {
+      events.push({
+        type: 'damage',
+        packetID: 5000 + i,
+        abilityGameID: 100001,
+        targetID: 1,
+        unmitigatedAmount: 2000,
+        absorbed: 0,
+        amount: 2000,
+        timestamp: fightStartTime + 1000 + i * 2000,
+        sourceID: 999,
+      })
+    }
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(10)
+    expect(result.every(e => e.type !== 'auto')).toBe(true)
+  })
+
+  it('启发式：DOT tick 即便满足次数与全坦克条件也不触发', () => {
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
+    const abilityMap = new Map<number, FFLogsAbility>([
+      [200001, { gameID: 200001, name: 'Bleed Tick', type: 128 }],
+      [200002, { gameID: 200002, name: 'Bleed Source', type: 128 }],
+    ])
+
+    const events: Record<string, unknown>[] = []
+    // applydebuff 快照，供后续 tick 匹配
+    events.push({
+      type: 'applydebuff',
+      abilityGameID: 200001,
+      extraAbilityGameID: 200002,
+      targetID: 1,
+      timestamp: fightStartTime + 500,
+    })
+
+    // 11 次 DOT tick：全坦克命中且 > 10，但带 snapshotTime 应被规则排除
+    for (let i = 0; i < 11; i++) {
+      events.push({
+        type: 'damage',
+        packetID: 5000 + i,
+        abilityGameID: 200001,
+        targetID: 1,
+        unmitigatedAmount: 2000,
+        absorbed: 0,
+        amount: 2000,
+        tick: true,
+        timestamp: fightStartTime + 1000 + i * 2000,
+        sourceID: 999,
+      })
+    }
+
+    // 直接用 damage 事件，保证 applydebuff 在所有 damage 事件前被处理
+    // （withCalculatedDamage 会把 calc 事件前置到 applydebuff 之前，导致 DoT 快照丢失）
+    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    expect(result).toHaveLength(11)
+    // 确认是 DOT（snapshotTime 已经被填充）
+    expect(result.every(e => e.snapshotTime !== undefined)).toBe(true)
+    // DOT 不应被误判为 auto
+    expect(result.every(e => e.type !== 'auto')).toBe(true)
+  })
+
+  it('启发式：同名事件数 > 10 但命中非坦克比例过高时不触发', () => {
+    const playerMap = new Map<number, V2Actor>([
+      [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+      [2, { id: 2, name: 'DPS1', type: 'Samurai' }],
+    ])
+    const abilityMap = makeAbilityMap(100001, 'Random Hit', 1024)
+
+    const events: Record<string, unknown>[] = []
+    // 11 次事件：坦克 5 次 + DPS 6 次，全坦克比例 5/11 ≈ 45%，不满足 80% 阈值
+    for (let i = 0; i < 11; i++) {
+      events.push({
+        type: 'damage',
+        packetID: 5000 + i,
+        abilityGameID: 100001,
+        targetID: i % 2 === 0 ? 1 : 2,
+        unmitigatedAmount: 2000,
+        absorbed: 0,
+        amount: 2000,
+        timestamp: fightStartTime + 1000 + i * 2000,
+        sourceID: 999,
+      })
+    }
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+    expect(result).toHaveLength(11)
+    expect(result.every(e => e.type !== 'auto')).toBe(true)
   })
 
   it('不应过滤低伤害技能（保留供用户编辑）', () => {

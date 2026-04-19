@@ -6,6 +6,7 @@ import type { FFLogsReport, FFLogsV1Report, FFLogsAbility, FFLogsEvent } from '@
 import type {
   Composition,
   DamageEvent,
+  DamageEventType,
   CastEvent,
   PlayerDamageDetail,
   DamageType,
@@ -20,6 +21,12 @@ import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
 
 const actionChinese: Record<string, string> = actionChineseRaw
+
+/**
+ * 普通攻击名称匹配：boss 的 auto attack 在各语言 FFLogs 服务器下的统一命名
+ * （含无中文/英文映射时的 unknown_<hex> fallback）
+ */
+const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
 
 /**
  * 将 Worker 返回的 V1 格式报告转换为 FFLogsReport
@@ -103,7 +110,6 @@ export function parseDamageEvents(
   playerMap: Map<number, { id: number; name: string; type: string }>,
   abilityMap?: Map<number, FFLogsAbility>
 ): DamageEvent[] {
-  const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
   const TANK_JOBS = getTankJobs()
 
   // DOT 追踪：记录 applydebuff 事件的快照时间和来源技能
@@ -123,6 +129,8 @@ export function parseDamageEvents(
   const detailSourceIds = new Map<PlayerDamageDetail, number>()
   const detailPacketIds = new Map<PlayerDamageDetail, number>()
   const detailSnapshotTimestamps = new Map<PlayerDamageDetail, number>()
+  // 普攻标记：命名匹配任一语言 regex（abilityMap 原始名或中文回退名）即置 true
+  const detailIsAutoAttack = new Map<PlayerDamageDetail, boolean>()
 
   for (const event of events) {
     // 追踪 applydebuff 用于 DOT 快照
@@ -150,7 +158,6 @@ export function parseDamageEvents(
       const abilityMeta = abilityMap?.get(abilityId)
       const abilityName = abilityMeta?.name ?? '未知技能'
 
-      if (AUTO_ATTACK_PATTERN.test(abilityName)) continue
       if (abilityId === 16152) continue // 超火流星
 
       const player = playerMap.get(event.targetID)
@@ -181,6 +188,10 @@ export function parseDamageEvents(
       detailSkillNames.set(detail, skillName)
       detailSourceIds.set(detail, event.sourceID || 0)
       detailPacketIds.set(detail, event.packetID)
+      // 两个名字都查一遍，因为 actionChinese 的翻译不一定能命中 regex
+      if (AUTO_ATTACK_PATTERN.test(abilityName) || AUTO_ATTACK_PATTERN.test(skillName)) {
+        detailIsAutoAttack.set(detail, true)
+      }
       if (dotInfo?.timestamp !== undefined) {
         detailSnapshotTimestamps.set(detail, dotInfo.timestamp)
       }
@@ -335,12 +346,15 @@ export function parseDamageEvents(
         ? Math.round((firstSnapshotTimestamp - fightStartTime) / 10) / 100
         : undefined
 
+    const name = detailSkillNames.get(firstDetail) ?? ''
+    const isAutoAttack = detailIsAutoAttack.get(firstDetail) ?? false
+
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstAbilityId}`,
-      name: detailSkillNames.get(firstDetail) ?? '',
+      name,
       time: relativeTime,
       damage: representativeDamage,
-      type: detectDamageType(details, TANK_JOBS),
+      type: detectDamageType(details, TANK_JOBS, isAutoAttack),
       damageType,
       playerDamageDetails: details,
       packetId: detailPacketIds.get(firstDetail),
@@ -352,6 +366,8 @@ export function parseDamageEvents(
 
   // 后处理：验证 tankbuster 分类
   refineTankbusterClassification(damageEvents)
+  // 后处理：用"出现次数 × 全 T 比例"启发式补捞 regex 漏掉的普通攻击
+  refineAutoAttackClassification(damageEvents, TANK_JOBS)
 
   return damageEvents
 }
@@ -392,7 +408,13 @@ function selectRepresentativeDamage(
   return Math.max(0, ...details.map(d => d.unmitigatedDamage))
 }
 
-function detectDamageType(details: PlayerDamageDetail[], tankJobs: Job[]): 'aoe' | 'tankbuster' {
+function detectDamageType(
+  details: PlayerDamageDetail[],
+  tankJobs: Job[],
+  isAutoAttack: boolean
+): DamageEventType {
+  // 命名匹配普攻正则的直接判定为 auto（走 boss 自动攻击的统一命名）
+  if (isAutoAttack) return 'auto'
   const uniquePlayerIds = new Set(details.map(d => d.playerId))
   if (uniquePlayerIds.size > 2) return 'aoe'
   if (uniquePlayerIds.size > 0 && details.every(d => tankJobs.includes(d.job))) return 'tankbuster'
@@ -432,6 +454,42 @@ function refineTankbusterClassification(damageEvents: DamageEvent[]): void {
       if (event.damage < medianAoeDamage * 1.5) {
         event.type = 'aoe'
       }
+    }
+  }
+}
+
+/**
+ * 后处理：识别漏网的普通攻击
+ *
+ * 部分 boss 的 auto attack 在 FFLogs 侧并未使用 "攻击/Attack/unknown_<hex>"
+ * 等规范命名（regex 无法命中），但其行为特征仍可用"出现频次 + 目标偏向"
+ * 兜底：
+ *   1. 同名事件组的出现次数 > 10
+ *   2. 该组中 80%+ 的事件仅命中坦克职业
+ *   3. 事件不能是 DOT（DOT 的 tick 频次天然高，不能被误判为普攻）
+ */
+const AUTO_ATTACK_MIN_OCCURRENCE = 10
+
+function refineAutoAttackClassification(damageEvents: DamageEvent[], tankJobs: Job[]): void {
+  const groupsByName = new Map<string, DamageEvent[]>()
+  for (const event of damageEvents) {
+    if (event.type === 'auto') continue
+    if (event.snapshotTime !== undefined) continue // DOT 不进入启发式
+    const bucket = groupsByName.get(event.name)
+    if (bucket) bucket.push(event)
+    else groupsByName.set(event.name, [event])
+  }
+
+  for (const group of groupsByName.values()) {
+    if (group.length <= AUTO_ATTACK_MIN_OCCURRENCE) continue
+
+    const tankOnlyCount = group.filter(event => {
+      const details = event.playerDamageDetails ?? []
+      return details.length > 0 && details.every(d => tankJobs.includes(d.job))
+    }).length
+
+    if (tankOnlyCount / group.length >= 0.8) {
+      for (const event of group) event.type = 'auto'
     }
   }
 }

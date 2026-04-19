@@ -68,7 +68,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
 
   const [name, setName] = useState<string>(() => (preset?.kind === 'custom' ? preset.name : ''))
   const [damageTypes, setDamageTypes] = useState<DamageEventType[]>(() =>
-    preset?.kind === 'custom' ? preset.rule.damageTypes : ['aoe', 'tankbuster']
+    preset?.kind === 'custom' ? preset.rule.damageTypes : ['aoe', 'tankbuster', 'auto']
   )
   const [selectedActionsByJob, setSelectedActionsByJob] = useState<Partial<Record<Job, number[]>>>(
     () => (preset?.kind === 'custom' ? preset.rule.selectedActionsByJob : defaultSelectedAll)
@@ -197,6 +197,13 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                   onCheckedChange={() => toggleDamageType('tankbuster')}
                 />
                 <span className="text-sm">死刑</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Switch
+                  checked={damageTypes.includes('auto')}
+                  onCheckedChange={() => toggleDamageType('auto')}
+                />
+                <span className="text-sm">普通攻击</span>
               </label>
             </div>
           </div>

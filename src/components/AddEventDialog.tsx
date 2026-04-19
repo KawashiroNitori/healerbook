@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { TimeInput } from '@/components/ui/time-input'
 import { Switch } from '@/components/ui/switch'
-import type { DamageType } from '@/types/timeline'
+import type { DamageType, DamageEventType } from '@/types/timeline'
 
 interface AddEventDialogProps {
   open: boolean
@@ -22,7 +22,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
   const [name, setName] = useState('')
   const [time, setTime] = useState(defaultTime)
   const [damage, setDamage] = useState(100000)
-  const [type, setType] = useState<'aoe' | 'tankbuster'>('aoe')
+  const [type, setType] = useState<DamageEventType>('aoe')
   const [damageType, setDamageType] = useState<DamageType>('magical')
   const [isDot, setIsDot] = useState(false)
   const [snapshotTime, setSnapshotTime] = useState(defaultTime)
@@ -92,11 +92,12 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
             <label className="block text-sm font-medium mb-1">攻击类型</label>
             <select
               value={type}
-              onChange={e => setType(e.target.value as 'aoe' | 'tankbuster')}
+              onChange={e => setType(e.target.value as DamageEventType)}
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
             >
               <option value="aoe">AOE</option>
               <option value="tankbuster">死刑</option>
+              <option value="auto">普通攻击</option>
             </select>
           </div>
 

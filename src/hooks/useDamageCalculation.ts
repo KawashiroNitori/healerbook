@@ -34,7 +34,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       // 回放模式：直接使用 PlayerDamageDetail.statuses
       for (const event of timeline.damageEvents) {
         // 死刑不参与团减计算
-        if (event.type === 'tankbuster') continue
+        if (event.type === 'tankbuster' || event.type === 'auto') continue
 
         if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
           continue
@@ -90,7 +90,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       // 无小队时产出 trivial 结果：不做减伤计算，但仍把原始伤害暴露给 UI
       // 覆盖场景：预填充的空白时间轴还未设置阵容，但 damageEvents 已经存在
       for (const event of timeline.damageEvents) {
-        if (event.type === 'tankbuster') continue
+        if (event.type === 'tankbuster' || event.type === 'auto') continue
         results.set(event.id, {
           originalDamage: event.damage,
           finalDamage: event.damage,
@@ -155,8 +155,8 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         statuses: currentState.statuses.filter(s => s.endTime >= filterTime),
       }
 
-      // 死刑不参与团减计算，但状态步进仍需正常执行
-      if (event.type === 'tankbuster') continue
+      // 死刑 / 普攻不参与团减计算，但状态步进仍需正常执行
+      if (event.type === 'tankbuster' || event.type === 'auto') continue
 
       const result = calculator.calculate(
         event.damage,

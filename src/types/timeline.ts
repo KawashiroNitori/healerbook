@@ -21,7 +21,7 @@ export type DamageType = (typeof DAMAGE_TYPES)[number]
 /**
  * 攻击类型
  */
-export const DAMAGE_EVENT_TYPES = ['aoe', 'tankbuster'] as const
+export const DAMAGE_EVENT_TYPES = ['aoe', 'tankbuster', 'auto'] as const
 export type DamageEventType = (typeof DAMAGE_EVENT_TYPES)[number]
 
 /**

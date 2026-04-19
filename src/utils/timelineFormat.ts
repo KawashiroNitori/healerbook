@@ -41,11 +41,12 @@ import { nextShortId, resetIdCounter } from '@/utils/shortId'
 // 枚举映射
 // ──────────────────────────────────────────────────────────────
 
-const DAMAGE_EVENT_TYPE_TO_NUM: Record<DamageEventType, 0 | 1> = {
+const DAMAGE_EVENT_TYPE_TO_NUM: Record<DamageEventType, 0 | 1 | 2> = {
   aoe: 0,
   tankbuster: 1,
+  auto: 2,
 }
-const NUM_TO_DAMAGE_EVENT_TYPE: readonly DamageEventType[] = ['aoe', 'tankbuster']
+const NUM_TO_DAMAGE_EVENT_TYPE: readonly DamageEventType[] = ['aoe', 'tankbuster', 'auto']
 
 const DAMAGE_TYPE_TO_NUM: Record<DamageType, 0 | 1 | 2> = {
   physical: 0,

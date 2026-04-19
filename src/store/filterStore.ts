@@ -13,7 +13,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:all',
     name: '全部',
     rule: {
-      damageTypes: ['aoe', 'tankbuster'],
+      damageTypes: ['aoe', 'tankbuster', 'auto'],
       jobRoles: 'all',
       categories: ['shield', 'percentage'],
     },
@@ -43,7 +43,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:tank',
     name: '仅坦克',
     rule: {
-      damageTypes: ['aoe', 'tankbuster'],
+      damageTypes: ['aoe', 'tankbuster', 'auto'],
       jobRoles: ['tank'],
       categories: ['shield', 'percentage'],
     },
