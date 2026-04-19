@@ -10,16 +10,26 @@
 //     MAIN_REPO=/path/to/healerbook node setup-worktree.mjs
 //
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { copyFileSync, cpSync, existsSync, mkdirSync, statSync, symlinkSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+
+// 让所有子进程（wrangler / pnpm 等）走非交互模式，避免交互式提示阻塞脚本
+process.env.CI = "1";
 
 function git(args, cwd) {
   return execSync(`git ${args}`, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
 }
 
-function run(cmd, cwd) {
-  execSync(cmd, { cwd, stdio: "inherit" });
+// Windows 下 execSync 走 cmd.exe，会把单引号当普通字符透传。对于带 shell 元字符
+// （`$()`、`|` 等）且不想被外层 shell 解析的 git 命令，用 execFileSync 以数组形式传参，
+// 完全绕过外层 shell。
+function gitArgs(args, cwd) {
+  return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+}
+
+function run(cmd, cwd, options = {}) {
+  execSync(cmd, { cwd, stdio: "inherit", ...options });
 }
 
 // --- 定位路径 ---
@@ -106,8 +116,14 @@ console.log("🔗 初始化 submodule（本地 clone）...");
 // 从主仓库动态遍历所有 submodule（含嵌套），按层级顺序处理
 let submoduleList = "";
 try {
-  submoduleList = git(
-    `submodule foreach --quiet --recursive 'echo "$displaypath|$(git rev-parse --git-dir)|$toplevel"'`,
+  submoduleList = gitArgs(
+    [
+      "submodule",
+      "foreach",
+      "--quiet",
+      "--recursive",
+      'echo "$displaypath|$(git rev-parse --git-dir)|$toplevel"',
+    ],
     MAIN_REPO,
   );
 } catch {
