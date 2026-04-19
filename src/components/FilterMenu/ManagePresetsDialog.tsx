@@ -20,6 +20,7 @@ import {
 } from '@dnd-kit/sortable'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useFilterStore } from '@/store/filterStore'
 import SortablePresetRow from './SortablePresetRow'
 import EditPresetDialog from './EditPresetDialog'
@@ -68,15 +69,20 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
         <ModalContent>
           <ModalHeader className="mb-4 flex items-center justify-between">
             <ModalTitle>管理预设</ModalTitle>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
-              onClick={openNew}
-              aria-label="新增预设"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={openNew}
+                  aria-label="新增预设"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">新增预设</TooltipContent>
+            </Tooltip>
           </ModalHeader>
 
           <div className="space-y-2">
