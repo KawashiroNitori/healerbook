@@ -4,10 +4,12 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { ChevronRight } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useFilterStore } from '@/store/filterStore'
 import { useTooltipStore } from '@/store/tooltipStore'
@@ -18,6 +20,7 @@ import {
   getJobName,
   groupJobsByRole,
   type Job,
+  type JobRole,
 } from '@/data/jobs'
 import { getIconUrl } from '@/utils/iconUtils'
 import JobIcon from '../JobIcon'
@@ -69,6 +72,13 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
   const [selectedActionsByJob, setSelectedActionsByJob] = useState<Partial<Record<Job, number[]>>>(
     () => (preset?.kind === 'custom' ? preset.rule.selectedActionsByJob : defaultSelectedAll)
   )
+
+  const [expandedRoles, setExpandedRoles] = useState<Record<JobRole, boolean>>(() =>
+    ROLE_ORDER.reduce((acc, r) => ({ ...acc, [r]: true }), {} as Record<JobRole, boolean>)
+  )
+  const toggleRoleExpanded = (role: JobRole) => {
+    setExpandedRoles(prev => ({ ...prev, [role]: !prev[role] }))
+  }
 
   const toggleDamageType = (t: DamageEventType) => {
     setDamageTypes(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]))
@@ -188,11 +198,24 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                     return jobActionIds.every(id => currentIds.includes(id))
                   })
                 return (
-                  <div key={role} className="space-y-2">
+                  <Collapsible
+                    key={role}
+                    open={expandedRoles[role]}
+                    onOpenChange={() => toggleRoleExpanded(role)}
+                    className="space-y-2"
+                  >
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-medium text-muted-foreground">
-                        {ROLE_LABELS[role]}
-                      </h4>
+                      <CollapsibleTrigger className="flex items-center gap-1 flex-1 text-left hover:text-foreground">
+                        <ChevronRight
+                          className={cn(
+                            'h-3.5 w-3.5 text-muted-foreground transition-transform',
+                            expandedRoles[role] && 'rotate-90'
+                          )}
+                        />
+                        <h4 className="text-xs font-medium text-muted-foreground">
+                          {ROLE_LABELS[role]}
+                        </h4>
+                      </CollapsibleTrigger>
                       {relevantJobs.length > 0 && (
                         <Button
                           size="sm"
@@ -204,70 +227,72 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                         </Button>
                       )}
                     </div>
-                    {jobsInRole.map(job => {
-                      const jobActions = actionsByJob.get(job) ?? []
-                      if (jobActions.length === 0) return null
-                      const currentIds = selectedActionsByJob[job] ?? []
-                      const allSelected = jobActions.every(a => currentIds.includes(a.id))
-                      return (
-                        <div
-                          key={job}
-                          className="py-1.5 border-t border-border/50 first:border-t-0"
-                        >
-                          <div className="flex items-center gap-2">
-                            <JobIcon job={job} size="sm" />
-                            <span className="text-xs flex-1">{getJobName(job)}</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs shrink-0"
-                              onClick={() => toggleJobAll(job)}
-                            >
-                              {allSelected ? '取消全选' : '全选'}
-                            </Button>
+                    <CollapsibleContent className="space-y-0">
+                      {jobsInRole.map(job => {
+                        const jobActions = actionsByJob.get(job) ?? []
+                        if (jobActions.length === 0) return null
+                        const currentIds = selectedActionsByJob[job] ?? []
+                        const allSelected = jobActions.every(a => currentIds.includes(a.id))
+                        return (
+                          <div
+                            key={job}
+                            className="py-1.5 border-t border-border/50 first:border-t-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <JobIcon job={job} size="sm" />
+                              <span className="text-xs flex-1">{getJobName(job)}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs shrink-0"
+                                onClick={() => toggleJobAll(job)}
+                              >
+                                {allSelected ? '取消全选' : '全选'}
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-1.5 pl-6">
+                              {jobActions.map(action => {
+                                const isSelected = currentIds.includes(action.id)
+                                return (
+                                  <button
+                                    key={action.id}
+                                    type="button"
+                                    onClick={() => toggleAction(job, action.id)}
+                                    onMouseEnter={e =>
+                                      showTooltip(action, e.currentTarget.getBoundingClientRect(), [
+                                        'b',
+                                        't',
+                                        'r',
+                                        'l',
+                                      ])
+                                    }
+                                    onMouseLeave={hideTooltip}
+                                    className={cn(
+                                      'relative h-8 w-8 overflow-hidden rounded-md border transition',
+                                      isSelected
+                                        ? 'border-primary ring-1 ring-primary'
+                                        : 'border-border opacity-60 saturate-50 hover:opacity-90 hover:saturate-100'
+                                    )}
+                                  >
+                                    <img
+                                      src={getIconUrl(action.icon)}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                    />
+                                    {isSelected && (
+                                      <span className="absolute right-0 top-0 flex h-3 w-3 items-center justify-center rounded-tr-md rounded-bl-md bg-green-500 text-[8px] font-bold leading-none text-white">
+                                        ✓
+                                      </span>
+                                    )}
+                                  </button>
+                                )
+                              })}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5 mt-1.5 pl-6">
-                            {jobActions.map(action => {
-                              const isSelected = currentIds.includes(action.id)
-                              return (
-                                <button
-                                  key={action.id}
-                                  type="button"
-                                  onClick={() => toggleAction(job, action.id)}
-                                  onMouseEnter={e =>
-                                    showTooltip(action, e.currentTarget.getBoundingClientRect(), [
-                                      'b',
-                                      't',
-                                      'r',
-                                      'l',
-                                    ])
-                                  }
-                                  onMouseLeave={hideTooltip}
-                                  className={cn(
-                                    'relative h-8 w-8 overflow-hidden rounded-md border transition',
-                                    isSelected
-                                      ? 'border-primary ring-1 ring-primary'
-                                      : 'border-border opacity-60 saturate-50 hover:opacity-90 hover:saturate-100'
-                                  )}
-                                >
-                                  <img
-                                    src={getIconUrl(action.icon)}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                  {isSelected && (
-                                    <span className="absolute right-0 top-0 flex h-3 w-3 items-center justify-center rounded-tr-md rounded-bl-md bg-green-500 text-[8px] font-bold leading-none text-white">
-                                      ✓
-                                    </span>
-                                  )}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </CollapsibleContent>
+                  </Collapsible>
                 )
               })}
             </div>
