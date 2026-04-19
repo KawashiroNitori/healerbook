@@ -4,17 +4,15 @@
 
 import { useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useUIStore } from '@/store/uiStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { deriveSkillTracks, type SkillTrack } from '@/utils/skillTracks'
 
 export function useSkillTracks(): SkillTrack[] {
   const composition = useTimelineStore(s => s.timeline?.composition)
-  const hiddenPlayerIds = useUIStore(s => s.hiddenPlayerIds)
   const actions = useMitigationStore(s => s.actions)
 
   return useMemo(() => {
     if (!composition) return []
-    return deriveSkillTracks(composition, hiddenPlayerIds, actions)
-  }, [composition, hiddenPlayerIds, actions])
+    return deriveSkillTracks(composition, new Set(), actions)
+  }, [composition, actions])
 }
