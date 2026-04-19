@@ -32,3 +32,19 @@ export function getNonTankMinHP(statistics: EncounterStatistics | null): number 
 
   return hpValues.length > 0 ? Math.min(...hpValues) : DEFAULT_MAX_HP
 }
+
+/**
+ * 从 EncounterStatistics 获取坦克职业的最低最大 HP
+ * 无数据时返回 100000
+ */
+export function getTankMinHP(statistics: EncounterStatistics | null): number {
+  if (!statistics) return DEFAULT_MAX_HP
+
+  const tankJobs = new Set<string>(getTankJobs())
+  const hpValues = (Object.entries(statistics.maxHPByJob) as [Job, number][])
+    .filter(([job]) => tankJobs.has(job))
+    .map(([, hp]) => hp)
+    .filter(hp => hp > 0)
+
+  return hpValues.length > 0 ? Math.min(...hpValues) : DEFAULT_MAX_HP
+}

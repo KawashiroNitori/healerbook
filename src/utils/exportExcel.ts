@@ -231,12 +231,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       }
       if (showActualDamage) {
         const cell = wsRow.getCell(dynCol)
-        if ((event.type === 'tankbuster' || event.type === 'auto') && !timeline.isReplayMode) {
-          cell.value = '—'
-        } else {
-          const result = calculationResults.get(event.id)
-          cell.value = result ? formatDamageValue(result.finalDamage) : ''
-        }
+        const result = calculationResults.get(event.id)
+        cell.value = result ? formatDamageValue(result.finalDamage) : ''
         cell.alignment = { horizontal: 'right', vertical: 'middle' }
         cell.border = CELL_BORDER
         dynCol++

@@ -75,6 +75,7 @@ const NumberRecordSchema = v.record(v.string(), v.number())
 
 const V2StatDataSchema = v.object({
   referenceMaxHP: v.optional(v.number()),
+  tankReferenceMaxHP: v.optional(v.number()),
   shieldByAbility: NumberRecordSchema,
   critShieldByAbility: NumberRecordSchema,
   healByAbility: NumberRecordSchema,

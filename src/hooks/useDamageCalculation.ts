@@ -33,9 +33,6 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     if (timeline.isReplayMode) {
       // 回放模式：直接使用 PlayerDamageDetail.statuses
       for (const event of timeline.damageEvents) {
-        // 死刑不参与团减计算
-        if (event.type === 'tankbuster' || event.type === 'auto') continue
-
         if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
           continue
         }
@@ -90,7 +87,6 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       // 无小队时产出 trivial 结果：不做减伤计算，但仍把原始伤害暴露给 UI
       // 覆盖场景：预填充的空白时间轴还未设置阵容，但 damageEvents 已经存在
       for (const event of timeline.damageEvents) {
-        if (event.type === 'tankbuster' || event.type === 'auto') continue
         results.set(event.id, {
           originalDamage: event.damage,
           finalDamage: event.damage,
@@ -105,6 +101,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     // 合并用户覆盖值 + statistics + 默认值
     const resolved = resolveStatData(timeline.statData, statistics, timeline.composition)
     const referenceMaxHP = resolved.referenceMaxHP!
+    const tankReferenceMaxHP = resolved.tankReferenceMaxHP!
     const sortedDamageEvents = [...timeline.damageEvents].sort((a, b) => a.time - b.time)
     const sortedCastEvents = [...(timeline.castEvents || [])].sort(
       (a, b) => a.timestamp - b.timestamp
@@ -155,9 +152,6 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         statuses: currentState.statuses.filter(s => s.endTime >= filterTime),
       }
 
-      // 死刑 / 普攻不参与团减计算，但状态步进仍需正常执行
-      if (event.type === 'tankbuster' || event.type === 'auto') continue
-
       const result = calculator.calculate(
         event.damage,
         currentState,
@@ -166,7 +160,10 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         event.snapshotTime
       )
 
-      results.set(event.id, { ...result, referenceMaxHP })
+      const eventReferenceMaxHP =
+        event.type === 'tankbuster' || event.type === 'auto' ? tankReferenceMaxHP : referenceMaxHP
+
+      results.set(event.id, { ...result, referenceMaxHP: eventReferenceMaxHP })
       // updatedPartyState 一定存在（编辑模式下 calculate 总会返回它）
       if (result.updatedPartyState) {
         currentState = result.updatedPartyState

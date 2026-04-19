@@ -62,18 +62,15 @@ function resolveDamageNumbers(
   calculationResult: CalculationResult | undefined
 ): { original: number | undefined; actual: number | undefined } {
   const isReplay = !!timeline.isReplayMode
-  const isTankbuster = event.type === 'tankbuster'
+  const isTankOnly = event.type === 'tankbuster' || event.type === 'auto'
 
-  if (isTankbuster) {
-    if (isReplay) {
-      const detail = getTankbusterDetail(event)
-      return { original: detail?.unmitigatedDamage, actual: detail?.finalDamage }
-    }
-    // 编辑模式：calculator 跳过死刑
-    return { original: event.damage, actual: undefined }
+  // 回放模式下 tank-only 伤害：优先用坦克真实数据（与 calc representative 算法略有出入）
+  if (isTankOnly && isReplay) {
+    const detail = getTankbusterDetail(event)
+    return { original: detail?.unmitigatedDamage, actual: detail?.finalDamage }
   }
 
-  // AoE：两种模式都走 calculationResult
+  // 编辑模式和非 tank-only 回放：走 calculationResult
   return {
     original: calculationResult?.originalDamage,
     actual: calculationResult?.finalDamage,

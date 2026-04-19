@@ -15,7 +15,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
 import JobIcon from '@/components/JobIcon'
-import { getFallbackValue, getFallbackMaxHP } from '@/utils/statDataUtils'
+import { getFallbackValue, getFallbackMaxHP, getFallbackTankMaxHP } from '@/utils/statDataUtils'
 import type { TimelineStatData, StatDataEntry } from '@/types/statData'
 import type { MitigationAction } from '@/types/mitigation'
 import type { Composition } from '@/types/timeline'
@@ -217,6 +217,7 @@ function StatDataDialogInner({
   // 本地编辑态，从 initialData 初始化（组件每次挂载时重新初始化）
   const [localStatData, setLocalStatData] = useState<TimelineStatData>({
     referenceMaxHP: initialData.referenceMaxHP,
+    tankReferenceMaxHP: initialData.tankReferenceMaxHP,
     shieldByAbility: { ...initialData.shieldByAbility },
     critShieldByAbility: { ...initialData.critShieldByAbility },
     healByAbility: { ...initialData.healByAbility },
@@ -272,14 +273,23 @@ function StatDataDialogInner({
         {/* 安全血量 */}
         <div>
           <div className="text-sm font-medium mb-1.5">安全血量</div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between py-1.5">
+            <span className="text-sm text-muted-foreground">非坦职业最低 HP</span>
             <NumberInput
               value={localStatData.referenceMaxHP}
               placeholder={String(getFallbackMaxHP(statistics))}
               onChange={v => setLocalStatData(prev => ({ ...prev, referenceMaxHP: v }))}
               disabled={isReadOnly}
             />
-            <span className="text-xs text-muted-foreground">非坦职业最低 HP</span>
+          </div>
+          <div className="flex items-center justify-between py-1.5">
+            <span className="text-sm text-muted-foreground">坦克职业最低 HP</span>
+            <NumberInput
+              value={localStatData.tankReferenceMaxHP}
+              placeholder={String(getFallbackTankMaxHP(statistics))}
+              onChange={v => setLocalStatData(prev => ({ ...prev, tankReferenceMaxHP: v }))}
+              disabled={isReadOnly}
+            />
           </div>
         </div>
 

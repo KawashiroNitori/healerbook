@@ -9,7 +9,7 @@ import type { EncounterStatistics } from '@/types/mitigation'
 import type { TimelineStatData, StatDataEntryType } from '@/types/statData'
 import type { Composition } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getNonTankMinHP } from './stats'
+import { getNonTankMinHP, getTankMinHP } from './stats'
 
 const DEFAULT_VALUE = 10000
 const DEFAULT_MAX_HP = 100000
@@ -66,6 +66,13 @@ export function getFallbackMaxHP(statistics: EncounterStatistics | null | undefi
 }
 
 /**
+ * 获取 tankReferenceMaxHP 的 fallback 值
+ */
+export function getFallbackTankMaxHP(statistics: EncounterStatistics | null | undefined): number {
+  return statistics ? getTankMinHP(statistics) : DEFAULT_MAX_HP
+}
+
+/**
  * 将用户覆盖值 (statData) 与 statistics 合并为完整的 TimelineStatData，
  * 供计算层和 executor 使用。
  *
@@ -78,6 +85,7 @@ export function resolveStatData(
 ): TimelineStatData {
   const resolved: TimelineStatData = {
     referenceMaxHP: statData?.referenceMaxHP ?? getFallbackMaxHP(statistics),
+    tankReferenceMaxHP: statData?.tankReferenceMaxHP ?? getFallbackTankMaxHP(statistics),
     shieldByAbility: {},
     critShieldByAbility: {},
     healByAbility: {},
@@ -157,6 +165,7 @@ export function cleanupStatData(
 
   const result: TimelineStatData = {
     referenceMaxHP: statData.referenceMaxHP,
+    tankReferenceMaxHP: statData.tankReferenceMaxHP,
     shieldByAbility: {},
     critShieldByAbility: {},
     healByAbility: {},
