@@ -17,6 +17,13 @@ export type { Job }
 export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'barrier'
 
 /**
+ * 减伤类别（UI 过滤用）
+ * - shield: 盾值类
+ * - percentage: 百分比减伤类（含目标/非目标减伤）
+ */
+export type MitigationCategory = 'shield' | 'percentage'
+
+/**
  * 副本统计数据
  */
 export interface EncounterStatistics {
@@ -86,6 +93,8 @@ export interface MitigationAction {
   executor?: ActionExecutor
   /** 隐藏技能（不在技能轨道中显示，仅供内部数据引用） */
   hidden?: boolean
+  /** 减伤类别（必填、非空）；hidden 技能也需标注 */
+  category?: MitigationCategory[]
   /** 技能统计数据条目声明（有此字段 → 出现在数值设置模态框） */
   statDataEntries?: StatDataEntry[]
 }
