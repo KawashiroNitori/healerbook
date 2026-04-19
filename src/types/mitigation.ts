@@ -94,7 +94,7 @@ export interface MitigationAction {
   /** 隐藏技能（不在技能轨道中显示，仅供内部数据引用） */
   hidden?: boolean
   /** 减伤类别（必填、非空）；hidden 技能也需标注 */
-  category?: MitigationCategory[]
+  category: MitigationCategory[]
   /** 技能统计数据条目声明（有此字段 → 出现在数值设置模态框） */
   statDataEntries?: StatDataEntry[]
 }
