@@ -68,9 +68,14 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
         <ModalContent>
           <ModalHeader className="mb-4 flex items-center justify-between">
             <ModalTitle>管理预设</ModalTitle>
-            <Button size="sm" onClick={openNew}>
-              <Plus className="w-4 h-4 mr-1" />
-              新增预设
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={openNew}
+              aria-label="新增预设"
+            >
+              <Plus className="w-4 h-4" />
             </Button>
           </ModalHeader>
 
