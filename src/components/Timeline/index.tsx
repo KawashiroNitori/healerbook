@@ -40,7 +40,7 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 import { formatTimeWithDecimal } from '@/utils/formatters'
-import { deriveSkillTracks } from '@/utils/skillTracks'
+import { useSkillTracks } from '@/hooks/useSkillTracks'
 
 interface TimelineCanvasProps {
   width: number
@@ -166,6 +166,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
+  const skillTracks = useSkillTracks()
 
   // 平移/缩放交互 Hook 的共享 refs
   const panZoomRefs: PanZoomRefs = {
@@ -252,10 +253,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const layoutData = useMemo(() => {
     if (!timeline) return null
 
-    // 获取阵容和技能轨道信息
-    const composition = timeline.composition || { players: [] }
-    const skillTracks = deriveSkillTracks(composition, new Set(), actions)
-
     // 泳道算法：为每个伤害事件分配行
     const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
     const LANE_ROW_HEIGHT = 36 // 每行高度（px）
@@ -323,7 +320,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
 
     return {
-      skillTracks,
       damageEventRowMap,
       eventTrackHeight,
       timelineWidth,
@@ -334,7 +330,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       displayActionOverrides,
       maxTime,
     }
-  }, [timeline, zoomLevel, actions, isDamageTrackCollapsed])
+  }, [timeline, zoomLevel, actions, skillTracks, isDamageTrackCollapsed])
 
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
@@ -401,7 +397,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         if (withTrackHighlight) {
           const pointerY = e.clientY - rect.top
           const trackIndex = Math.floor((pointerY + visualScrollTopRef.current) / skillTrackHeight)
-          const validTrack = trackIndex >= 0 && trackIndex < (layoutData?.skillTracks.length ?? 0)
+          const validTrack = trackIndex >= 0 && trackIndex < skillTracks.length
           hoverTrackIndexRef.current = validTrack ? trackIndex : null
 
           const highlight = trackHighlightRef.current
@@ -423,7 +419,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       },
     [
       zoomLevel,
-      layoutData?.skillTracks.length,
+      skillTracks.length,
       layoutData?.fixedAreaHeight,
       layoutData?.skillTracksHeight,
       hideCrosshair,
@@ -1050,7 +1046,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }
 
   const {
-    skillTracks,
     damageEventRowMap,
     eventTrackHeight,
     timelineWidth,
