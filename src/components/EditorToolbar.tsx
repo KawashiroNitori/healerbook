@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import CompositionPopover from './CompositionPopover'
+import FilterMenu from './FilterMenu/FilterMenu'
 import SharePopover from './SharePopover'
 import ConflictDialog from './ConflictDialog'
 import StatDataDialog from './StatDataDialog'
@@ -318,6 +319,9 @@ export default function EditorToolbar({
                 </DropdownMenuSub>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* 过滤菜单 */}
+            <FilterMenu />
 
             <div className="w-px h-6 bg-border mx-1" />
 
