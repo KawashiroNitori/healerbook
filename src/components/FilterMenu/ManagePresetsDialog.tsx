@@ -18,7 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { useFilterStore } from '@/store/filterStore'
 import SortablePresetRow from './SortablePresetRow'
@@ -66,11 +66,15 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
     <>
       <Modal open={open} onClose={onClose}>
         <ModalContent>
-          <ModalHeader>
+          <ModalHeader className="mb-4 flex items-center justify-between">
             <ModalTitle>管理预设</ModalTitle>
+            <Button size="sm" onClick={openNew}>
+              <Plus className="w-4 h-4 mr-1" />
+              新增预设
+            </Button>
           </ModalHeader>
 
-          <div className="space-y-2 py-2">
+          <div className="space-y-2">
             {customPresets.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">暂无自定义预设</div>
             ) : (
@@ -97,16 +101,6 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
               </DndContext>
             )}
           </div>
-
-          <ModalFooter>
-            <Button variant="outline" onClick={onClose}>
-              关闭
-            </Button>
-            <Button onClick={openNew}>
-              <Plus className="w-4 h-4 mr-1" />
-              新增预设
-            </Button>
-          </ModalFooter>
         </ModalContent>
       </Modal>
 
