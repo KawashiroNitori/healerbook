@@ -166,8 +166,11 @@ export class MitigationCalculator {
     }
 
     // Phase 5: onAfterDamage — 盾吸收后的通用收尾
-    // 注意：遍历 partyState.statuses（原始活跃集合），而不是 updatedPartyState，
-    // 避免刚添加的新状态在本事件又触发自己。
+    // 遍历 partyState.statuses（原始活跃集合），不遍历 updatedPartyState：
+    //   ✓ 本事件 onBeforeShield/onConsume 新添的状态不会在同一事件立即触发自己的 onAfterDamage；
+    //   ✗ 代价：status 参数是原始实例快照，其 remainingBarrier / stack / data 等字段可能与
+    //     updatedPartyState 里同 instanceId 的最新值不一致。需要读自身最新状态的 executor 应从
+    //     ctx.partyState.statuses.find(s => s.instanceId === ctx.status.instanceId) 取。
     for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta?.executor?.onAfterDamage) continue
