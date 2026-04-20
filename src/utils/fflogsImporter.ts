@@ -127,7 +127,7 @@ export function parseDamageEvents(
   // PlayerDamageDetail 类型不再持有这些字段，但聚合阶段仍需要它们。
   const detailSkillNames = new Map<PlayerDamageDetail, string>()
   const detailSourceIds = new Map<PlayerDamageDetail, number>()
-  const detailPacketIds = new Map<PlayerDamageDetail, number>()
+  const detailPacketIds = new Map<PlayerDamageDetail, number | undefined>()
   const detailSnapshotTimestamps = new Map<PlayerDamageDetail, number>()
   // 普攻标记：命名匹配任一语言 regex（abilityMap 原始名或中文回退名）即置 true
   const detailIsAutoAttack = new Map<PlayerDamageDetail, boolean>()
@@ -146,11 +146,13 @@ export function parseDamageEvents(
     }
 
     if (event.type !== 'calculateddamage' && event.type !== 'damage') continue
-    if (!event.packetID || !event.targetID) continue
+    // 完全被盾吸收的伤害事件（amount=0）FFLogs 不下发 packetID，
+    // 因此不能把 packetID 当必要条件。降级用 timestamp 做 key 兜底。
+    if (!event.targetID) continue
     if (!playerMap.has(event.targetID)) continue
 
     const abilityId = event.abilityGameID ?? 0
-    const key = `${event.packetID}-${event.targetID}-${abilityId}`
+    const key = `${event.packetID ?? event.timestamp}-${event.targetID}-${abilityId}`
     let detail = detailByPacketAndTarget.get(key)
 
     // detail 不存在时创建（calculateddamage 先到则时间戳更准确，否则用 damage 的）

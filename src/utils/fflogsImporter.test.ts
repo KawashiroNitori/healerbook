@@ -1533,6 +1533,39 @@ describe('parseDamageEvents', () => {
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('aoe')
   })
+
+  it('amount=0 且 FFLogs 未下发 packetID 的伤害事件仍应被保留', () => {
+    // 完全被盾吸收的伤害（如神圣领域），FFLogs 不返回 packetID；
+    // 以前 `!event.packetID` 的过滤会把它丢掉，导致 0 个 DamageEvent。
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
+    const abilityMap = makeAbilityMap(999998, 'Absorbed Hit', 1024)
+
+    const events = [
+      {
+        type: 'damage',
+        // 注意：无 packetID
+        abilityGameID: 999998,
+        targetID: 1,
+        amount: 0,
+        unmitigatedAmount: 0,
+        timestamp: fightStartTime + 2000,
+        sourceID: 999,
+        buffs: '1000082.',
+      },
+    ]
+
+    const result = parseDamageEvents(
+      withCalculatedDamage(events),
+      fightStartTime,
+      playerMap,
+      abilityMap
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('Absorbed Hit')
+    expect(result[0].damage).toBe(0)
+    expect(result[0].packetId).toBeUndefined()
+  })
 })
 
 describe('parseSyncEvents', () => {
