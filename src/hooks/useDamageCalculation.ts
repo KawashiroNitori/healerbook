@@ -91,6 +91,10 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       // 1) 全局 3s tick：对 prev < t <= cur 且 t % 3 === 0 的每个 t，触发活跃状态的 onTick
       const firstTick = Math.floor(prev / TICK_INTERVAL) * TICK_INTERVAL + TICK_INTERVAL
       for (let t = firstTick; t <= cur; t += TICK_INTERVAL) {
+        // 对同一个 tick 点，内层 for-of 以这一 tick 开始时刻的 statuses 快照为迭代对象：
+        //   ✓ onTick 返回的新 state 会立即影响该 tick 后续 status 读到的 ctx.partyState
+        //   ✗ 但新添加的状态不会在同一 tick 立即被遍历到——它们要等下一 tick 才参与
+        // 避免了"tick 内自触发"，也让每个 tick 点的 executor 调用次数可预测。
         for (const status of next.statuses) {
           if (status.startTime > t || status.endTime < t) continue
           const meta = getStatusById(status.statusId)
@@ -167,8 +171,11 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
         if (action) {
           // 传给 executor 前推进时间（触发 onTick / onExpire 并清理已过期状态）
-          currentState = advanceToTime(currentState, lastAdvanceTime, castEvent.timestamp)
-          lastAdvanceTime = castEvent.timestamp
+          // 保留 DOT 快照兼容：推进到 cast 时间点和快照时间点的较早者，
+          // 避免在 cast 时刻已过期但快照时刻仍需保留的 DOT 状态被提前清理
+          const castAdvanceTarget = Math.min(castEvent.timestamp, filterTime)
+          currentState = advanceToTime(currentState, lastAdvanceTime, castAdvanceTarget)
+          lastAdvanceTime = castAdvanceTarget
           const ctx: ActionExecutionContext = {
             actionId: castEvent.actionId,
             useTime: castEvent.timestamp,
