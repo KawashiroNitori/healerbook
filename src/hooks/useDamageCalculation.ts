@@ -12,6 +12,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { calculatePercentile } from '@/utils/stats'
 import { resolveStatData } from '@/utils/statDataUtils'
+import { getStatusById } from '@/utils/statusRegistry'
 
 /**
  * 计算时间轴上所有伤害事件的减伤结果
@@ -82,6 +83,45 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       return results
     }
 
+    const TICK_INTERVAL = 3
+
+    function advanceToTime(state: PartyState, prev: number, cur: number): PartyState {
+      let next = state
+
+      // 1) 全局 3s tick：对 prev < t <= cur 且 t % 3 === 0 的每个 t，触发活跃状态的 onTick
+      const firstTick = Math.floor(prev / TICK_INTERVAL) * TICK_INTERVAL + TICK_INTERVAL
+      for (let t = firstTick; t <= cur; t += TICK_INTERVAL) {
+        for (const status of next.statuses) {
+          if (status.startTime > t || status.endTime < t) continue
+          const meta = getStatusById(status.statusId)
+          if (!meta?.executor?.onTick) continue
+          const result = meta.executor.onTick({
+            status,
+            tickTime: t,
+            partyState: next,
+          })
+          if (result) next = result
+        }
+      }
+
+      // 2) 到期清理：endTime < cur 的状态触发 onExpire 后被过滤
+      for (const status of next.statuses) {
+        if (status.endTime >= cur) continue
+        const meta = getStatusById(status.statusId)
+        if (!meta?.executor?.onExpire) continue
+        const result = meta.executor.onExpire({
+          status,
+          expireTime: cur,
+          partyState: next,
+        })
+        if (result) next = result
+      }
+      return {
+        ...next,
+        statuses: next.statuses.filter(s => s.endTime >= cur),
+      }
+    }
+
     // 编辑模式：使用 PartyState，单次时间轴扫描
     if (!partyState) {
       // 无小队时产出 trivial 结果：不做减伤计算，但仍把原始伤害暴露给 UI
@@ -108,14 +148,14 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     )
 
     let currentState: PartyState = {
-      statuses: [],
-      timestamp: 0,
+      statuses: [...partyState.statuses],
+      timestamp: partyState.timestamp,
     }
 
+    let lastAdvanceTime = 0
     let castIdx = 0
 
     for (const event of sortedDamageEvents) {
-      // DOT 事件的状态清理下限：需要保留快���时刻仍存活的状态
       const filterTime = event.snapshotTime ?? event.time
 
       // 应用所有在此伤害事件之前的技能
@@ -126,13 +166,9 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         const castEvent = sortedCastEvents[castIdx]
         const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
         if (action) {
-          // 传给 executor 前清理已过期的状态（保留 DOT 快照所需的状态）
-          currentState = {
-            ...currentState,
-            statuses: currentState.statuses.filter(
-              s => s.endTime >= castEvent.timestamp || s.endTime >= filterTime
-            ),
-          }
+          // 传给 executor 前推进时间（触发 onTick / onExpire 并清理已过期状态）
+          currentState = advanceToTime(currentState, lastAdvanceTime, castEvent.timestamp)
+          lastAdvanceTime = castEvent.timestamp
           const ctx: ActionExecutionContext = {
             actionId: castEvent.actionId,
             useTime: castEvent.timestamp,
@@ -145,11 +181,9 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         castIdx++
       }
 
-      // 传给 calculate 前清理已���期的状态
-      currentState = {
-        ...currentState,
-        statuses: currentState.statuses.filter(s => s.endTime >= filterTime),
-      }
+      // 传给 calculate 前推进时间（触发 onTick / onExpire 并清理已过期状态）
+      currentState = advanceToTime(currentState, lastAdvanceTime, filterTime)
+      lastAdvanceTime = filterTime
 
       const result = calculator.calculate(event, currentState)
 
