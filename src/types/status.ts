@@ -58,7 +58,13 @@ export interface MitigationStatus {
   sourcePlayerId?: number
   /** executor 自定义数据（tick 计数、累计值等）；框架不关心内容 */
   data?: Record<string, unknown>
-  /** 条件性减伤值；若存在优先于 metadata.performance（snapshot-on-apply） */
+  /**
+   * 条件性减伤值快照；若存在优先于 metadata.performance。
+   *
+   * Snapshot-on-apply：由 ActionExecutor（通常是 createBuffExecutor 的 `performance`
+   * option）在 cast 时写入，事件间不会重算。calculator 优先读取：
+   * `status.performance ?? meta.performance`。
+   */
   performance?: PerformanceType
 }
 

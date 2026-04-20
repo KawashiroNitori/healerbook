@@ -13,8 +13,13 @@ export interface BuffExecutorOptions {
   /** 互斥组：添加新 buff 前会删除这些 statusId 的旧 buff，默认为 [statusId] */
   uniqueGroup?: number[]
   /**
-   * 条件性 performance 计算器；cast 时调用，返回 undefined 则走 metadata 默认值
-   * （snapshot-on-apply：值在 cast 时固化，之后不再随 state 变化）
+   * 条件性 performance 计算器；cast 时调用，返回 undefined 则走 metadata 默认值。
+   *
+   * Snapshot-on-apply：值在 cast 时固化，之后不再随 state 变化——若需动态变化请
+   * 使用 StatusExecutor 钩子（onBeforeShield / onTick 等）。
+   *
+   * 注意：`ctx.partyState` 是 cast 前的原始状态；uniqueGroup 中的旧同组 buff 此时
+   * 尚未被清除。如需基于“cast 后的状态”决策，请改用 StatusExecutor 钩子。
    */
   performance?: (ctx: ActionExecutionContext) => PerformanceType | undefined
 }
