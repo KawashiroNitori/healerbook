@@ -51,6 +51,26 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 120,
       executor: createBuffExecutor(1176, 5),
     },
+    {
+      id: 30,
+      name: '神圣领域',
+      icon: '/i/002000/002502.png',
+      jobs: ['PLD'],
+      category: ['percentage'],
+      duration: 10,
+      cooldown: 420,
+      executor: createBuffExecutor(82, 10),
+    },
+    {
+      id: 22,
+      name: '壁垒',
+      icon: '/i/002000/002503.png',
+      jobs: ['PLD'],
+      category: ['percentage'],
+      duration: 10,
+      cooldown: 90,
+      executor: createBuffExecutor(1364, 10),
+    },
 
     // 战士 (WAR)
     {

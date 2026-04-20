@@ -5,7 +5,7 @@
 
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus } from '@/types/status'
-import type { DamageType } from '@/types/timeline'
+import type { DamageEvent, DamageType } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 
 /**
@@ -36,22 +36,22 @@ export class MitigationCalculator {
    * 计算减伤后的最终伤害
    * 公式: 最终伤害 = 原始伤害 × (1-减伤1%) × (1-减伤2%) × ... - 盾值
    *
-   * @param originalDamage 原始伤害
+   * @param event 伤害事件（提供原始伤害、时间、攻击类型与伤害类型等）
    * @param partyState 小队状态
-   * @param time 当前时间（秒）
-   * @param damageType 伤害类型（物理/魔法/特殊）
-   * @param snapshotTime DOT 快照时间（秒）— 百分比减伤以此时刻为准，盾值仍用 time
    * @returns 计算结果
    */
-  calculate(
-    originalDamage: number,
-    partyState: PartyState,
-    time: number,
-    damageType: DamageType = 'physical',
-    snapshotTime?: number
-  ): CalculationResult {
+  calculate(event: DamageEvent, partyState: PartyState): CalculationResult {
+    const originalDamage = event.damage
+    const time = event.time
+    const damageType: DamageType = event.damageType || 'physical'
+    const snapshotTime = event.snapshotTime
+    const attackType = event.type
+
     // 百分比减伤使用快照时间（DOT）或实际时间（普通伤害）
     const mitigationTime = snapshotTime ?? time
+
+    // 死刑 / 普通攻击由坦克承担，坦克专属减伤才会生效；其他伤害只看非坦克专属状态
+    const includeTankOnly = attackType === 'tankbuster' || attackType === 'auto'
 
     // 1 & 2. 遍历状态，计算百分比减伤 + 收集盾值状态
     let multiplier = 1.0
@@ -61,6 +61,7 @@ export class MitigationCalculator {
     for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
+      if (meta.isTankOnly && !includeTankOnly) continue
 
       if (meta.type === 'multiplier') {
         // 百分比减伤：以快照时间为准

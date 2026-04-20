@@ -5,7 +5,7 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
 import type { Timeline, DamageEvent, CastEvent, Composition, Annotation } from '@/types/timeline'
-import type { PartyState, PlayerState } from '@/types/partyState'
+import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
 import type { SharedTimelineResponse } from '@/api/timelineShareApi'
 import { saveTimeline, deleteTimeline } from '@/utils/timelineStorage'
@@ -159,21 +159,12 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       initializePartyState: composition => {
-        const { statistics } = get()
         if (!composition.players || composition.players.length === 0) {
           set({ partyState: null })
           return
         }
 
-        // 将所有玩家转换为 PlayerState
-        const players: PlayerState[] = composition.players.map(p => ({
-          id: p.id,
-          job: p.job,
-          maxHP: statistics?.maxHPByJob[p.job] ?? 100000,
-        }))
-
         const partyState: PartyState = {
-          players,
           statuses: [],
           timestamp: 0,
         }

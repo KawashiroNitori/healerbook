@@ -108,7 +108,6 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
     )
 
     let currentState: PartyState = {
-      players: [...partyState.players],
       statuses: [],
       timestamp: 0,
     }
@@ -152,13 +151,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         statuses: currentState.statuses.filter(s => s.endTime >= filterTime),
       }
 
-      const result = calculator.calculate(
-        event.damage,
-        currentState,
-        event.time,
-        event.damageType || 'physical',
-        event.snapshotTime
-      )
+      const result = calculator.calculate(event, currentState)
 
       const eventReferenceMaxHP =
         event.type === 'tankbuster' || event.type === 'auto' ? tankReferenceMaxHP : referenceMaxHP

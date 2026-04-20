@@ -5,6 +5,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
 import type { PartyState } from '@/types/partyState'
+import type { DamageEvent, DamageEventType, DamageType } from '@/types/timeline'
+
+function makeEvent(
+  damage: number,
+  time: number,
+  damageType: DamageType = 'physical',
+  type: DamageEventType = 'tankbuster',
+  snapshotTime?: number
+): DamageEvent {
+  return { id: 'e', name: 'e', damage, time, damageType, type, snapshotTime }
+}
 
 describe('MitigationCalculator', () => {
   let calculator: MitigationCalculator
@@ -36,7 +47,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(100000, partyState, 10, 'magical')
+      const result = calculator.calculate(makeEvent(100000, 10, 'magical'), partyState)
 
       expect(result.originalDamage).toBe(100000)
       expect(result.finalDamage).toBe(90000)
@@ -57,7 +68,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(8000)
       expect(result.mitigationPercentage).toBe(20)
@@ -83,7 +94,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7200)
       expect(result.mitigationPercentage).toBe(28)
@@ -103,7 +114,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(9000)
       expect(result.mitigationPercentage).toBe(10)
@@ -129,7 +140,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7200)
       expect(result.mitigationPercentage).toBe(28)
@@ -152,7 +163,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(5000)
       expect(result.mitigationPercentage).toBe(50)
@@ -175,7 +186,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7000)
       expect(result.mitigationPercentage).toBe(30)
@@ -201,7 +212,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(6000)
       expect(result.mitigationPercentage).toBe(40)
@@ -229,7 +240,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(3000)
       expect(result.mitigationPercentage).toBe(70)
@@ -249,7 +260,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(0)
       expect(result.mitigationPercentage).toBe(100)
@@ -285,7 +296,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 20, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 20, 'physical'), partyState)
 
       // 预期消耗顺序：shield-1 (startTime=5) -> shield-2 (startTime=10) -> shield-3 (startTime=15)
       // 10000 - 2000 - 2500 - 3000 = 2500
@@ -319,7 +330,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(5000, partyState, 15, 'physical')
+      const result = calculator.calculate(makeEvent(5000, 15, 'physical'), partyState)
 
       // 预期消耗顺序：shield-1 (startTime=5) 先消耗 3000，shield-2 (startTime=10) 再消耗 2000
       expect(result.finalDamage).toBe(0)
@@ -346,7 +357,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.mitigationPercentage).toBe(0)
@@ -366,7 +377,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 30, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 30, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.mitigationPercentage).toBe(0)
@@ -388,7 +399,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(9000)
     })
@@ -406,9 +417,84 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'magical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'magical'), partyState)
 
       expect(result.finalDamage).toBe(9500)
+    })
+  })
+
+  describe('坦克专属状态过滤（按攻击类型）', () => {
+    const partyStateWithTankMit = (): PartyState => ({
+      ...basePartyState,
+      statuses: [
+        {
+          instanceId: 'tank-rampart',
+          statusId: 1191, // 铁壁：isTankOnly = true，20% 减伤
+          startTime: 0,
+          endTime: 20,
+        },
+        {
+          instanceId: 'party-feint',
+          statusId: 1195, // 牵制：isTankOnly = false，物理 10% 减伤
+          startTime: 0,
+          endTime: 15,
+        },
+      ],
+    })
+
+    it('死刑应包含坦克专属减伤', () => {
+      const result = calculator.calculate(
+        makeEvent(10000, 10, 'physical', 'tankbuster'),
+        partyStateWithTankMit()
+      )
+
+      expect(result.finalDamage).toBe(7200) // 10000 * 0.8 * 0.9
+      expect(result.appliedStatuses).toHaveLength(2)
+    })
+
+    it('普通攻击应包含坦克专属减伤', () => {
+      const result = calculator.calculate(
+        makeEvent(10000, 10, 'physical', 'auto'),
+        partyStateWithTankMit()
+      )
+
+      expect(result.finalDamage).toBe(7200)
+      expect(result.appliedStatuses).toHaveLength(2)
+    })
+
+    it('AOE 应忽略坦克专属减伤', () => {
+      const result = calculator.calculate(
+        makeEvent(10000, 10, 'physical', 'aoe'),
+        partyStateWithTankMit()
+      )
+
+      expect(result.finalDamage).toBe(9000) // 只生效牵制 10%
+      expect(result.appliedStatuses).toHaveLength(1)
+      expect(result.appliedStatuses[0].instanceId).toBe('party-feint')
+    })
+
+    it('AOE 应忽略坦克专属盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'tank-tbn',
+            statusId: 1178, // 至黑之夜：isTankOnly = true
+            startTime: 0,
+            endTime: 7,
+            remainingBarrier: 5000,
+            initialBarrier: 5000,
+          },
+        ],
+      }
+
+      const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'aoe'), partyState)
+
+      expect(result.finalDamage).toBe(10000)
+      expect(result.mitigationPercentage).toBe(0)
+      expect(result.appliedStatuses).toHaveLength(0)
+      // 未被 AOE 消耗
+      expect(result.updatedPartyState!.statuses[0].remainingBarrier).toBe(5000)
     })
   })
 
@@ -433,7 +519,7 @@ describe('MitigationCalculator', () => {
         timestamp: 10,
       }
 
-      const result = calculator.calculate(10000, partyState, 10, 'physical')
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7650) // 10000 * 0.9 * 0.85
       expect(result.appliedStatuses).toHaveLength(2)
