@@ -146,6 +146,8 @@ export function parseDamageEvents(
     }
 
     if (event.type !== 'calculateddamage' && event.type !== 'damage') continue
+    // abilityGameID=500000 是 FFLogs 的合成事件（如全局攻击聚合），导入时丢弃
+    if (event.abilityGameID === 500000) continue
     // 完全被盾吸收的伤害事件（amount=0）FFLogs 不下发 packetID，
     // 因此不能把 packetID 当必要条件。降级用 timestamp 做 key 兜底。
     if (!event.targetID) continue
