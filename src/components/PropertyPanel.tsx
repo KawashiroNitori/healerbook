@@ -262,12 +262,26 @@ export default function PropertyPanel() {
               if (total <= 0) return null
 
               const maxHP = result.referenceMaxHP || 0
-              const shieldAbsorb = (result.appliedStatuses || []).reduce((sum, s) => {
+              const damageType = event.damageType || 'physical'
+
+              // 用 multiplier 状态重算 candidateDamage（% 减伤后、盾吸前）
+              // 这样得到的 shieldAbsorb / pctMitigation 才是"本次事件实际"而非 appliedStatuses 里
+              // remainingBarrier 的"事件前可用盾值"（后者常大于实际吸收量）
+              const totalMultiplier = (result.appliedStatuses || []).reduce((acc, s) => {
                 const meta = getStatusById(s.statusId)
-                if (meta?.type !== 'absorbed') return sum
-                return sum + (s.remainingBarrier || 0)
-              }, 0)
-              const pctMitigation = Math.max(0, total - result.finalDamage - shieldAbsorb)
+                if (meta?.type !== 'multiplier') return acc
+                const perf = s.performance ?? meta.performance
+                const m =
+                  damageType === 'physical'
+                    ? perf.physics
+                    : damageType === 'magical'
+                      ? perf.magic
+                      : perf.darkness
+                return acc * m
+              }, 1)
+              const candidateDamage = Math.round(total * totalMultiplier)
+              const pctMitigation = Math.max(0, total - candidateDamage)
+              const shieldAbsorb = Math.max(0, candidateDamage - result.finalDamage)
               const overkill = maxHP > 0 ? Math.max(0, result.finalDamage - maxHP) : 0
               const effectiveDamage = result.finalDamage - overkill
 
