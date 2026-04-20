@@ -259,8 +259,6 @@ export default function PropertyPanel() {
             {/* 减伤构成条 */}
             {(() => {
               const total = result.originalDamage
-              if (total <= 0) return null
-
               const maxHP = result.referenceMaxHP || 0
               const shieldAbsorb = (result.appliedStatuses || []).reduce((sum, s) => {
                 const meta = getStatusById(s.statusId)
@@ -271,10 +269,16 @@ export default function PropertyPanel() {
               const overkill = maxHP > 0 ? Math.max(0, result.finalDamage - maxHP) : 0
               const effectiveDamage = result.finalDamage - overkill
 
-              const overkillPct = (overkill / total) * 100
-              const effectivePct = (effectiveDamage / total) * 100
-              const shieldPct = (shieldAbsorb / total) * 100
-              const multiplierPct = (pctMitigation / total) * 100
+              // 原始伤害为 0（如 FFLogs 完全被盾吸收的事件）时，用各段之和做分母回退，
+              // 避免除零；若各段也全为 0，整个块隐藏。
+              const denom =
+                total > 0 ? total : effectiveDamage + overkill + shieldAbsorb + pctMitigation
+              if (denom <= 0) return null
+
+              const overkillPct = (overkill / denom) * 100
+              const effectivePct = (effectiveDamage / denom) * 100
+              const shieldPct = (shieldAbsorb / denom) * 100
+              const multiplierPct = (pctMitigation / denom) * 100
 
               return (
                 <div className="space-y-1">
