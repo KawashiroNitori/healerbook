@@ -71,7 +71,7 @@ export interface MitigationStatus {
 /**
  * onBeforeShield 上下文
  */
-export interface StatusDamageContext {
+export interface StatusBeforeShieldContext {
   /** 触发本次钩子的状态实例 */
   status: MitigationStatus
   /** 当前伤害事件 */
@@ -138,12 +138,18 @@ export interface StatusTickContext {
  */
 export interface StatusExecutor {
   /** % 减伤后、盾值吸收前调用 */
-  onBeforeShield?: (ctx: StatusDamageContext) => PartyState | void
+  onBeforeShield?: (ctx: StatusBeforeShieldContext) => PartyState | void
   /** 盾值在本事件被完全打穿瞬间调用 */
   onConsume?: (ctx: StatusConsumeContext) => PartyState | void
   /** 盾值吸收后调用（无论这个状态自身是否参与了吸收） */
   onAfterDamage?: (ctx: StatusAfterDamageContext) => PartyState | void
-  /** 状态到达 endTime、即将被 driver 清理时调用 */
+  /**
+   * 状态到达 endTime、即将被 driver 清理时调用。
+   *
+   * 注意：不要在 onExpire 中添加 `endTime <= ctx.expireTime` 的新状态——这类新状态
+   * 会被本次 filter 静默清掉且不再触发自己的 onExpire；如需链式过期，请将新状态的
+   * endTime 设得晚于 `ctx.expireTime`。
+   */
   onExpire?: (ctx: StatusExpireContext) => PartyState | void
   /** 全局 3s tick 网格上、状态仍活跃时触发（DoT / HoT 等） */
   onTick?: (ctx: StatusTickContext) => PartyState | void

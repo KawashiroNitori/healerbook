@@ -4,7 +4,7 @@
  */
 
 import type { PartyState } from '@/types/partyState'
-import type { MitigationStatus } from '@/types/status'
+import type { MitigationStatus, PerformanceType } from '@/types/status'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 
@@ -206,10 +206,7 @@ export class MitigationCalculator {
    * @param damageType 伤害类型
    * @returns 减伤倍率（0-1）
    */
-  private getDamageMultiplier(
-    performance: { physics: number; magic: number; darkness: number },
-    damageType: DamageType
-  ): number {
+  private getDamageMultiplier(performance: PerformanceType, damageType: DamageType): number {
     switch (damageType) {
       case 'physical':
         return performance.physics

@@ -82,7 +82,7 @@ export function removeStatusesByStatusId(state: PartyState, statusId: number): P
 export function updateStatus(
   state: PartyState,
   instanceId: string,
-  patch: Partial<MitigationStatus>
+  patch: Partial<Omit<MitigationStatus, 'instanceId' | 'statusId'>>
 ): PartyState {
   return {
     ...state,
