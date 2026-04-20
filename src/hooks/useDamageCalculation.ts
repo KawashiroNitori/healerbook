@@ -192,10 +192,28 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       currentState = advanceToTime(currentState, lastAdvanceTime, filterTime)
       lastAdvanceTime = filterTime
 
-      const result = calculator.calculate(event, currentState)
+      const includeTankOnly = event.type === 'tankbuster' || event.type === 'auto'
+      const baseReferenceMaxHP = includeTankOnly ? tankReferenceMaxHP : referenceMaxHP
 
-      const eventReferenceMaxHP =
-        event.type === 'tankbuster' || event.type === 'auto' ? tankReferenceMaxHP : referenceMaxHP
+      // 依据活跃状态 performance.maxHP 抬高/压低参考 HP
+      // 与 calculator 阶段 1 的过滤口径一致：mitigationTime 在窗口内、且 isTankOnly 只进坦专事件
+      const mitigationTime = event.snapshotTime ?? event.time
+      let maxHPMultiplier = 1
+      for (const status of currentState.statuses) {
+        if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+        const meta = getStatusById(status.statusId)
+        if (!meta) continue
+        if (meta.isTankOnly && !includeTankOnly) continue
+        const perf = status.performance ?? meta.performance
+        const m = perf.maxHP ?? 1
+        if (m !== 1) maxHPMultiplier *= m
+      }
+
+      const eventReferenceMaxHP = Math.round(baseReferenceMaxHP * maxHPMultiplier)
+
+      const result = calculator.calculate(event, currentState, {
+        referenceMaxHP: eventReferenceMaxHP,
+      })
 
       results.set(event.id, { ...result, referenceMaxHP: eventReferenceMaxHP })
       // updatedPartyState 一定存在（编辑模式下 calculate 总会返回它）

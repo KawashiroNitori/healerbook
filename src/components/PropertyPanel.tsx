@@ -260,11 +260,12 @@ export default function PropertyPanel() {
             {(() => {
               const total = result.originalDamage
               const maxHP = result.referenceMaxHP || 0
-              const shieldAbsorb = (result.appliedStatuses || []).reduce((sum, s) => {
-                const meta = getStatusById(s.statusId)
-                if (meta?.type !== 'absorbed') return sum
-                return sum + (s.remainingBarrier || 0)
-              }, 0)
+              // 按实例级 remainingBarrier 判盾（与 calculator Phase 3 口径一致）
+              // 覆盖 meta.type='multiplier' 但被 onBeforeShield 注入 barrier 的场景（如死斗）
+              const shieldAbsorb = (result.appliedStatuses || []).reduce(
+                (sum, s) => sum + (s.remainingBarrier ?? 0),
+                0
+              )
               const pctMitigation = Math.max(0, total - result.finalDamage - shieldAbsorb)
               const overkill = maxHP > 0 ? Math.max(0, result.finalDamage - maxHP) : 0
               const effectiveDamage = result.finalDamage - overkill
@@ -347,22 +348,25 @@ export default function PropertyPanel() {
               result.appliedStatuses.length > 0 &&
               (() => {
                 const damageType = event.damageType || 'physical'
-                const multiplierStatuses = result.appliedStatuses.filter(
-                  s => getStatusById(s.statusId)?.type === 'multiplier'
-                )
+                // 实例级分桶：有 remainingBarrier 走盾值桶，否则才是百分比桶
+                // （统一口径，并把 onBeforeShield 注 barrier 的 multiplier-type 状态归入盾值）
                 const shieldStatuses = result.appliedStatuses.filter(
-                  s => getStatusById(s.statusId)?.type === 'absorbed'
+                  s => s.remainingBarrier !== undefined
+                )
+                const multiplierStatuses = result.appliedStatuses.filter(
+                  s => s.remainingBarrier === undefined
                 )
 
                 const totalMultiplier = multiplierStatuses.reduce((acc, s) => {
                   const meta = getStatusById(s.statusId)
                   if (!meta) return acc
+                  const perf = s.performance ?? meta.performance
                   const m =
                     damageType === 'physical'
-                      ? meta.performance.physics
+                      ? perf.physics
                       : damageType === 'magical'
-                        ? meta.performance.magic
-                        : meta.performance.darkness
+                        ? perf.magic
+                        : perf.darkness
                   return acc * m
                 }, 1)
                 const pctReduction = ((1 - totalMultiplier) * 100).toFixed(1)
@@ -381,16 +385,17 @@ export default function PropertyPanel() {
                   const iconUrl = getStatusIconUrl(status.statusId)
                   const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
                   let mitigationText = ''
-                  if (meta?.type === 'multiplier') {
+                  if (status.remainingBarrier !== undefined) {
+                    mitigationText = `盾: ${status.remainingBarrier.toLocaleString()}`
+                  } else if (meta?.type === 'multiplier') {
+                    const perf = status.performance ?? meta.performance
                     const m =
                       damageType === 'physical'
-                        ? meta.performance.physics
+                        ? perf.physics
                         : damageType === 'magical'
-                          ? meta.performance.magic
-                          : meta.performance.darkness
+                          ? perf.magic
+                          : perf.darkness
                     mitigationText = `${((1 - m) * 100).toFixed(1)}%`
-                  } else if (meta?.type === 'absorbed') {
-                    mitigationText = `盾: ${(status.remainingBarrier || 0).toLocaleString()}`
                   }
                   return (
                     <Tooltip key={`${status.statusId}-${index}`} delayDuration={0}>

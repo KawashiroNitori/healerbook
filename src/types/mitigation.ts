@@ -20,8 +20,11 @@ export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'ba
  * 减伤类别（UI 过滤用）
  * - shield: 盾值类
  * - percentage: 百分比减伤类（含目标/非目标减伤）
+ * - partywide: 群体生效
+ * - self: 可对自身生效
+ * - target: 可对目标生效
  */
-export type MitigationCategory = 'shield' | 'percentage'
+export type MitigationCategory = 'shield' | 'percentage' | 'partywide' | 'self' | 'target'
 
 /**
  * 副本统计数据

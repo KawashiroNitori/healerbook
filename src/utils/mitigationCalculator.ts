@@ -29,6 +29,18 @@ export interface CalculationResult {
 }
 
 /**
+ * 计算选项
+ */
+export interface CalculateOptions {
+  /**
+   * 事件对应的参考血量（已叠加 maxHP 倍率的 tankReferenceMaxHP / referenceMaxHP）。
+   * 用于编辑模式下向 StatusBeforeShieldContext 提供 tank 的理论血量——
+   * 死斗等"将 HP 拉到 1"类钩子在 replay 缺字段时以此兜底。
+   */
+  referenceMaxHP?: number
+}
+
+/**
  * 减伤计算器
  */
 export class MitigationCalculator {
@@ -38,9 +50,14 @@ export class MitigationCalculator {
    *
    * @param event 伤害事件（提供原始伤害、时间、攻击类型与伤害类型等）
    * @param partyState 小队状态
+   * @param opts 可选参数（含 referenceMaxHP 等透传字段）
    * @returns 计算结果
    */
-  calculate(event: DamageEvent, partyState: PartyState): CalculationResult {
+  calculate(
+    event: DamageEvent,
+    partyState: PartyState,
+    opts?: CalculateOptions
+  ): CalculationResult {
     const originalDamage = event.damage
     const time = event.time
     const damageType: DamageType = event.damageType || 'physical'
@@ -86,6 +103,7 @@ export class MitigationCalculator {
         event,
         partyState: workingState,
         candidateDamage,
+        referenceMaxHP: opts?.referenceMaxHP ?? 0,
       })
       if (result) workingState = result
     }
@@ -97,7 +115,9 @@ export class MitigationCalculator {
     for (const status of workingState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
-      if (meta.isTankOnly && !includeTankOnly) continue
+      // 盾的 isTankOnly 需与事件类型匹配：坦专盾只进死刑/普攻，群盾只进 aoe
+      // 原因：一个盾状态实例的 remainingBarrier 代表单玩家一份，单体事件不该消耗"全队的份"
+      if (meta.isTankOnly !== includeTankOnly) continue
       if (status.remainingBarrier === undefined || status.remainingBarrier <= 0) continue
       if (time >= status.startTime && time <= status.endTime) {
         shieldStatuses.push(status)
@@ -113,7 +133,13 @@ export class MitigationCalculator {
       const absorbed = Math.min(playerDamage, status.remainingBarrier!)
       playerDamage -= absorbed
 
-      if (!appliedStatuses.find(s => s.instanceId === status.instanceId)) {
+      // 已被 Phase 1 push 过的同 instance（典型：死斗是 multiplier meta，
+      // Phase 1 先以无 barrier 引用进表）需要替换为带 barrier 的 Phase 3 实例，
+      // 否则 UI 读到旧引用以为它没盾
+      const existingIdx = appliedStatuses.findIndex(s => s.instanceId === status.instanceId)
+      if (existingIdx >= 0) {
+        appliedStatuses[existingIdx] = status
+      } else {
         appliedStatuses.push(status)
       }
 
@@ -149,7 +175,14 @@ export class MitigationCalculator {
           }
           return s
         })
-        .filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0),
+        // 仅在 meta.type === 'absorbed' 时把 barrier 耗尽的实例清除；
+        // multiplier 类型上的 barrier 是 onBeforeShield 注入的 transient 值（如死斗），
+        // 状态本身的生命周期由 duration/其它钩子管，不能因盾被打穿就一并移除，
+        // 否则后续事件无法再次触发 onBeforeShield 重新上盾。
+        .filter(s => {
+          if (s.remainingBarrier === undefined || s.remainingBarrier > 0) return true
+          return getStatusById(s.statusId)?.type !== 'absorbed'
+        }),
     }
 
     // Phase 4: onConsume — 刚被打穿的盾触发后续变化

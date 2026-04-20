@@ -17,7 +17,7 @@ describe('filterStore', () => {
       expect(ids).toEqual([
         'builtin:all',
         'builtin:raidwide',
-        'builtin:dps-raidwide',
+        'builtin:dps',
         'builtin:tank',
         'builtin:healer',
       ])

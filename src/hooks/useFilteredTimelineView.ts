@@ -27,8 +27,10 @@ export function matchSingleAction(
 ): boolean {
   if (preset.kind === 'builtin') {
     const { categories, jobRoles } = preset.rule
-    if (!categories.some(c => action.category.includes(c))) return false
-    if (jobRoles === 'all') return true
+    if (categories && categories.length > 0) {
+      if (!categories.some(c => action.category.includes(c))) return false
+    }
+    if (!jobRoles || jobRoles.length === 0) return true
     const role = getJobRole(playerJob)
     return role != null && jobRoles.includes(role)
   }
@@ -36,7 +38,9 @@ export function matchSingleAction(
 }
 
 export function matchDamageEvent(e: DamageEvent, preset: FilterPreset): boolean {
-  return preset.rule.damageTypes.includes(e.type)
+  const { damageTypes } = preset.rule
+  if (!damageTypes || damageTypes.length === 0) return true
+  return damageTypes.includes(e.type)
 }
 
 export function matchCastEvent(

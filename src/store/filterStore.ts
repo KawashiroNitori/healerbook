@@ -12,11 +12,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     kind: 'builtin',
     id: 'builtin:all',
     name: '全部',
-    rule: {
-      damageTypes: ['aoe', 'tankbuster', 'auto'],
-      jobRoles: 'all',
-      categories: ['shield', 'percentage'],
-    },
+    rule: {},
   },
   {
     kind: 'builtin',
@@ -24,18 +20,16 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     name: '仅团减',
     rule: {
       damageTypes: ['aoe'],
-      jobRoles: 'all',
-      categories: ['shield', 'percentage'],
+      categories: ['partywide'],
     },
   },
   {
     kind: 'builtin',
-    id: 'builtin:dps-raidwide',
+    id: 'builtin:dps',
     name: '仅 DPS',
     rule: {
       damageTypes: ['aoe'],
       jobRoles: ['melee', 'ranged', 'caster'],
-      categories: ['shield', 'percentage'],
     },
   },
   {
@@ -45,7 +39,6 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     rule: {
       damageTypes: ['aoe', 'tankbuster', 'auto'],
       jobRoles: ['tank'],
-      categories: ['shield', 'percentage'],
     },
   },
   {
@@ -55,7 +48,6 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     rule: {
       damageTypes: ['aoe'],
       jobRoles: ['healer'],
-      categories: ['shield', 'percentage'],
     },
   },
 ]

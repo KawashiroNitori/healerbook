@@ -116,6 +116,84 @@ describe('useDamageCalculation: onExpire / onTick 钩子', () => {
     }
   })
 
+  it('活跃状态的 performance.maxHP 会把 referenceMaxHP 乘上', () => {
+    const FAKE_ID = 999803
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation(id => {
+      if (id === FAKE_ID) {
+        return fakeMeta(id, {
+          isTankOnly: true,
+          performance: { physics: 1, magic: 1, darkness: 1, heal: 1, maxHP: 1.2 },
+        })
+      }
+      return undefined
+    })
+
+    try {
+      useTimelineStore.setState({
+        partyState: {
+          statuses: [
+            {
+              instanceId: 'tank-boost',
+              statusId: FAKE_ID,
+              startTime: 0,
+              endTime: 30,
+              sourcePlayerId: 1,
+            },
+          ],
+          timestamp: 0,
+        },
+        statistics: null,
+        timeline: null,
+      })
+
+      const { result } = renderHook(() => useDamageCalculation(makeTimeline([{ time: 5 }])))
+      const e0 = result.current.get('e0')
+      expect(e0?.referenceMaxHP).toBe(Math.round(100000 * 1.2))
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('非坦克事件不叠加 isTankOnly 的 maxHP', () => {
+    const FAKE_ID = 999804
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation(id => {
+      if (id === FAKE_ID) {
+        return fakeMeta(id, {
+          isTankOnly: true,
+          performance: { physics: 1, magic: 1, darkness: 1, heal: 1, maxHP: 1.2 },
+        })
+      }
+      return undefined
+    })
+
+    try {
+      useTimelineStore.setState({
+        partyState: {
+          statuses: [
+            {
+              instanceId: 'tank-boost',
+              statusId: FAKE_ID,
+              startTime: 0,
+              endTime: 30,
+              sourcePlayerId: 1,
+            },
+          ],
+          timestamp: 0,
+        },
+        statistics: null,
+        timeline: null,
+      })
+
+      const tl = makeTimeline([{ time: 5 }])
+      tl.damageEvents[0].type = 'aoe'
+      const { result } = renderHook(() => useDamageCalculation(tl))
+      const e0 = result.current.get('e0')
+      expect(e0?.referenceMaxHP).toBe(100000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('状态未覆盖的 tick 点不触发 onTick', () => {
     const FAKE_ID = 999802
     const onTick = vi.fn()

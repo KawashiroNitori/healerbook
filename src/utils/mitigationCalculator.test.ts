@@ -167,7 +167,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(5000)
       expect(result.mitigationPercentage).toBe(50)
@@ -190,13 +190,14 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(7000)
       expect(result.mitigationPercentage).toBe(30)
     })
 
     it('应该正确处理百分比减伤 + 盾值', () => {
+      // 死刑场景：铁壁（坦专 20%）+ 至黑之夜（坦专盾 2000）
       const partyState: PartyState = {
         ...basePartyState,
         statuses: [
@@ -208,7 +209,7 @@ describe('MitigationCalculator', () => {
           },
           {
             instanceId: 'test-2',
-            statusId: 297,
+            statusId: 1178,
             startTime: 0,
             endTime: 30,
             remainingBarrier: 2000,
@@ -244,7 +245,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(3000)
       expect(result.mitigationPercentage).toBe(70)
@@ -264,7 +265,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(0)
       expect(result.mitigationPercentage).toBe(100)
@@ -300,7 +301,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 20, 'physical'), partyState)
+      const result = calculator.calculate(makeEvent(10000, 20, 'physical', 'aoe'), partyState)
 
       // 预期消耗顺序：shield-1 (startTime=5) -> shield-2 (startTime=10) -> shield-3 (startTime=15)
       // 10000 - 2000 - 2500 - 3000 = 2500
@@ -334,7 +335,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(5000, 15, 'physical'), partyState)
+      const result = calculator.calculate(makeEvent(5000, 15, 'physical', 'aoe'), partyState)
 
       // 预期消耗顺序：shield-1 (startTime=5) 先消耗 3000，shield-2 (startTime=10) 再消耗 2000
       expect(result.finalDamage).toBe(0)
@@ -500,6 +501,51 @@ describe('MitigationCalculator', () => {
       // 未被 AOE 消耗
       expect(result.updatedPartyState!.statuses[0].remainingBarrier).toBe(5000)
     })
+
+    it('死刑应忽略非坦克专属盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'party-shield',
+            statusId: 297, // 鼓舞：isTankOnly = false
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 5000,
+            initialBarrier: 5000,
+          },
+        ],
+      }
+
+      const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState)
+
+      expect(result.finalDamage).toBe(10000)
+      expect(result.appliedStatuses).toHaveLength(0)
+      // 群盾保持不消耗
+      expect(result.updatedPartyState!.statuses[0].remainingBarrier).toBe(5000)
+    })
+
+    it('普通攻击应忽略非坦克专属盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'party-shield',
+            statusId: 297,
+            startTime: 0,
+            endTime: 30,
+            remainingBarrier: 5000,
+            initialBarrier: 5000,
+          },
+        ],
+      }
+
+      const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'auto'), partyState)
+
+      expect(result.finalDamage).toBe(10000)
+      expect(result.appliedStatuses).toHaveLength(0)
+      expect(result.updatedPartyState!.statuses[0].remainingBarrier).toBe(5000)
+    })
   })
 
   describe('StatusExecutor 钩子通路', () => {
@@ -543,8 +589,8 @@ describe('MitigationCalculator', () => {
       })
 
       const spy = withFakeMeta({
-        [FAKE_BUFF_ID]: { type: 'multiplier', executor: { onBeforeShield } },
-        [FAKE_SHIELD_ID]: { type: 'absorbed' },
+        [FAKE_BUFF_ID]: { type: 'multiplier', isTankOnly: true, executor: { onBeforeShield } },
+        [FAKE_SHIELD_ID]: { type: 'absorbed', isTankOnly: true },
       })
 
       try {
@@ -578,7 +624,7 @@ describe('MitigationCalculator', () => {
       const onConsume = vi.fn().mockImplementation(ctx => ctx.partyState)
 
       const spy = withFakeMeta({
-        [FAKE_SHIELD_ID]: { type: 'absorbed', executor: { onConsume } },
+        [FAKE_SHIELD_ID]: { type: 'absorbed', isTankOnly: true, executor: { onConsume } },
       })
 
       try {
@@ -609,12 +655,11 @@ describe('MitigationCalculator', () => {
       const onBeforeShield = vi.fn().mockImplementation(ctx => {
         return updateStatus(ctx.partyState, ctx.status.instanceId, {
           remainingBarrier: ctx.candidateDamage,
-          endTime: ctx.event.time,
         })
       })
 
       const spy = withFakeMeta({
-        [FAKE_BUFF_ID]: { type: 'multiplier', executor: { onBeforeShield } },
+        [FAKE_BUFF_ID]: { type: 'multiplier', isTankOnly: true, executor: { onBeforeShield } },
       })
 
       try {
@@ -638,10 +683,94 @@ describe('MitigationCalculator', () => {
 
         expect(onBeforeShield).toHaveBeenCalledTimes(1)
         expect(result.finalDamage).toBe(0)
-        expect(result.updatedPartyState!.statuses.find(s => s.instanceId === 'ld')).toBeUndefined()
+        // multiplier 状态即使 barrier 被打穿仍保留在 state，供下一事件再次触发 onBeforeShield
+        const ld = result.updatedPartyState!.statuses.find(s => s.instanceId === 'ld')
+        expect(ld).toBeDefined()
+        expect(ld!.remainingBarrier).toBe(0)
       } finally {
         spy.mockRestore()
       }
+    })
+
+    it('死斗 onBeforeShield 只统计 tankOnly 盾并给自身补足所需盾值', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'ld',
+            statusId: 409,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 1,
+          },
+          {
+            instanceId: 'team-shield',
+            statusId: 297,
+            startTime: 0,
+            endTime: 20,
+            remainingBarrier: 3000,
+            initialBarrier: 3000,
+          },
+          {
+            instanceId: 'tank-shield',
+            statusId: 1178,
+            startTime: 0,
+            endTime: 20,
+            remainingBarrier: 2000,
+            initialBarrier: 2000,
+          },
+        ],
+      }
+
+      const event: DamageEvent = {
+        id: 'e-ld',
+        name: 'tankbuster',
+        time: 5,
+        damage: 20000,
+        type: 'tankbuster',
+        damageType: 'physical',
+      }
+
+      // 编辑模式以 referenceMaxHP 当作坦克满血（5000 模拟一个低 HP 坦克参考值）
+      const result = calculator.calculate(event, partyState, { referenceMaxHP: 5000 })
+
+      // 公式: required = candidate(20000) - tankOnlyShield(2000) - referenceMaxHP(5000) + 1 = 13001
+      // 死刑事件下 Phase 3 只消耗坦专盾：20000 - 13001 - tank(2000) = 4999（team 盾 3000 保留）
+      expect(result.finalDamage).toBe(4999)
+    })
+
+    it('死斗对同时段内多次伤害事件都能触发 onBeforeShield', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'ld',
+            statusId: 409,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 1,
+          },
+        ],
+      }
+
+      // 第一次 20000 伤害：LD 补盾 15001、把伤害挡到 4999
+      const first = calculator.calculate(
+        { id: 'e1', name: '', time: 3, damage: 20000, type: 'tankbuster', damageType: 'physical' },
+        partyState,
+        { referenceMaxHP: 5000 }
+      )
+      expect(first.finalDamage).toBe(4999)
+      const ldAfterFirst = first.updatedPartyState!.statuses.find(s => s.instanceId === 'ld')
+      expect(ldAfterFirst).toBeDefined()
+      expect(ldAfterFirst!.remainingBarrier).toBe(0)
+
+      // 第二次 18000 伤害：LD 应再次补盾 13001、把伤害挡到 4999
+      const second = calculator.calculate(
+        { id: 'e2', name: '', time: 6, damage: 18000, type: 'tankbuster', damageType: 'physical' },
+        first.updatedPartyState!,
+        { referenceMaxHP: 5000 }
+      )
+      expect(second.finalDamage).toBe(4999)
     })
 
     it('onConsume 在盾未打穿时不调用', () => {

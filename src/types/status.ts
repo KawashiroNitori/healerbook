@@ -15,9 +15,9 @@ import type { PartyState } from './partyState'
  */
 export type PerformanceType = ExternalPerformanceType & {
   /** 治疗增益倍率，缺省视为 1 */
-  heal: number
+  heal?: number
   /** 最大 HP 倍率（> 1 增益；例如 1.1 = +10% HP），缺省视为 1 */
-  maxHP: number
+  maxHP?: number
 }
 
 /**
@@ -62,7 +62,7 @@ export interface MitigationStatus {
    * 条件性减伤值快照；若存在优先于 metadata.performance。
    *
    * Snapshot-on-apply：由 ActionExecutor（通常是 createBuffExecutor 的 `performance`
-   * option）在 cast 时写入，事件间不会重算。calculator 优先读取：
+   * option 直接注入）在 cast 时写入，事件间不会重算。calculator 优先读取：
    * `status.performance ?? meta.performance`。
    */
   performance?: PerformanceType
@@ -78,8 +78,13 @@ export interface StatusBeforeShieldContext {
   event: DamageEvent
   /** 本事件进入此钩子时的小队状态（含前序钩子已合并的修改） */
   partyState: PartyState
-  /** % 减伤后的候选伤害（未扣盾） */
+  /** % 减伤后的候选伤害（未扣盾) */
   candidateDamage: number
+  /**
+   * 事件对应的参考血量（坦专事件对应 tankReferenceMaxHP、aoe 对应 referenceMaxHP，
+   * 已叠加活跃 buff 的 maxHP 倍率）。钩子只在编辑模式触发，由 calculator 注入。
+   */
+  referenceMaxHP: number
 }
 
 /**

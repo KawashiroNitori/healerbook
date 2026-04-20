@@ -38,7 +38,6 @@ function builtin(
     name: 'test',
     rule: {
       damageTypes: ['aoe', 'tankbuster'],
-      jobRoles: 'all',
       categories: ['shield', 'percentage'],
       ...ruleOverrides,
     },
@@ -67,9 +66,9 @@ describe('matchSingleAction', () => {
       expect(matchSingleAction(a, 'PLD', p)).toBe(false)
     })
 
-    it('category 匹配且 jobRoles=all 时返回 true', () => {
+    it('category 匹配且 jobRoles 省略时返回 true', () => {
       const a = makeAction({ category: ['percentage'] })
-      const p = builtin({ jobRoles: 'all', categories: ['percentage'] })
+      const p = builtin({ categories: ['percentage'] })
       expect(matchSingleAction(a, 'PLD', p)).toBe(true)
     })
 
@@ -94,7 +93,7 @@ describe('matchSingleAction', () => {
 
     it('action 有多 category，只要任一命中就通过', () => {
       const a = makeAction({ category: ['shield', 'percentage'] })
-      const p = builtin({ jobRoles: 'all', categories: ['shield'] })
+      const p = builtin({ categories: ['shield'] })
       expect(matchSingleAction(a, 'PLD', p)).toBe(true)
     })
   })
@@ -164,7 +163,7 @@ describe('matchCastEvent', () => {
   it('action 找到并通过 matchSingleAction 时返回 true', () => {
     const a = makeAction({ id: 42, category: ['percentage'] })
     const e: CastEvent = { id: 'c', actionId: 42, timestamp: 0, playerId: 1 }
-    const p = builtin({ jobRoles: 'all', categories: ['percentage'] })
+    const p = builtin({ categories: ['percentage'] })
     expect(matchCastEvent(e, 'PLD', p, new Map([[42, a]]))).toBe(true)
   })
 })
@@ -248,8 +247,8 @@ describe('useFilteredTimelineView', () => {
     expect(result.current.filteredCastEvents.map(e => e.id)).toEqual(['c1'])
   })
 
-  it('builtin:dps-raidwide：只保留 aoe 与 DPS 玩家的 cast', () => {
-    useFilterStore.setState({ activeFilterId: 'builtin:dps-raidwide' })
+  it('builtin:dps：只保留 aoe 与 DPS 玩家的 cast', () => {
+    useFilterStore.setState({ activeFilterId: 'builtin:dps' })
     const { result } = renderHook(() => useFilteredTimelineView())
     expect(result.current.filteredDamageEvents.map(e => e.id)).toEqual(['d1'])
     expect(result.current.filteredCastEvents.map(e => e.id)).toEqual(['c3'])

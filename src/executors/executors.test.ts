@@ -57,37 +57,42 @@ describe('executors', () => {
       expect(result.statuses[0].sourcePlayerId).toBe(999)
     })
 
-    it('支持条件性 performance：满足条件时覆盖 metadata 默认值', () => {
+    it('支持 performance 快照：覆盖 metadata 默认值', () => {
       const executor = createBuffExecutor(1234, 20, {
-        performance: ctx => {
-          const boosted = ctx.partyState.statuses.some(s => s.statusId === 9999)
-          return boosted
-            ? { physics: 0.8, magic: 0.8, darkness: 0.8, heal: 1, maxHP: 1 }
-            : undefined
-        },
+        performance: { physics: 0.8, magic: 0.8, darkness: 0.8, heal: 1, maxHP: 1 },
       })
 
-      const withTrigger: ActionExecutionContext = {
+      const ctx: ActionExecutionContext = {
         actionId: 1,
         useTime: 0,
         sourcePlayerId: 1,
         partyState: {
-          statuses: [{ instanceId: 'trigger', statusId: 9999, startTime: 0, endTime: 30 }],
+          statuses: [],
           timestamp: 0,
         },
       }
 
-      const resultWithTrigger = executor(withTrigger)
-      const added = resultWithTrigger.statuses.find(s => s.statusId === 1234)
+      const result = executor(ctx)
+      const added = result.statuses.find(s => s.statusId === 1234)
       expect(added?.performance?.physics).toBe(0.8)
+    })
 
-      const withoutTrigger: ActionExecutionContext = {
-        ...withTrigger,
-        partyState: { ...withTrigger.partyState, statuses: [] },
+    it('未传 performance 时 status.performance 保持 undefined', () => {
+      const executor = createBuffExecutor(1234, 20)
+
+      const ctx: ActionExecutionContext = {
+        actionId: 1,
+        useTime: 0,
+        sourcePlayerId: 1,
+        partyState: {
+          statuses: [],
+          timestamp: 0,
+        },
       }
-      const resultWithout = executor(withoutTrigger)
-      const addedNoOverride = resultWithout.statuses.find(s => s.statusId === 1234)
-      expect(addedNoOverride?.performance).toBeUndefined()
+
+      const result = executor(ctx)
+      const added = result.statuses.find(s => s.statusId === 1234)
+      expect(added?.performance).toBeUndefined()
     })
   })
 

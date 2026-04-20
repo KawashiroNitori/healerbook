@@ -34,12 +34,47 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   1174: { isTankOnly: true }, // 干预
   2675: { isTankOnly: true }, // 骑士的坚守
   3829: { isTankOnly: true }, // 极致防御
+  3830: { isTankOnly: true }, // 极致护盾
 
   // 战士
   87: { isTankOnly: true, heal: 1.2, maxHP: 1.2 }, // 战栗
   89: { isTankOnly: true }, // 复仇
   3832: { isTankOnly: true }, // 戮罪
-  409: { isTankOnly: true }, // 死斗
+
+  // 死斗
+  409: {
+    isTankOnly: true,
+    executor: {
+      onBeforeShield: ctx => {
+        const tankOnlyShield = ctx.partyState.statuses
+          .filter(s => {
+            if (s.remainingBarrier === undefined || s.remainingBarrier <= 0) return false
+            if (ctx.event.time < s.startTime || ctx.event.time > s.endTime) return false
+            return STATUS_EXTRAS[s.statusId]?.isTankOnly === true
+          })
+          .reduce((sum, s) => sum + (s.remainingBarrier ?? 0), 0)
+
+        // 编辑模式假设坦克满血
+        const requiredShield = ctx.candidateDamage - tankOnlyShield - ctx.referenceMaxHP + 1
+
+        if (requiredShield <= 0) return ctx.partyState
+
+        return {
+          ...ctx.partyState,
+          statuses: ctx.partyState.statuses.map(s =>
+            s.instanceId === ctx.status.instanceId
+              ? {
+                  ...s,
+                  remainingBarrier: requiredShield,
+                  initialBarrier: requiredShield,
+                }
+              : s
+          ),
+        }
+      },
+    },
+  },
+
   735: { isTankOnly: true }, // 原初的直觉
   1858: { isTankOnly: true }, // 原初的武猛
   2678: { isTankOnly: true }, // 原初的血气

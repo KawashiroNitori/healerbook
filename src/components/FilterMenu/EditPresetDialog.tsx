@@ -68,7 +68,9 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
 
   const [name, setName] = useState<string>(() => (preset?.kind === 'custom' ? preset.name : ''))
   const [damageTypes, setDamageTypes] = useState<DamageEventType[]>(() =>
-    preset?.kind === 'custom' ? preset.rule.damageTypes : ['aoe', 'tankbuster', 'auto']
+    preset?.kind === 'custom' && preset.rule.damageTypes
+      ? preset.rule.damageTypes
+      : ['aoe', 'tankbuster', 'auto']
   )
   const [selectedActionsByJob, setSelectedActionsByJob] = useState<Partial<Record<Job, number[]>>>(
     () => (preset?.kind === 'custom' ? preset.rule.selectedActionsByJob : defaultSelectedAll)

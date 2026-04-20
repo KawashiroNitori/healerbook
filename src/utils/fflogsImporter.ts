@@ -152,6 +152,8 @@ export function parseDamageEvents(
     // 因此不能把 packetID 当必要条件。降级用 timestamp 做 key 兜底。
     if (!event.targetID) continue
     if (!playerMap.has(event.targetID)) continue
+    // 来自队友的伤害（如反伤、友军误伤）不参与 boss 减伤规划，直接丢弃
+    if (event.sourceID != null && playerMap.has(event.sourceID)) continue
 
     const abilityId = event.abilityGameID ?? 0
     const key = `${event.packetID ?? event.timestamp}-${event.targetID}-${abilityId}`
