@@ -113,9 +113,11 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                         {detail.finalDamage.toLocaleString()}
                       </span>
                       <span className="text-muted-foreground"> / {total.toLocaleString()}</span>
-                      <span className="text-muted-foreground ml-1">
-                        ({(((total - detail.finalDamage) / total) * 100).toFixed(1)}%)
-                      </span>
+                      {total > 0 && (
+                        <span className="text-muted-foreground ml-1">
+                          ({(((total - detail.finalDamage) / total) * 100).toFixed(1)}%)
+                        </span>
+                      )}
                     </span>
                   </div>
                   <TooltipProvider>
