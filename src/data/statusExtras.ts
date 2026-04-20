@@ -5,6 +5,8 @@
  * 本表按 statusId 提供本地扩展字段的覆盖值。未在此表中的状态走 statusRegistry 里的默认值。
  */
 
+import type { StatusExecutor } from '@/types/status'
+
 /** 单个状态的本地补充字段 */
 export interface StatusExtras {
   /** 是否仅对坦克生效；缺省为 false */
@@ -13,6 +15,8 @@ export interface StatusExtras {
   heal?: number
   /** performance.maxHP 倍率（1 = 无影响，> 1 增加最大 HP）；缺省为 1 */
   maxHP?: number
+  /** 状态自身的副作用钩子（可选） */
+  executor?: StatusExecutor
 }
 
 /** statusId → 本地补充字段 */

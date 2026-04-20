@@ -33,6 +33,7 @@ function initializeStatusRegistry() {
         maxHP: extras?.maxHP ?? 1,
       },
       isTankOnly: extras?.isTankOnly ?? false,
+      executor: extras?.executor,
     }
     statusMap.set(status.id, merged)
   }
