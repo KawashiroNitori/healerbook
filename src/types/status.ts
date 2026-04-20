@@ -2,12 +2,33 @@
  * 状态类型定义
  */
 
-import type { Keigenn } from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
+import type {
+  Keigenn,
+  PerformanceType as ExternalPerformanceType,
+} from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
 
 /**
- * 减伤状态元数据（直接引用 keigenn.ts）
+ * 减伤表现：在 3rd party 的 physics/magic/darkness 基础上新增 heal / maxHP
+ * (1 = 无影响；< 1 减伤；此处复用同一套乘算口径)
  */
-export type MitigationStatusMetadata = Keigenn
+export type PerformanceType = ExternalPerformanceType & {
+  /** 治疗增益倍率，缺省视为 1 */
+  heal: number
+  /** 最大 HP 倍率（> 1 增益；例如 1.1 = +10% HP），缺省视为 1 */
+  maxHP: number
+}
+
+/**
+ * 减伤状态元数据（在 Keigenn 基础上扩展本地字段）
+ *
+ * fullIcon 与 3rd party 的 keigenns 数组声明一致，做成可选
+ */
+export interface MitigationStatusMetadata extends Omit<Keigenn, 'performance' | 'fullIcon'> {
+  performance: PerformanceType
+  fullIcon?: string
+  /** 是否仅对坦克生效 */
+  isTankOnly: boolean
+}
 
 /**
  * 减伤状态实例（运行时）

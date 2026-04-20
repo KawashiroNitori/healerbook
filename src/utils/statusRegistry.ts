@@ -4,6 +4,7 @@
  */
 
 import { keigenns } from '../../3rdparty/ff14-overlay-vue/src/resources/keigenn'
+import { STATUS_EXTRAS } from '@/data/statusExtras'
 import type { MitigationStatusMetadata } from '@/types/status'
 
 /**
@@ -13,12 +14,27 @@ const statusMap = new Map<number, MitigationStatusMetadata>()
 
 /**
  * 初始化状态注册表
+ *
+ * 合并规则：3rd party Keigenn 数据 + STATUS_EXTRAS 覆盖 + 默认值
+ *   - performance.heal 缺省为 1（无影响）
+ *   - performance.maxHP 缺省为 1（无影响）
+ *   - isTankOnly 缺省为 false
  */
 function initializeStatusRegistry() {
   if (statusMap.size > 0) return // 已初始化
 
   for (const status of keigenns) {
-    statusMap.set(status.id, status as MitigationStatusMetadata)
+    const extras = STATUS_EXTRAS[status.id]
+    const merged: MitigationStatusMetadata = {
+      ...status,
+      performance: {
+        ...status.performance,
+        heal: extras?.heal ?? 1,
+        maxHP: extras?.maxHP ?? 1,
+      },
+      isTankOnly: extras?.isTankOnly ?? false,
+    }
+    statusMap.set(status.id, merged)
   }
 }
 
