@@ -2,8 +2,8 @@
  * 友方 Buff 执行器工厂
  */
 
-import type { ActionExecutor } from '@/types/mitigation'
-import type { MitigationStatus } from '@/types/status'
+import type { ActionExecutionContext, ActionExecutor } from '@/types/mitigation'
+import type { MitigationStatus, PerformanceType } from '@/types/status'
 import { generateId } from './utils'
 
 /**
@@ -12,6 +12,11 @@ import { generateId } from './utils'
 export interface BuffExecutorOptions {
   /** 互斥组：添加新 buff 前会删除这些 statusId 的旧 buff，默认为 [statusId] */
   uniqueGroup?: number[]
+  /**
+   * 条件性 performance 计算器；cast 时调用，返回 undefined 则走 metadata 默认值
+   * （snapshot-on-apply：值在 cast 时固化，之后不再随 state 变化）
+   */
+  performance?: (ctx: ActionExecutionContext) => PerformanceType | undefined
 }
 
 /**
@@ -27,6 +32,7 @@ export function createBuffExecutor(
   options?: BuffExecutorOptions
 ): ActionExecutor {
   const uniqueGroup = options?.uniqueGroup ?? [statusId]
+  const performanceCalc = options?.performance
 
   return ctx => {
     // 删除互斥组中的旧状态
@@ -39,6 +45,11 @@ export function createBuffExecutor(
       endTime: ctx.useTime + duration,
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
+    }
+
+    const computedPerformance = performanceCalc?.(ctx)
+    if (computedPerformance !== undefined) {
+      newStatus.performance = computedPerformance
     }
 
     return {
