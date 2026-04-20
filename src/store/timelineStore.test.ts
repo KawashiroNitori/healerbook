@@ -46,12 +46,8 @@ describe('timelineStore - 状态管理', () => {
       // 重新获取状态
       const partyState = useTimelineStore.getState().partyState
       expect(partyState).toBeDefined()
-      expect(partyState?.players).toHaveLength(2)
-      expect(partyState?.players[0].id).toBe(1)
-      expect(partyState?.players[0].job).toBe('PLD')
-      expect(partyState?.players[1].id).toBe(2)
-      expect(partyState?.players[1].job).toBe('WHM')
       expect(partyState?.statuses).toEqual([])
+      expect(partyState?.timestamp).toBe(0)
     })
 
     it('setTimeline 应该自动初始化小队状态', () => {
@@ -61,9 +57,8 @@ describe('timelineStore - 状态管理', () => {
       // 重新获取状态
       const partyState = useTimelineStore.getState().partyState
       expect(partyState).toBeDefined()
-      expect(partyState?.players).toHaveLength(2)
-      expect(partyState?.players[0].id).toBe(1)
-      expect(partyState?.players[0].job).toBe('PLD')
+      expect(partyState?.statuses).toEqual([])
+      expect(partyState?.timestamp).toBe(0)
     })
   })
 
@@ -107,14 +102,22 @@ describe('timelineStore - 状态管理', () => {
       const store = useTimelineStore.getState()
       store.initializePartyState(mockComposition)
 
-      const currentState = useTimelineStore.getState().partyState!
       const newPartyState = {
-        ...currentState,
-        players: currentState.players.map(p => (p.id === 1 ? { ...p, maxHP: 50000 } : p)),
+        statuses: [
+          {
+            instanceId: 'manual-status',
+            statusId: 1873,
+            startTime: 0,
+            endTime: 10,
+          },
+        ],
+        timestamp: 5,
       }
 
       store.updatePartyState(newPartyState)
-      expect(useTimelineStore.getState().partyState?.players[0].maxHP).toBe(50000)
+      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(1)
+      expect(useTimelineStore.getState().partyState?.statuses[0].instanceId).toBe('manual-status')
+      expect(useTimelineStore.getState().partyState?.timestamp).toBe(5)
     })
   })
 })
