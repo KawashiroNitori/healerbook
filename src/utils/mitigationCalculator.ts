@@ -47,16 +47,13 @@ export class MitigationCalculator {
     const snapshotTime = event.snapshotTime
     const attackType = event.type
 
-    // 百分比减伤使用快照时间（DOT）或实际时间（普通伤害）
     const mitigationTime = snapshotTime ?? time
 
-    // 死刑 / 普通攻击由坦克承担，坦克专属减伤才会生效；其他伤害只看非坦克专属状态
     const includeTankOnly = attackType === 'tankbuster' || attackType === 'auto'
 
-    // 1 & 2. 遍历状态，计算百分比减伤 + 收集盾值状态
+    // Phase 1: % 减伤
     let multiplier = 1.0
     const appliedStatuses: MitigationStatus[] = []
-    const shieldStatuses: MitigationStatus[] = []
 
     for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
@@ -64,67 +61,87 @@ export class MitigationCalculator {
       if (meta.isTankOnly && !includeTankOnly) continue
 
       if (meta.type === 'multiplier') {
-        // 百分比减伤：以快照时间为准
         if (mitigationTime >= status.startTime && mitigationTime <= status.endTime) {
-          const damageMultiplier = this.getDamageMultiplier(meta.performance, damageType)
+          // instance 的 performance 优先（snapshot-on-apply 覆盖），不在则取 metadata
+          const performance = status.performance ?? meta.performance
+          const damageMultiplier = this.getDamageMultiplier(performance, damageType)
           multiplier *= damageMultiplier
           appliedStatuses.push(status)
-        }
-      } else if (meta.type === 'absorbed') {
-        // 盾值：以实际时间为准
-        if (
-          time >= status.startTime &&
-          time <= status.endTime &&
-          status.remainingBarrier &&
-          status.remainingBarrier > 0
-        ) {
-          shieldStatuses.push(status)
         }
       }
     }
 
-    let damage = Math.round(originalDamage * multiplier)
+    const candidateDamage = Math.round(originalDamage * multiplier)
 
-    // 3. 计算盾值减伤
+    // Phase 2: onBeforeShield — 状态可在此阶段新增/修改状态
+    let workingState: PartyState = partyState
+    for (const status of partyState.statuses) {
+      const meta = getStatusById(status.statusId)
+      if (!meta?.executor?.onBeforeShield) continue
+      if (meta.isTankOnly && !includeTankOnly) continue
+      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+
+      const result = meta.executor.onBeforeShield({
+        status,
+        event,
+        partyState: workingState,
+        candidateDamage,
+      })
+      if (result) workingState = result
+    }
+
+    // Phase 3: 盾值吸收（基于 workingState，可能已含 onBeforeShield 修改）
+    // 盾的判定改为实例级：只看 remainingBarrier，不再限定 metadata 必须是 absorbed，
+    // 这样 executor 可以通过 updateStatus 给任意状态实例当场加 barrier（如 LD）。
+    const shieldStatuses: MitigationStatus[] = []
+    for (const status of workingState.statuses) {
+      const meta = getStatusById(status.statusId)
+      if (!meta) continue
+      if (meta.isTankOnly && !includeTankOnly) continue
+      if (status.remainingBarrier === undefined || status.remainingBarrier <= 0) continue
+      if (time >= status.startTime && time <= status.endTime) {
+        shieldStatuses.push(status)
+      }
+    }
     shieldStatuses.sort((a, b) => a.startTime - b.startTime)
 
     const statusUpdates = new Map<string, Partial<MitigationStatus>>()
-    let playerDamage = damage
+    const consumedShields: Array<{ status: MitigationStatus; absorbed: number }> = []
+    let playerDamage = candidateDamage
 
     for (const status of shieldStatuses) {
       const absorbed = Math.min(playerDamage, status.remainingBarrier!)
       playerDamage -= absorbed
 
-      // 如果状态还没在 appliedStatuses 中（百分比减伤阶段没添加），则添加
       if (!appliedStatuses.find(s => s.instanceId === status.instanceId)) {
         appliedStatuses.push(status)
       }
 
       const newRemainingBarrier = status.remainingBarrier! - absorbed
 
-      // 处理多层盾逻辑
       if (newRemainingBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
-        // 盾值耗尽但还有层数，减少层数并重置盾值
         statusUpdates.set(status.instanceId, {
           remainingBarrier: status.initialBarrier,
           stack: status.stack - 1,
         })
       } else {
-        // 普通情况：更新剩余盾值
         statusUpdates.set(status.instanceId, {
           remainingBarrier: newRemainingBarrier,
         })
+        if (newRemainingBarrier <= 0) {
+          // 仅 stack <= 1 且被打穿的盾算“消耗殆尽”，会触发 onConsume
+          consumedShields.push({ status, absorbed })
+        }
       }
 
       if (playerDamage <= 0) break
     }
 
-    damage = playerDamage
+    const damage = playerDamage
 
-    // 4. 更新盾值状态
-    const updatedPartyState: PartyState = {
-      ...partyState,
-      statuses: partyState.statuses
+    let updatedPartyState: PartyState = {
+      ...workingState,
+      statuses: workingState.statuses
         .map(s => {
           if (statusUpdates.has(s.instanceId)) {
             const updates = statusUpdates.get(s.instanceId)!
@@ -135,7 +152,40 @@ export class MitigationCalculator {
         .filter(s => s.remainingBarrier === undefined || s.remainingBarrier > 0),
     }
 
-    const mitigationPercentage = ((originalDamage - damage) / originalDamage) * 100
+    // Phase 4: onConsume — 刚被打穿的盾触发后续变化
+    for (const { status, absorbed } of consumedShields) {
+      const meta = getStatusById(status.statusId)
+      if (!meta?.executor?.onConsume) continue
+      const result = meta.executor.onConsume({
+        status,
+        event,
+        partyState: updatedPartyState,
+        absorbedAmount: absorbed,
+      })
+      if (result) updatedPartyState = result
+    }
+
+    // Phase 5: onAfterDamage — 盾吸收后的通用收尾
+    // 注意：遍历 partyState.statuses（原始活跃集合），而不是 updatedPartyState，
+    // 避免刚添加的新状态在本事件又触发自己。
+    for (const status of partyState.statuses) {
+      const meta = getStatusById(status.statusId)
+      if (!meta?.executor?.onAfterDamage) continue
+      if (meta.isTankOnly && !includeTankOnly) continue
+      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+
+      const result = meta.executor.onAfterDamage({
+        status,
+        event,
+        partyState: updatedPartyState,
+        candidateDamage,
+        finalDamage: Math.max(0, Math.round(damage)),
+      })
+      if (result) updatedPartyState = result
+    }
+
+    const mitigationPercentage =
+      originalDamage > 0 ? ((originalDamage - damage) / originalDamage) * 100 : 0
 
     return {
       originalDamage,

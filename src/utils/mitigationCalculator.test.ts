@@ -6,6 +6,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
 import type { PartyState } from '@/types/partyState'
 import type { DamageEvent, DamageEventType, DamageType } from '@/types/timeline'
+import { vi } from 'vitest'
+import * as registry from '@/utils/statusRegistry'
+import type { MitigationStatusMetadata } from '@/types/status'
+import { updateStatus } from '@/executors/statusHelpers'
 
 function makeEvent(
   damage: number,
@@ -495,6 +499,211 @@ describe('MitigationCalculator', () => {
       expect(result.appliedStatuses).toHaveLength(0)
       // 未被 AOE 消耗
       expect(result.updatedPartyState!.statuses[0].remainingBarrier).toBe(5000)
+    })
+  })
+
+  describe('StatusExecutor 钩子通路', () => {
+    const FAKE_BUFF_ID = 999900
+    const FAKE_SHIELD_ID = 999901
+
+    function withFakeMeta(extra: Record<number, Partial<MitigationStatusMetadata>>) {
+      const original = registry.getStatusById
+      return vi.spyOn(registry, 'getStatusById').mockImplementation(id => {
+        if (extra[id]) {
+          return {
+            id,
+            name: `fake-${id}`,
+            type: extra[id].type ?? 'multiplier',
+            performance: { physics: 1, magic: 1, darkness: 1, heal: 1, maxHP: 1 },
+            isFriendly: true,
+            isTankOnly: false,
+            ...extra[id],
+          } as MitigationStatusMetadata
+        }
+        return original(id)
+      })
+    }
+
+    it('onBeforeShield 被调用，返回的 PartyState 带入盾值阶段', () => {
+      const onBeforeShield = vi.fn().mockImplementation(ctx => {
+        return {
+          ...ctx.partyState,
+          statuses: [
+            ...ctx.partyState.statuses,
+            {
+              instanceId: 'injected-shield',
+              statusId: FAKE_SHIELD_ID,
+              startTime: ctx.event.time,
+              endTime: ctx.event.time,
+              remainingBarrier: 5000,
+              initialBarrier: 5000,
+            },
+          ],
+        }
+      })
+
+      const spy = withFakeMeta({
+        [FAKE_BUFF_ID]: { type: 'multiplier', executor: { onBeforeShield } },
+        [FAKE_SHIELD_ID]: { type: 'absorbed' },
+      })
+
+      try {
+        const partyState: PartyState = {
+          statuses: [
+            {
+              instanceId: 'trigger',
+              statusId: FAKE_BUFF_ID,
+              startTime: 0,
+              endTime: 10,
+              sourcePlayerId: 1,
+            },
+          ],
+          timestamp: 0,
+        }
+
+        const result = calculator.calculate(
+          makeEvent(10000, 5, 'physical', 'tankbuster'),
+          partyState
+        )
+
+        expect(onBeforeShield).toHaveBeenCalledTimes(1)
+        expect(onBeforeShield.mock.calls[0][0].candidateDamage).toBe(10000)
+        expect(result.finalDamage).toBe(5000)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('onConsume 在盾被完全打穿时被调用', () => {
+      const onConsume = vi.fn().mockImplementation(ctx => ctx.partyState)
+
+      const spy = withFakeMeta({
+        [FAKE_SHIELD_ID]: { type: 'absorbed', executor: { onConsume } },
+      })
+
+      try {
+        const partyState: PartyState = {
+          statuses: [
+            {
+              instanceId: 'shield',
+              statusId: FAKE_SHIELD_ID,
+              startTime: 0,
+              endTime: 20,
+              remainingBarrier: 3000,
+              initialBarrier: 3000,
+            },
+          ],
+          timestamp: 0,
+        }
+
+        calculator.calculate(makeEvent(5000, 5, 'physical', 'tankbuster'), partyState)
+
+        expect(onConsume).toHaveBeenCalledTimes(1)
+        expect(onConsume.mock.calls[0][0].absorbedAmount).toBe(3000)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('onBeforeShield 可以通过 updateStatus 给 multiplier 状态实例加 barrier 使其当场参与盾吸收', () => {
+      const onBeforeShield = vi.fn().mockImplementation(ctx => {
+        return updateStatus(ctx.partyState, ctx.status.instanceId, {
+          remainingBarrier: ctx.candidateDamage,
+          endTime: ctx.event.time,
+        })
+      })
+
+      const spy = withFakeMeta({
+        [FAKE_BUFF_ID]: { type: 'multiplier', executor: { onBeforeShield } },
+      })
+
+      try {
+        const partyState: PartyState = {
+          statuses: [
+            {
+              instanceId: 'ld',
+              statusId: FAKE_BUFF_ID,
+              startTime: 0,
+              endTime: 10,
+              sourcePlayerId: 1,
+            },
+          ],
+          timestamp: 0,
+        }
+
+        const result = calculator.calculate(
+          makeEvent(15000, 5, 'physical', 'tankbuster'),
+          partyState
+        )
+
+        expect(onBeforeShield).toHaveBeenCalledTimes(1)
+        expect(result.finalDamage).toBe(0)
+        expect(result.updatedPartyState!.statuses.find(s => s.instanceId === 'ld')).toBeUndefined()
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('onConsume 在盾未打穿时不调用', () => {
+      const onConsume = vi.fn()
+
+      const spy = withFakeMeta({
+        [FAKE_SHIELD_ID]: { type: 'absorbed', executor: { onConsume } },
+      })
+
+      try {
+        const partyState: PartyState = {
+          statuses: [
+            {
+              instanceId: 'shield',
+              statusId: FAKE_SHIELD_ID,
+              startTime: 0,
+              endTime: 20,
+              remainingBarrier: 10000,
+              initialBarrier: 10000,
+            },
+          ],
+          timestamp: 0,
+        }
+
+        calculator.calculate(makeEvent(3000, 5, 'physical', 'tankbuster'), partyState)
+
+        expect(onConsume).not.toHaveBeenCalled()
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('onAfterDamage 在盾吸收后调用，能拿到 finalDamage', () => {
+      const onAfterDamage = vi.fn().mockImplementation(ctx => ctx.partyState)
+
+      const spy = withFakeMeta({
+        [FAKE_BUFF_ID]: { type: 'multiplier', executor: { onAfterDamage } },
+      })
+
+      try {
+        const partyState: PartyState = {
+          statuses: [
+            {
+              instanceId: 'watcher',
+              statusId: FAKE_BUFF_ID,
+              startTime: 0,
+              endTime: 10,
+              sourcePlayerId: 1,
+            },
+          ],
+          timestamp: 0,
+        }
+
+        calculator.calculate(makeEvent(4000, 5, 'physical', 'tankbuster'), partyState)
+
+        expect(onAfterDamage).toHaveBeenCalledTimes(1)
+        const passed = onAfterDamage.mock.calls[0][0]
+        expect(passed.candidateDamage).toBe(4000)
+        expect(passed.finalDamage).toBe(4000)
+      } finally {
+        spy.mockRestore()
+      }
     })
   })
 
