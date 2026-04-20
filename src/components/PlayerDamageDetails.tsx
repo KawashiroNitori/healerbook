@@ -30,8 +30,6 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
         // 直接使用 detail.statuses（来自 PlayerDamageDetail）
         const activeStatuses = detail.statuses || []
 
-        if (detail.unmitigatedDamage === 0) return null
-
         // 计算生命条数据
         const maxHP = detail.maxHitPoints
         const currentHP = detail.hitPoints ?? 0
