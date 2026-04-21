@@ -115,11 +115,23 @@ export default function TableHeader({
                     e.currentTarget.style.display = 'none'
                   }}
                   onMouseEnter={e => {
-                    if (action) showTooltip(action, e.currentTarget.getBoundingClientRect())
+                    if (action)
+                      showTooltip(action, e.currentTarget.getBoundingClientRect(), [
+                        'b',
+                        't',
+                        'r',
+                        'l',
+                      ])
                   }}
                   onMouseLeave={hideTooltip}
                   onClick={e => {
-                    if (action) toggleTooltip(action, e.currentTarget.getBoundingClientRect())
+                    if (action)
+                      toggleTooltip(action, e.currentTarget.getBoundingClientRect(), [
+                        'b',
+                        't',
+                        'r',
+                        'l',
+                      ])
                   }}
                 />
               </div>
