@@ -108,9 +108,9 @@ export class MitigationCalculator {
       if (result) workingState = result
     }
 
-    // Phase 3: 盾值吸收（基于 workingState，可能已含 onBeforeShield 修改）
-    // 盾的判定改为实例级：只看 remainingBarrier，不再限定 metadata 必须是 absorbed，
-    // 这样 executor 可以通过 updateStatus 给任意状态实例当场加 barrier（如 LD）。
+    // Phase 3: 盾值吸收（基于 workingState，含 onBeforeShield 阶段的修改）
+    // 判定依据是 **实例级** `remainingBarrier > 0`，不看 metadata 类型 ——
+    // 这样 buff 类 executor（如死斗）通过 onBeforeShield 给自己挂 transient barrier 也能参与吸收。
     const shieldStatuses: MitigationStatus[] = []
     for (const status of workingState.statuses) {
       const meta = getStatusById(status.statusId)
