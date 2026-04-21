@@ -50,6 +50,8 @@ export function createShieldExecutor(
       remainingBarrier: barrier,
       initialBarrier: barrier, // 保存初始盾值用于重置
       stack,
+      // 原生盾：barrier 就是它全部意义，归 0 即由 calculator 自动清扫
+      removeOnBarrierBreak: true,
     }
 
     return {

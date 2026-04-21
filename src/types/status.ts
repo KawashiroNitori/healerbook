@@ -50,6 +50,15 @@ export interface MitigationStatus {
   remainingBarrier?: number
   /** 初始盾值（用于多层盾重置，仅盾值类型状态） */
   initialBarrier?: number
+  /**
+   * barrier 归 0 时是否由 calculator 自动移除本实例；undefined / false = 保留。
+   *
+   * `createShieldExecutor` 产生的原生盾（barrier 就是它全部意义）应设为 true。
+   * 非盾 buff 借 `onBeforeShield` 临时挂 barrier 的场景（如死斗 / 出死入生）不设，
+   * 让 buff 本体按 duration 继续生效。行尸走肉这类触发后要消失的特殊 case，在
+   * `onConsume` 里显式 `removeStatus` 自己。
+   */
+  removeOnBarrierBreak?: boolean
   /** 层数（默认为 1） */
   stack?: number
   /** 来源技能 ID */

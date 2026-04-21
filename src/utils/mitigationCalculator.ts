@@ -175,13 +175,12 @@ export class MitigationCalculator {
           }
           return s
         })
-        // 仅在 meta.type === 'absorbed' 时把 barrier 耗尽的实例清除；
-        // multiplier 类型上的 barrier 是 onBeforeShield 注入的 transient 值（如死斗），
-        // 状态本身的生命周期由 duration/其它钩子管，不能因盾被打穿就一并移除，
-        // 否则后续事件无法再次触发 onBeforeShield 重新上盾。
+        // barrier 归 0 时：仅 `removeOnBarrierBreak: true` 的实例被自动清除（原生盾）。
+        // 其它（如死斗/出死入生借 onBeforeShield 挂的 transient barrier）保留 buff 本体，
+        // 让 duration / 其它钩子管它的生命周期，后续事件仍能再次触发 onBeforeShield。
         .filter(s => {
           if (s.remainingBarrier === undefined || s.remainingBarrier > 0) return true
-          return getStatusById(s.statusId)?.type !== 'absorbed'
+          return !s.removeOnBarrierBreak
         }),
     }
 

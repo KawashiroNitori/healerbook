@@ -29,6 +29,8 @@ export interface AddStatusInput {
   performance?: PerformanceType
   /** executor 自定义数据初值 */
   data?: Record<string, unknown>
+  /** barrier 归 0 时是否由 calculator 自动移除本实例；默认 undefined = 保留 */
+  removeOnBarrierBreak?: boolean
 }
 
 /**

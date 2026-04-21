@@ -163,6 +163,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 5000,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -186,6 +187,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 3000,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -213,6 +215,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 2000,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -234,6 +237,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 3000,
+            removeOnBarrierBreak: true,
           },
           {
             instanceId: 'test-2',
@@ -241,6 +245,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 15,
             remainingBarrier: 4000,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -261,6 +266,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 15000,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -283,6 +289,7 @@ describe('MitigationCalculator', () => {
             startTime: 15,
             endTime: 45,
             remainingBarrier: 3000,
+            removeOnBarrierBreak: true,
           },
           {
             instanceId: 'shield-1',
@@ -290,6 +297,7 @@ describe('MitigationCalculator', () => {
             startTime: 5,
             endTime: 35,
             remainingBarrier: 2000,
+            removeOnBarrierBreak: true,
           },
           {
             instanceId: 'shield-2',
@@ -297,6 +305,7 @@ describe('MitigationCalculator', () => {
             startTime: 10,
             endTime: 40,
             remainingBarrier: 2500,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -324,6 +333,7 @@ describe('MitigationCalculator', () => {
             startTime: 10,
             endTime: 40,
             remainingBarrier: 5000,
+            removeOnBarrierBreak: true,
           },
           {
             instanceId: 'shield-1',
@@ -331,6 +341,7 @@ describe('MitigationCalculator', () => {
             startTime: 5,
             endTime: 35,
             remainingBarrier: 3000,
+            removeOnBarrierBreak: true,
           },
         ],
       }
@@ -488,6 +499,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 7,
             remainingBarrier: 5000,
+            removeOnBarrierBreak: true,
             initialBarrier: 5000,
           },
         ],
@@ -512,6 +524,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 5000,
+            removeOnBarrierBreak: true,
             initialBarrier: 5000,
           },
         ],
@@ -535,6 +548,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 30,
             remainingBarrier: 5000,
+            removeOnBarrierBreak: true,
             initialBarrier: 5000,
           },
         ],
@@ -583,6 +597,7 @@ describe('MitigationCalculator', () => {
               endTime: ctx.event.time,
               remainingBarrier: 5000,
               initialBarrier: 5000,
+              removeOnBarrierBreak: true,
             },
           ],
         }
@@ -637,6 +652,7 @@ describe('MitigationCalculator', () => {
               endTime: 20,
               remainingBarrier: 3000,
               initialBarrier: 3000,
+              removeOnBarrierBreak: true,
             },
           ],
           timestamp: 0,
@@ -709,6 +725,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 20,
             remainingBarrier: 3000,
+            removeOnBarrierBreak: true,
             initialBarrier: 3000,
           },
           {
@@ -717,6 +734,7 @@ describe('MitigationCalculator', () => {
             startTime: 0,
             endTime: 20,
             remainingBarrier: 2000,
+            removeOnBarrierBreak: true,
             initialBarrier: 2000,
           },
         ],
@@ -790,6 +808,7 @@ describe('MitigationCalculator', () => {
               endTime: 20,
               remainingBarrier: 10000,
               initialBarrier: 10000,
+              removeOnBarrierBreak: true,
             },
           ],
           timestamp: 0,
