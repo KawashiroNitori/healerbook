@@ -91,7 +91,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   1858: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的武猛
   2678: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的血气
   2679: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的血潮
-  2680: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血烟
+  2680: { isTankOnly: true, category: ['self', 'shield'] }, // 原初的血烟
 
   // 暗骑
   747: { isTankOnly: true, category: ['self', 'percentage'] }, // 暗影墙
@@ -110,6 +110,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
           statusId: 3255,
           eventTime: ctx.event.time,
           duration: 10,
+          sourcePlayerId: ctx.status.sourcePlayerId,
         })
       },
     },

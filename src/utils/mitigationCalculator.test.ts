@@ -971,17 +971,20 @@ describe('多坦 per-victim 路径', () => {
     }
   })
 
-  it('第一坦 state 持久化：OT 分支盾消耗不写回 updatedPartyState', () => {
+  it('最优减伤分支 state 持久化：OT 自盾让 OT 分支胜出', () => {
+    // OT 持有一块 self-only 盾（category 不含 target），MT 毫无防御。
+    // → MT 分支因不满足 target 要求被过滤，吃满伤害；OT 分支吸收完全伤害。
+    // → 最低 finalDamage 分支 = OT，updatedPartyState 反映 OT 分支的盾消耗。
     const spy = vi.spyOn(registry, 'getStatusById').mockImplementation((id: number) => {
       if (id === 8888) {
         return {
           id: 8888,
-          name: 'mock-shield',
+          name: 'mock-self-shield',
           type: 'absorbed',
           performance: { physics: 1, magic: 1, darkness: 1 },
           isFriendly: true,
           isTankOnly: true,
-          category: ['self', 'target', 'shield'],
+          category: ['self', 'shield'],
         } as unknown as MitigationStatusMetadata
       }
       return undefined
@@ -995,7 +998,7 @@ describe('多坦 per-victim 路径', () => {
             statusId: 8888,
             startTime: 0,
             endTime: 10,
-            sourcePlayerId: 2,
+            sourcePlayerId: 2, // OT 持有
             remainingBarrier: 5000,
             initialBarrier: 5000,
             removeOnBarrierBreak: true,
@@ -1007,8 +1010,15 @@ describe('多坦 per-victim 路径', () => {
         partyState,
         { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
       )
+      // perVictim 按 finalDamage 升序：OT (0) 在前，MT (3000) 在后
+      expect(result.perVictim![0].playerId).toBe(2)
       expect(result.perVictim![0].finalDamage).toBe(0)
-      expect(result.perVictim![1].finalDamage).toBe(0)
+      expect(result.perVictim![1].playerId).toBe(1)
+      expect(result.perVictim![1].finalDamage).toBe(3000)
+      // 顶层取最优分支（OT）
+      expect(result.finalDamage).toBe(0)
+      expect(result.maxDamage).toBe(3000)
+      // 持久化 state 来自 OT 分支：盾剩 5000 - 3000 = 2000
       const persistedShield = result.updatedPartyState!.statuses.find(s => s.instanceId === 'sh-1')
       expect(persistedShield?.remainingBarrier).toBe(2000)
     } finally {
@@ -1071,7 +1081,8 @@ describe('多坦 per-victim 路径', () => {
     expect(result.perVictim).toBeUndefined()
   })
 
-  it('partywide 盾在坦专事件下被第一坦分支消耗', () => {
+  it('非坦专盾（partywide shield）不进入坦专事件的 Phase 3 吸收', () => {
+    // 保持旧口径：一份 partywide 盾代表单玩家份额，不该被坦专事件消耗
     const spy = vi.spyOn(registry, 'getStatusById').mockImplementation((id: number) => {
       if (id === 9999) {
         return {
@@ -1107,12 +1118,55 @@ describe('多坦 per-victim 路径', () => {
         partyState,
         { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
       )
-      expect(result.perVictim![0].finalDamage).toBe(0)
-      expect(result.perVictim![1].finalDamage).toBe(0)
+      // 两个分支都不消耗这块盾 → 吃满 2000
+      expect(result.perVictim![0].finalDamage).toBe(2000)
+      expect(result.perVictim![1].finalDamage).toBe(2000)
+      // 持久化的 barrier 保持不变
       const persisted = result.updatedPartyState!.statuses.find(s => s.instanceId === 'ps-1')
-      expect(persisted?.remainingBarrier).toBe(2000)
+      expect(persisted?.remainingBarrier).toBe(4000)
     } finally {
       spy.mockRestore()
     }
+  })
+
+  it('行尸走肉 → 出死入生 链路：sourcePlayerId 在 onConsume 中正确承接', () => {
+    // 回归：810 onConsume 创建 3255 时必须传 sourcePlayerId，
+    // 否则下一事件里 isStatusValidForTank 会把 category=['self','percentage'] 的 3255 判为
+    // 非持有者（undefined !== tankId）+ 没 target → 过滤掉，出死入生效果丢失。
+    const partyState0: PartyState = {
+      ...basePartyState,
+      statuses: [
+        {
+          instanceId: 'lzzr-1',
+          statusId: 810, // 行尸走肉
+          startTime: 0,
+          endTime: 10,
+          sourcePlayerId: 1, // MT 持有
+        },
+      ],
+    }
+    const e1 = makeEvent(200000, 5, 'physical', 'tankbuster')
+    const r1 = calculator.calculate(e1, partyState0, {
+      tankPlayerIds: [1, 2],
+      baseReferenceMaxHP: 100000,
+    })
+    // MT 分支 810 吸收：finalDamage = 99999；onConsume 移除 810 并加 3255
+    expect(r1.perVictim![0].playerId).toBe(1)
+    expect(r1.perVictim![0].finalDamage).toBe(99999)
+    const persisted3255 = r1.updatedPartyState!.statuses.find(s => s.statusId === 3255)
+    expect(persisted3255).toBeDefined()
+    expect(persisted3255!.sourcePlayerId).toBe(1) // sourcePlayerId 已承接
+
+    // 下一死刑：3255 的 survival hook 仍应为 MT 分支生效
+    const e2 = makeEvent(200000, 8, 'physical', 'tankbuster')
+    const r2 = calculator.calculate(e2, r1.updatedPartyState!, {
+      tankPlayerIds: [1, 2],
+      baseReferenceMaxHP: 100000,
+    })
+    expect(r2.perVictim![0].playerId).toBe(1)
+    expect(r2.perVictim![0].finalDamage).toBe(99999)
+    expect(r2.perVictim![0].appliedStatuses.some(s => s.statusId === 3255)).toBe(true)
+    // OT 分支：3255 category=['self','percentage']、sourcePlayerId!==OT → 被过滤 → 吃满
+    expect(r2.perVictim![1].finalDamage).toBe(200000)
   })
 })

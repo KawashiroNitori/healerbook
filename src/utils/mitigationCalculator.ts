@@ -114,10 +114,15 @@ export class MitigationCalculator {
       const perVictimRaw = tankIds.map(tankId => {
         const tankFilter = (meta: MitigationStatusMetadata, status: MitigationStatus) =>
           isStatusValidForTank(meta, status, tankId)
+        // 盾值过滤在 tankFilter 基础上叠加 `meta.isTankOnly`（坦专路径
+        // includeTankOnly 恒为 true），复刻旧版 `isTankOnly === includeTankOnly`
+        // 口径——一份 partywide 盾代表单玩家份额，不该被坦专事件消耗。
+        const tankShieldFilter = (meta: MitigationStatusMetadata, status: MitigationStatus) =>
+          meta.isTankOnly && tankFilter(meta, status)
         const refHP = this.computeReferenceMaxHP(event, partyState, base, tankFilter)
         const branch = this.runSingleBranch(event, partyState, {
           multiplierFilter: tankFilter,
-          shieldFilter: tankFilter,
+          shieldFilter: tankShieldFilter,
           referenceMaxHP: refHP,
         })
         return {
@@ -130,7 +135,12 @@ export class MitigationCalculator {
         }
       })
 
-      const firstBranch = perVictimRaw[0]
+      // 按 finalDamage 升序排；Array.sort 在 ES2019+ 保证稳定，相同值保持
+      // perVictim 原始索引（composition 顺序）作为 tie-break。
+      // 排序后 perVictim[0] 即"最优减伤分支"，代表这波最理想的承伤场景——
+      // 后续事件的盾值残量反映这个分支的消耗。
+      perVictimRaw.sort((a, b) => a.finalDamage - b.finalDamage)
+      const bestBranch = perVictimRaw[0]
       const perVictim: PerTankResult[] = perVictimRaw.map(
         ({ playerId, finalDamage, mitigationPercentage, appliedStatuses, referenceMaxHP }) => ({
           playerId,
@@ -142,12 +152,12 @@ export class MitigationCalculator {
       )
       return {
         originalDamage,
-        finalDamage: firstBranch.finalDamage,
-        maxDamage: Math.max(...perVictimRaw.map(v => v.finalDamage)),
-        mitigationPercentage: firstBranch.mitigationPercentage,
-        appliedStatuses: firstBranch.appliedStatuses,
-        updatedPartyState: firstBranch.state,
-        referenceMaxHP: firstBranch.referenceMaxHP,
+        finalDamage: bestBranch.finalDamage,
+        maxDamage: perVictimRaw[perVictimRaw.length - 1].finalDamage,
+        mitigationPercentage: bestBranch.mitigationPercentage,
+        appliedStatuses: bestBranch.appliedStatuses,
+        updatedPartyState: bestBranch.state,
+        referenceMaxHP: bestBranch.referenceMaxHP,
         perVictim,
       }
     }
