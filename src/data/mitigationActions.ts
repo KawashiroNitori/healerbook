@@ -237,7 +237,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 7,
       cooldown: 60,
-      executor: createShieldExecutor(2682, 7),
+      executor: createBuffExecutor(2682, 7),
     },
     {
       id: 36927,
