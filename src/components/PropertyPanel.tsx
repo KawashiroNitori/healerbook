@@ -185,6 +185,35 @@ export default function PropertyPanel() {
               </Popover>
             </div>
 
+            {/* per-tank 预估（仅多坦路径产出） */}
+            {result.perVictim && result.perVictim.length >= 1 && (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">坦克承伤预估</div>
+                <div className="space-y-1">
+                  {result.perVictim.map(v => {
+                    const playerMeta = timeline.composition.players.find(p => p.id === v.playerId)
+                    const label = playerMeta ? playerMeta.job : `P${v.playerId}`
+                    return (
+                      <div
+                        key={v.playerId}
+                        className="flex items-center justify-between text-xs tabular-nums rounded-md border px-2 py-1"
+                      >
+                        <span className="text-muted-foreground">{label}</span>
+                        <span>
+                          <span className="font-medium text-red-500">
+                            {v.finalDamage.toLocaleString()}
+                          </span>
+                          <span className="text-muted-foreground ml-1">
+                            ({v.mitigationPercentage.toFixed(1)}%)
+                          </span>
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* HP 条（编辑模式） */}
             {(() => {
               const maxHP = result.referenceMaxHP
