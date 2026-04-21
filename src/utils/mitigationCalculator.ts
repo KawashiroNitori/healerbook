@@ -94,10 +94,16 @@ export class MitigationCalculator {
     // 单路径两口径 filter（维持旧行为 1:1 等价）：
     //   multiplierFilter（Phase 1/2/5）：`isTankOnly && !includeTankOnly` 时跳过
     //   shieldFilter（Phase 3）：`isTankOnly !== includeTankOnly` 时跳过
-    const singleMultiplierFilter = (meta: MitigationStatusMetadata) =>
-      !(meta.isTankOnly && !includeTankOnly)
-    const singleShieldFilter = (meta: MitigationStatusMetadata) =>
-      meta.isTankOnly === includeTankOnly
+    const singleMultiplierFilter = (
+      meta: MitigationStatusMetadata,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _status: MitigationStatus
+    ) => !(meta.isTankOnly && !includeTankOnly)
+    const singleShieldFilter = (
+      meta: MitigationStatusMetadata,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _status: MitigationStatus
+    ) => meta.isTankOnly === includeTankOnly
 
     // referenceMaxHP 优先用 opts.referenceMaxHP（旧调用方已算好），否则由 baseReferenceMaxHP 叠乘
     const referenceMaxHP =
