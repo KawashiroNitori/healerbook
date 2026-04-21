@@ -1070,4 +1070,49 @@ describe('多坦 per-victim 路径', () => {
     })
     expect(result.perVictim).toBeUndefined()
   })
+
+  it('partywide 盾在坦专事件下被第一坦分支消耗', () => {
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation((id: number) => {
+      if (id === 9999) {
+        return {
+          id: 9999,
+          name: 'mock-party-shield',
+          type: 'absorbed',
+          performance: { physics: 1, magic: 1, darkness: 1 },
+          isFriendly: true,
+          isTankOnly: false,
+          category: ['partywide', 'shield'],
+        } as unknown as MitigationStatusMetadata
+      }
+      return undefined
+    })
+    try {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'ps-1',
+            statusId: 9999,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 3,
+            remainingBarrier: 4000,
+            initialBarrier: 4000,
+            removeOnBarrierBreak: true,
+          },
+        ],
+      }
+      const result = calculator.calculate(
+        makeEvent(2000, 5, 'physical', 'tankbuster'),
+        partyState,
+        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
+      )
+      expect(result.perVictim![0].finalDamage).toBe(0)
+      expect(result.perVictim![1].finalDamage).toBe(0)
+      const persisted = result.updatedPartyState!.statuses.find(s => s.instanceId === 'ps-1')
+      expect(persisted?.remainingBarrier).toBe(2000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })
