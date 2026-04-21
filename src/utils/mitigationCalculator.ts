@@ -109,7 +109,12 @@ export class MitigationCalculator {
     // referenceMaxHP 优先用 opts.referenceMaxHP（旧调用方已算好），否则由 baseReferenceMaxHP 叠乘
     const referenceMaxHP =
       opts?.referenceMaxHP ??
-      this.computeReferenceMaxHP(event, partyState, opts?.baseReferenceMaxHP ?? 0, includeTankOnly)
+      this.computeReferenceMaxHP(
+        event,
+        partyState,
+        opts?.baseReferenceMaxHP ?? 0,
+        meta => !(meta.isTankOnly && !includeTankOnly)
+      )
 
     const tankIds = opts?.tankPlayerIds ?? []
     if (includeTankOnly && tankIds.length >= 1) {
@@ -118,7 +123,7 @@ export class MitigationCalculator {
       const perVictimRaw = tankIds.map(tankId => {
         const tankFilter = (meta: MitigationStatusMetadata, status: MitigationStatus) =>
           isStatusValidForTank(meta, status, tankId)
-        const refHP = this.computeReferenceMaxHPFiltered(event, partyState, base, tankFilter)
+        const refHP = this.computeReferenceMaxHP(event, partyState, base, tankFilter)
         const branch = this.runSingleBranch(event, partyState, {
           multiplierFilter: tankFilter,
           shieldFilter: tankFilter,
@@ -174,30 +179,9 @@ export class MitigationCalculator {
   }
 
   /**
-   * 计算指定事件在给定 includeTankOnly 过滤下的参考 HP（基线 × 活跃 buff maxHP 累乘）。
+   * 计算指定事件在给定过滤条件下的参考 HP（基线 × 活跃 buff maxHP 累乘）。
    */
   private computeReferenceMaxHP(
-    event: DamageEvent,
-    partyState: PartyState,
-    base: number,
-    includeTankOnly: boolean
-  ): number {
-    if (base <= 0) return 0
-    const mitigationTime = event.snapshotTime ?? event.time
-    let m = 1
-    for (const status of partyState.statuses) {
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
-      const meta = getStatusById(status.statusId)
-      if (!meta) continue
-      if (meta.isTankOnly && !includeTankOnly) continue
-      const perf = status.performance ?? meta.performance
-      const mm = perf.maxHP ?? 1
-      if (mm !== 1) m *= mm
-    }
-    return Math.round(base * m)
-  }
-
-  private computeReferenceMaxHPFiltered(
     event: DamageEvent,
     partyState: PartyState,
     base: number,
