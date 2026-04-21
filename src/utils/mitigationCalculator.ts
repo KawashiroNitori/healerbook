@@ -4,7 +4,7 @@
  */
 
 import type { PartyState } from '@/types/partyState'
-import type { MitigationStatus, PerformanceType } from '@/types/status'
+import type { MitigationStatus, MitigationStatusMetadata, PerformanceType } from '@/types/status'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 
@@ -88,14 +88,90 @@ export class MitigationCalculator {
     opts?: CalculateOptions
   ): CalculationResult {
     const originalDamage = event.damage
+    const attackType = event.type
+    const includeTankOnly = attackType === 'tankbuster' || attackType === 'auto'
+
+    // 单路径两口径 filter（维持旧行为 1:1 等价）：
+    //   multiplierFilter（Phase 1/2/5）：`isTankOnly && !includeTankOnly` 时跳过
+    //   shieldFilter（Phase 3）：`isTankOnly !== includeTankOnly` 时跳过
+    const singleMultiplierFilter = (meta: MitigationStatusMetadata) =>
+      !(meta.isTankOnly && !includeTankOnly)
+    const singleShieldFilter = (meta: MitigationStatusMetadata) =>
+      meta.isTankOnly === includeTankOnly
+
+    // referenceMaxHP 优先用 opts.referenceMaxHP（旧调用方已算好），否则由 baseReferenceMaxHP 叠乘
+    const referenceMaxHP =
+      opts?.referenceMaxHP ??
+      this.computeReferenceMaxHP(event, partyState, opts?.baseReferenceMaxHP ?? 0, includeTankOnly)
+
+    const branch = this.runSingleBranch(event, partyState, {
+      multiplierFilter: singleMultiplierFilter,
+      shieldFilter: singleShieldFilter,
+      referenceMaxHP,
+    })
+
+    return {
+      originalDamage,
+      finalDamage: branch.finalDamage,
+      maxDamage: branch.finalDamage,
+      mitigationPercentage: branch.mitigationPercentage,
+      appliedStatuses: branch.appliedStatuses,
+      updatedPartyState: branch.updatedPartyState,
+      referenceMaxHP,
+    }
+  }
+
+  /**
+   * 计算指定事件在给定 includeTankOnly 过滤下的参考 HP（基线 × 活跃 buff maxHP 累乘）。
+   */
+  private computeReferenceMaxHP(
+    event: DamageEvent,
+    partyState: PartyState,
+    base: number,
+    includeTankOnly: boolean
+  ): number {
+    if (base <= 0) return 0
+    const mitigationTime = event.snapshotTime ?? event.time
+    let m = 1
+    for (const status of partyState.statuses) {
+      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      const meta = getStatusById(status.statusId)
+      if (!meta) continue
+      if (meta.isTankOnly && !includeTankOnly) continue
+      const perf = status.performance ?? meta.performance
+      const mm = perf.maxHP ?? 1
+      if (mm !== 1) m *= mm
+    }
+    return Math.round(base * m)
+  }
+
+  /**
+   * 执行单条路径的五阶段减伤 pipeline。
+   * 多坦路径（后续 task 实现）将两个 filter 都传同一个 isStatusValidForTank(…, tankId)；
+   * 单路径分别复刻旧口径：
+   *   multiplierFilter（Phase 1/2/5）→ !(isTankOnly && !includeTankOnly)
+   *   shieldFilter（Phase 3）→ isTankOnly === includeTankOnly
+   */
+  private runSingleBranch(
+    event: DamageEvent,
+    partyState: PartyState,
+    opts: {
+      multiplierFilter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
+      shieldFilter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
+      referenceMaxHP: number
+    }
+  ): {
+    finalDamage: number
+    mitigationPercentage: number
+    appliedStatuses: MitigationStatus[]
+    updatedPartyState: PartyState
+  } {
+    const originalDamage = event.damage
     const time = event.time
     const damageType: DamageType = event.damageType || 'physical'
     const snapshotTime = event.snapshotTime
-    const attackType = event.type
-
     const mitigationTime = snapshotTime ?? time
-
-    const includeTankOnly = attackType === 'tankbuster' || attackType === 'auto'
+    const { multiplierFilter, shieldFilter, referenceMaxHP } = opts
 
     // Phase 1: % 减伤
     let multiplier = 1.0
@@ -104,7 +180,7 @@ export class MitigationCalculator {
     for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
-      if (meta.isTankOnly && !includeTankOnly) continue
+      if (!multiplierFilter(meta, status)) continue
 
       if (meta.type === 'multiplier') {
         if (mitigationTime >= status.startTime && mitigationTime <= status.endTime) {
@@ -124,7 +200,7 @@ export class MitigationCalculator {
     for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta?.executor?.onBeforeShield) continue
-      if (meta.isTankOnly && !includeTankOnly) continue
+      if (!multiplierFilter(meta, status)) continue
       if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
 
       const result = meta.executor.onBeforeShield({
@@ -132,7 +208,7 @@ export class MitigationCalculator {
         event,
         partyState: workingState,
         candidateDamage,
-        referenceMaxHP: opts?.referenceMaxHP ?? 0,
+        referenceMaxHP,
       })
       if (result) workingState = result
     }
@@ -146,7 +222,7 @@ export class MitigationCalculator {
       if (!meta) continue
       // 盾的 isTankOnly 需与事件类型匹配：坦专盾只进死刑/普攻，群盾只进 aoe
       // 原因：一个盾状态实例的 remainingBarrier 代表单玩家一份，单体事件不该消耗"全队的份"
-      if (meta.isTankOnly !== includeTankOnly) continue
+      if (!shieldFilter(meta, status)) continue
       if (status.remainingBarrier === undefined || status.remainingBarrier <= 0) continue
       if (time >= status.startTime && time <= status.endTime) {
         shieldStatuses.push(status)
@@ -184,7 +260,7 @@ export class MitigationCalculator {
           remainingBarrier: newRemainingBarrier,
         })
         if (newRemainingBarrier <= 0) {
-          // 仅 stack <= 1 且被打穿的盾算“消耗殆尽”，会触发 onConsume
+          // 仅 stack <= 1 且被打穿的盾算"消耗殆尽"，会触发 onConsume
           consumedShields.push({ status, absorbed })
         }
       }
@@ -235,7 +311,7 @@ export class MitigationCalculator {
     for (const status of partyState.statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta?.executor?.onAfterDamage) continue
-      if (meta.isTankOnly && !includeTankOnly) continue
+      if (!multiplierFilter(meta, status)) continue
       if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
 
       const result = meta.executor.onAfterDamage({
@@ -252,9 +328,7 @@ export class MitigationCalculator {
       originalDamage > 0 ? ((originalDamage - damage) / originalDamage) * 100 : 0
 
     return {
-      originalDamage,
       finalDamage: Math.max(0, Math.round(damage)),
-      maxDamage: Math.max(0, Math.round(damage)),
       mitigationPercentage: Math.round(mitigationPercentage * 10) / 10,
       appliedStatuses,
       updatedPartyState,
