@@ -13,6 +13,7 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { calculatePercentile } from '@/utils/stats'
 import { resolveStatData } from '@/utils/statDataUtils'
 import { getStatusById } from '@/utils/statusRegistry'
+import { getJobRole } from '@/data/jobs'
 
 /**
  * 计算时间轴上所有伤害事件的减伤结果
@@ -195,28 +196,17 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       const includeTankOnly = event.type === 'tankbuster' || event.type === 'auto'
       const baseReferenceMaxHP = includeTankOnly ? tankReferenceMaxHP : referenceMaxHP
 
-      // 依据活跃状态 performance.maxHP 抬高/压低参考 HP
-      // 与 calculator 阶段 1 的过滤口径一致：mitigationTime 在窗口内、且 isTankOnly 只进坦专事件
-      const mitigationTime = event.snapshotTime ?? event.time
-      let maxHPMultiplier = 1
-      for (const status of currentState.statuses) {
-        if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
-        const meta = getStatusById(status.statusId)
-        if (!meta) continue
-        if (meta.isTankOnly && !includeTankOnly) continue
-        const perf = status.performance ?? meta.performance
-        const m = perf.maxHP ?? 1
-        if (m !== 1) maxHPMultiplier *= m
-      }
-
-      const eventReferenceMaxHP = Math.round(baseReferenceMaxHP * maxHPMultiplier)
+      // 从 composition 取坦克玩家 ID，按自然顺序（首个 tank 作为"MT 参考分支"）
+      const tankPlayerIds = includeTankOnly
+        ? timeline.composition.players.filter(p => getJobRole(p.job) === 'tank').map(p => p.id)
+        : []
 
       const result = calculator.calculate(event, currentState, {
-        referenceMaxHP: eventReferenceMaxHP,
+        baseReferenceMaxHP,
+        tankPlayerIds,
       })
 
-      results.set(event.id, { ...result, referenceMaxHP: eventReferenceMaxHP })
-      // updatedPartyState 一定存在（编辑模式下 calculate 总会返回它）
+      results.set(event.id, result)
       if (result.updatedPartyState) {
         currentState = result.updatedPartyState
       }
