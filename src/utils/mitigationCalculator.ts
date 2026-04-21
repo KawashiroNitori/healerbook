@@ -7,6 +7,7 @@ import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus, MitigationStatusMetadata, PerformanceType } from '@/types/status'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
+import { isStatusValidForTank } from './statusFilter'
 
 /**
  * 多坦路径单坦克的计算结果
@@ -110,6 +111,51 @@ export class MitigationCalculator {
       opts?.referenceMaxHP ??
       this.computeReferenceMaxHP(event, partyState, opts?.baseReferenceMaxHP ?? 0, includeTankOnly)
 
+    const tankIds = opts?.tankPlayerIds ?? []
+    if (includeTankOnly && tankIds.length >= 1) {
+      const base = opts?.baseReferenceMaxHP ?? opts?.referenceMaxHP ?? 0
+
+      const perVictimRaw = tankIds.map(tankId => {
+        const tankFilter = (meta: MitigationStatusMetadata, status: MitigationStatus) =>
+          isStatusValidForTank(meta, status, tankId)
+        const refHP = this.computeReferenceMaxHPFiltered(event, partyState, base, tankFilter)
+        const branch = this.runSingleBranch(event, partyState, {
+          multiplierFilter: tankFilter,
+          shieldFilter: tankFilter,
+          referenceMaxHP: refHP,
+        })
+        return {
+          playerId: tankId,
+          finalDamage: branch.finalDamage,
+          mitigationPercentage: branch.mitigationPercentage,
+          appliedStatuses: branch.appliedStatuses,
+          referenceMaxHP: refHP,
+          state: branch.updatedPartyState,
+        }
+      })
+
+      const firstBranch = perVictimRaw[0]
+      const perVictim: PerTankResult[] = perVictimRaw.map(
+        ({ playerId, finalDamage, mitigationPercentage, appliedStatuses, referenceMaxHP }) => ({
+          playerId,
+          finalDamage,
+          mitigationPercentage,
+          appliedStatuses,
+          referenceMaxHP,
+        })
+      )
+      return {
+        originalDamage,
+        finalDamage: firstBranch.finalDamage,
+        maxDamage: Math.max(...perVictimRaw.map(v => v.finalDamage)),
+        mitigationPercentage: firstBranch.mitigationPercentage,
+        appliedStatuses: firstBranch.appliedStatuses,
+        updatedPartyState: firstBranch.state,
+        referenceMaxHP: firstBranch.referenceMaxHP,
+        perVictim,
+      }
+    }
+
     const branch = this.runSingleBranch(event, partyState, {
       multiplierFilter: singleMultiplierFilter,
       shieldFilter: singleShieldFilter,
@@ -144,6 +190,27 @@ export class MitigationCalculator {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (meta.isTankOnly && !includeTankOnly) continue
+      const perf = status.performance ?? meta.performance
+      const mm = perf.maxHP ?? 1
+      if (mm !== 1) m *= mm
+    }
+    return Math.round(base * m)
+  }
+
+  private computeReferenceMaxHPFiltered(
+    event: DamageEvent,
+    partyState: PartyState,
+    base: number,
+    filter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
+  ): number {
+    if (base <= 0) return 0
+    const mitigationTime = event.snapshotTime ?? event.time
+    let m = 1
+    for (const status of partyState.statuses) {
+      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      const meta = getStatusById(status.statusId)
+      if (!meta) continue
+      if (!filter(meta, status)) continue
       const perf = status.performance ?? meta.performance
       const mm = perf.maxHP ?? 1
       if (mm !== 1) m *= mm

@@ -884,3 +884,190 @@ describe('MitigationCalculator', () => {
     })
   })
 })
+
+describe('多坦 per-victim 路径', () => {
+  let calculator: MitigationCalculator
+  let basePartyState: PartyState
+
+  beforeEach(() => {
+    calculator = new MitigationCalculator()
+    basePartyState = {
+      players: [
+        { id: 1, job: 'PLD', maxHP: 100000 },
+        { id: 2, job: 'WAR', maxHP: 100000 },
+      ],
+      statuses: [],
+      timestamp: 0,
+    }
+  })
+
+  it('双坦共受伤：死斗（self+shield）只在持有者分支生效', () => {
+    const partyState: PartyState = {
+      ...basePartyState,
+      statuses: [
+        {
+          instanceId: 'ihd-1',
+          statusId: 409,
+          startTime: 0,
+          endTime: 10,
+          sourcePlayerId: 1,
+          removeOnBarrierBreak: false,
+        },
+      ],
+    }
+    const result = calculator.calculate(
+      makeEvent(200000, 5, 'physical', 'tankbuster'),
+      partyState,
+      { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
+    )
+    expect(result.perVictim).toHaveLength(2)
+    expect(result.perVictim![0].playerId).toBe(1)
+    expect(result.perVictim![1].playerId).toBe(2)
+    // MT 分支：死斗 onBeforeShield 计算 requiredShield = 200000 - 0 - 100000 + 1 = 100001
+    // 吸收后 playerDamage = 200000 - 100001 = 99999
+    expect(result.perVictim![0].finalDamage).toBe(99999)
+    // OT 分支：死斗被 tankFilter 过滤（category 无 'target'），无减伤
+    expect(result.perVictim![1].finalDamage).toBe(200000)
+    expect(result.finalDamage).toBe(99999)
+    expect(result.maxDamage).toBe(200000)
+  })
+
+  it('未标注 category 的状态对持有者和非持有者都生效（复仇 89 场景）', () => {
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation((id: number) => {
+      if (id === 89) {
+        return {
+          id: 89,
+          name: '复仇',
+          type: 'multiplier',
+          performance: { physics: 0.7, magic: 0.7, darkness: 0.7 },
+          isFriendly: true,
+          isTankOnly: true,
+        } as unknown as MitigationStatusMetadata
+      }
+      return undefined
+    })
+    try {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'v-1',
+            statusId: 89,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 1,
+          },
+        ],
+      }
+      const result = calculator.calculate(
+        makeEvent(10000, 5, 'physical', 'tankbuster'),
+        partyState,
+        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
+      )
+      expect(result.perVictim![0].finalDamage).toBe(7000)
+      expect(result.perVictim![1].finalDamage).toBe(7000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('第一坦 state 持久化：OT 分支盾消耗不写回 updatedPartyState', () => {
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation((id: number) => {
+      if (id === 8888) {
+        return {
+          id: 8888,
+          name: 'mock-shield',
+          type: 'absorbed',
+          performance: { physics: 1, magic: 1, darkness: 1 },
+          isFriendly: true,
+          isTankOnly: true,
+          category: ['self', 'target', 'shield'],
+        } as unknown as MitigationStatusMetadata
+      }
+      return undefined
+    })
+    try {
+      const partyState: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'sh-1',
+            statusId: 8888,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 2,
+            remainingBarrier: 5000,
+            initialBarrier: 5000,
+            removeOnBarrierBreak: true,
+          },
+        ],
+      }
+      const result = calculator.calculate(
+        makeEvent(3000, 5, 'physical', 'tankbuster'),
+        partyState,
+        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
+      )
+      expect(result.perVictim![0].finalDamage).toBe(0)
+      expect(result.perVictim![1].finalDamage).toBe(0)
+      const persistedShield = result.updatedPartyState!.statuses.find(s => s.instanceId === 'sh-1')
+      expect(persistedShield?.remainingBarrier).toBe(2000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('maxHP 按 tank 个性化：MT 有战栗 1.2×，OT 没有', () => {
+    const partyState: PartyState = {
+      ...basePartyState,
+      statuses: [
+        {
+          instanceId: 'tr-1',
+          statusId: 87,
+          startTime: 0,
+          endTime: 10,
+          sourcePlayerId: 1,
+        },
+      ],
+    }
+    const result = calculator.calculate(makeEvent(1, 5, 'physical', 'tankbuster'), partyState, {
+      tankPlayerIds: [1, 2],
+      baseReferenceMaxHP: 100000,
+    })
+    expect(result.perVictim![0].referenceMaxHP).toBe(120000)
+    expect(result.perVictim![1].referenceMaxHP).toBe(100000)
+  })
+
+  it('单坦退化：tankPlayerIds 只有一个时 perVictim 长度=1', () => {
+    const partyState: PartyState = {
+      ...basePartyState,
+      statuses: [
+        {
+          instanceId: 'br-1',
+          statusId: 1191,
+          startTime: 0,
+          endTime: 10,
+          sourcePlayerId: 1,
+        },
+      ],
+    }
+    const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState, {
+      tankPlayerIds: [1],
+      baseReferenceMaxHP: 100000,
+    })
+    expect(result.perVictim).toHaveLength(1)
+    expect(result.perVictim![0].playerId).toBe(1)
+    expect(result.finalDamage).toBe(8000)
+  })
+
+  it('非坦专事件不走多坦路径：aoe 事件 perVictim undefined', () => {
+    const partyState: PartyState = {
+      ...basePartyState,
+      statuses: [],
+    }
+    const result = calculator.calculate(makeEvent(10000, 5, 'magical', 'aoe'), partyState, {
+      tankPlayerIds: [1, 2],
+      baseReferenceMaxHP: 100000,
+    })
+    expect(result.perVictim).toBeUndefined()
+  })
+})
