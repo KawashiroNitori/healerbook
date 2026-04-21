@@ -163,6 +163,30 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 240,
       executor: createBuffExecutor(409, 10),
     },
+    {
+      id: 25751,
+      name: '原初的血气',
+      icon: '/i/002000/002569.png',
+      jobs: ['WAR'],
+      category: ['self', 'percentage', 'shield'],
+      duration: 8,
+      cooldown: 25,
+      executor: ctx => {
+        let partyState = createBuffExecutor(2678, 8)(ctx)
+        partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState })
+        return createShieldExecutor(2680, 20)({ ...ctx, partyState })
+      },
+    },
+    {
+      id: 36923,
+      name: '戮罪',
+      icon: '/i/002000/002573.png',
+      jobs: ['WAR'],
+      category: ['self', 'percentage'],
+      duration: 15,
+      cooldown: 120,
+      executor: createBuffExecutor(3832, 15),
+    },
 
     // 暗黑骑士 (DRK)
     {
