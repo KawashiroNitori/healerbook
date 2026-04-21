@@ -9,6 +9,19 @@ import type { DamageEvent, DamageType } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 
 /**
+ * 多坦路径单坦克的计算结果
+ */
+export interface PerTankResult {
+  /** 该坦克玩家 ID */
+  playerId: number
+  finalDamage: number
+  mitigationPercentage: number
+  appliedStatuses: MitigationStatus[]
+  /** 该分支个性化后的参考 HP（叠乘 maxHP 倍率） */
+  referenceMaxHP: number
+}
+
+/**
  * 计算结果
  */
 export interface CalculationResult {
@@ -26,6 +39,12 @@ export interface CalculationResult {
   updatedPartyState?: PartyState
   /** 非坦中位血量参考值（编辑模式填充） */
   referenceMaxHP?: number
+  /**
+   * 多坦路径产出；单路径（aoe / 无坦克）为 undefined。
+   * 顶层 finalDamage / appliedStatuses / updatedPartyState 取 perVictim[0]；
+   * maxDamage 取 max(perVictim.finalDamage)。
+   */
+  perVictim?: PerTankResult[]
 }
 
 /**
@@ -38,6 +57,16 @@ export interface CalculateOptions {
    * 死斗等"将 HP 拉到 1"类钩子在 replay 缺字段时以此兜底。
    */
   referenceMaxHP?: number
+  /**
+   * 基线参考 HP（未叠加 maxHP 倍率）。提供此字段时，calculator 负责按活跃 buff 叠乘。
+   */
+  baseReferenceMaxHP?: number
+  /**
+   * 坦专事件的承伤者坦克列表，按 composition 顺序。
+   * - 非空 + event.type ∈ {tankbuster, auto} → 多坦路径
+   * - 否则 → 单路径（现有行为）
+   */
+  tankPlayerIds?: number[]
 }
 
 /**
