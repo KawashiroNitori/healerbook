@@ -129,6 +129,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const partyState = createBuffExecutor(3829, 15)(ctx)
         return createShieldExecutor(3830, 15)({ ...ctx, partyState })
       },
+      statDataEntries: [{ type: 'shield', key: 3830 }],
     },
 
     // 战士 (WAR)
@@ -176,6 +177,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState })
         return createShieldExecutor(2680, 20)({ ...ctx, partyState })
       },
+      statDataEntries: [{ type: 'shield', key: 2680 }],
     },
     {
       id: 36923,
@@ -228,11 +230,12 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 7,
       cooldown: 15,
       executor: createShieldExecutor(1178, 7),
+      statDataEntries: [{ type: 'shield', key: 1178 }],
     },
     {
       id: 25754,
       name: '献奉',
-      icon: '/i/003000/003082.png',
+      icon: '/i/003000/003089.png',
       jobs: ['DRK'],
       category: ['self', 'target', 'percentage'],
       duration: 7,
