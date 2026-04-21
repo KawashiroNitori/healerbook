@@ -77,7 +77,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
 
   // 战士
   87: { isTankOnly: true, heal: 1.2, maxHP: 1.2, category: ['self'] }, // 战栗
-  89: { isTankOnly: true }, // 复仇
+  89: { isTankOnly: true, category: ['self', 'percentage'] }, // 复仇
   3832: { isTankOnly: true, category: ['self', 'percentage'] }, // 戮罪
 
   // 死斗
