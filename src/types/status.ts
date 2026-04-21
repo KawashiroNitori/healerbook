@@ -6,6 +6,7 @@ import type {
   Keigenn,
   PerformanceType as ExternalPerformanceType,
 } from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
+import type { MitigationCategory } from './mitigation'
 import type { DamageEvent } from './timeline'
 import type { PartyState } from './partyState'
 
@@ -32,6 +33,8 @@ export interface MitigationStatusMetadata extends Omit<Keigenn, 'performance' | 
   isTankOnly: boolean
   /** 状态自身的副作用钩子（可选） */
   executor?: StatusExecutor
+  /** 分类 tag，透传自 STATUS_EXTRAS.category；calculator 按 tank 过滤时消费 */
+  category?: MitigationCategory[]
 }
 
 /**

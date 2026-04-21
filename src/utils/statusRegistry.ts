@@ -34,6 +34,7 @@ function initializeStatusRegistry() {
       },
       isTankOnly: extras?.isTankOnly ?? false,
       executor: extras?.executor,
+      category: extras?.category,
     }
     statusMap.set(status.id, merged)
   }
