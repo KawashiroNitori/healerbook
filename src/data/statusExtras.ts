@@ -5,7 +5,44 @@
  * 本表按 statusId 提供本地扩展字段的覆盖值。未在此表中的状态走 statusRegistry 里的默认值。
  */
 
-import type { StatusExecutor } from '@/types/status'
+import type { StatusBeforeShieldContext, StatusExecutor } from '@/types/status'
+import { addStatus, removeStatus } from '@/executors/statusHelpers'
+
+/**
+ * 创建"按需生成盾值"的 onBeforeShield 钩子。
+ *
+ * 在编辑模式下假设坦克满血，盾值 = candidateDamage − 已有坦专盾 − referenceMaxHP + 1，
+ * 即刚好让坦克活下来的最小值；若已有盾值足够则不分配。
+ */
+export function createSurvivalBarrierHook() {
+  return (ctx: StatusBeforeShieldContext) => {
+    const tankOnlyShield = ctx.partyState.statuses
+      .filter(s => {
+        if (s.remainingBarrier === undefined || s.remainingBarrier <= 0) return false
+        if (ctx.event.time < s.startTime || ctx.event.time > s.endTime) return false
+        return STATUS_EXTRAS[s.statusId]?.isTankOnly === true
+      })
+      .reduce((sum, s) => sum + (s.remainingBarrier ?? 0), 0)
+
+    const requiredShield = ctx.candidateDamage - tankOnlyShield - ctx.referenceMaxHP + 1
+
+    if (requiredShield <= 0) return ctx.partyState
+
+    return {
+      ...ctx.partyState,
+      statuses: ctx.partyState.statuses.map(s =>
+        s.instanceId === ctx.status.instanceId
+          ? {
+              ...s,
+              remainingBarrier: requiredShield,
+              initialBarrier: requiredShield,
+              data: { engaged: true },
+            }
+          : s
+      ),
+    }
+  }
+}
 
 /** 单个状态的本地补充字段 */
 export interface StatusExtras {
@@ -42,38 +79,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   3832: { isTankOnly: true }, // 戮罪
 
   // 死斗
-  409: {
-    isTankOnly: true,
-    executor: {
-      onBeforeShield: ctx => {
-        const tankOnlyShield = ctx.partyState.statuses
-          .filter(s => {
-            if (s.remainingBarrier === undefined || s.remainingBarrier <= 0) return false
-            if (ctx.event.time < s.startTime || ctx.event.time > s.endTime) return false
-            return STATUS_EXTRAS[s.statusId]?.isTankOnly === true
-          })
-          .reduce((sum, s) => sum + (s.remainingBarrier ?? 0), 0)
-
-        // 编辑模式假设坦克满血
-        const requiredShield = ctx.candidateDamage - tankOnlyShield - ctx.referenceMaxHP + 1
-
-        if (requiredShield <= 0) return ctx.partyState
-
-        return {
-          ...ctx.partyState,
-          statuses: ctx.partyState.statuses.map(s =>
-            s.instanceId === ctx.status.instanceId
-              ? {
-                  ...s,
-                  remainingBarrier: requiredShield,
-                  initialBarrier: requiredShield,
-                }
-              : s
-          ),
-        }
-      },
-    },
-  },
+  409: { isTankOnly: true, executor: { onBeforeShield: createSurvivalBarrierHook() } },
 
   735: { isTankOnly: true }, // 原初的直觉
   1858: { isTankOnly: true }, // 原初的武猛
@@ -85,9 +91,27 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   747: { isTankOnly: true }, // 暗影墙
   3835: { isTankOnly: true }, // 暗影卫
   746: { isTankOnly: true }, // 弃明投暗
-  810: { isTankOnly: true }, // 行尸走肉
-  811: { isTankOnly: true }, // 死而不僵
-  3255: { isTankOnly: true }, // 出死入生
+
+  // 行尸走肉
+  810: {
+    isTankOnly: true,
+    executor: {
+      onBeforeShield: createSurvivalBarrierHook(),
+      onAfterDamage: ctx => {
+        if (!(ctx.status.data?.engaged as boolean)) return
+        let state = removeStatus(ctx.partyState, ctx.status.instanceId)
+        state = addStatus(state, {
+          statusId: 3255,
+          eventTime: ctx.event.time,
+          duration: 10,
+        })
+        return state
+      },
+    },
+  },
+
+  811: { isTankOnly: true, executor: { onBeforeShield: createSurvivalBarrierHook() } }, // 死而不僵
+  3255: { isTankOnly: true, executor: { onBeforeShield: createSurvivalBarrierHook() } }, // 出死入生
   1178: { isTankOnly: true }, // 至黑之夜
   2682: { isTankOnly: true }, // 献奉
 
