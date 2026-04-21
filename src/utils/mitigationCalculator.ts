@@ -106,16 +106,7 @@ export class MitigationCalculator {
       _status: MitigationStatus
     ) => meta.isTankOnly === includeTankOnly
 
-    // referenceMaxHP 优先用 opts.referenceMaxHP（旧调用方已算好），否则由 baseReferenceMaxHP 叠乘
-    const referenceMaxHP =
-      opts?.referenceMaxHP ??
-      this.computeReferenceMaxHP(
-        event,
-        partyState,
-        opts?.baseReferenceMaxHP ?? 0,
-        meta => !(meta.isTankOnly && !includeTankOnly)
-      )
-
+    // 多坦路径早返回——如果进入多坦分支，单路径的 referenceMaxHP 计算不会执行
     const tankIds = opts?.tankPlayerIds ?? []
     if (includeTankOnly && tankIds.length >= 1) {
       const base = opts?.baseReferenceMaxHP ?? opts?.referenceMaxHP ?? 0
@@ -160,6 +151,16 @@ export class MitigationCalculator {
         perVictim,
       }
     }
+
+    // 单路径：现在才计算 referenceMaxHP，避免多坦路径时的无谓计算
+    const referenceMaxHP =
+      opts?.referenceMaxHP ??
+      this.computeReferenceMaxHP(
+        event,
+        partyState,
+        opts?.baseReferenceMaxHP ?? 0,
+        meta => !(meta.isTankOnly && !includeTankOnly)
+      )
 
     const branch = this.runSingleBranch(event, partyState, {
       multiplierFilter: singleMultiplierFilter,
