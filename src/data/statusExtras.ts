@@ -36,7 +36,6 @@ export function createSurvivalBarrierHook() {
               ...s,
               remainingBarrier: requiredShield,
               initialBarrier: requiredShield,
-              data: { engaged: true },
             }
           : s
       ),
@@ -97,15 +96,16 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     isTankOnly: true,
     executor: {
       onBeforeShield: createSurvivalBarrierHook(),
-      onAfterDamage: ctx => {
-        if (!(ctx.status.data?.engaged as boolean)) return
-        let state = removeStatus(ctx.partyState, ctx.status.instanceId)
-        state = addStatus(state, {
+      // 盾被打穿 = 触发致死保护：显式移除自身，挂 10s 出死入生。
+      // 其他用 createSurvivalBarrierHook 的 buff（死斗/出死入生）走 calculator 的默认行为
+      // ——barrier 归 0 只剥离 barrier，buff 本体按 duration 继续生效。
+      onConsume: ctx => {
+        const next = removeStatus(ctx.partyState, ctx.status.instanceId)
+        return addStatus(next, {
           statusId: 3255,
           eventTime: ctx.event.time,
           duration: 10,
         })
-        return state
       },
     },
   },
@@ -118,7 +118,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   // 绝枪
   1832: { isTankOnly: true }, // 伪装
   1834: { isTankOnly: true }, // 星云
-  3838: { isTankOnly: true }, // 大星云
+  3838: { isTankOnly: true, maxHP: 1.2 }, // 大星云
   1836: { isTankOnly: true }, // 超火流星
   1840: { isTankOnly: true }, // 石之心
   2683: { isTankOnly: true }, // 刚玉之心

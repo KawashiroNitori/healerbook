@@ -294,6 +294,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
         return createBuffExecutor(2684, 4)({ ...ctx, partyState })
       },
     },
+    {
+      id: 36935,
+      name: '大星云',
+      icon: '/i/003000/003435.png',
+      jobs: ['GNB'],
+      category: ['self', 'percentage'],
+      duration: 15,
+      cooldown: 120,
+      executor: createBuffExecutor(3838, 15),
+    },
 
     // ==================== 治疗职业技能 ====================
 
