@@ -65,15 +65,15 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   1191: { isTankOnly: true, heal: 1.15, category: ['self', 'percentage'] }, // 铁壁
 
   // 骑士
-  17: { isTankOnly: true }, // 预警
-  1856: { isTankOnly: true }, // 盾阵
+  17: { isTankOnly: true, category: ['self', 'percentage'] }, // 预警
+  1856: { isTankOnly: true, category: ['self', 'percentage'] }, // 盾阵
   2674: { isTankOnly: true, category: ['self', 'percentage'] }, // 圣盾阵
   82: { isTankOnly: true, category: ['self', 'percentage'] }, // 神圣领域
-  77: { isTankOnly: true }, // 壁垒
+  77: { isTankOnly: true, category: ['self', 'percentage'] }, // 壁垒
   1174: { isTankOnly: true, category: ['target', 'percentage'] }, // 干预
-  2675: { isTankOnly: true, category: ['target', 'percentage'] }, // 骑士的坚守
-  3829: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 极致防御
-  3830: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 极致护盾
+  2675: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 骑士的坚守
+  3829: { isTankOnly: true, category: ['self', 'percentage'] }, // 极致防御
+  3830: { isTankOnly: true, category: ['self', 'shield'] }, // 极致护盾
 
   // 战士
   87: { isTankOnly: true, heal: 1.2, maxHP: 1.2, category: ['self'] }, // 战栗
@@ -87,14 +87,14 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     executor: { onBeforeShield: createSurvivalBarrierHook() },
   },
 
-  735: { isTankOnly: true }, // 原初的直觉
-  1858: { isTankOnly: true }, // 原初的武猛
-  2678: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血气
-  2679: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血潮
+  735: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的直觉
+  1858: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的武猛
+  2678: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的血气
+  2679: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的血潮
   2680: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血烟
 
   // 暗骑
-  747: { isTankOnly: true }, // 暗影墙
+  747: { isTankOnly: true, category: ['self', 'percentage'] }, // 暗影墙
   3835: { isTankOnly: true, category: ['self', 'percentage'] }, // 暗影卫
   746: { isTankOnly: true, category: ['self', 'percentage'] }, // 弃明投暗
 
@@ -125,15 +125,15 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     category: ['self', 'percentage'],
     executor: { onBeforeShield: createSurvivalBarrierHook() },
   }, // 出死入生
-  1178: { isTankOnly: true, category: ['self', 'shield'] }, // 至黑之夜
+  1178: { isTankOnly: true, category: ['self', 'target', 'shield'] }, // 至黑之夜
   2682: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 献奉
 
   // 绝枪
   1832: { isTankOnly: true, category: ['self', 'percentage'] }, // 伪装
-  1834: { isTankOnly: true }, // 星云
+  1834: { isTankOnly: true, category: ['self', 'percentage'] }, // 星云
   3838: { isTankOnly: true, maxHP: 1.2, category: ['self', 'percentage'] }, // 大星云
   1836: { isTankOnly: true, category: ['self', 'percentage'] }, // 超火流星
-  1840: { isTankOnly: true }, // 石之心
+  1840: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 石之心
   2683: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之心
   2684: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之清
 }
