@@ -6,6 +6,7 @@
  */
 
 import type { StatusBeforeShieldContext, StatusExecutor } from '@/types/status'
+import type { MitigationCategory } from '@/types/mitigation'
 import { addStatus, removeStatus } from '@/executors/statusHelpers'
 
 /**
@@ -53,52 +54,56 @@ export interface StatusExtras {
   maxHP?: number
   /** 状态自身的副作用钩子（可选） */
   executor?: StatusExecutor
+  /** 分类 tag，通常复刻自产生本状态的 MitigationAction.category */
+  category?: MitigationCategory[]
 }
 
 /** statusId → 本地补充字段 */
 export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   // T 通用
 
-  1191: { isTankOnly: true, heal: 1.15 }, // 铁壁
+  1191: { isTankOnly: true, heal: 1.15, category: ['self', 'percentage'] }, // 铁壁
 
   // 骑士
   17: { isTankOnly: true }, // 预警
   1856: { isTankOnly: true }, // 盾阵
-  2674: { isTankOnly: true }, // 圣盾阵
-  82: { isTankOnly: true }, // 神圣领域
+  2674: { isTankOnly: true, category: ['self', 'percentage'] }, // 圣盾阵
+  82: { isTankOnly: true, category: ['self', 'percentage'] }, // 神圣领域
   77: { isTankOnly: true }, // 壁垒
-  1174: { isTankOnly: true }, // 干预
-  2675: { isTankOnly: true }, // 骑士的坚守
-  3829: { isTankOnly: true }, // 极致防御
-  3830: { isTankOnly: true }, // 极致护盾
+  1174: { isTankOnly: true, category: ['target', 'percentage'] }, // 干预
+  2675: { isTankOnly: true, category: ['target', 'percentage'] }, // 骑士的坚守
+  3829: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 极致防御
+  3830: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 极致护盾
 
   // 战士
-  87: { isTankOnly: true, heal: 1.2, maxHP: 1.2 }, // 战栗
+  87: { isTankOnly: true, heal: 1.2, maxHP: 1.2, category: ['self'] }, // 战栗
   89: { isTankOnly: true }, // 复仇
-  3832: { isTankOnly: true }, // 戮罪
+  3832: { isTankOnly: true, category: ['self', 'percentage'] }, // 戮罪
 
   // 死斗
-  409: { isTankOnly: true, executor: { onBeforeShield: createSurvivalBarrierHook() } },
+  409: {
+    isTankOnly: true,
+    category: ['self', 'shield'],
+    executor: { onBeforeShield: createSurvivalBarrierHook() },
+  },
 
   735: { isTankOnly: true }, // 原初的直觉
   1858: { isTankOnly: true }, // 原初的武猛
-  2678: { isTankOnly: true }, // 原初的血气
-  2679: { isTankOnly: true }, // 原初的血潮
-  2680: { isTankOnly: true }, // 原初的血烟
+  2678: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血气
+  2679: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血潮
+  2680: { isTankOnly: true, category: ['self', 'percentage', 'shield'] }, // 原初的血烟
 
   // 暗骑
   747: { isTankOnly: true }, // 暗影墙
-  3835: { isTankOnly: true }, // 暗影卫
-  746: { isTankOnly: true }, // 弃明投暗
+  3835: { isTankOnly: true, category: ['self', 'percentage'] }, // 暗影卫
+  746: { isTankOnly: true, category: ['self', 'percentage'] }, // 弃明投暗
 
   // 行尸走肉
   810: {
     isTankOnly: true,
+    category: ['self', 'percentage'],
     executor: {
       onBeforeShield: createSurvivalBarrierHook(),
-      // 盾被打穿 = 触发致死保护：显式移除自身，挂 10s 出死入生。
-      // 其他用 createSurvivalBarrierHook 的 buff（死斗/出死入生）走 calculator 的默认行为
-      // ——barrier 归 0 只剥离 barrier，buff 本体按 duration 继续生效。
       onConsume: ctx => {
         const next = removeStatus(ctx.partyState, ctx.status.instanceId)
         return addStatus(next, {
@@ -110,17 +115,25 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     },
   },
 
-  811: { isTankOnly: true, executor: { onBeforeShield: createSurvivalBarrierHook() } }, // 死而不僵
-  3255: { isTankOnly: true, executor: { onBeforeShield: createSurvivalBarrierHook() } }, // 出死入生
-  1178: { isTankOnly: true }, // 至黑之夜
-  2682: { isTankOnly: true }, // 献奉
+  811: {
+    isTankOnly: true,
+    category: ['self', 'percentage'],
+    executor: { onBeforeShield: createSurvivalBarrierHook() },
+  }, // 死而不僵
+  3255: {
+    isTankOnly: true,
+    category: ['self', 'percentage'],
+    executor: { onBeforeShield: createSurvivalBarrierHook() },
+  }, // 出死入生
+  1178: { isTankOnly: true, category: ['self', 'shield'] }, // 至黑之夜
+  2682: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 献奉
 
   // 绝枪
-  1832: { isTankOnly: true }, // 伪装
+  1832: { isTankOnly: true, category: ['self', 'percentage'] }, // 伪装
   1834: { isTankOnly: true }, // 星云
-  3838: { isTankOnly: true, maxHP: 1.2 }, // 大星云
-  1836: { isTankOnly: true }, // 超火流星
+  3838: { isTankOnly: true, maxHP: 1.2, category: ['self', 'percentage'] }, // 大星云
+  1836: { isTankOnly: true, category: ['self', 'percentage'] }, // 超火流星
   1840: { isTankOnly: true }, // 石之心
-  2683: { isTankOnly: true }, // 刚玉之心
-  2684: { isTankOnly: true }, // 刚玉之清
+  2683: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之心
+  2684: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之清
 }
