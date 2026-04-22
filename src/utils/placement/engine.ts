@@ -20,10 +20,16 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
   const { castEvents, actions, simulate } = input
   const defaultTimeline = simulate(castEvents).statusTimelineByPlayer
 
-  // Task 8 会把下面这两个 helper 扩成接受 excludeId 的重放/过滤版本；目前只返回默认快照。
+  const excludedTimelineCache = new Map<string, StatusTimelineByPlayer>()
+
   function timelineFor(excludeId?: string): StatusTimelineByPlayer {
-    void excludeId
-    return defaultTimeline
+    if (!excludeId) return defaultTimeline
+    const cached = excludedTimelineCache.get(excludeId)
+    if (cached) return cached
+    const filtered = castEvents.filter(e => e.id !== excludeId)
+    const next = simulate(filtered).statusTimelineByPlayer
+    excludedTimelineCache.set(excludeId, next)
+    return next
   }
 
   function effectiveCastEvents(excludeId?: string): CastEvent[] {

@@ -190,3 +190,109 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
     expect(e.findInvalidCastEvents()).toEqual([])
   })
 })
+
+describe('createPlacementEngine — excludeCastEventId 重放', () => {
+  it('排除 consume 型 cast 后，状态 interval 应恢复到原时长', () => {
+    // 模拟：节制 16536 在 t=10 附加 status 1873（duration 25）→ [10, 35)
+    //       神爱抚 37011 在 t=20 consume 1873 → [10, 20)
+    // 排除神爱抚 cast 后应看到 [10, 35)
+    const simulate = (events: CastEvent[]) => {
+      const has16536 = events.some(e => e.actionId === 16536)
+      const has37011 = events.some(e => e.actionId === 37011)
+      if (has16536 && has37011) {
+        return {
+          statusTimelineByPlayer: new Map([
+            [
+              10,
+              new Map([
+                [
+                  1873,
+                  [
+                    {
+                      from: 10,
+                      to: 20,
+                      stacks: 1,
+                      sourcePlayerId: 10,
+                      sourceCastEventId: 'c16536',
+                    } as StatusInterval,
+                  ],
+                ],
+              ]),
+            ],
+          ]),
+        }
+      }
+      if (has16536) {
+        return {
+          statusTimelineByPlayer: new Map([
+            [
+              10,
+              new Map([
+                [
+                  1873,
+                  [
+                    {
+                      from: 10,
+                      to: 35,
+                      stacks: 1,
+                      sourcePlayerId: 10,
+                      sourceCastEventId: 'c16536',
+                    } as StatusInterval,
+                  ],
+                ],
+              ]),
+            ],
+          ]),
+        }
+      }
+      return { statusTimelineByPlayer: new Map() }
+    }
+
+    const temperance = makeAction({ id: 16536, cooldown: 120 })
+    const grace = makeAction({
+      id: 37011,
+      cooldown: 1,
+      placement: whileStatus(1873),
+    })
+    const castEvents: CastEvent[] = [
+      { id: 'c16536', actionId: 16536, playerId: 10, timestamp: 10 } as unknown as CastEvent,
+      { id: 'c37011', actionId: 37011, playerId: 10, timestamp: 20 } as unknown as CastEvent,
+    ]
+    const engine = createPlacementEngine({
+      castEvents,
+      actions: new Map([
+        [16536, temperance],
+        [37011, grace],
+      ]),
+      simulate,
+    })
+
+    // 默认：grace 合法区间 = [10, 20)
+    expect(engine.getValidIntervals(grace, 10)).toEqual([{ from: 10, to: 20 }])
+
+    // 排除 c37011：grace 合法区间应恢复为 [10, 35)（CD=1 不再自我阻塞）
+    const withExclude = engine.getValidIntervals(grace, 10, 'c37011')
+    expect(withExclude).toEqual([{ from: 10, to: 35 }])
+  })
+
+  it('同一 excludeId 多次查询只触发 1 次 simulate（缓存命中）', () => {
+    let calls = 0
+    const simulate = () => {
+      calls++
+      return { statusTimelineByPlayer: new Map() }
+    }
+    const action = makeAction({ id: 1 })
+    const engine = createPlacementEngine({
+      castEvents: [{ id: 'c1', actionId: 1, playerId: 10, timestamp: 0 } as unknown as CastEvent],
+      actions: new Map([[1, action]]),
+      simulate,
+    })
+    // 构造时 1 次
+    expect(calls).toBe(1)
+    engine.getValidIntervals(action, 10, 'c1')
+    engine.getValidIntervals(action, 10, 'c1')
+    engine.findInvalidCastEvents('c1')
+    // excludeId 命中缓存，应只再增加 1
+    expect(calls).toBe(2)
+  })
+})
