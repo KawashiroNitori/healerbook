@@ -4,8 +4,15 @@
  */
 
 import type { PartyState } from '@/types/partyState'
-import type { MitigationStatus, MitigationStatusMetadata, PerformanceType } from '@/types/status'
-import type { DamageEvent, DamageType } from '@/types/timeline'
+import type {
+  MitigationStatus,
+  MitigationStatusMetadata,
+  PerformanceType,
+  StatusInterval,
+} from '@/types/status'
+import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
+import type { TimelineStatData } from '@/types/statData'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { isStatusValidForTank } from './statusFilter'
 
@@ -68,6 +75,40 @@ export interface CalculateOptions {
    * - 否则 → 单路径（现有行为）
    */
   tankPlayerIds?: number[]
+}
+
+/**
+ * 纯函数模拟输入
+ */
+export interface SimulateInput {
+  castEvents: CastEvent[]
+  damageEvents: DamageEvent[]
+  initialState: PartyState
+  statistics?: TimelineStatData
+  /**
+   * composition 中的坦克 playerId 列表，按 composition 自然序。
+   * 提供时坦专事件走多坦路径；不提供时单路径。由 hook 从 timeline.composition 派生后传入。
+   */
+  tankPlayerIds?: number[]
+  /**
+   * 用于多坦路径的基线 max HP（tankReferenceMaxHP，来自 resolveStatData）；
+   * 亦透传给 calculator.calculate 的 baseReferenceMaxHP。
+   */
+  baseReferenceMaxHPForTank?: number
+  /**
+   * 非坦事件的基线 max HP（referenceMaxHP，来自 resolveStatData），
+   * 用于 calculator.calculate 的 baseReferenceMaxHP（单路径路径）。
+   */
+  baseReferenceMaxHPForAoe?: number
+}
+
+/**
+ * 纯函数模拟输出
+ */
+export interface SimulateOutput {
+  damageResults: Map<string, CalculationResult>
+  /** playerId → statusId → StatusInterval[]；task 5 才填充，本 task 返回空 Map */
+  statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>>
 }
 
 /**
@@ -187,6 +228,101 @@ export class MitigationCalculator {
       updatedPartyState: branch.updatedPartyState,
       referenceMaxHP,
     }
+  }
+
+  /**
+   * 纯函数版全时间轴模拟。产出每个 damageEvent 的计算结果与
+   * （下一 task 起）statusTimelineByPlayer。编辑模式专用，不走回放路径。
+   *
+   * PlacementEngine 在处理 excludeCastEventId 时会以过滤后的 castEvents 重新调用，
+   * 因此本方法必须是纯函数，不读/写调用方状态。
+   */
+  simulate(input: SimulateInput): SimulateOutput {
+    const TICK_INTERVAL = 3
+    const {
+      castEvents,
+      damageEvents,
+      initialState,
+      statistics,
+      tankPlayerIds = [],
+      baseReferenceMaxHPForTank = 0,
+      baseReferenceMaxHPForAoe = 0,
+    } = input
+
+    const damageResults = new Map<string, CalculationResult>()
+    const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
+
+    const advanceToTime = (state: PartyState, prev: number, cur: number): PartyState => {
+      let next = state
+      const firstTick = Math.floor(prev / TICK_INTERVAL) * TICK_INTERVAL + TICK_INTERVAL
+      for (let t = firstTick; t <= cur; t += TICK_INTERVAL) {
+        for (const status of next.statuses) {
+          if (status.startTime > t || status.endTime < t) continue
+          const meta = getStatusById(status.statusId)
+          if (!meta?.executor?.onTick) continue
+          const result = meta.executor.onTick({ status, tickTime: t, partyState: next })
+          if (result) next = result
+        }
+      }
+      for (const status of next.statuses) {
+        if (status.endTime >= cur) continue
+        const meta = getStatusById(status.statusId)
+        if (!meta?.executor?.onExpire) continue
+        const result = meta.executor.onExpire({ status, expireTime: cur, partyState: next })
+        if (result) next = result
+      }
+      return { ...next, statuses: next.statuses.filter(s => s.endTime >= cur) }
+    }
+
+    const sortedDamage = [...damageEvents].sort((a, b) => a.time - b.time)
+    const sortedCasts = [...castEvents].sort((a, b) => a.timestamp - b.timestamp)
+
+    let currentState: PartyState = {
+      statuses: [...initialState.statuses],
+      timestamp: initialState.timestamp,
+    }
+    let lastAdvanceTime = 0
+    let castIdx = 0
+
+    for (const event of sortedDamage) {
+      const filterTime = event.snapshotTime ?? event.time
+      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp <= event.time) {
+        const castEvent = sortedCasts[castIdx]
+        const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
+        if (action) {
+          const castAdvanceTarget = Math.min(castEvent.timestamp, filterTime)
+          currentState = advanceToTime(currentState, lastAdvanceTime, castAdvanceTarget)
+          lastAdvanceTime = castAdvanceTarget
+          const ctx = {
+            actionId: castEvent.actionId,
+            useTime: castEvent.timestamp,
+            partyState: currentState,
+            sourcePlayerId: castEvent.playerId,
+            statistics,
+          }
+          if (action.executor) currentState = action.executor(ctx)
+        }
+        castIdx++
+      }
+
+      currentState = advanceToTime(currentState, lastAdvanceTime, filterTime)
+      lastAdvanceTime = filterTime
+
+      const includeTankOnly = event.type === 'tankbuster' || event.type === 'auto'
+      const baseReferenceMaxHP = includeTankOnly
+        ? baseReferenceMaxHPForTank
+        : baseReferenceMaxHPForAoe
+      const tankIds = includeTankOnly ? tankPlayerIds : []
+
+      const result = this.calculate(event, currentState, {
+        baseReferenceMaxHP,
+        tankPlayerIds: tankIds,
+      })
+      damageResults.set(event.id, result)
+      if (result.updatedPartyState) currentState = result.updatedPartyState
+    }
+
+    return { damageResults, statusTimelineByPlayer }
   }
 
   /**
