@@ -75,6 +75,7 @@ export default function SkillTracksCanvas({
   actions,
   actionMap,
   engine,
+  invalidCastEventMap,
   draggingId,
   displayActionOverrides,
   zoomLevel,
@@ -495,6 +496,7 @@ export default function SkillTracksCanvas({
               castEvent={castEvent}
               action={action}
               displayAction={displayAction}
+              invalidReason={invalidCastEventMap?.get(castEvent.id) ?? null}
               isSelected={isSelected}
               zoomLevel={zoomLevel}
               trackY={trackY}

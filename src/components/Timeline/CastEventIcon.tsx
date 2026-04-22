@@ -9,12 +9,15 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { KonvaContextMenuEvent } from '@/types/konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
+import type { InvalidReason } from '@/utils/placement/types'
 
 interface CastEventIconProps {
   castEvent: CastEvent
   action: MitigationAction
   /** 覆盖显示用的技能（仅影响图标和悬浮窗，不影响持续/冷却时间条） */
   displayAction?: MitigationAction
+  /** 本 cast 在当前 partyState / castEvents 下是否违反 placement/CD，非 null 时显示红边框 */
+  invalidReason?: InvalidReason | null
   isSelected: boolean
   zoomLevel: number
   trackY: number
@@ -36,6 +39,7 @@ const CastEventIcon = memo(function CastEventIcon({
   castEvent,
   action,
   displayAction,
+  invalidReason = null,
   isSelected,
   zoomLevel,
   trackY,
@@ -192,6 +196,21 @@ const CastEventIcon = memo(function CastEventIcon({
           fill={isSelected ? '#3b82f6' : '#ef4444'}
           cornerRadius={4}
           shadowEnabled={false}
+          perfectDrawEnabled={false}
+        />
+      )}
+
+      {/* 合法性回溯：placement 或 CD 冲突时红边框，视觉上覆盖图标 */}
+      {invalidReason && (
+        <Rect
+          x={-1}
+          y={-16}
+          width={32}
+          height={32}
+          stroke="#ef4444"
+          strokeWidth={2}
+          cornerRadius={4}
+          listening={false}
           perfectDrawEnabled={false}
         />
       )}
