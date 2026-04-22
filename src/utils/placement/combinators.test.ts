@@ -52,9 +52,13 @@ describe('anyOf / allOf / not / difference', () => {
     expect(allOf(a, b).validIntervals(buildCtx())).toEqual([{ from: 5, to: 10 }])
   })
 
-  it('not: complement', () => {
+  it('not: complement（覆盖负时间，包含 prepull 区段）', () => {
     const INF = Number.POSITIVE_INFINITY
-    expect(not(a).validIntervals(buildCtx())).toEqual([{ from: 10, to: INF }])
+    const NEG_INF = Number.NEGATIVE_INFINITY
+    expect(not(a).validIntervals(buildCtx())).toEqual([
+      { from: NEG_INF, to: 0 },
+      { from: 10, to: INF },
+    ])
   })
 
   it('difference: A - B', () => {

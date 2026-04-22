@@ -21,13 +21,19 @@ export function mergeOverlapping(intervals: Interval[]): Interval[] {
   return out
 }
 
-/** [0, +∞) - union(intervals)。输入已排序/未合并都可。 */
+/**
+ * `(-∞, +∞) - union(intervals)`。输入已排序/未合并都可。
+ *
+ * 取 `-∞` 而非 `0` 作为下界——Healerbook 时间轴从 `TIMELINE_START_TIME = -30`
+ * 开始（prepull 区段），0 下界会把负时间段的合法区间误丢。
+ */
 export function complement(intervals: Interval[]): Interval[] {
   const INF = Number.POSITIVE_INFINITY
+  const NEG_INF = Number.NEGATIVE_INFINITY
   const merged = mergeOverlapping(intervals)
-  if (merged.length === 0) return [{ from: 0, to: INF }]
+  if (merged.length === 0) return [{ from: NEG_INF, to: INF }]
   const out: Interval[] = []
-  if (merged[0].from > 0) out.push({ from: 0, to: merged[0].from })
+  if (merged[0].from > NEG_INF) out.push({ from: NEG_INF, to: merged[0].from })
   for (let i = 0; i < merged.length - 1; i++) {
     out.push({ from: merged[i].to, to: merged[i + 1].from })
   }

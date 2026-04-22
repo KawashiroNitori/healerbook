@@ -13,6 +13,8 @@ import type { Annotation, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
+import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
+import { effectiveTrackGroup } from '@/types/mitigation'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
@@ -166,18 +168,36 @@ export default function SkillTracksCanvas({
           />
         ))}
 
-        {/* 不可放阴影（PlacementEngine 统一：合并 CD + placement 补集，仅编辑模式） */}
+        {/* 不可放阴影（PlacementEngine 统一：合并 CD + placement 补集，仅编辑模式）。
+            渲染时从引擎 shadow 里减掉同轨每个 cast 的 [t, t+cd)（已有的可见 CD 条区域），
+            避免与冷却条视觉重复——保留的部分主要是"已有 cast 之前的 CD 前向窗口 + placement 非法区"。 */}
         {!isReadOnly &&
           engine &&
           skillTracks.map((track, trackIndex) => {
             const parent = actionMap?.get(track.actionId)
             if (!parent || parent.cooldown < 30) return null
-            const groupId = parent.trackGroup ?? parent.id
-            const shadow = engine.computeTrackShadow(
+            const groupId = effectiveTrackGroup(parent)
+            const rawShadow = engine.computeTrackShadow(
               groupId,
               track.playerId,
               draggingId ?? undefined
             )
+            const visibleCooldownBars = mergeOverlapping(
+              sortIntervals(
+                timeline.castEvents
+                  .filter(ce => {
+                    if (ce.playerId !== track.playerId) return false
+                    const other = actionMap?.get(ce.actionId)
+                    if (!other) return false
+                    return effectiveTrackGroup(other) === groupId
+                  })
+                  .map(ce => {
+                    const other = actionMap!.get(ce.actionId)!
+                    return { from: ce.timestamp, to: ce.timestamp + other.cooldown }
+                  })
+              )
+            )
+            const shadow = subtractIntervals(rawShadow, visibleCooldownBars)
             return shadow.map((interval, idx) => {
               const left = Math.max(interval.from, TIMELINE_START_TIME) * zoomLevel
               const right = Math.min(interval.to, maxTime) * zoomLevel
@@ -300,12 +320,16 @@ export default function SkillTracksCanvas({
 
         {/* 技能空转时间提示 */}
         {skillTracks.map((track, trackIndex) => {
-          // 获取该轨道的所有技能使用记录，按时间排序
+          // 获取该轨道的所有技能使用记录，按时间排序。
+          // 同 trackGroup 的变体（如 37016 挂在 37013 轨道上）也应计入本轨道的使用记录。
+          const trackGroupId = actionMap?.get(track.actionId)?.trackGroup ?? track.actionId
           const trackCastEvents = timeline.castEvents
-            .filter(
-              castEvent =>
-                castEvent.playerId === track.playerId && castEvent.actionId === track.actionId
-            )
+            .filter(castEvent => {
+              if (castEvent.playerId !== track.playerId) return false
+              const ca = actionMap?.get(castEvent.actionId)
+              const ceGroupId = ca?.trackGroup ?? castEvent.actionId
+              return ceGroupId === trackGroupId
+            })
             .sort((a, b) => a.timestamp - b.timestamp)
 
           if (trackCastEvents.length < 1) return null
@@ -443,8 +467,11 @@ export default function SkillTracksCanvas({
         })}
 
         {timeline.castEvents.map(castEvent => {
+          // 同 trackGroup 的变体（37016 trackGroup=37013）应渲染到 parent 轨道上。
+          const castAction = actionMap?.get(castEvent.actionId)
+          const castGroupId = castAction?.trackGroup ?? castEvent.actionId
           const trackIndex = skillTracks.findIndex(
-            t => t.playerId === castEvent.playerId && t.actionId === castEvent.actionId
+            t => t.playerId === castEvent.playerId && t.actionId === castGroupId
           )
 
           if (trackIndex === -1) return null
@@ -462,33 +489,43 @@ export default function SkillTracksCanvas({
 
           const displayAction = displayActionOverrides.get(castEvent.id)
 
-          // engine 基于 placement ∩ CD 算出当前合法区间，作为拖拽边界；未接入 engine 时退化为无约束
+          // engine 给出"整条轨道（同 trackGroup）所有成员合法区间的 union"，作为拖拽边界。
+          // 只约束到"落到任何成员合法的地方"而不是"只能落到当前 actionId 合法的地方"——
+          // 拖拽中的变身（37013 ↔ 37016）在 onDragEnd 由 pickUniqueMember 处理。
           let leftBoundary = TIMELINE_START_TIME
           let rightBoundary = Infinity
           let nextCastTime = Infinity
           if (engine) {
-            const intervals = engine.getValidIntervals(action, castEvent.playerId, castEvent.id)
-            const cur = intervals.find(
-              i => i.from <= castEvent.timestamp && castEvent.timestamp < i.to
-            )
-            if (cur) {
-              leftBoundary = cur.from
-              rightBoundary = cur.to
+            const trackGroupId = castAction?.trackGroup ?? castEvent.actionId
+            const shadow = engine.computeTrackShadow(trackGroupId, castEvent.playerId, castEvent.id)
+            // shadow = 整轨不可放区间；合法区间 = shadow 的补集中包含 castEvent.timestamp 的那段。
+            // 找 shadow 相邻两段之间包含当前 timestamp 的"洞"：
+            let lo = Number.NEGATIVE_INFINITY
+            let hi = Number.POSITIVE_INFINITY
+            for (const s of shadow) {
+              if (s.to <= castEvent.timestamp) lo = Math.max(lo, s.to)
+              else if (s.from > castEvent.timestamp) {
+                hi = Math.min(hi, s.from)
+                break
+              }
             }
-            // 同 playerId 同 trackGroup 的下一 cast，用于 duration 条的短时收窄
-            const groupId = action.trackGroup ?? action.id
-            const nextSame = timeline.castEvents
-              .filter(ce => {
-                if (ce.id === castEvent.id) return false
-                if (ce.playerId !== castEvent.playerId) return false
-                if (ce.timestamp <= castEvent.timestamp) return false
-                const other = actionMap?.get(ce.actionId)
-                if (!other) return false
-                return (other.trackGroup ?? other.id) === groupId
-              })
-              .sort((a, b) => a.timestamp - b.timestamp)[0]
-            if (nextSame) nextCastTime = nextSame.timestamp
+            leftBoundary = Math.max(lo, TIMELINE_START_TIME)
+            rightBoundary = hi
           }
+          // duration 条在同一 trackGroup 的下一 cast 处截断——共用按键的变体（37013/37016）
+          // 视觉上在同一轨道上先后按下，前一条的持续效果应在后一条按下时收束。
+          const castGroupIdForDuration = castAction?.trackGroup ?? castEvent.actionId
+          const nextSameTrack = timeline.castEvents
+            .filter(ce => {
+              if (ce.id === castEvent.id) return false
+              if (ce.playerId !== castEvent.playerId) return false
+              if (ce.timestamp <= castEvent.timestamp) return false
+              const ca = actionMap?.get(ce.actionId)
+              const gid = ca?.trackGroup ?? ce.actionId
+              return gid === castGroupIdForDuration
+            })
+            .sort((a, b) => a.timestamp - b.timestamp)[0]
+          if (nextSameTrack) nextCastTime = nextSameTrack.timestamp
 
           return (
             <CastEventIcon

@@ -34,18 +34,20 @@ describe('intervals', () => {
     ])
   })
 
-  it('complement: [0, +∞) 减去并集', () => {
+  it('complement: (-∞, +∞) 减去并集（支持负时间，覆盖 prepull 区段）', () => {
     const INF = Number.POSITIVE_INFINITY
+    const NEG_INF = Number.NEGATIVE_INFINITY
     expect(
       complement([
         { from: 0, to: 5 },
         { from: 10, to: 15 },
       ])
     ).toEqual([
+      { from: NEG_INF, to: 0 },
       { from: 5, to: 10 },
       { from: 15, to: INF },
     ])
-    expect(complement([])).toEqual([{ from: 0, to: INF }])
+    expect(complement([])).toEqual([{ from: NEG_INF, to: INF }])
   })
 
   it('intersect: 求交', () => {

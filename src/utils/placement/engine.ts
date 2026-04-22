@@ -64,7 +64,14 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       const other = actions.get(e.actionId)
       if (!other) continue
       if (effectiveTrackGroup(other) !== groupId) continue
-      forbidden.push({ from: e.timestamp, to: e.timestamp + other.cooldown })
+      // 放置 `action` 于 t_n 与已有 cast e 冲突当且仅当两者 CD 条重叠：
+      //   [t_n, t_n + action.cooldown) ∩ [e.timestamp, e.timestamp + other.cooldown) ≠ ∅
+      // ↔ t_n ∈ (e.timestamp − action.cooldown, e.timestamp + other.cooldown)
+      // 左右各扩一次可以覆盖"前向与已有 CD 条重叠"和"后向自己 CD 未到"两种冲突。
+      forbidden.push({
+        from: e.timestamp - action.cooldown,
+        to: e.timestamp + other.cooldown,
+      })
     }
     return complement(mergeOverlapping(sortIntervals(forbidden)))
   }
@@ -77,7 +84,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     const ctx = buildContext(action, playerId, excludeId)
     const placementIntervals = action.placement
       ? action.placement.validIntervals(ctx)
-      : [{ from: 0, to: Number.POSITIVE_INFINITY }]
+      : [{ from: Number.NEGATIVE_INFINITY, to: Number.POSITIVE_INFINITY }]
     const cd = cooldownAvailable(action, playerId, ctx.castEvents)
     return intersect(placementIntervals, cd)
   }
@@ -128,12 +135,17 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       const ctx = buildContext(action, castEvent.playerId, excludeId, castEvent)
       const placementOk =
         !action.placement || action.placement.validIntervals(ctx).some(i => i.from <= t && t < i.to)
-      const cooldownOk = cooldownAvailable(
-        action,
-        castEvent.playerId,
-        // castEvent 自己一定在 ctx.castEvents 中；要排除它自己避免自我 CD 冲突
-        ctx.castEvents.filter(e => e.id !== castEvent.id)
-      ).some(i => i.from <= t && t < i.to)
+      // cooldown 用严格重叠 (<) 直接判定，避开区间半开表示在 t_n = t_e - cd_x 边界处的
+      // off-by-one：两 CD 条刚好紧贴不算冲突（与原 checkOverlap 行为一致）。
+      const groupId = effectiveTrackGroup(action)
+      const cooldownOk = !ctx.castEvents.some(e => {
+        if (e.id === castEvent.id) return false
+        if (e.playerId !== castEvent.playerId) return false
+        const other = actions.get(e.actionId)
+        if (!other) return false
+        if (effectiveTrackGroup(other) !== groupId) return false
+        return t < e.timestamp + other.cooldown && e.timestamp < t + action.cooldown
+      })
       if (placementOk && cooldownOk) continue
       const reason =
         !placementOk && !cooldownOk

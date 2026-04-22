@@ -27,7 +27,7 @@ export function allOf(...rules: Placement[]): Placement {
   return {
     validIntervals: ctx => {
       if (rules.length === 0) {
-        return [{ from: 0, to: Number.POSITIVE_INFINITY }]
+        return [{ from: Number.NEGATIVE_INFINITY, to: Number.POSITIVE_INFINITY }]
       }
       return rules.map(r => r.validIntervals(ctx)).reduce((acc, next) => intersect(acc, next))
     },

@@ -423,6 +423,41 @@ export class MitigationCalculator {
       }
     }
 
+    // 处理最后一个 damage event 之后的剩余 casts：damage event 的 for-of 内部 while 循环
+    // 只追到 timestamp <= event.time 的 cast。如果没有 damage event、或 damage 都在某个
+    // cast 之前，该 cast 永远不会被 executor 执行，statusTimelineByPlayer 就会漏掉它
+    // attach 的状态。这里补一轮"干推进"，把剩余 casts 按时序处理完。
+    while (castIdx < sortedCasts.length) {
+      const castEvent = sortedCasts[castIdx]
+      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
+      if (action) {
+        const prevState = currentState
+        currentState = advanceToTime(currentState, lastAdvanceTime, castEvent.timestamp)
+        captureTransition(prevState, currentState, castEvent.timestamp)
+        lastAdvanceTime = castEvent.timestamp
+
+        if (action.executor) {
+          const before = currentState
+          const ctx: ActionExecutionContext = {
+            actionId: castEvent.actionId,
+            useTime: castEvent.timestamp,
+            partyState: currentState,
+            sourcePlayerId: castEvent.playerId,
+            statistics,
+          }
+          currentState = action.executor(ctx)
+          captureTransition(
+            before,
+            currentState,
+            castEvent.timestamp,
+            castEvent.id,
+            castEvent.playerId
+          )
+        }
+      }
+      castIdx++
+    }
+
     for (const [, rec] of open) {
       pushInterval(rec, rec.endTime)
     }

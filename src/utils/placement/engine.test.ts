@@ -6,6 +6,7 @@ import type { CastEvent } from '@/types/timeline'
 import type { StatusInterval } from '@/types/status'
 
 const INF = Number.POSITIVE_INFINITY
+const NEG_INF = Number.NEGATIVE_INFINITY
 
 function makeAction(partial: Partial<MitigationAction> & { id: number }): MitigationAction {
   return {
@@ -20,29 +21,43 @@ function makeAction(partial: Partial<MitigationAction> & { id: number }): Mitiga
 }
 
 describe('createPlacementEngine — 基础查询', () => {
-  it('无 placement，无 cast → getValidIntervals = [[0, +∞)]', () => {
+  it('无 placement，无 cast → getValidIntervals = [(-∞, +∞)]', () => {
     const action = makeAction({ id: 1 })
     const engine = createPlacementEngine({
       castEvents: [],
       actions: new Map([[1, action]]),
       simulate: () => ({ statusTimelineByPlayer: new Map() }),
     })
-    expect(engine.getValidIntervals(action, 10)).toEqual([{ from: 0, to: INF }])
+    expect(engine.getValidIntervals(action, 10)).toEqual([{ from: NEG_INF, to: INF }])
   })
 
-  it('一次 cast 产生 CD 禁区', () => {
+  it('负时间区（prepull）可放置：canPlaceCastEvent 在 t=-10 处合法', () => {
+    // 回归：复盘时间轴从 TIMELINE_START_TIME = -30 开始，允许在 prepull 区段放技能；
+    // 早期 complement 硬编码 [0, +∞) 导致负时间被禁。
+    const action = makeAction({ id: 1 })
+    const engine = createPlacementEngine({
+      castEvents: [],
+      actions: new Map([[1, action]]),
+      simulate: () => ({ statusTimelineByPlayer: new Map() }),
+    })
+    expect(engine.canPlaceCastEvent(action, 10, -10).ok).toBe(true)
+    expect(engine.canPlaceCastEvent(action, 10, -25).ok).toBe(true)
+  })
+
+  it('一次 cast 两侧都形成 CD 禁区（前向与已有 CD 条重叠、后向自己 CD 未到）', () => {
     const action = makeAction({ id: 1, cooldown: 60 })
     const castEvents: CastEvent[] = [
-      { id: 'c1', actionId: 1, playerId: 10, timestamp: 30 } as unknown as CastEvent,
+      { id: 'c1', actionId: 1, playerId: 10, timestamp: 90 } as unknown as CastEvent,
     ]
     const engine = createPlacementEngine({
       castEvents,
       actions: new Map([[1, action]]),
       simulate: () => ({ statusTimelineByPlayer: new Map() }),
     })
+    // forbidden = [90-60, 90+60) = [30, 150)，valid = (-∞, 30) ∪ [150, INF)
     expect(engine.getValidIntervals(action, 10)).toEqual([
-      { from: 0, to: 30 },
-      { from: 90, to: INF },
+      { from: NEG_INF, to: 30 },
+      { from: 150, to: INF },
     ])
   })
 
@@ -73,12 +88,13 @@ describe('createPlacementEngine — 基础查询', () => {
       placement: { validIntervals: ctx => whileStatus(BUFF).validIntervals(ctx) },
     })
     const engine = createPlacementEngine({
-      castEvents: [{ id: 'c1', actionId: 1, playerId: 10, timestamp: 25 } as unknown as CastEvent],
+      castEvents: [{ id: 'c1', actionId: 1, playerId: 10, timestamp: 100 } as unknown as CastEvent],
       actions: new Map([[1, action]]),
       simulate: () => ({ statusTimelineByPlayer: timeline }),
     })
-    // placement = [20, 50)，CD = [0, 25) ∪ [85, ∞)；交集 = [20, 25)
-    expect(engine.getValidIntervals(action, 10)).toEqual([{ from: 20, to: 25 }])
+    // placement = [20, 50)；CD forbidden = [100-60, 100+60) = [40, 160)，CD valid = [0, 40) ∪ [160, ∞)
+    // 交集 = [20, 40)
+    expect(engine.getValidIntervals(action, 10)).toEqual([{ from: 20, to: 40 }])
   })
 })
 
@@ -167,6 +183,39 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
     expect(byId.get('bad1')).toBe('placement_lost')
     // bad3 距 bad2 只差 3s，variant CD=10 → 互斥。bad3 在 buff 期间 placement 合法 → 仅 cooldown_conflict
     expect(byId.get('bad3')).toBe('cooldown_conflict')
+  })
+
+  it('findInvalidCastEvents: 两个 CD 条紧贴（t_B = t_A + cd_A）不算冲突，任意一个都不被标红', () => {
+    // 回归：半开区间表示下 forbidden = [t_A - cd_B, t_A + cd_A) 左闭会把 t_B = t_A + cd_A 判进禁区，
+    // 但实际两条 CD 刚好首尾相接 [t_A, t_A + cd_A) 与 [t_B, t_B + cd_B) 不相交。
+    // findInvalidCastEvents 改用严格重叠 (<) 后该假阳性消失。
+    const A = {
+      id: 'A',
+      actionId: 2,
+      playerId: 10,
+      timestamp: 60,
+    } as unknown as CastEvent
+    const B = {
+      id: 'B',
+      actionId: 2,
+      playerId: 10,
+      timestamp: 70,
+    } as unknown as CastEvent
+    const e = createPlacementEngine({
+      castEvents: [A, B],
+      actions: new Map([
+        [1, primary],
+        [2, variant],
+      ]),
+      simulate: () => ({ statusTimelineByPlayer: timeline }),
+    })
+    // variant cd=10；A 在 60、B 在 70 —— A 的 CD [60,70) 与 B 的 CD [70,80) 恰好紧贴。
+    // 但 A 和 B 都位于 BUFF [20,50) 之外 → placement_lost。所以要单独排除 cooldown_conflict：
+    const invalid = e.findInvalidCastEvents()
+    for (const r of invalid) {
+      expect(r.reason).not.toBe('cooldown_conflict')
+      expect(r.reason).not.toBe('both')
+    }
   })
 
   it('findInvalidCastEvents: 单个合法 cast 不会因自身 CD 把自己挡掉（自冲突防御）', () => {
@@ -267,10 +316,12 @@ describe('createPlacementEngine — excludeCastEventId 重放', () => {
       simulate,
     })
 
-    // 默认：grace 合法区间 = [10, 20)
-    expect(engine.getValidIntervals(grace, 10)).toEqual([{ from: 10, to: 20 }])
+    // 默认：grace 合法 = placement [10, 20) ∩ CD 可用。同 effectiveTrackGroup 只有 c37011 自己；
+    // 放置 grace (cd=1) 与已有 grace (cd=1 at 20) 冲突区间 = [20-1, 20+1) = [19, 21)
+    // CD valid = [0, 19) ∪ [21, INF)；∩ [10, 20) = [10, 19)
+    expect(engine.getValidIntervals(grace, 10)).toEqual([{ from: 10, to: 19 }])
 
-    // 排除 c37011：grace 合法区间应恢复为 [10, 35)（CD=1 不再自我阻塞）
+    // 排除 c37011 自身后，CD 无约束；placement 恢复为重放后的 [10, 35)
     const withExclude = engine.getValidIntervals(grace, 10, 'c37011')
     expect(withExclude).toEqual([{ from: 10, to: 35 }])
   })

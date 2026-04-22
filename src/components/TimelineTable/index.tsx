@@ -18,7 +18,12 @@ import { useUIStore } from '@/store/uiStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
-import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import {
+  useDamageCalculationResults,
+  useDamageCalculationSimulate,
+} from '@/contexts/DamageCalculationContext'
+import { createPlacementEngine } from '@/utils/placement/engine'
+import type { PlacementEngine } from '@/utils/placement/types'
 import { computeCastMarkerCells, computeLitCellsByEvent } from '@/utils/castWindow'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
@@ -46,6 +51,7 @@ export default function TimelineTableView() {
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const skillTracks = useSkillTracks()
   const calculationResults = useDamageCalculationResults()
+  const simulate = useDamageCalculationSimulate()
   const isReadOnly = useEditorReadOnly()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
@@ -55,15 +61,26 @@ export default function TimelineTableView() {
     return map
   }, [actions])
 
+  // 和画布视图共享 simulate callback 构造 PlacementEngine——双击/右键/表格单元格添加都要走
+  // variant 选择，避免 buff 期点"意气轩昂"列实际加进去的是 37013（带红框）。
+  const engine: PlacementEngine | null = useMemo(() => {
+    if (!timeline || !simulate) return null
+    return createPlacementEngine({
+      castEvents: timeline.castEvents,
+      actions: actionsById,
+      simulate,
+    })
+  }, [timeline, simulate, actionsById])
+
   const litCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()
     return computeLitCellsByEvent(filteredDamageEvents, filteredCastEvents, actionsById)
   }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById])
 
   const markerCellsByEvent = useMemo(() => {
-    if (!timeline) return new Map<string, Set<string>>()
-    return computeCastMarkerCells(filteredDamageEvents, filteredCastEvents)
-  }, [timeline, filteredDamageEvents, filteredCastEvents])
+    if (!timeline) return new Map<string, Map<string, number>>()
+    return computeCastMarkerCells(filteredDamageEvents, filteredCastEvents, actionsById)
+  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById])
 
   // 单元格点击：在该行事件时刻放置/移除对应技能
   // - 带图标的单元格（marker，即 cast 起点）→ 移除对应 cast
@@ -71,28 +88,44 @@ export default function TimelineTableView() {
   const handleCellToggle = useCallback(
     (track: SkillTrack, event: DamageEvent, isMarker: boolean) => {
       if (isReadOnly || !timeline) return
-      const action = actionsById.get(track.actionId)
-      if (!action) return
+      const parent = actionsById.get(track.actionId)
+      if (!parent) return
+      const groupId = parent.trackGroup ?? parent.id
 
       if (isMarker) {
-        // 移除：在 marker 单元格里，cast.timestamp === event.time（该伤害事件正是 cast 后的第一个）
-        // 严格找 timestamp 最接近 event.time 且在该事件之前或等于的 cast
+        // 移除：marker 单元格落在 cast 起始刻，找同 playerId 同 trackGroup（涵盖变体
+        // 如 37016 挂在 37013 列上）里 timestamp ≤ event.time 最近的一条。
         const matching = timeline.castEvents
-          .filter(
-            ce =>
-              ce.playerId === track.playerId &&
-              ce.actionId === track.actionId &&
-              ce.timestamp <= event.time
-          )
+          .filter(ce => {
+            if (ce.playerId !== track.playerId) return false
+            if (ce.timestamp > event.time) return false
+            const ca = actionsById.get(ce.actionId)
+            if (!ca) return false
+            return (ca.trackGroup ?? ca.id) === groupId
+          })
           .sort((a, b) => b.timestamp - a.timestamp)[0]
         if (matching) removeCastEvent(matching.id)
         return
       }
 
-      // 新增：检查冷却重叠（同玩家同技能的 CD 窗口不能重叠）
-      const newEnd = event.time + action.cooldown
+      // 新增：先由 engine 选当前时刻唯一合法变体（buff 期 37013 列自动变 37016）；
+      // 未接入 engine / 单成员组时退化为传入的 track.actionId。
+      let resolvedActionId = track.actionId
+      let resolvedAction = parent
+      if (engine) {
+        const member = engine.pickUniqueMember(groupId, track.playerId, event.time)
+        if (!member) {
+          toast.error('当前无可用技能', { description: '此时刻没有合法成员' })
+          return
+        }
+        resolvedActionId = member.id
+        resolvedAction = member
+      }
+
+      // 重叠检查按 resolvedActionId（同 actionId 之间的 CD bar 互斥，与画布视图 checkOverlap 一致）
+      const newEnd = event.time + resolvedAction.cooldown
       const overlap = timeline.castEvents.some(other => {
-        if (other.playerId !== track.playerId || other.actionId !== track.actionId) return false
+        if (other.playerId !== track.playerId || other.actionId !== resolvedActionId) return false
         const otherAction = actionsById.get(other.actionId)
         if (!otherAction) return false
         const otherEnd = other.timestamp + otherAction.cooldown
@@ -104,12 +137,12 @@ export default function TimelineTableView() {
       }
       addCastEvent({
         id: `cast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        actionId: track.actionId,
+        actionId: resolvedActionId,
         timestamp: event.time,
         playerId: track.playerId,
       })
     },
-    [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent]
+    [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent, engine]
   )
 
   const rows = useMemo(() => {
@@ -288,7 +321,8 @@ export default function TimelineTableView() {
                   timeline={timeline}
                   skillTracks={skillTracks}
                   litCells={litCellsByEvent.get(row.id) ?? new Set()}
-                  markerCells={markerCellsByEvent.get(row.id) ?? new Set()}
+                  markerCells={markerCellsByEvent.get(row.id) ?? new Map<string, number>()}
+                  actionsById={actionsById}
                   calculationResult={calculationResults.get(row.id)}
                   showOriginalDamage={showOriginalDamage}
                   showActualDamage={showActualDamage}

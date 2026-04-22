@@ -21,7 +21,9 @@ import { setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
+import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
+import { createPlacementEngine } from '@/utils/placement/engine'
 import EditorToolbar from '@/components/EditorToolbar'
 import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
@@ -101,6 +103,38 @@ export default function EditorPage() {
 
   useEncounterStatistics(timeline?.encounter?.id)
   const calculationResults = useDamageCalculation(timeline)
+  const isReadOnly = useEditorReadOnly()
+
+  // 跨视图的变体自动重分类：任何状态变化（拖 37014、添加/删除 cast、等）都可能让
+  // 同轨成员中某些 cast 的 actionId 不再是当前时刻的唯一合法成员。每次 simulate/
+  // castEvents 变化后扫一遍，把能自动切到唯一合法变体的 cast 改 actionId。放在
+  // EditorPage 层而不是 Timeline 里——表格视图下 Timeline 不挂载，否则 hook 不跑。
+  useEffect(() => {
+    if (!calculationResults.simulate || !timeline || isReadOnly) return
+    const engine = createPlacementEngine({
+      castEvents: timeline.castEvents,
+      actions: new Map(mitigationActions.map(a => [a.id, a])),
+      simulate: calculationResults.simulate,
+    })
+    const actionById = new Map(mitigationActions.map(a => [a.id, a]))
+    const { updateCastEvent } = useTimelineStore.getState()
+    for (const ce of timeline.castEvents) {
+      const ca = actionById.get(ce.actionId)
+      if (!ca) continue
+      const groupId = ca.trackGroup ?? ca.id
+      let memberCount = 0
+      for (const a of mitigationActions) {
+        if ((a.trackGroup ?? a.id) === groupId) memberCount++
+        if (memberCount >= 2) break
+      }
+      if (memberCount < 2) continue
+      if (engine.canPlaceCastEvent(ca, ce.playerId, ce.timestamp, ce.id).ok) continue
+      const member = engine.pickUniqueMember(groupId, ce.playerId, ce.timestamp, ce.id)
+      if (member && member.id !== ce.actionId) {
+        updateCastEvent(ce.id, { actionId: member.id })
+      }
+    }
+  }, [calculationResults.simulate, timeline, mitigationActions, isReadOnly])
 
   // 离开页面（id 变化或卸载）时清空 store
   useEffect(() => {

@@ -174,7 +174,11 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     timeline.castEvents,
     actionsById
   )
-  const castMarkerCells = computeCastMarkerCells(timeline.damageEvents, timeline.castEvents)
+  const castMarkerCells = computeCastMarkerCells(
+    timeline.damageEvents,
+    timeline.castEvents,
+    actionsById
+  )
 
   // ---- Row 3+: 数据行 ----
   const rows = mergeAndSortRows(timeline.damageEvents, timeline.annotations)
@@ -240,7 +244,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
 
       // 技能列
       const litSet = litCellsByEvent.get(event.id) ?? new Set<string>()
-      const markerSet = castMarkerCells.get(event.id) ?? new Set<string>()
+      const markerMap = castMarkerCells.get(event.id) ?? new Map<string, number>()
 
       skillTracks.forEach((track, idx) => {
         const col = fixedColCount + 1 + idx
@@ -250,7 +254,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
         cell.border = CELL_BORDER
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
 
-        if (markerSet.has(key)) {
+        if (markerMap.has(key)) {
           cell.value = '✓'
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_GREEN_FILL } }
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }

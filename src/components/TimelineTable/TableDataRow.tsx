@@ -14,6 +14,7 @@ import { cellKey } from '@/utils/castWindow'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { MitigationAction } from '@/types/mitigation'
 import {
   TIME_COL_WIDTH,
   NAME_COL_WIDTH,
@@ -28,8 +29,14 @@ interface TableDataRowProps {
   timeline: Timeline
   skillTracks: SkillTrack[]
   litCells: Set<string>
-  /** 标记为 cast 起点的单元格——即该伤害事件是 cast 之后的第一个 */
-  markerCells: Set<string>
+  /**
+   * 标记为 cast 起点的单元格——即该伤害事件是 cast 之后的第一个。
+   * value 是实际住在该格的 cast 的 actionId（与 key 用的 trackGroup 不同，
+   * 用于显示正确的变体图标，如 buff 期的 37016）。
+   */
+  markerCells: Map<string, number>
+  /** 用于按 actionId 查找变体真实图标 */
+  actionsById: Map<number, MitigationAction>
   calculationResult: CalculationResult | undefined
   showOriginalDamage: boolean
   showActualDamage: boolean
@@ -83,6 +90,7 @@ export default function TableDataRow({
   skillTracks,
   litCells,
   markerCells,
+  actionsById,
   calculationResult,
   showOriginalDamage,
   showActualDamage,
@@ -186,7 +194,9 @@ export default function TableDataRow({
         const isNewPlayer = index === 0 || skillTracks[index - 1].playerId !== track.playerId
         const key = cellKey(track.playerId, track.actionId)
         const isLit = litCells.has(key)
-        const isMarker = markerCells.has(key)
+        const markerActionId = markerCells.get(key)
+        const isMarker = markerActionId !== undefined
+        const markerAction = markerActionId !== undefined ? actionsById.get(markerActionId) : null
         const baseBg = index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
         return (
           <td
@@ -204,8 +214,8 @@ export default function TableDataRow({
             {isLit && <div className="absolute inset-0 bg-emerald-500/30" />}
             {isMarker && (
               <img
-                src={getIconUrl(track.actionIcon)}
-                alt={track.actionName}
+                src={getIconUrl(markerAction?.icon ?? track.actionIcon)}
+                alt={markerAction?.name ?? track.actionName}
                 className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
                 onError={e => {
                   e.currentTarget.style.display = 'none'

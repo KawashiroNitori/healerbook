@@ -1225,6 +1225,50 @@ describe('多坦 per-victim 路径', () => {
       expect(list[0]).toMatchObject({ from: 5, to: 35, sourceCastEventId: 'c-seraph' })
     })
 
+    it('最后一个 damage event 之后的 cast 也会被处理并进入 statusTimelineByPlayer', () => {
+      // 回归：damage event 的 for-of 内部 while 只追到 timestamp ≤ event.time 的 cast，
+      // 此后剩余 casts 原先永远不会被 executor 执行——典型表现是把 37014 放在最后一个
+      // damage event 之后，双击 37013 轨道时 buff 不在 statusTimelineByPlayer 中，
+      // 37016 placement 为空导致"无法放置"。
+      const castEvents = [
+        { id: 'c-seraph', actionId: 37014, playerId: 1, timestamp: 20 } as unknown as CastEvent,
+      ]
+      const calc = new MitigationCalculator()
+      const { statusTimelineByPlayer } = calc.simulate({
+        castEvents,
+        damageEvents: [
+          {
+            id: 'd-early',
+            name: 'd-early',
+            time: 5,
+            damage: 100000,
+            type: 'aoe',
+            damageType: 'physical',
+          } as DamageEvent,
+        ],
+        initialState: { players: [], statuses: [], timestamp: 0 },
+      })
+      const list = statusTimelineByPlayer.get(1)?.get(3885) ?? []
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ from: 20, to: 50, sourceCastEventId: 'c-seraph' })
+    })
+
+    it('完全无 damage event 时也能处理 casts', () => {
+      // 回归：若时间轴完全没有 damage event，外层 for-of 不迭代，原先所有 casts 都被漏掉。
+      const castEvents = [
+        { id: 'c-seraph', actionId: 37014, playerId: 1, timestamp: 5 } as unknown as CastEvent,
+      ]
+      const calc = new MitigationCalculator()
+      const { statusTimelineByPlayer } = calc.simulate({
+        castEvents,
+        damageEvents: [],
+        initialState: { players: [], statuses: [], timestamp: 0 },
+      })
+      const list = statusTimelineByPlayer.get(1)?.get(3885) ?? []
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ from: 5, to: 35, sourceCastEventId: 'c-seraph' })
+    })
+
     it('同一技能二次施放：旧 instance 被 createBuffExecutor 移除 → 旧 interval 在二次施放点收束，新 interval 自二次施放点开', () => {
       // 证明 simulate diff 机制对"status instance 从 statuses 列表消失"的处理
       // 覆盖未来 follow-up 中 consume 场景走的同一条 diff 路径：simulate 只看 instanceId 差异，
