@@ -1,7 +1,13 @@
 import type { CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import { effectiveTrackGroup } from '@/types/mitigation'
-import type { Interval, PlacementContext, PlacementEngine, StatusTimelineByPlayer } from './types'
+import type {
+  Interval,
+  InvalidCastEvent,
+  PlacementContext,
+  PlacementEngine,
+  StatusTimelineByPlayer,
+} from './types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from './intervals'
 
 export interface PlacementEngineInput {
@@ -14,27 +20,29 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
   const { castEvents, actions, simulate } = input
   const defaultTimeline = simulate(castEvents).statusTimelineByPlayer
 
-  // Task 8 会把下面这两个 helper 扩成接受 excludeId 的重放/过滤版本；Task 6 只返回默认快照。
-  function timelineFor(): StatusTimelineByPlayer {
+  // Task 8 会把下面这两个 helper 扩成接受 excludeId 的重放/过滤版本；目前只返回默认快照。
+  function timelineFor(excludeId?: string): StatusTimelineByPlayer {
+    void excludeId
     return defaultTimeline
   }
 
-  function effectiveCastEvents(): CastEvent[] {
-    return castEvents
+  function effectiveCastEvents(excludeId?: string): CastEvent[] {
+    return excludeId ? castEvents.filter(e => e.id !== excludeId) : castEvents
   }
 
   function buildContext(
     action: MitigationAction,
     playerId: number,
+    excludeId?: string,
     castEvent?: CastEvent
   ): PlacementContext {
     return {
       action,
       playerId,
       castEvent,
-      castEvents: effectiveCastEvents(),
+      castEvents: effectiveCastEvents(excludeId),
       actions,
-      statusTimelineByPlayer: timelineFor(),
+      statusTimelineByPlayer: timelineFor(excludeId),
     }
   }
 
@@ -55,15 +63,12 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     return complement(mergeOverlapping(sortIntervals(forbidden)))
   }
 
-  // Task 6 的 getValidIntervals 签名已保留 excludeId（满足 PlacementEngine 接口），
-  // 但 Task 8 才接入重放语义；目前 excludeId 仅作占位，不影响查询结果。
   function getValidIntervals(
     action: MitigationAction,
     playerId: number,
     excludeId?: string
   ): Interval[] {
-    void excludeId
-    const ctx = buildContext(action, playerId)
+    const ctx = buildContext(action, playerId, excludeId)
     const placementIntervals = action.placement
       ? action.placement.validIntervals(ctx)
       : [{ from: 0, to: Number.POSITIVE_INFINITY }]
@@ -71,19 +76,75 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     return intersect(placementIntervals, cd)
   }
 
+  const trackGroupMembers = new Map<number, MitigationAction[]>()
+  for (const action of actions.values()) {
+    const gid = effectiveTrackGroup(action)
+    const arr = trackGroupMembers.get(gid) ?? []
+    arr.push(action)
+    trackGroupMembers.set(gid, arr)
+  }
+
+  function computeTrackShadow(groupId: number, playerId: number, excludeId?: string): Interval[] {
+    const members = trackGroupMembers.get(groupId) ?? []
+    const legal = members.flatMap(m => getValidIntervals(m, playerId, excludeId))
+    return complement(mergeOverlapping(sortIntervals(legal)))
+  }
+
+  function canPlaceCastEvent(
+    action: MitigationAction,
+    playerId: number,
+    t: number,
+    excludeId?: string
+  ): { ok: true } | { ok: false; reason: string } {
+    const intervals = getValidIntervals(action, playerId, excludeId)
+    if (intervals.some(i => i.from <= t && t < i.to)) return { ok: true }
+    return { ok: false, reason: 'not_available' }
+  }
+
+  function pickUniqueMember(
+    groupId: number,
+    playerId: number,
+    t: number,
+    excludeId?: string
+  ): MitigationAction | null {
+    const members = trackGroupMembers.get(groupId) ?? []
+    const legal = members.filter(m => canPlaceCastEvent(m, playerId, t, excludeId).ok)
+    return legal.length === 1 ? legal[0] : null
+  }
+
+  function findInvalidCastEvents(excludeId?: string): InvalidCastEvent[] {
+    const result: InvalidCastEvent[] = []
+    const events = effectiveCastEvents(excludeId).filter(e => e.id !== excludeId)
+    for (const castEvent of events) {
+      const action = actions.get(castEvent.actionId)
+      if (!action) continue
+      const t = castEvent.timestamp
+      const ctx = buildContext(action, castEvent.playerId, excludeId, castEvent)
+      const placementOk =
+        !action.placement || action.placement.validIntervals(ctx).some(i => i.from <= t && t < i.to)
+      const cooldownOk = cooldownAvailable(
+        action,
+        castEvent.playerId,
+        // castEvent 自己一定在 ctx.castEvents 中；要排除它自己避免自我 CD 冲突
+        ctx.castEvents.filter(e => e.id !== castEvent.id)
+      ).some(i => i.from <= t && t < i.to)
+      if (placementOk && cooldownOk) continue
+      const reason =
+        !placementOk && !cooldownOk
+          ? ('both' as const)
+          : !placementOk
+            ? ('placement_lost' as const)
+            : ('cooldown_conflict' as const)
+      result.push({ castEvent, reason })
+    }
+    return result
+  }
+
   return {
     getValidIntervals,
-    computeTrackShadow: () => {
-      throw new Error('computeTrackShadow not implemented yet')
-    },
-    pickUniqueMember: () => {
-      throw new Error('pickUniqueMember not implemented yet')
-    },
-    canPlaceCastEvent: () => {
-      throw new Error('canPlaceCastEvent not implemented yet')
-    },
-    findInvalidCastEvents: () => {
-      throw new Error('findInvalidCastEvents not implemented yet')
-    },
+    computeTrackShadow,
+    pickUniqueMember,
+    canPlaceCastEvent,
+    findInvalidCastEvents,
   }
 }
