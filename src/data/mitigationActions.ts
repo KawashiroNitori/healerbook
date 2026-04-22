@@ -728,3 +728,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
     },
   ],
 }
+
+if (import.meta.env.DEV) {
+  // 异步导入避免生产打包时保留 validate 代码路径
+  void import('@/utils/placement/validate').then(({ validateActions }) => {
+    const issues = validateActions(MITIGATION_DATA.actions)
+    for (const issue of issues) {
+      const msg = `[mitigationActions] ${issue.rule} on action ${issue.actionId}: ${issue.message}`
+      if (issue.level === 'error') console.error(msg)
+      else console.warn(msg)
+    }
+  })
+}
