@@ -100,4 +100,30 @@ export interface MitigationAction {
   category: MitigationCategory[]
   /** 技能统计数据条目声明（有此字段 → 出现在数值设置模态框） */
   statDataEntries?: StatDataEntry[]
+  /**
+   * 渲染轨道归属。默认 = id（独立成轨）。
+   * 设置后，本 action 的 castEvent 渲染到 trackGroup 指向的 action 轨道上。
+   * 约束：trackGroup 指向的 action 本身 `trackGroup` 必须是 undefined（禁止链式挂载）。
+   */
+  trackGroup?: number
+  /**
+   * 额外放置约束。未声明时仅受基础 CD 冲突检测。
+   * 共用轨道（同 trackGroup）的所有成员必须都声明 placement，
+   * 且成员间的 validIntervals 必须两两互斥、并集覆盖全时间轴。
+   */
+  placement?: import('@/utils/placement/types').Placement
+}
+
+/**
+ * 技能的有效轨道归属。未声明 trackGroup 时自成一组，返回自身 id。
+ */
+export function effectiveTrackGroup(action: MitigationAction): number {
+  return action.trackGroup ?? action.id
+}
+
+/**
+ * 两个 action 是否属于同一渲染轨道。
+ */
+export function sameTrack(a: MitigationAction, b: MitigationAction): boolean {
+  return effectiveTrackGroup(a) === effectiveTrackGroup(b)
 }
