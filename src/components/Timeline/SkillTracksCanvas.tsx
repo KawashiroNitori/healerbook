@@ -2,7 +2,7 @@
  * 技能轨道 Canvas 区域组件
  */
 
-import { useMemo, type ReactElement, type RefObject } from 'react'
+import { type ReactElement, type RefObject } from 'react'
 import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
 import AnnotationIcon from './AnnotationIcon'
@@ -73,6 +73,9 @@ export default function SkillTracksCanvas({
   timeline,
   skillTracks,
   actions,
+  actionMap,
+  engine,
+  draggingId,
   displayActionOverrides,
   zoomLevel,
   timelineWidth,
@@ -112,31 +115,6 @@ export default function SkillTracksCanvas({
   const buffer = viewportWidth
   const visibleMinX = scrollLeft - buffer
   const visibleMaxX = scrollLeft + viewportWidth + buffer
-
-  // 预计算所有 castEvent 的拖拽边界（O(n log n) 替代渲染时 O(n²)）
-  const castEventBoundaries = useMemo(() => {
-    const map = new Map<string, { left: number; right: number; nextCast: number }>()
-    // 按轨道分组
-    const byTrack = new Map<string, typeof timeline.castEvents>()
-    for (const ce of timeline.castEvents) {
-      const key = `${ce.playerId}-${ce.actionId}`
-      if (!byTrack.has(key)) byTrack.set(key, [])
-      byTrack.get(key)!.push(ce)
-    }
-    for (const [, events] of byTrack) {
-      const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp)
-      for (let i = 0; i < sorted.length; i++) {
-        const action = actions.find(a => a.id === sorted[i].actionId)
-        const cooldown = action?.cooldown || 0
-        const left = i > 0 ? sorted[i - 1].timestamp + cooldown : TIMELINE_START_TIME
-        const right = i < sorted.length - 1 ? sorted[i + 1].timestamp - cooldown : Infinity
-        const nextCast = i < sorted.length - 1 ? sorted[i + 1].timestamp : Infinity
-        map.set(sorted[i].id, { left, right, nextCast })
-      }
-    }
-    return map
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只依赖 castEvents 和 actions，不需要整个 timeline
-  }, [timeline.castEvents, actions])
 
   return (
     <>
@@ -187,40 +165,30 @@ export default function SkillTracksCanvas({
           />
         ))}
 
-        {/* 技能冷却阴影（冷却 >= 30s，仅编辑模式） */}
+        {/* 不可放阴影（PlacementEngine 统一：合并 CD + placement 补集，仅编辑模式） */}
         {!isReadOnly &&
+          engine &&
           skillTracks.map((track, trackIndex) => {
-            const action = actions.find(a => a.id === track.actionId)
-            if (!action || action.cooldown < 30) return null
-
-            const trackCastEvents = timeline.castEvents
-              .filter(ce => ce.playerId === track.playerId && ce.actionId === track.actionId)
-              .sort((a, b) => a.timestamp - b.timestamp)
-
-            return trackCastEvents.map((castEvent, idx) => {
-              const prevCast = idx > 0 ? trackCastEvents[idx - 1] : null
-              const castX = castEvent.timestamp * zoomLevel
-              const cooldownW = action.cooldown * zoomLevel
-              // 左边界止于上一个技能时间条的末尾（timestamp + cooldown）
-              const prevBarEnd =
-                prevCast !== null
-                  ? (prevCast.timestamp + action.cooldown) * zoomLevel
-                  : castX - cooldownW
-              const shadowLeft = Math.max(castX - cooldownW, prevBarEnd)
-              const shadowWidth = castX - shadowLeft
-
-              if (shadowWidth <= 0) return null
-
-              // 视口裁剪：跳过完全不可见的阴影区域
-              const shadowRight = castX
-              if (shadowRight < visibleMinX || shadowLeft > visibleMaxX) return null
-
+            const parent = actionMap?.get(track.actionId)
+            if (!parent || parent.cooldown < 30) return null
+            const groupId = parent.trackGroup ?? parent.id
+            const shadow = engine.computeTrackShadow(
+              groupId,
+              track.playerId,
+              draggingId ?? undefined
+            )
+            return shadow.map((interval, idx) => {
+              const left = Math.max(interval.from, TIMELINE_START_TIME) * zoomLevel
+              const right = Math.min(interval.to, maxTime) * zoomLevel
+              const width = right - left
+              if (width <= 0) return null
+              if (right < visibleMinX || left > visibleMaxX) return null
               return (
                 <Shape
-                  key={`cooldown-shadow-${castEvent.id}`}
-                  x={shadowLeft}
+                  key={`track-shadow-${track.playerId}-${track.actionId}-${idx}`}
+                  x={left}
                   y={trackIndex * trackHeight}
-                  width={shadowWidth}
+                  width={width}
                   height={trackHeight}
                   sceneFunc={(kCtx, shape) => {
                     const ctx = kCtx._context
@@ -493,11 +461,33 @@ export default function SkillTracksCanvas({
 
           const displayAction = displayActionOverrides.get(castEvent.id)
 
-          // 使用预计算的拖拽边界
-          const boundaries = castEventBoundaries.get(castEvent.id)
-          const leftBoundary = boundaries?.left ?? TIMELINE_START_TIME
-          const rightBoundary = boundaries?.right ?? Infinity
-          const nextCastTime = boundaries?.nextCast ?? Infinity
+          // engine 基于 placement ∩ CD 算出当前合法区间，作为拖拽边界；未接入 engine 时退化为无约束
+          let leftBoundary = TIMELINE_START_TIME
+          let rightBoundary = Infinity
+          let nextCastTime = Infinity
+          if (engine) {
+            const intervals = engine.getValidIntervals(action, castEvent.playerId, castEvent.id)
+            const cur = intervals.find(
+              i => i.from <= castEvent.timestamp && castEvent.timestamp < i.to
+            )
+            if (cur) {
+              leftBoundary = cur.from
+              rightBoundary = cur.to
+            }
+            // 同 playerId 同 trackGroup 的下一 cast，用于 duration 条的短时收窄
+            const groupId = action.trackGroup ?? action.id
+            const nextSame = timeline.castEvents
+              .filter(ce => {
+                if (ce.id === castEvent.id) return false
+                if (ce.playerId !== castEvent.playerId) return false
+                if (ce.timestamp <= castEvent.timestamp) return false
+                const other = actionMap?.get(ce.actionId)
+                if (!other) return false
+                return (other.trackGroup ?? other.id) === groupId
+              })
+              .sort((a, b) => a.timestamp - b.timestamp)[0]
+            if (nextSame) nextCastTime = nextSame.timestamp
+          }
 
           return (
             <CastEventIcon

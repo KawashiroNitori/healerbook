@@ -755,6 +755,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (isReadOnly) return
     // 如果刚刚完成了平移操作，阻止误触发
     if (panJustEndedRef.current || Date.now() - lastPanEndTimeRef.current < 300) return
+
+    // 同轨道多成员（trackGroup）：由 engine 选出 t 时刻唯一合法成员；返回 null 时
+    // 0 合法（toast 拒绝）或 >1 合法（data bug，validate 应已告警）。
+    const parent = actionMap.get(track.actionId)
+    if (engine && parent) {
+      const groupId = parent.trackGroup ?? parent.id
+      const member = engine.pickUniqueMember(groupId, track.playerId, time)
+      if (!member) {
+        toast.error('当前无可用技能', { description: '此时刻没有合法成员' })
+        return
+      }
+      addCastAt(member.id, track.playerId, time)
+      return
+    }
     addCastAt(track.actionId, track.playerId, time)
   }
 
