@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MitigationCalculator } from './mitigationCalculator'
 import type { PartyState } from '@/types/partyState'
-import type { DamageEvent, DamageEventType, DamageType } from '@/types/timeline'
+import type { CastEvent, DamageEvent, DamageEventType, DamageType } from '@/types/timeline'
 import { vi } from 'vitest'
 import * as registry from '@/utils/statusRegistry'
 import type { MitigationStatusMetadata } from '@/types/status'
@@ -1168,5 +1168,93 @@ describe('多坦 per-victim 路径', () => {
     expect(r2.perVictim![0].appliedStatuses.some(s => s.statusId === 3255)).toBe(true)
     // OT 分支：3255 category=['self','percentage']、sourcePlayerId!==OT → 被过滤 → 吃满
     expect(r2.perVictim![1].finalDamage).toBe(200000)
+  })
+
+  describe('simulate → statusTimelineByPlayer', () => {
+    it('记录 cast executor attach 的 status interval（from = cast 时间，to = endTime）', () => {
+      // 节制 16536：executor 会 attach 1873，duration 25s（不改 executor，仅用作 attach 验证样本）
+      const castEvents = [
+        { id: 'c1', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
+      ]
+      const calc = new MitigationCalculator()
+      const { statusTimelineByPlayer } = calc.simulate({
+        castEvents,
+        damageEvents: [
+          {
+            id: 'd1',
+            name: 'd1',
+            time: 100,
+            damage: 100000,
+            type: 'aoe',
+            damageType: 'physical',
+          } as DamageEvent,
+        ],
+        initialState: { players: [], statuses: [], timestamp: 0 },
+      })
+      const list = statusTimelineByPlayer.get(1)?.get(1873) ?? []
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({
+        from: 10,
+        to: 35,
+        sourcePlayerId: 1,
+        sourceCastEventId: 'c1',
+      })
+    })
+
+    it('炽天附体 37014 attach 3885，interval from = cast 时间、to = endTime', () => {
+      const castEvents = [
+        { id: 'c-seraph', actionId: 37014, playerId: 1, timestamp: 5 } as unknown as CastEvent,
+      ]
+      const calc = new MitigationCalculator()
+      const { statusTimelineByPlayer } = calc.simulate({
+        castEvents,
+        damageEvents: [
+          {
+            id: 'd1',
+            name: 'd1',
+            time: 100,
+            damage: 100000,
+            type: 'aoe',
+            damageType: 'physical',
+          } as DamageEvent,
+        ],
+        initialState: { players: [], statuses: [], timestamp: 0 },
+      })
+      const list = statusTimelineByPlayer.get(1)?.get(3885) ?? []
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ from: 5, to: 35, sourceCastEventId: 'c-seraph' })
+    })
+
+    it('同一技能二次施放：旧 instance 被 createBuffExecutor 移除 → 旧 interval 在二次施放点收束，新 interval 自二次施放点开', () => {
+      // 证明 simulate diff 机制对"status instance 从 statuses 列表消失"的处理
+      // 覆盖未来 follow-up 中 consume 场景走的同一条 diff 路径：simulate 只看 instanceId 差异，
+      // 不区分消失原因（refresh 覆盖 / consume / 自然过期），因此这里用 createBuffExecutor 现成的
+      // "移除同 id 旧实例再 attach 新实例"行为作为 consume 语义的同构单元验证。
+      const castEvents = [
+        { id: 'first', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
+        { id: 'second', actionId: 16536, playerId: 1, timestamp: 20 } as unknown as CastEvent,
+      ]
+      const calc = new MitigationCalculator()
+      const { statusTimelineByPlayer } = calc.simulate({
+        castEvents,
+        damageEvents: [
+          {
+            id: 'd1',
+            name: 'd1',
+            time: 100,
+            damage: 100000,
+            type: 'aoe',
+            damageType: 'physical',
+          } as DamageEvent,
+        ],
+        initialState: { players: [], statuses: [], timestamp: 0 },
+      })
+      const list = statusTimelineByPlayer.get(1)?.get(1873) ?? []
+      expect(list).toHaveLength(2)
+      // 旧 interval：[10, 20)（二次施放时 createBuffExecutor 移除旧 instance → diff 关闭）
+      expect(list[0]).toMatchObject({ from: 10, to: 20, sourceCastEventId: 'first' })
+      // 新 interval：[20, 45)（二次施放 attach 新 instance）
+      expect(list[1]).toMatchObject({ from: 20, to: 45, sourceCastEventId: 'second' })
+    })
   })
 })

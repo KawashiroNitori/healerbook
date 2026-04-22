@@ -12,6 +12,7 @@ import type {
 } from '@/types/status'
 import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
+import type { ActionExecutionContext } from '@/types/mitigation'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { isStatusValidForTank } from './statusFilter'
@@ -252,10 +253,86 @@ export class MitigationCalculator {
     const damageResults = new Map<string, CalculationResult>()
     const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
 
+    interface OpenRecord {
+      statusId: number
+      targetPlayerId: number
+      sourcePlayerId: number
+      sourceCastEventId: string
+      from: number
+      stacks: number
+      endTime: number
+    }
+    const open = new Map<string, OpenRecord>()
+
+    const pushInterval = (rec: OpenRecord, to: number) => {
+      const byStatus = statusTimelineByPlayer.get(rec.targetPlayerId) ?? new Map()
+      const arr = byStatus.get(rec.statusId) ?? []
+      arr.push({
+        from: rec.from,
+        to,
+        stacks: rec.stacks,
+        sourcePlayerId: rec.sourcePlayerId,
+        sourceCastEventId: rec.sourceCastEventId,
+      })
+      byStatus.set(rec.statusId, arr)
+      statusTimelineByPlayer.set(rec.targetPlayerId, byStatus)
+    }
+
+    // 对比 state → state' 的 status instance 差异：
+    //   消失 → pushInterval(rec, to = at)
+    //   新增 → open 一条，from = at，sourceCastEventId 取 castEventIdHint（attach 由 cast executor 触发时）
+    //   保留 → 刷新 endTime 快照供 finalize 用
+    const captureTransition = (
+      prev: PartyState,
+      next: PartyState,
+      at: number,
+      castEventIdHint?: string,
+      castPlayerIdHint?: number
+    ) => {
+      const prevIds = new Set(prev.statuses.map(s => s.instanceId))
+      const nextIds = new Set(next.statuses.map(s => s.instanceId))
+
+      for (const id of prevIds) {
+        if (nextIds.has(id)) continue
+        const rec = open.get(id)
+        if (rec) {
+          // 自然过期时 advanceToTime 会把 endTime < at 的 status 过滤掉，此时 interval 的
+          // 实际终点是 endTime；consume 场景下 rec.endTime >= at，at 才是真正的收束时刻。
+          pushInterval(rec, Math.min(at, rec.endTime))
+          open.delete(id)
+        }
+      }
+
+      for (const s of next.statuses) {
+        if (prevIds.has(s.instanceId)) continue
+        const target = s.sourcePlayerId ?? castPlayerIdHint ?? 0
+        open.set(s.instanceId, {
+          statusId: s.statusId,
+          targetPlayerId: target,
+          sourcePlayerId: s.sourcePlayerId ?? castPlayerIdHint ?? target,
+          sourceCastEventId: castEventIdHint ?? '',
+          from: at,
+          stacks: s.stack ?? 1,
+          endTime: s.endTime,
+        })
+      }
+
+      for (const s of next.statuses) {
+        const rec = open.get(s.instanceId)
+        if (!rec) continue
+        rec.endTime = s.endTime
+        rec.stacks = s.stack ?? rec.stacks
+      }
+    }
+
     const advanceToTime = (state: PartyState, prev: number, cur: number): PartyState => {
       let next = state
       const firstTick = Math.floor(prev / TICK_INTERVAL) * TICK_INTERVAL + TICK_INTERVAL
       for (let t = firstTick; t <= cur; t += TICK_INTERVAL) {
+        // 对同一个 tick 点，内层 for-of 以这一 tick 开始时刻的 statuses 快照为迭代对象：
+        //   ✓ onTick 返回的新 state 会立即影响该 tick 后续 status 读到的 ctx.partyState
+        //   ✗ 但新添加的状态不会在同一 tick 立即被遍历到——它们要等下一 tick 才参与
+        // 避免了"tick 内自触发"，也让每个 tick 点的 executor 调用次数可预测。
         for (const status of next.statuses) {
           if (status.startTime > t || status.endTime < t) continue
           const meta = getStatusById(status.statusId)
@@ -281,6 +358,9 @@ export class MitigationCalculator {
       statuses: [...initialState.statuses],
       timestamp: initialState.timestamp,
     }
+    // 初始 state 的 open 区间（用户 seeded buff 等）：sourceCastEventId = ''（空字符串）
+    captureTransition({ statuses: [], timestamp: 0 }, currentState, 0)
+
     let lastAdvanceTime = 0
     let castIdx = 0
 
@@ -290,22 +370,39 @@ export class MitigationCalculator {
         const castEvent = sortedCasts[castIdx]
         const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
         if (action) {
+          // 保留 DOT 快照兼容：推进到 cast 时间点和快照时间点的较早者，
+          // 避免在 cast 时刻已过期但快照时刻仍需保留的 DOT 状态被提前清理
           const castAdvanceTarget = Math.min(castEvent.timestamp, filterTime)
+          const prevState = currentState
           currentState = advanceToTime(currentState, lastAdvanceTime, castAdvanceTarget)
+          captureTransition(prevState, currentState, castAdvanceTarget)
           lastAdvanceTime = castAdvanceTarget
-          const ctx = {
-            actionId: castEvent.actionId,
-            useTime: castEvent.timestamp,
-            partyState: currentState,
-            sourcePlayerId: castEvent.playerId,
-            statistics,
+
+          if (action.executor) {
+            const before = currentState
+            const ctx: ActionExecutionContext = {
+              actionId: castEvent.actionId,
+              useTime: castEvent.timestamp,
+              partyState: currentState,
+              sourcePlayerId: castEvent.playerId,
+              statistics,
+            }
+            currentState = action.executor(ctx)
+            captureTransition(
+              before,
+              currentState,
+              castEvent.timestamp,
+              castEvent.id,
+              castEvent.playerId
+            )
           }
-          if (action.executor) currentState = action.executor(ctx)
         }
         castIdx++
       }
 
+      const beforeAdvance = currentState
       currentState = advanceToTime(currentState, lastAdvanceTime, filterTime)
+      captureTransition(beforeAdvance, currentState, filterTime)
       lastAdvanceTime = filterTime
 
       const includeTankOnly = event.type === 'tankbuster' || event.type === 'auto'
@@ -314,12 +411,27 @@ export class MitigationCalculator {
         : baseReferenceMaxHPForAoe
       const tankIds = includeTankOnly ? tankPlayerIds : []
 
+      const beforeCalc = currentState
       const result = this.calculate(event, currentState, {
         baseReferenceMaxHP,
         tankPlayerIds: tankIds,
       })
       damageResults.set(event.id, result)
-      if (result.updatedPartyState) currentState = result.updatedPartyState
+      if (result.updatedPartyState) {
+        currentState = result.updatedPartyState
+        captureTransition(beforeCalc, currentState, filterTime)
+      }
+    }
+
+    for (const [, rec] of open) {
+      pushInterval(rec, rec.endTime)
+    }
+    open.clear()
+
+    for (const byStatus of statusTimelineByPlayer.values()) {
+      for (const list of byStatus.values()) {
+        list.sort((a, b) => a.from - b.from)
+      }
     }
 
     return { damageResults, statusTimelineByPlayer }
