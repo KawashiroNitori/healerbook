@@ -3,7 +3,11 @@ import { deriveSkillTracks } from './skillTracks'
 import type { Composition } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 
-const makeAction = (id: number, jobs: MitigationAction['jobs'], hidden = false): MitigationAction =>
+const makeAction = (
+  id: number,
+  jobs: MitigationAction['jobs'],
+  trackGroup?: number
+): MitigationAction =>
   ({
     id,
     name: `action-${id}`,
@@ -11,7 +15,7 @@ const makeAction = (id: number, jobs: MitigationAction['jobs'], hidden = false):
     jobs,
     duration: 10,
     cooldown: 60,
-    hidden,
+    trackGroup,
     executor: () => ({ players: [], statuses: [], timestamp: 0 }),
   }) as unknown as MitigationAction
 
@@ -37,8 +41,8 @@ describe('deriveSkillTracks', () => {
     expect(result.map(t => t.playerId)).toEqual([1])
   })
 
-  it('过滤掉 hidden 技能', () => {
-    const actions = [makeAction(100, ['WHM']), makeAction(101, ['WHM'], true)]
+  it('过滤掉挂在其它 action 轨道上的变体（trackGroup 指向别的 id）', () => {
+    const actions = [makeAction(100, ['WHM']), makeAction(101, ['WHM'], 100)]
     const result = deriveSkillTracks(composition, new Set(), actions)
     expect(result.map(t => t.actionId)).toEqual([100])
   })

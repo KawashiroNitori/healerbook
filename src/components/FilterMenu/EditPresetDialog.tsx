@@ -45,7 +45,10 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
   const showTooltip = useTooltipStore(s => s.showTooltip)
   const hideTooltip = useTooltipStore(s => s.hideTooltip)
 
-  const visibleActions = useMemo(() => allActions.filter(a => !a.hidden), [allActions])
+  const visibleActions = useMemo(
+    () => allActions.filter(a => !a.trackGroup || a.trackGroup === a.id),
+    [allActions]
+  )
 
   const actionsByJob = useMemo(() => {
     const map = new Map<Job, MitigationAction[]>()

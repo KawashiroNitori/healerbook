@@ -31,7 +31,9 @@ export function deriveSkillTracks(
   const tracks: SkillTrack[] = []
   for (const player of sortedPlayers) {
     if (hiddenPlayerIds.has(player.id)) continue
-    const jobActions = actions.filter(a => a.jobs.includes(player.job) && !a.hidden)
+    const jobActions = actions.filter(
+      a => a.jobs.includes(player.job) && (!a.trackGroup || a.trackGroup === a.id)
+    )
     for (const action of jobActions) {
       tracks.push({
         job: player.job,
