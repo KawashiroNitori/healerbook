@@ -48,7 +48,7 @@ export default function PropertyPanel() {
   const [isTiled, setIsTiled] = useState(false)
 
   // 使用新的伤害计算 Hook（基于状态）
-  const eventResults = useDamageCalculation(timeline)
+  const { results: eventResults } = useDamageCalculation(timeline)
 
   // 只有在选中伤害事件时才显示面板（不响应技能选中）
   if (!timeline || !selectedEventId) {

@@ -5,37 +5,54 @@
 
 import { useMemo } from 'react'
 import { MitigationCalculator, type CalculationResult } from '@/utils/mitigationCalculator'
-import type { Timeline } from '@/types/timeline'
+import type { CastEvent, Timeline } from '@/types/timeline'
+import type { StatusInterval } from '@/types/status'
 import { useTimelineStore } from '@/store/timelineStore'
 import { calculatePercentile } from '@/utils/stats'
 import { resolveStatData } from '@/utils/statDataUtils'
 import { getJobRole } from '@/data/jobs'
 
+export type StatusTimelineByPlayer = Map<number, Map<number, StatusInterval[]>>
+
+export interface DamageCalculationResult {
+  results: Map<string, CalculationResult>
+  statusTimelineByPlayer: StatusTimelineByPlayer
+  /**
+   * 与主路径共享 input（initialState/damageEvents/statistics/tankPlayerIds/baseRefMaxHP）的
+   * simulate 回调。PlacementEngine 在处理 excludeCastEventId 时用它以过滤后的 castEvents 重放。
+   * partyState 未就绪或回放模式下为 null。
+   */
+  simulate: ((castEvents: CastEvent[]) => { statusTimelineByPlayer: StatusTimelineByPlayer }) | null
+}
+
 /**
  * 计算时间轴上所有伤害事件的减伤结果
  *
- * 编辑模式：单次时间轴扫描，使用 calculate()
+ * 编辑模式：单次时间轴扫描，使用 calculator.simulate()
  * 回放模式：直接从 PlayerDamageDetail.statuses 计算
  */
-export function useDamageCalculation(timeline: Timeline | null): Map<string, CalculationResult> {
+export function useDamageCalculation(timeline: Timeline | null): DamageCalculationResult {
   const partyState = useTimelineStore(state => state.partyState)
   const statistics = useTimelineStore(state => state.statistics)
 
   return useMemo(() => {
     const results = new Map<string, CalculationResult>()
+    const empty: DamageCalculationResult = {
+      results,
+      statusTimelineByPlayer: new Map(),
+      simulate: null,
+    }
 
-    if (!timeline) return results
+    if (!timeline) return empty
 
     const calculator = new MitigationCalculator()
 
     if (timeline.isReplayMode) {
-      // 回放模式：直接使用 PlayerDamageDetail.statuses
       for (const event of timeline.damageEvents) {
         if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
           continue
         }
 
-        // 计算每个玩家的减伤结果
         const playerResults: Array<{
           originalDamage: number
           finalDamage: number
@@ -59,7 +76,6 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
           })
         }
 
-        // 使用中位数作为事件的整体减伤结果
         if (playerResults.length > 0) {
           const medianMitigation = calculatePercentile(
             playerResults.map(r => r.mitigationPercentage)
@@ -77,13 +93,10 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
         }
       }
 
-      return results
+      return empty
     }
 
-    // 编辑模式：使用 PartyState，单次时间轴扫描
     if (!partyState) {
-      // 无小队时产出 trivial 结果：不做减伤计算，但仍把原始伤害暴露给 UI
-      // 覆盖场景：预填充的空白时间轴还未设置阵容，但 damageEvents 已经存在
       for (const event of timeline.damageEvents) {
         results.set(event.id, {
           originalDamage: event.damage,
@@ -93,7 +106,7 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
           appliedStatuses: [],
         })
       }
-      return results
+      return empty
     }
 
     const resolved = resolveStatData(timeline.statData, statistics, timeline.composition)
@@ -101,16 +114,30 @@ export function useDamageCalculation(timeline: Timeline | null): Map<string, Cal
       .filter(p => getJobRole(p.job) === 'tank')
       .map(p => p.id)
 
-    const { damageResults } = calculator.simulate({
-      castEvents: timeline.castEvents || [],
+    const sharedInput = {
       damageEvents: timeline.damageEvents,
       initialState: partyState,
       statistics: resolved,
       tankPlayerIds,
       baseReferenceMaxHPForTank: resolved.tankReferenceMaxHP!,
       baseReferenceMaxHPForAoe: resolved.referenceMaxHP!,
+    }
+
+    const full = calculator.simulate({
+      ...sharedInput,
+      castEvents: timeline.castEvents || [],
     })
-    for (const [id, result] of damageResults) results.set(id, result)
-    return results
+    for (const [id, result] of full.damageResults) results.set(id, result)
+
+    const simulate = (castEvents: CastEvent[]) => {
+      const out = calculator.simulate({ ...sharedInput, castEvents })
+      return { statusTimelineByPlayer: out.statusTimelineByPlayer }
+    }
+
+    return {
+      results,
+      statusTimelineByPlayer: full.statusTimelineByPlayer,
+      simulate,
+    }
   }, [timeline, partyState, statistics])
 }

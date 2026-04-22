@@ -147,7 +147,7 @@ describe('useDamageCalculation: onExpire / onTick 钩子', () => {
       })
 
       const { result } = renderHook(() => useDamageCalculation(makeTimeline([{ time: 5 }])))
-      const e0 = result.current.get('e0')
+      const e0 = result.current.results.get('e0')
       expect(e0?.referenceMaxHP).toBe(Math.round(100000 * 1.2))
     } finally {
       spy.mockRestore()
@@ -187,7 +187,7 @@ describe('useDamageCalculation: onExpire / onTick 钩子', () => {
       const tl = makeTimeline([{ time: 5 }])
       tl.damageEvents[0].type = 'aoe'
       const { result } = renderHook(() => useDamageCalculation(tl))
-      const e0 = result.current.get('e0')
+      const e0 = result.current.results.get('e0')
       expect(e0?.referenceMaxHP).toBe(100000)
     } finally {
       spy.mockRestore()

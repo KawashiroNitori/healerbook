@@ -12,11 +12,18 @@ import type { SkillTrack } from '@/utils/skillTracks'
 import type { Annotation, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
+import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
   skillTracks: SkillTrack[]
   actions: MitigationAction[]
+  /** Task 14 会用这些 prop 接入 engine 阴影 / 拖拽 / 红边框；Task 13 仅占位。 */
+  actionMap?: Map<number, MitigationAction>
+  engine?: PlacementEngine | null
+  invalidCastEventMap?: Map<string, InvalidReason>
+  draggingId?: string | null
+  setDraggingId?: (id: string | null) => void
   displayActionOverrides: Map<string, MitigationAction>
   zoomLevel: number
   timelineWidth: number

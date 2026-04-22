@@ -16,7 +16,12 @@ import { sortJobsByOrder, getJobName } from '@/data/jobs'
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
-import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import {
+  useDamageCalculationResults,
+  useDamageCalculationSimulate,
+} from '@/contexts/DamageCalculationContext'
+import { createPlacementEngine } from '@/utils/placement/engine'
+import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
@@ -164,6 +169,26 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const { actions } = useMitigationStore()
   const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const calculationResults = useDamageCalculationResults()
+  const simulate = useDamageCalculationSimulate()
+
+  const actionMap = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
+
+  const engine: PlacementEngine | null = useMemo(() => {
+    if (!timeline || !simulate) return null
+    return createPlacementEngine({
+      castEvents: timeline.castEvents,
+      actions: actionMap,
+      simulate,
+    })
+  }, [timeline, simulate, actionMap])
+
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  const invalidCastEventMap = useMemo(() => {
+    if (!engine) return new Map<string, InvalidReason>()
+    const invalid = engine.findInvalidCastEvents(draggingId ?? undefined)
+    return new Map(invalid.map(r => [r.castEvent.id, r.reason]))
+  }, [engine, draggingId])
 
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
@@ -296,31 +321,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const fixedAreaHeight = timeRulerHeight + eventTrackHeight
     const skillTracksHeight = skillTracks.length * skillTrackHeight
 
-    // 计算技能显示覆盖表：key 为 castEvent.id，value 为覆盖显示的 action
-    // 当前规则：意气轩昂之策（37013）在炽天附体（37014）持续期间显示为降临之章（37016）
-    const displayActionOverrides = new Map<string, MitigationAction>()
-    const seraphismAction = actions.find(a => a.id === 37014)
-    const accessionAction = actions.find(a => a.id === 37016)
-    if (seraphismAction && accessionAction) {
-      const seraphismWindows = timeline.castEvents
-        .filter(e => e.actionId === 37014)
-        .map(e => ({
-          playerId: e.playerId,
-          start: e.timestamp,
-          end: e.timestamp + seraphismAction.duration,
-        }))
-      for (const castEvent of timeline.castEvents) {
-        if (castEvent.actionId !== 37013) continue
-        const active = seraphismWindows.some(
-          w =>
-            w.playerId === castEvent.playerId &&
-            castEvent.timestamp >= w.start &&
-            castEvent.timestamp < w.end
-        )
-        if (active) displayActionOverrides.set(castEvent.id, accessionAction)
-      }
-    }
-
     return {
       damageEventRowMap,
       eventTrackHeight,
@@ -329,10 +329,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       skillTracksHeight,
       laneCount,
       LANE_ROW_HEIGHT,
-      displayActionOverrides,
+      // Task 14/15 会移除 displayActionOverrides prop 管道；trackGroup + 原始 actionId
+      // 已经让渲染层自然挂载，此 Map 暂留为空占位以保持编译。
+      displayActionOverrides: new Map<string, MitigationAction>(),
       maxTime,
     }
-  }, [timeline, zoomLevel, actions, skillTracks, isDamageTrackCollapsed, filteredDamageEvents])
+  }, [timeline, zoomLevel, skillTracks, isDamageTrackCollapsed, filteredDamageEvents])
 
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
@@ -1301,7 +1303,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 timeline={timeline}
                 skillTracks={skillTracks}
                 actions={actions}
+                actionMap={actionMap}
                 displayActionOverrides={displayActionOverrides}
+                engine={engine}
+                invalidCastEventMap={invalidCastEventMap}
+                draggingId={draggingId}
+                setDraggingId={setDraggingId}
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}
                 trackHeight={skillTrackHeight}
