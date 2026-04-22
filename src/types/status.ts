@@ -171,3 +171,19 @@ export interface StatusExecutor {
   /** 全局 3s tick 网格上、状态仍活跃时触发（DoT / HoT 等） */
   onTick?: (ctx: StatusTickContext) => PartyState | void
 }
+
+/**
+ * 状态时间线区间（由 MitigationCalculator.simulate 产出）
+ *
+ * 半开区间 [from, to)。`sourcePlayerId` = 施放者；`sourceCastEventId` = 触发该状态
+ * attach 的 cast event 的 id（Healerbook UUID）。同一个 status instance 可能因
+ * executor consume 而提前结束，`to` 反映实际收束时刻；未 consume 的 interval 的
+ * `to` 取 endTime。
+ */
+export interface StatusInterval {
+  from: number
+  to: number
+  stacks: number
+  sourcePlayerId: number
+  sourceCastEventId: string
+}
