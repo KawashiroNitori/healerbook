@@ -5,23 +5,40 @@
  * 本表按 statusId 提供本地扩展字段的覆盖值。未在此表中的状态走 statusRegistry 里的默认值。
  */
 
-import type { StatusBeforeShieldContext, StatusExecutor } from '@/types/status'
+import type {
+  MitigationStatusMetadata,
+  StatusBeforeShieldContext,
+  StatusExecutor,
+} from '@/types/status'
 import type { MitigationCategory } from '@/types/mitigation'
 import { addStatus, removeStatus } from '@/executors/statusHelpers'
+import { isStatusValidForTank } from '@/utils/statusFilter'
 
 /**
  * 创建"按需生成盾值"的 onBeforeShield 钩子。
  *
  * 在编辑模式下假设坦克满血，盾值 = candidateDamage − 已有坦专盾 − referenceMaxHP + 1，
  * 即刚好让坦克活下来的最小值；若已有盾值足够则不分配。
+ *
+ * 已有坦专盾的统计需按 self/target 过滤到"真正罩在持有本无敌的坦克身上"的那部分，
+ * 与 calculator 多坦路径 Phase 3 的 `meta.isTankOnly && isStatusValidForTank(..., tankId)`
+ * 口径保持一致，避免把另一个坦克身上的坦专盾误算进来。
  */
 export function createSurvivalBarrierHook() {
   return (ctx: StatusBeforeShieldContext) => {
+    const protectedTankId = ctx.status.sourcePlayerId
     const tankOnlyShield = ctx.partyState.statuses
       .filter(s => {
         if (s.remainingBarrier === undefined || s.remainingBarrier <= 0) return false
         if (ctx.event.time < s.startTime || ctx.event.time > s.endTime) return false
-        return STATUS_EXTRAS[s.statusId]?.isTankOnly === true
+        const extras = STATUS_EXTRAS[s.statusId]
+        if (extras?.isTankOnly !== true) return false
+        if (protectedTankId === undefined) return true
+        return isStatusValidForTank(
+          { category: extras.category } as MitigationStatusMetadata,
+          s,
+          protectedTankId
+        )
       })
       .reduce((sum, s) => sum + (s.remainingBarrier ?? 0), 0)
 
