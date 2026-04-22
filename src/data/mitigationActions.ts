@@ -8,6 +8,9 @@
 import type { MitigationAction } from '@/types/mitigation'
 import { createBuffExecutor, createShieldExecutor } from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
+import { whileStatus, not } from '@/utils/placement/combinators'
+
+const SERAPHISM_BUFF_ID = 3885 // 炽天附体
 
 export interface MitigationDataSource {
   actions: MitigationAction[]
@@ -413,6 +416,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
 
         return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })(ctx)
       },
+      placement: not(whileStatus(SERAPHISM_BUFF_ID)),
       statDataEntries: [
         { type: 'heal', key: 37013 },
         { type: 'critHeal', key: 37013 },
@@ -438,7 +442,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 1,
-      hidden: true,
+      trackGroup: 37013,
+      placement: whileStatus(SERAPHISM_BUFF_ID),
       executor: (ctx: ActionExecutionContext) => {
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
