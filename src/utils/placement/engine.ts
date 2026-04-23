@@ -8,6 +8,7 @@ import type {
   PlacementEngine,
   StatusTimelineByPlayer,
 } from './types'
+import { TIME_EPS } from './types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from './intervals'
 
 export interface PlacementEngineInput {
@@ -158,7 +159,8 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     // 两种边界场景语义一致：
     //   - 自耗型 cast（如神爱抚自己 consume 3881）的 interval 被 simulate 收束在 cast 瞬间
     //   - buff 自然过期当拍 cast，simulate 的 endTime >= cur 过滤也保留了该拍
-    if (intervals.some(i => i.from <= t && t <= i.to)) return { ok: true }
+    // 两端各放 TIME_EPS：吸收 interval 端点的浮点误差，避免边界浮点偏差导致"本应合法"被判非法。
+    if (intervals.some(i => i.from - TIME_EPS <= t && t <= i.to + TIME_EPS)) return { ok: true }
     return { ok: false, reason: 'not_available' }
   }
 
@@ -183,9 +185,13 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       const ctx = buildContext(action, castEvent.playerId, excludeId, castEvent)
       const placementOk =
         !action.placement ||
-        action.placement.validIntervals(ctx).some(i => i.from <= t && t <= i.to)
+        action.placement
+          .validIntervals(ctx)
+          .some(i => i.from - TIME_EPS <= t && t <= i.to + TIME_EPS)
       // cooldown 用严格重叠 (<) 直接判定，避开区间半开表示在 t_n = t_e - cd_x 边界处的
       // off-by-one：两 CD 条刚好紧贴不算冲突（与原 checkOverlap 行为一致）。
+      // 左侧加 TIME_EPS 收紧阈值：timestamp 由浮点运算链（ts+cd / ms/1000 / x/zoom）得出，
+      // 紧贴场景下 `t + cdA` 与 B.ts 可能差 1~2 ULP；裸 `<` 会把两 CD 条的浮点毛刺误判为重叠。
       const groupId = effectiveTrackGroup(action)
       const cooldownOk = !ctx.castEvents.some(e => {
         if (e.id === castEvent.id) return false
@@ -193,7 +199,10 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
         const other = actions.get(e.actionId)
         if (!other) return false
         if (effectiveTrackGroup(other) !== groupId) return false
-        return t < e.timestamp + other.cooldown && e.timestamp < t + action.cooldown
+        return (
+          t + TIME_EPS < e.timestamp + other.cooldown &&
+          e.timestamp + TIME_EPS < t + action.cooldown
+        )
       })
       if (placementOk && cooldownOk) continue
       const reason =

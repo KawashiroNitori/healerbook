@@ -794,7 +794,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 处理技能使用事件拖动
   const handleCastEventDragEnd = (castEventId: string, x: number) => {
     if (isReadOnly) return
-    const newTime = Math.max(TIMELINE_START_TIME, Math.round((x / zoomLevel) * 10) / 10)
+    // 不 snap：dragBoundFunc 已把 x 钳到合法区边界（精确到像素），保留连续值避免
+    // round 越界。合法区右边界经常不在 0.1 秒网格上（如 629.58），0.1 snap 会把
+    // 合法 629.58 吸成非法 629.6，导致 cast 落入 shadow → 红框 + 下次 dragBounds
+    // 放开可自由拖动。精度损失（px 级 ~0.033s）相较越界（0.02~0.05s）可接受。
+    const newTime = Math.max(TIMELINE_START_TIME, x / zoomLevel)
     const { updateCastEvent } = useTimelineStore.getState()
     const existing = timeline?.castEvents.find(ce => ce.id === castEventId)
     if (!existing) return

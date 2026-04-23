@@ -539,7 +539,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 20,
       cooldown: 120,
-      executor: createBuffExecutor(1892, 20),
+      executor: ctx => {
+        const partyState = createBuffExecutor(1892, 20)(ctx)
+        return createBuffExecutor(3895, 30)({ ...ctx, partyState })
+      },
     },
 
     {
@@ -550,7 +553,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 1,
-      executor: createBuffExecutor(3896, 15),
+      executor: createBuffExecutor(3896, 15, { uniqueGroup: [3895] }),
+      placement: whileStatus(3895),
     },
 
     {

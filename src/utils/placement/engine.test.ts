@@ -218,6 +218,31 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
     }
   })
 
+  it('findInvalidCastEvents: 紧贴边界带浮点误差时不应误判 cooldown_conflict（回归）', () => {
+    // 真实场景：FFLogs 导入 (ms/1000)、拖拽 snap (x/zoom)、shadow 端点 (ts + cd) 等路径
+    // 都可能让 timestamp 带 1~2 ULP 级（~1e-15）的偏差。engine.ts 裸 `<` 比较在
+    // B.ts 和 A.ts + cdA 的浮点近似差 1 ULP 时会把"紧贴"误报为重叠。
+    // 症状：两个相邻 cast 都亮红框；拖到右边界时 shadow.from vs timestamp 同样翻转
+    // 导致 dragBounds.rightBoundary = Infinity，可以被自由拖出合法区。
+    const cd = 10
+    const action = makeAction({ id: 99, cooldown: cd, duration: 0 })
+    // 20 附近的 ULP ≈ 3.55e-15；+5e-15 跨过半 ULP 上舍入到下一个 double，
+    // 保证 A_ts + cd 严格大于 B_ts = 30（数学上紧贴）。
+    const A_ts = 20 + 5e-15
+    const B_ts = 30
+    const A = { id: 'A', actionId: 99, playerId: 10, timestamp: A_ts } as unknown as CastEvent
+    const B = { id: 'B', actionId: 99, playerId: 10, timestamp: B_ts } as unknown as CastEvent
+    const e = createPlacementEngine({
+      castEvents: [A, B],
+      actions: new Map([[99, action]]),
+      simulate: () => ({ statusTimelineByPlayer: new Map() }),
+    })
+    // 自检：构造的浮点误差真实存在（IEEE 754 环境下恒成立）
+    expect(A_ts + cd).toBeGreaterThan(B_ts)
+    // 即便 A + cd > B（浮点），两者语义上紧贴首尾相接，都不应被标红
+    expect(e.findInvalidCastEvents()).toEqual([])
+  })
+
   it('findInvalidCastEvents: 单个合法 cast 不会因自身 CD 把自己挡掉（自冲突防御）', () => {
     // 回归测试：cooldownAvailable 遍历同轨 castEvents 时必须排除"正在回溯的 cast"自己，
     // 否则 cast 自身的 [timestamp, timestamp + cooldown) 会包含其 timestamp，

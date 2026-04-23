@@ -13,6 +13,7 @@ import type { Annotation, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
+import { TIME_EPS } from '@/utils/placement/types'
 import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
 import { effectiveTrackGroup } from '@/types/mitigation'
 
@@ -505,23 +506,37 @@ export default function SkillTracksCanvas({
           // engine 给出"整条轨道（同 trackGroup）所有成员合法区间的 union"，作为拖拽边界。
           // 只约束到"落到任何成员合法的地方"而不是"只能落到当前 actionId 合法的地方"——
           // 拖拽中的变身（37013 ↔ 37016）在 onDragEnd 由 pickUniqueMember 处理。
+          //
+          // 只为 selected 或正在拖拽的 cast 算 shadow：
+          // CastEventIcon 的 draggable 是 `isSelected && !isReadOnly`，非 selected cast
+          // 的 dragBoundFunc 不会被 Konva 调用，boundary 传什么都无所谓。预算所有 cast 的
+          // shadow 会让每个可见 cast 各触发一次 engine.simulate(excl)（N×1.5ms），对 300+
+          // cast 的时间轴拖放后直接 100ms+ 卡顿。
           let leftBoundary = TIMELINE_START_TIME
           let rightBoundary = Infinity
           let nextCastTime = Infinity
-          if (engine) {
+          if (engine && (isSelected || draggingId === castEvent.id)) {
             const trackGroupId = castAction?.trackGroup ?? castEvent.actionId
             const shadow = engine.computeTrackShadow(trackGroupId, castEvent.playerId, castEvent.id)
             // shadow = 整轨不可放区间；合法区间 = shadow 的补集中包含 castEvent.timestamp 的那段。
             // 找 shadow 相邻两段之间包含当前 timestamp 的"洞"：
             let lo = Number.NEGATIVE_INFINITY
             let hi = Number.POSITIVE_INFINITY
-            for (const s of shadow) {
-              if (s.to <= castEvent.timestamp) lo = Math.max(lo, s.to)
-              else if (s.from >= castEvent.timestamp) {
-                // 用 >= 而非 >：castEvent.timestamp 恰好卡在右 shadow 起点时（例如拖到
-                // 3881 到期的瞬间被钳住松手后再拖），严格 > 会漏更新 hi，导致右边界变成
-                // Infinity、cast 可被拖出合法区并亮红框。此处钳住 hi = s.from 让它原地。
+            for (let i = 0; i < shadow.length; i++) {
+              const s = shadow[i]
+              // 两端各放 TIME_EPS：shadow 端点由 (ts + cd) 等运算产生，与 castEvent.timestamp
+              // 的浮点表示可能差 1~2 ULP。严格 `>=` 在 shadow.from 略小于 timestamp 时会漏
+              // 更新 hi，导致 rightBoundary = Infinity、cast 被拖出合法区并亮红框。
+              if (s.to <= castEvent.timestamp + TIME_EPS) lo = Math.max(lo, s.to)
+              else if (s.from >= castEvent.timestamp - TIME_EPS) {
                 hi = Math.min(hi, s.from)
+                break
+              } else {
+                // timestamp 严格落在 s 内部（cast 已非法，红框提示）——原循环两分支都不命中
+                // 会让 lo/hi 保持 ±∞，导致 dragBounds 完全放开、cast 可被拖到任意远。
+                // 取 s 的左右邻段端点作为 bounds：用户能拖回邻接合法区但不会飞出更远。
+                if (i > 0) lo = Math.max(lo, shadow[i - 1].to)
+                if (i + 1 < shadow.length) hi = Math.min(hi, shadow[i + 1].from)
                 break
               }
             }
