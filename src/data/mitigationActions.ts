@@ -322,7 +322,23 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 25,
       cooldown: 120,
-      executor: createBuffExecutor(1873, 25),
+      // executor: createBuffExecutor(1873, 25),
+      executor: ctx => {
+        const partyState = createBuffExecutor(1873, 25)(ctx)
+        return createBuffExecutor(3881, 30)({ ...ctx, partyState })
+      },
+    },
+    {
+      id: 37011,
+      name: '神爱抚',
+      icon: '/i/002000/002128.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'shield'],
+      duration: 10,
+      cooldown: 1,
+      placement: whileStatus(3881),
+      executor: createShieldExecutor(3903, 10, { uniqueGroup: [3881] }),
+      statDataEntries: [{ type: 'shield', key: 3903 }],
     },
     {
       id: 7433,
@@ -333,17 +349,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 10,
       cooldown: 60,
       executor: createBuffExecutor(1219, 10),
-    },
-    {
-      id: 37011,
-      name: '神爱抚',
-      icon: '/i/002000/002128.png',
-      jobs: ['WHM'],
-      category: ['partywide', 'shield'],
-      duration: 10,
-      cooldown: 1,
-      executor: createShieldExecutor(3903, 10),
-      statDataEntries: [{ type: 'shield', key: 3903 }],
     },
 
     // 学者 (SCH)

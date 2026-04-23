@@ -72,10 +72,14 @@ describe('timelineStore - 状态管理', () => {
 
       // 重新获取状态
       const partyState = useTimelineStore.getState().partyState
-      expect(partyState?.statuses).toHaveLength(1)
-      expect(partyState?.statuses[0].statusId).toBe(1873)
-      expect(partyState?.statuses[0].startTime).toBe(10)
-      expect(partyState?.statuses[0].endTime).toBe(35)
+      // 节制会同时附加主状态 1873 与副状态 3881
+      expect(partyState?.statuses).toHaveLength(2)
+      const primary = partyState?.statuses.find(s => s.statusId === 1873)
+      expect(primary?.startTime).toBe(10)
+      expect(primary?.endTime).toBe(35)
+      const secondary = partyState?.statuses.find(s => s.statusId === 3881)
+      expect(secondary?.startTime).toBe(10)
+      expect(secondary?.endTime).toBe(40)
     })
   })
 
@@ -84,15 +88,21 @@ describe('timelineStore - 状态管理', () => {
       const store = useTimelineStore.getState()
       store.initializePartyState(mockComposition)
 
-      // 执行节制 (持续 25 秒)
+      // 执行节制（1873 持续 25s，副状态 3881 持续 30s）
       store.executeAction(16536, 10, 1)
 
-      // 时间点 20: 状态仍然生效
+      // 时间点 20: 两个状态都仍然生效
       store.cleanupExpiredStatuses(20)
-      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(1)
+      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(2)
 
-      // 时间点 40: 状态已过期
-      store.cleanupExpiredStatuses(40)
+      // 时间点 36: 1873 已过期（endTime=35），3881 仍生效（endTime=40）
+      store.cleanupExpiredStatuses(36)
+      const remaining = useTimelineStore.getState().partyState?.statuses ?? []
+      expect(remaining).toHaveLength(1)
+      expect(remaining[0].statusId).toBe(3881)
+
+      // 时间点 41: 两个状态都已过期
+      store.cleanupExpiredStatuses(41)
       expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(0)
     })
   })

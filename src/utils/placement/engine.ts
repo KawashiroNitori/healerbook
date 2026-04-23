@@ -97,10 +97,54 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     trackGroupMembers.set(gid, arr)
   }
 
+  // 阴影缓存：按 (groupId, playerId, excludeId) 记忆。
+  // engine 实例本身随 timeline.castEvents 变化重建，故缓存生命周期等价于"当前轨道数据快照"，
+  // 拖拽 / 多次 re-render 时命中缓存避免重复 flatMap + complement。
+  const trackShadowCache = new Map<string, Interval[]>()
+  const placementShadowCache = new Map<string, Interval[]>()
+  const shadowKey = (groupId: number, playerId: number, excludeId?: string) =>
+    `${groupId}|${playerId}|${excludeId ?? ''}`
+
   function computeTrackShadow(groupId: number, playerId: number, excludeId?: string): Interval[] {
+    const key = shadowKey(groupId, playerId, excludeId)
+    const cached = trackShadowCache.get(key)
+    if (cached) return cached
     const members = trackGroupMembers.get(groupId) ?? []
     const legal = members.flatMap(m => getValidIntervals(m, playerId, excludeId))
-    return complement(mergeOverlapping(sortIntervals(legal)))
+    const shadow = complement(mergeOverlapping(sortIntervals(legal)))
+    trackShadowCache.set(key, shadow)
+    return shadow
+  }
+
+  /**
+   * 同 computeTrackShadow，但只看 placement 合法区，不把 CD 冲突带入阴影。
+   * 用于短 CD 技能轨道（cd<=3）——其 CD 冲突窗口只有几秒宽，视觉上是噪音，
+   * 合法性反馈交给红框即可，阴影只用来表达 placement 非法区。
+   */
+  function computePlacementShadow(
+    groupId: number,
+    playerId: number,
+    excludeId?: string
+  ): Interval[] {
+    const key = shadowKey(groupId, playerId, excludeId)
+    const cached = placementShadowCache.get(key)
+    if (cached) return cached
+    const members = trackGroupMembers.get(groupId) ?? []
+    if (members.length === 0) {
+      placementShadowCache.set(key, [])
+      return []
+    }
+    // 任一 member 用于构造共享 ctx——ctx 里 action 字段目前未被 placement 读取，
+    // 读的是 statusTimelineByPlayer / castEvents / playerId。
+    const ctx = buildContext(members[0], playerId, excludeId)
+    const legal = members.flatMap(m =>
+      m.placement
+        ? m.placement.validIntervals(ctx)
+        : [{ from: Number.NEGATIVE_INFINITY, to: Number.POSITIVE_INFINITY }]
+    )
+    const shadow = complement(mergeOverlapping(sortIntervals(legal)))
+    placementShadowCache.set(key, shadow)
+    return shadow
   }
 
   function canPlaceCastEvent(
@@ -110,7 +154,11 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     excludeId?: string
   ): { ok: true } | { ok: false; reason: string } {
     const intervals = getValidIntervals(action, playerId, excludeId)
-    if (intervals.some(i => i.from <= t && t < i.to)) return { ok: true }
+    // 上界用 <=：cast 在 interval 终点时仍算合法。
+    // 两种边界场景语义一致：
+    //   - 自耗型 cast（如神爱抚自己 consume 3881）的 interval 被 simulate 收束在 cast 瞬间
+    //   - buff 自然过期当拍 cast，simulate 的 endTime >= cur 过滤也保留了该拍
+    if (intervals.some(i => i.from <= t && t <= i.to)) return { ok: true }
     return { ok: false, reason: 'not_available' }
   }
 
@@ -134,7 +182,8 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       const t = castEvent.timestamp
       const ctx = buildContext(action, castEvent.playerId, excludeId, castEvent)
       const placementOk =
-        !action.placement || action.placement.validIntervals(ctx).some(i => i.from <= t && t < i.to)
+        !action.placement ||
+        action.placement.validIntervals(ctx).some(i => i.from <= t && t <= i.to)
       // cooldown 用严格重叠 (<) 直接判定，避开区间半开表示在 t_n = t_e - cd_x 边界处的
       // off-by-one：两 CD 条刚好紧贴不算冲突（与原 checkOverlap 行为一致）。
       const groupId = effectiveTrackGroup(action)
@@ -161,6 +210,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
   return {
     getValidIntervals,
     computeTrackShadow,
+    computePlacementShadow,
     pickUniqueMember,
     canPlaceCastEvent,
     findInvalidCastEvents,

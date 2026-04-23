@@ -184,6 +184,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
 
+  // drop 落点提交后 castEvents 变新引用 → 自动清空 draggingId。
+  // 放在 useEffect 而不是 onDragEnd 里，是为了避开 Konva 释放瞬间的状态收束：
+  // 同步 setState 会让 Group 在 dragend 过程中 re-render，丢失 drag 结束信号导致
+  // "松手后图标继续跟随鼠标、直到下次点击才落点"的 bug。
+  useEffect(() => {
+    if (draggingId) setDraggingId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeline?.castEvents])
+
   const invalidCastEventMap = useMemo(() => {
     if (!engine) return new Map<string, InvalidReason>()
     const invalid = engine.findInvalidCastEvents(draggingId ?? undefined)
@@ -746,7 +755,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const groupId = parent.trackGroup ?? parent.id
       const member = engine.pickUniqueMember(groupId, playerId, time)
       if (!member) {
-        toast.error('当前无可用技能', { description: '此时刻没有合法成员' })
+        toast.error('无法添加技能', { description: '此时刻不满足发动条件' })
         return
       }
       resolvedActionId = member.id

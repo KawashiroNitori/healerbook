@@ -2,7 +2,7 @@
  * 技能轨道 Canvas 区域组件
  */
 
-import { type ReactElement, type RefObject } from 'react'
+import { type ReactElement, type RefObject, useMemo } from 'react'
 import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
 import AnnotationIcon from './AnnotationIcon'
@@ -79,6 +79,7 @@ export default function SkillTracksCanvas({
   engine,
   invalidCastEventMap,
   draggingId,
+  setDraggingId,
   displayActionOverrides,
   zoomLevel,
   timelineWidth,
@@ -118,6 +119,27 @@ export default function SkillTracksCanvas({
   const buffer = viewportWidth
   const visibleMinX = scrollLeft - buffer
   const visibleMaxX = scrollLeft + viewportWidth + buffer
+
+  // 预聚合每条可见条的区间，按 (playerId, groupId) 分桶；避免每个轨道在 render 里再扫一遍全量 castEvents。
+  const visibleBarsByTrack = useMemo(() => {
+    const bucket = new Map<string, { from: number; to: number }[]>()
+    if (!actionMap) return bucket
+    for (const ce of timeline.castEvents) {
+      const other = actionMap.get(ce.actionId)
+      if (!other) continue
+      const groupId = effectiveTrackGroup(other)
+      const key = `${ce.playerId}|${groupId}`
+      const barExtent = Math.max(other.cooldown, other.duration)
+      const arr = bucket.get(key) ?? []
+      arr.push({ from: ce.timestamp, to: ce.timestamp + barExtent })
+      bucket.set(key, arr)
+    }
+    const merged = new Map<string, { from: number; to: number }[]>()
+    for (const [k, arr] of bucket) {
+      merged.set(k, mergeOverlapping(sortIntervals(arr)))
+    }
+    return merged
+  }, [timeline.castEvents, actionMap])
 
   return (
     <>
@@ -175,28 +197,17 @@ export default function SkillTracksCanvas({
           engine &&
           skillTracks.map((track, trackIndex) => {
             const parent = actionMap?.get(track.actionId)
-            if (!parent || parent.cooldown < 30) return null
+            if (!parent) return null
+            // cd<=3 无 placement → 完全不画阴影（纯 CD 冲突窗口对 GCD 级技能是噪音）。
+            if (parent.cooldown <= 3 && !parent.placement) return null
             const groupId = effectiveTrackGroup(parent)
-            const rawShadow = engine.computeTrackShadow(
-              groupId,
-              track.playerId,
-              draggingId ?? undefined
-            )
-            const visibleCooldownBars = mergeOverlapping(
-              sortIntervals(
-                timeline.castEvents
-                  .filter(ce => {
-                    if (ce.playerId !== track.playerId) return false
-                    const other = actionMap?.get(ce.actionId)
-                    if (!other) return false
-                    return effectiveTrackGroup(other) === groupId
-                  })
-                  .map(ce => {
-                    const other = actionMap!.get(ce.actionId)!
-                    return { from: ce.timestamp, to: ce.timestamp + other.cooldown }
-                  })
-              )
-            )
+            // cd<=3 有 placement → 只画 placement 非法区，不带入 CD 冲突；
+            // 否则走完整阴影（含前向 CD 提示，对长 CD 减伤很有用）。
+            const rawShadow =
+              parent.cooldown <= 3
+                ? engine.computePlacementShadow(groupId, track.playerId, draggingId ?? undefined)
+                : engine.computeTrackShadow(groupId, track.playerId, draggingId ?? undefined)
+            const visibleCooldownBars = visibleBarsByTrack.get(`${track.playerId}|${groupId}`) ?? []
             const shadow = subtractIntervals(rawShadow, visibleCooldownBars)
             return shadow.map((interval, idx) => {
               const left = Math.max(interval.from, TIMELINE_START_TIME) * zoomLevel
@@ -222,12 +233,14 @@ export default function SkillTracksCanvas({
                     const step = 7
                     ctx.strokeStyle = colors.cooldownStripe
                     ctx.lineWidth = colors.cooldownStripeWidth
+                    // 关键性能点：单次 beginPath + 所有 move/line + 单次 stroke；
+                    // 原先每条斜纹 stroke() 一次，高 shape 数量时重栅格化是 INP 主要开销。
+                    ctx.beginPath()
                     for (let i = -h; i < w + h; i += step) {
-                      ctx.beginPath()
                       ctx.moveTo(i, 0)
                       ctx.lineTo(i + h, h)
-                      ctx.stroke()
                     }
+                    ctx.stroke()
                     ctx.restore()
                   }}
                   shadowEnabled={false}
@@ -504,7 +517,10 @@ export default function SkillTracksCanvas({
             let hi = Number.POSITIVE_INFINITY
             for (const s of shadow) {
               if (s.to <= castEvent.timestamp) lo = Math.max(lo, s.to)
-              else if (s.from > castEvent.timestamp) {
+              else if (s.from >= castEvent.timestamp) {
+                // 用 >= 而非 >：castEvent.timestamp 恰好卡在右 shadow 起点时（例如拖到
+                // 3881 到期的瞬间被钳住松手后再拖），严格 > 会漏更新 hi，导致右边界变成
+                // Infinity、cast 可被拖出合法区并亮红框。此处钳住 hi = s.from 让它原地。
                 hi = Math.min(hi, s.from)
                 break
               }
@@ -543,6 +559,7 @@ export default function SkillTracksCanvas({
               scrollLeft={scrollLeft}
               scrollTop={scrollTop}
               onSelect={() => onSelectCastEvent(castEvent.id)}
+              onDragStart={() => setDraggingId?.(castEvent.id)}
               onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
               onContextMenu={e => {
                 e.evt.preventDefault()

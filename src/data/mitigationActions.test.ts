@@ -44,8 +44,9 @@ describe('mitigationActions', () => {
 
       const newState = action.executor(ctx)
 
-      expect(newState.statuses).toHaveLength(1)
-      expect(newState.statuses[0].statusId).toBe(1873)
+      // 节制会同时附加主状态 1873 与"神爱抚可用"副状态 3881
+      expect(newState.statuses).toHaveLength(2)
+      expect(newState.statuses.map(s => s.statusId).sort()).toEqual([1873, 3881])
     })
 
     it('行吟应该为玩家添加状态', () => {

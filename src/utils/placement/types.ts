@@ -48,6 +48,11 @@ export interface PlacementEngine {
     excludeCastEventId?: string
   ): Interval[]
   computeTrackShadow(trackGroup: number, playerId: number, excludeCastEventId?: string): Interval[]
+  computePlacementShadow(
+    trackGroup: number,
+    playerId: number,
+    excludeCastEventId?: string
+  ): Interval[]
   pickUniqueMember(
     trackGroup: number,
     playerId: number,

@@ -27,6 +27,7 @@ interface CastEventIconProps {
   scrollLeft: number
   scrollTop: number
   onSelect: () => void
+  onDragStart?: () => void
   onDragEnd: (x: number) => void
   onContextMenu: (e: KonvaContextMenuEvent) => void
   onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
@@ -49,6 +50,7 @@ const CastEventIcon = memo(function CastEventIcon({
   scrollLeft,
   scrollTop,
   onSelect,
+  onDragStart,
   onDragEnd,
   onContextMenu,
   onHover,
@@ -72,6 +74,7 @@ const CastEventIcon = memo(function CastEventIcon({
       onDragStart={e => {
         // 拖动开始时捕获节点真实绝对 y 坐标，避免因 scrollTop prop 过时导致瞬移
         dragStartAbsYRef.current = e.target.absolutePosition().y
+        onDragStart?.()
       }}
       dragBoundFunc={pos => {
         // pos 是绝对坐标（Stage 坐标系）；边界是 Layer 坐标，需要减去 scrollLeft 转换
