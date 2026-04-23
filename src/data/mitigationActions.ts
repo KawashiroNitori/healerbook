@@ -388,7 +388,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       category: ['partywide', 'shield'],
       duration: 30,
-      cooldown: 2.5,
+      cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
         const seraphismId = 3885 // 炽天附体
         const recitationId = 1896 // 秘策
@@ -441,7 +441,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       category: ['partywide', 'shield'],
       duration: 30,
-      cooldown: 1,
+      cooldown: 2,
       trackGroup: 37013,
       placement: whileStatus(SERAPHISM_BUFF_ID),
       executor: (ctx: ActionExecutionContext) => {
