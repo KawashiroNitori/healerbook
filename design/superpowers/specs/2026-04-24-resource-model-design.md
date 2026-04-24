@@ -52,21 +52,23 @@
 
 ### D3. `cooldown` 字段作为单充能池 shorthand
 
-现有 action 不改。运行时：
+合成条件：**`resourceEffects` 中不含 `delta < 0` 的 effect（即"无显式消费者"）时，合成一个单充能池**：
 
-- 若 action **未**声明 `resourceEffects` → 虚拟一个单充能池：
-  ```ts
-  resource = {
-    id: `__cd__:${actionId}`,
-    initial: 1,
-    max: 1,
-    regen: { interval: action.cooldown, amount: 1 },
-  }
-  effect = { resourceId, delta: -1 }
-  ```
-- 若 action **声明了** `resourceEffects` → **不**合成 `__cd__`，`cooldown` 字段变成纯信息性（保留以便 Canvas / 其他 UI 兜底用）
+```ts
+resource = {
+  id: `__cd__:${actionId}`,
+  initial: 1,
+  max: 1,
+  regen: { interval: action.cooldown, amount: 1 },
+}
+effect = { resourceId, delta: -1 }
+```
 
-这条是"现有 CD 冲突行为与单充能池数学等价"的根。
+- **无 resourceEffects**（200+ 现有 action，炽天）→ 合成 `__cd__`
+- **只有产出**（假想未来：秒差 `[+1 lily]`）→ **仍合成** `__cd__`，cd 正常强制
+- **含消费者**（慰藉 `[-1 consolation]`、献奉 `[-1 oblation]`）→ 跳过合成；消费者负责 gating；`cooldown` 字段变纯信息性
+
+副作用：一个 action 永远只经过**一种** gating 机制（合成池 xor 显式消费者），数据层面自动分派，不要求写数据时额外标注。
 
 **与 `trackGroup` 完全解耦**：合成键用 `actionId`、**不使用** `effectiveTrackGroup`。`trackGroup` 仅是 UI 渲染概念（哪些 actionId 共用一行），不进入 compute / validator / legalIntervals 层。副作用：现有 `cooldownAvailable` 里"同 trackGroup 跨 actionId 的 CD 冲突"检测随迁移消失（例：意气 37013 @ t=0 + 降临 37016 @ t=1 原被 block，新模型视为合法）。该场景属于 GCD 窗口内连按两个 GCD 技能——现实玩家做不到，由 FF14 常识而非 planner 阻止。不视作 regression。
 
@@ -152,7 +154,11 @@ export interface ResourceEvent {
 ```ts
 export interface MitigationAction {
   // ... 现有字段保持不动
-  /** 一次 cast 对资源池的影响；未声明则 compute 层按 cooldown 合成 __cd__:${id} */
+  /**
+   * 一次 cast 对资源池的影响。compute 层的合成规则：
+   *   - 本字段未声明，或声明了但不含 delta<0（纯产出）→ 合成单充能池 __cd__:${id} 强制 cooldown
+   *   - 含 delta<0（有显式消费者）→ 跳过合成，cooldown 字段沦为信息性
+   */
   resourceEffects?: ResourceEffect[]
 }
 ```
@@ -215,7 +221,7 @@ export interface InvalidCastEvent {
 /**
  * 从 castEvents 派生出按 resourceKey 分组、按 (timestamp ASC, orderIndex ASC) 稳定排序的事件。
  *
- * - 对未声明 resourceEffects 的 action：合成一条 `__cd__:${actionId}` 单充能池的 delta=-1 事件
+ * - 对 resourceEffects 中无 `delta < 0` 的 action（无声明 / 只产出）：合成一条 `__cd__:${actionId}` 单充能池的 delta=-1 事件
  * - ResourceEffect.required 未声明默认 true；派生到 ResourceEvent.required
  * - orderIndex 取 castEvents 数组下标，同 (playerId, resourceId) 在同时刻的事件按此稳定分序
  */
