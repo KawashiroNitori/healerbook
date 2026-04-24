@@ -596,6 +596,8 @@ export default function SkillTracksCanvas({
               onHoverEnd={onHoverActionEnd}
               onClickIcon={onClickAction}
               isReadOnly={isReadOnly}
+              cdBarEnd={engine?.cdBarEndFor(castEvent.id) ?? null}
+              timelineEndSec={maxTime}
             />
           )
         })}

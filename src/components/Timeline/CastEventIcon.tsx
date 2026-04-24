@@ -36,6 +36,10 @@ interface CastEventIconProps {
   onHoverEnd: () => void
   onClickIcon: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
   isReadOnly?: boolean
+  /** 蓝条右端（秒）；null = 不画；Infinity = 截到 timelineEndSec */
+  cdBarEnd: number | null
+  /** Infinity 蓝条截到此值（从 timeline 顶层传下来的 maxTime） */
+  timelineEndSec: number
 }
 
 const CastEventIcon = memo(function CastEventIcon({
@@ -59,6 +63,8 @@ const CastEventIcon = memo(function CastEventIcon({
   onHoverEnd,
   onClickIcon,
   isReadOnly = false,
+  cdBarEnd,
+  timelineEndSec,
 }: CastEventIconProps) {
   const [isHovered, setIsHovered] = useState(false)
   const dragStartAbsYRef = useRef<number | null>(null)
@@ -67,6 +73,22 @@ const CastEventIcon = memo(function CastEventIcon({
     nextCastTime === Infinity
       ? action.duration
       : Math.min(action.duration, nextCastTime - castEvent.timestamp)
+
+  // 蓝条几何
+  const rawEndSec = cdBarEnd === null ? null : cdBarEnd === Infinity ? timelineEndSec : cdBarEnd
+  const visualEndSec = rawEndSec === null ? null : Math.min(rawEndSec, nextCastTime)
+  const cdBarWidth =
+    visualEndSec === null
+      ? 0
+      : Math.max(
+          0,
+          (visualEndSec - castEvent.timestamp) * zoomLevel - effectiveDuration * zoomLevel
+        )
+  const showCdBar = cdBarWidth > 0
+  const cdRemainingSec = rawEndSec === null ? 0 : rawEndSec - castEvent.timestamp
+  const showCdText = rawEndSec !== null && visualEndSec === rawEndSec && cdRemainingSec >= 3
+  const cdTextSeconds = Math.round(cdRemainingSec)
+  const cdTextX = cdRemainingSec * zoomLevel - 22
 
   return (
     <Group
@@ -143,11 +165,11 @@ const CastEventIcon = memo(function CastEventIcon({
         />
       )}
 
-      {isSelected && action.cooldown > 0 && (
+      {isSelected && showCdBar && (
         <Rect
           x={effectiveDuration * zoomLevel}
           y={-15}
-          width={Math.max(0, action.cooldown * zoomLevel - effectiveDuration * zoomLevel)}
+          width={cdBarWidth}
           height={30}
           fill="#3b82f6"
           opacity={0.5}
@@ -160,11 +182,11 @@ const CastEventIcon = memo(function CastEventIcon({
       )}
 
       {/* 冷却时间条（持续时间条右侧，蓝色，无圆角） */}
-      {action.cooldown > 0 && (
+      {showCdBar && (
         <Rect
           x={effectiveDuration * zoomLevel}
           y={-15}
-          width={Math.max(0, action.cooldown * zoomLevel - effectiveDuration * zoomLevel)}
+          width={cdBarWidth}
           height={30}
           fill="#3b82f6"
           opacity={isHovered ? 0.35 : 0.2}
@@ -174,11 +196,11 @@ const CastEventIcon = memo(function CastEventIcon({
       )}
 
       {/* 冷却时间文本（在冷却时间条末尾内侧） */}
-      {action.cooldown >= 3 && (
+      {showCdText && (
         <Text
-          x={action.cooldown * zoomLevel - 22}
+          x={cdTextX}
           y={0}
-          text={`${action.cooldown}s`}
+          text={`${cdTextSeconds}s`}
           fontSize={10}
           fill={isSelected ? '#ffffff' : '#3b82f6'}
           fontStyle="bold"
@@ -224,7 +246,11 @@ const CastEventIcon = memo(function CastEventIcon({
       <Rect
         x={0}
         y={-15}
-        width={Math.max(30, effectiveDuration * zoomLevel, action.cooldown * zoomLevel)}
+        width={Math.max(
+          30,
+          effectiveDuration * zoomLevel,
+          visualEndSec !== null ? (visualEndSec - castEvent.timestamp) * zoomLevel : 0
+        )}
         height={30}
         fill="transparent"
         onMouseEnter={e => {

@@ -15,6 +15,7 @@ import { deriveResourceEvents } from '@/utils/resource/compute'
 import { findResourceExhaustedCasts } from '@/utils/resource/validator'
 import { resourceLegalIntervals } from '@/utils/resource/legalIntervals'
 import { RESOURCE_REGISTRY } from '@/data/resources'
+import { computeCdBarEnd } from '@/utils/resource/cdBar'
 
 export interface PlacementEngineInput {
   castEvents: CastEvent[]
@@ -81,6 +82,27 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       RESOURCE_REGISTRY
     )
     return intersect(placementIntervals, resourceIntervals)
+  }
+
+  // 蓝条 rawEnd cache：key = castEventId。engine 生命周期内固定（castEvents 不变）。
+  const cdBarEndCache = new Map<string, number | null>()
+  const castEventById = new Map(castEvents.map(ce => [ce.id, ce]))
+
+  function cdBarEndFor(castEventId: string): number | null {
+    if (cdBarEndCache.has(castEventId)) return cdBarEndCache.get(castEventId)!
+    const ce = castEventById.get(castEventId)
+    if (!ce) {
+      cdBarEndCache.set(castEventId, null)
+      return null
+    }
+    const action = actions.get(ce.actionId)
+    if (!action) {
+      cdBarEndCache.set(castEventId, null)
+      return null
+    }
+    const end = computeCdBarEnd(action, ce, resourceEventsByKey, RESOURCE_REGISTRY)
+    cdBarEndCache.set(castEventId, end)
+    return end
   }
 
   const trackGroupMembers = new Map<number, MitigationAction[]>()
@@ -221,7 +243,6 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     pickUniqueMember,
     canPlaceCastEvent,
     findInvalidCastEvents,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    cdBarEndFor: (_castEventId: string) => null, // 阶段 6 补真实实现
+    cdBarEndFor,
   }
 }
