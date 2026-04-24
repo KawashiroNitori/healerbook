@@ -129,6 +129,17 @@ src/
 | `author` | 已发布，当前用户是作者 | 完整编辑 + 同步 |
 | `view`   | 已发布，他人时间轴     | 只读            |
 
+### 4.5. 资源模型（CD / 充能 / 共享池）
+
+技能使用可用性由**资源池**统一表达，替代原"单层 cooldown + 假 buff stack"方案。设计见 `design/superpowers/specs/2026-04-24-resource-model-design.md`。
+
+- **`ResourceDefinition`** 在 `src/data/resources.ts` 的 `RESOURCE_REGISTRY` 中声明（如 `sch:consolation`、`drk:oblation`）。池按 `(playerId, resourceId)` 懒实例化。
+- **`MitigationAction.resourceEffects`** 声明一次 cast 对资源的影响（`+N` 产出、`-N` 消耗）。含消费者（`delta<0`）时，跳过 `__cd__` 合成；否则合成 `__cd__:${id}` 单充能池强制 `cooldown`。
+- **`regen`** 采用充能计时语义：每次消耗调度 `interval` 秒后的独立 refill，**不**是从 t=0 固定节拍。
+- **校验**：`findResourceExhaustedCasts` 判 cast 是否因资源不足非法；shadow 由 `resourceLegalIntervals`（自耗尽段 + 下游透支段）推导。
+- **trackGroup** 与资源模型**完全解耦**，仅用于 UI 渲染轨道归属。
+- **蓝色 CD 条** 的语义是"此 cast 打空池子到恢复的时段"；还有库存时不画。
+
 ### 5. 认证系统
 
 - FFLogs OAuth 2.0 Authorization Code Flow
@@ -181,5 +192,5 @@ GET  /api/my/timelines          → timelines.ts（我的时间轴列表）
 
 ---
 
-**最后更新**: 2026-04-13
+**最后更新**: 2026-04-24
 **线上地址**: https://xivhealer.com
