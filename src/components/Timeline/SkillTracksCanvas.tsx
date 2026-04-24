@@ -16,6 +16,7 @@ import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
 import { TIME_EPS } from '@/utils/placement/types'
 import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
 import { effectiveTrackGroup } from '@/types/mitigation'
+import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
@@ -115,6 +116,7 @@ export default function SkillTracksCanvas({
 }: SkillTracksCanvasProps) {
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
+  const { filteredDamageEvents } = useFilteredTimelineView()
 
   // 视口裁剪：只渲染可见范围内的元素（含 1 个 viewport 宽度的 buffer）
   const buffer = viewportWidth
@@ -305,8 +307,9 @@ export default function SkillTracksCanvas({
 
       {/* 技能使用事件层 */}
       <Layer ref={eventLayerRef} x={-scrollLeft} y={-scrollTop}>
-        {/* 伤害事件时刻的红色虚线（视口裁剪） */}
-        {timeline.damageEvents
+        {/* 伤害事件时刻的红色虚线（视口裁剪）。必须用过滤后的集合——与 DamageEventTrack
+            渲染卡片的数据源保持一致；否则按 damageType 过滤时会多出一些"孤立"红线。 */}
+        {filteredDamageEvents
           .filter(event => {
             const x =
               draggingEventPosition?.eventId === event.id
