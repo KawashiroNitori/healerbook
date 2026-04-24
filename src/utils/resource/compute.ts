@@ -26,7 +26,7 @@ function hasExplicitConsumer(action: MitigationAction): boolean {
  * 无显式消费者 → 合成一个 [{ resourceId: '__cd__:${id}', delta: -1, required: true }]，
  *             同时带上可能存在的产出 effect（如未来纯产出类）。
  */
-function effectsForAction(action: MitigationAction): ResourceEffect[] {
+export function effectsForAction(action: MitigationAction): ResourceEffect[] {
   if (hasExplicitConsumer(action)) {
     return action.resourceEffects ?? []
   }
@@ -149,6 +149,25 @@ export function computeResourceAmount(
   // 触发 atTime 及以前剩余的 pending
   firePendingUpTo(atTime)
   return amount
+}
+
+/**
+ * 解析 resourceId 对应的 ResourceDefinition。
+ * - 优先查 registry；
+ * - resourceId 以 `__cd__:` 开头时，用 actionForSynthCd.cooldown 合成单充能池 def；
+ * - 其他情况返回 null。
+ */
+export function resolveDef(
+  resourceId: string,
+  registry: Record<string, ResourceDefinition>,
+  actionForSynthCd: MitigationAction
+): ResourceDefinition | null {
+  const explicit = registry[resourceId]
+  if (explicit) return explicit
+  if (resourceId.startsWith('__cd__:')) {
+    return syntheticCdDef(resourceId, actionForSynthCd.cooldown)
+  }
+  return null
 }
 
 /**

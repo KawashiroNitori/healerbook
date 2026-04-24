@@ -8,23 +8,10 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { ResourceDefinition, ResourceEffect, ResourceEvent } from '@/types/resource'
 import type { Interval } from '@/utils/placement/types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from '@/utils/placement/intervals'
-import { computeResourceTrace, syntheticCdDef } from './compute'
+import { computeResourceTrace, effectsForAction, resolveDef } from './compute'
 
 const INF = Number.POSITIVE_INFINITY
 const NEG_INF = Number.NEGATIVE_INFINITY
-
-function resolveDef(
-  resourceId: string,
-  registry: Record<string, ResourceDefinition>,
-  actionForSynthCd: MitigationAction
-): ResourceDefinition | null {
-  const explicit = registry[resourceId]
-  if (explicit) return explicit
-  if (resourceId.startsWith('__cd__:')) {
-    return syntheticCdDef(resourceId, actionForSynthCd.cooldown)
-  }
-  return null
-}
 
 /**
  * 单个 ResourceEffect 对应的 forbid 区间集合（自耗尽 ∪ 下游透支）。
@@ -105,13 +92,7 @@ export function resourceLegalIntervals(
   registry: Record<string, ResourceDefinition>
 ): Interval[] {
   // 合成 effect 列表（与 deriveResourceEvents 对齐）
-  const hasConsumer = !!action.resourceEffects?.some(e => e.delta < 0)
-  const effects: ResourceEffect[] = hasConsumer
-    ? (action.resourceEffects ?? [])
-    : [
-        { resourceId: `__cd__:${action.id}`, delta: -1, required: true },
-        ...(action.resourceEffects ?? []),
-      ]
+  const effects = effectsForAction(action)
 
   let legal: Interval[] = [{ from: NEG_INF, to: INF }]
   for (const eff of effects) {

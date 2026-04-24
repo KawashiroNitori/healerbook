@@ -6,21 +6,8 @@
 
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
-import type { ResourceDefinition, ResourceEffect, ResourceEvent } from '@/types/resource'
-import { computeResourceTrace, syntheticCdDef } from './compute'
-
-function resolveDef(
-  resourceId: string,
-  registry: Record<string, ResourceDefinition>,
-  action: MitigationAction
-): ResourceDefinition | null {
-  const explicit = registry[resourceId]
-  if (explicit) return explicit
-  if (resourceId.startsWith('__cd__:')) {
-    return syntheticCdDef(resourceId, action.cooldown)
-  }
-  return null
-}
+import type { ResourceDefinition, ResourceEvent } from '@/types/resource'
+import { computeResourceTrace, effectsForAction, resolveDef } from './compute'
 
 /**
  * 返回 cast 的蓝条 rawEnd（秒）。null = 不画；Infinity = 时间轴内无恢复。
@@ -34,10 +21,9 @@ export function computeCdBarEnd(
   registry: Record<string, ResourceDefinition>
 ): number | null {
   // 选代表 consume effect（同 deriveResourceEvents 的合成逻辑）
-  const hasConsumer = !!action.resourceEffects?.some(e => e.delta < 0)
-  const consume: ResourceEffect = hasConsumer
-    ? action.resourceEffects!.find(e => e.delta < 0)!
-    : { resourceId: `__cd__:${action.id}`, delta: -1, required: true }
+  const effects = effectsForAction(action)
+  const consume = effects.find(e => e.delta < 0)
+  if (!consume) return null
 
   const def = resolveDef(consume.resourceId, registry, action)
   if (!def) return null
