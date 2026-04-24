@@ -25,7 +25,7 @@ interface SkillTracksCanvasProps {
   /** Task 14 会用这些 prop 接入 engine 阴影 / 拖拽 / 红边框；Task 13 仅占位。 */
   actionMap?: Map<number, MitigationAction>
   engine?: PlacementEngine | null
-  invalidCastEventMap?: Map<string, InvalidReason>
+  invalidCastEventMap?: Map<string, { reason: InvalidReason; resourceId?: string }>
   draggingId?: string | null
   setDraggingId?: (id: string | null) => void
   displayActionOverrides: Map<string, MitigationAction>
@@ -567,7 +567,8 @@ export default function SkillTracksCanvas({
               castEvent={castEvent}
               action={action}
               displayAction={displayAction}
-              invalidReason={invalidCastEventMap?.get(castEvent.id) ?? null}
+              invalidReason={invalidCastEventMap?.get(castEvent.id)?.reason ?? null}
+              invalidResourceId={invalidCastEventMap?.get(castEvent.id)?.resourceId ?? null}
               isSelected={isSelected}
               zoomLevel={zoomLevel}
               trackY={trackY}

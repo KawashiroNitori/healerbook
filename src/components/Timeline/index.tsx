@@ -194,9 +194,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }, [timeline?.castEvents])
 
   const invalidCastEventMap = useMemo(() => {
-    if (!engine) return new Map<string, InvalidReason>()
+    if (!engine) return new Map<string, { reason: InvalidReason; resourceId?: string }>()
     const invalid = engine.findInvalidCastEvents(draggingId ?? undefined)
-    return new Map(invalid.map(r => [r.castEvent.id, r.reason]))
+    return new Map(
+      invalid.map(r => [r.castEvent.id, { reason: r.reason, resourceId: r.resourceId }])
+    )
   }, [engine, draggingId])
 
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()

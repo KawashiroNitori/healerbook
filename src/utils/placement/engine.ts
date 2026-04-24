@@ -4,12 +4,17 @@ import { effectiveTrackGroup } from '@/types/mitigation'
 import type {
   Interval,
   InvalidCastEvent,
+  InvalidReason,
   PlacementContext,
   PlacementEngine,
   StatusTimelineByPlayer,
 } from './types'
 import { TIME_EPS } from './types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from './intervals'
+import { deriveResourceEvents } from '@/utils/resource/compute'
+import { findResourceExhaustedCasts } from '@/utils/resource/validator'
+import { resourceLegalIntervals } from '@/utils/resource/legalIntervals'
+import { RESOURCE_REGISTRY } from '@/data/resources'
 
 export interface PlacementEngineInput {
   castEvents: CastEvent[]
@@ -20,6 +25,7 @@ export interface PlacementEngineInput {
 export function createPlacementEngine(input: PlacementEngineInput): PlacementEngine {
   const { castEvents, actions, simulate } = input
   const defaultTimeline = simulate(castEvents).statusTimelineByPlayer
+  const resourceEventsByKey = deriveResourceEvents(castEvents, actions)
 
   const excludedTimelineCache = new Map<string, StatusTimelineByPlayer>()
 
@@ -53,30 +59,6 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     }
   }
 
-  function cooldownAvailable(
-    action: MitigationAction,
-    playerId: number,
-    ctxEvents: CastEvent[]
-  ): Interval[] {
-    const groupId = effectiveTrackGroup(action)
-    const forbidden: Interval[] = []
-    for (const e of ctxEvents) {
-      if (e.playerId !== playerId) continue
-      const other = actions.get(e.actionId)
-      if (!other) continue
-      if (effectiveTrackGroup(other) !== groupId) continue
-      // 放置 `action` 于 t_n 与已有 cast e 冲突当且仅当两者 CD 条重叠：
-      //   [t_n, t_n + action.cooldown) ∩ [e.timestamp, e.timestamp + other.cooldown) ≠ ∅
-      // ↔ t_n ∈ (e.timestamp − action.cooldown, e.timestamp + other.cooldown)
-      // 左右各扩一次可以覆盖"前向与已有 CD 条重叠"和"后向自己 CD 未到"两种冲突。
-      forbidden.push({
-        from: e.timestamp - action.cooldown,
-        to: e.timestamp + other.cooldown,
-      })
-    }
-    return complement(mergeOverlapping(sortIntervals(forbidden)))
-  }
-
   function getValidIntervals(
     action: MitigationAction,
     playerId: number,
@@ -86,8 +68,19 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     const placementIntervals = action.placement
       ? action.placement.validIntervals(ctx)
       : [{ from: Number.NEGATIVE_INFINITY, to: Number.POSITIVE_INFINITY }]
-    const cd = cooldownAvailable(action, playerId, ctx.castEvents)
-    return intersect(placementIntervals, cd)
+    const effectiveResourceEvents = excludeId
+      ? deriveResourceEvents(
+          castEvents.filter(e => e.id !== excludeId),
+          actions
+        )
+      : resourceEventsByKey
+    const resourceIntervals = resourceLegalIntervals(
+      action,
+      playerId,
+      effectiveResourceEvents,
+      RESOURCE_REGISTRY
+    )
+    return intersect(placementIntervals, resourceIntervals)
   }
 
   const trackGroupMembers = new Map<number, MitigationAction[]>()
@@ -176,42 +169,47 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
   }
 
   function findInvalidCastEvents(excludeId?: string): InvalidCastEvent[] {
-    const result: InvalidCastEvent[] = []
-    const events = effectiveCastEvents(excludeId).filter(e => e.id !== excludeId)
-    for (const castEvent of events) {
+    const effectiveEvents = effectiveCastEvents(excludeId).filter(e => e.id !== excludeId)
+
+    // 1. placement 层失效
+    const placementLost = new Map<string, boolean>()
+    for (const castEvent of effectiveEvents) {
       const action = actions.get(castEvent.actionId)
       if (!action) continue
       const t = castEvent.timestamp
       const ctx = buildContext(action, castEvent.playerId, excludeId, castEvent)
-      const placementOk =
+      const ok =
         !action.placement ||
         action.placement
           .validIntervals(ctx)
           .some(i => i.from - TIME_EPS <= t && t <= i.to + TIME_EPS)
-      // cooldown 用严格重叠 (<) 直接判定，避开区间半开表示在 t_n = t_e - cd_x 边界处的
-      // off-by-one：两 CD 条刚好紧贴不算冲突（与原 checkOverlap 行为一致）。
-      // 左侧加 TIME_EPS 收紧阈值：timestamp 由浮点运算链（ts+cd / ms/1000 / x/zoom）得出，
-      // 紧贴场景下 `t + cdA` 与 B.ts 可能差 1~2 ULP；裸 `<` 会把两 CD 条的浮点毛刺误判为重叠。
-      const groupId = effectiveTrackGroup(action)
-      const cooldownOk = !ctx.castEvents.some(e => {
-        if (e.id === castEvent.id) return false
-        if (e.playerId !== castEvent.playerId) return false
-        const other = actions.get(e.actionId)
-        if (!other) return false
-        if (effectiveTrackGroup(other) !== groupId) return false
-        return (
-          t + TIME_EPS < e.timestamp + other.cooldown &&
-          e.timestamp + TIME_EPS < t + action.cooldown
-        )
-      })
-      if (placementOk && cooldownOk) continue
-      const reason =
-        !placementOk && !cooldownOk
-          ? ('both' as const)
-          : !placementOk
-            ? ('placement_lost' as const)
-            : ('cooldown_conflict' as const)
-      result.push({ castEvent, reason })
+      if (!ok) placementLost.set(castEvent.id, true)
+    }
+
+    // 2. resource 层失效
+    const resourceExhausted = findResourceExhaustedCasts(
+      castEvents,
+      actions,
+      RESOURCE_REGISTRY,
+      excludeId
+    )
+    const exhaustedMap = new Map<string, string>()
+    for (const ex of resourceExhausted) {
+      // 一次 cast 可能命中多个资源，保留第一个
+      if (!exhaustedMap.has(ex.castEventId)) exhaustedMap.set(ex.castEventId, ex.resourceId)
+    }
+
+    // 3. 合并
+    const result: InvalidCastEvent[] = []
+    for (const castEvent of effectiveEvents) {
+      const pLost = placementLost.has(castEvent.id)
+      const rExhausted = exhaustedMap.has(castEvent.id)
+      if (!pLost && !rExhausted) continue
+      const reason: InvalidReason =
+        pLost && rExhausted ? 'both' : pLost ? 'placement_lost' : 'resource_exhausted'
+      const entry: InvalidCastEvent = { castEvent, reason }
+      if (rExhausted) entry.resourceId = exhaustedMap.get(castEvent.id)
+      result.push(entry)
     }
     return result
   }
@@ -223,5 +221,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     pickUniqueMember,
     canPlaceCastEvent,
     findInvalidCastEvents,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    cdBarEndFor: (_castEventId: string) => null, // 阶段 6 补真实实现
   }
 }

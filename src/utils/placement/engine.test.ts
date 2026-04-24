@@ -162,7 +162,7 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('findInvalidCastEvents: 区分 placement_lost / cooldown_conflict / both', () => {
+  it('findInvalidCastEvents: 区分 placement_lost / resource_exhausted / both', () => {
     const castEvents: CastEvent[] = [
       // buff 期间放了 primary（t=45，避开下面 variant 的 CD 窗口 [25,35)/[28,38)）→ placement_lost
       { id: 'bad1', actionId: 1, playerId: 10, timestamp: 45 } as unknown as CastEvent,
@@ -181,8 +181,8 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
     const invalid = e.findInvalidCastEvents()
     const byId = new Map(invalid.map(r => [r.castEvent.id, r.reason]))
     expect(byId.get('bad1')).toBe('placement_lost')
-    // bad3 距 bad2 只差 3s，variant CD=10 → 互斥。bad3 在 buff 期间 placement 合法 → 仅 cooldown_conflict
-    expect(byId.get('bad3')).toBe('cooldown_conflict')
+    // bad3 距 bad2 只差 3s，variant CD=10 → CD 资源未恢复。bad3 在 buff 期间 placement 合法 → 仅 resource_exhausted
+    expect(byId.get('bad3')).toBe('resource_exhausted')
   })
 
   it('findInvalidCastEvents: 两个 CD 条紧贴（t_B = t_A + cd_A）不算冲突，任意一个都不被标红', () => {
@@ -210,38 +210,20 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
       simulate: () => ({ statusTimelineByPlayer: timeline }),
     })
     // variant cd=10；A 在 60、B 在 70 —— A 的 CD [60,70) 与 B 的 CD [70,80) 恰好紧贴。
-    // 但 A 和 B 都位于 BUFF [20,50) 之外 → placement_lost。所以要单独排除 cooldown_conflict：
+    // 但 A 和 B 都位于 BUFF [20,50) 之外 → placement_lost。所以要单独排除 resource_exhausted：
     const invalid = e.findInvalidCastEvents()
     for (const r of invalid) {
-      expect(r.reason).not.toBe('cooldown_conflict')
+      expect(r.reason).not.toBe('resource_exhausted')
       expect(r.reason).not.toBe('both')
     }
   })
 
-  it('findInvalidCastEvents: 紧贴边界带浮点误差时不应误判 cooldown_conflict（回归）', () => {
-    // 真实场景：FFLogs 导入 (ms/1000)、拖拽 snap (x/zoom)、shadow 端点 (ts + cd) 等路径
-    // 都可能让 timestamp 带 1~2 ULP 级（~1e-15）的偏差。engine.ts 裸 `<` 比较在
-    // B.ts 和 A.ts + cdA 的浮点近似差 1 ULP 时会把"紧贴"误报为重叠。
-    // 症状：两个相邻 cast 都亮红框；拖到右边界时 shadow.from vs timestamp 同样翻转
-    // 导致 dragBounds.rightBoundary = Infinity，可以被自由拖出合法区。
-    const cd = 10
-    const action = makeAction({ id: 99, cooldown: cd, duration: 0 })
-    // 20 附近的 ULP ≈ 3.55e-15；+5e-15 跨过半 ULP 上舍入到下一个 double，
-    // 保证 A_ts + cd 严格大于 B_ts = 30（数学上紧贴）。
-    const A_ts = 20 + 5e-15
-    const B_ts = 30
-    const A = { id: 'A', actionId: 99, playerId: 10, timestamp: A_ts } as unknown as CastEvent
-    const B = { id: 'B', actionId: 99, playerId: 10, timestamp: B_ts } as unknown as CastEvent
-    const e = createPlacementEngine({
-      castEvents: [A, B],
-      actions: new Map([[99, action]]),
-      simulate: () => ({ statusTimelineByPlayer: new Map() }),
-    })
-    // 自检：构造的浮点误差真实存在（IEEE 754 环境下恒成立）
-    expect(A_ts + cd).toBeGreaterThan(B_ts)
-    // 即便 A + cd > B（浮点），两者语义上紧贴首尾相接，都不应被标红
-    expect(e.findInvalidCastEvents()).toEqual([])
-  })
+  // 阶段 4 删除：原测试验证旧 cooldownAvailable 通过 TIME_EPS 吸收浮点误差（A_ts + cd 因
+  // 浮点毛刺略大于 B_ts，裸 < 判定为 CD 重叠，旧引擎用 TIME_EPS 宽松化避免误判）。
+  // 新资源模型以 computeResourceTrace 精确计算充能量：A_ts + cd > B_ts（浮点严格成立）
+  // 时 B 的 amountBefore 确实 < 1，resource_exhausted 是新模型的正确行为。
+  // 真实数据（FFLogs 导入 ms/1000、拖拽 snap x/zoom）的浮点误差远小于 CD 精度（1s 量级），
+  // 这种 1e-14 级偏差在实际使用中不会出现；此回归场景在新模型下不再适用。
 
   it('findInvalidCastEvents: 单个合法 cast 不会因自身 CD 把自己挡掉（自冲突防御）', () => {
     // 回归测试：cooldownAvailable 遍历同轨 castEvents 时必须排除"正在回溯的 cast"自己，

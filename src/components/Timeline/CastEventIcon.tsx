@@ -18,6 +18,8 @@ interface CastEventIconProps {
   displayAction?: MitigationAction
   /** 本 cast 在当前 partyState / castEvents 下是否违反 placement/CD，非 null 时显示红边框 */
   invalidReason?: InvalidReason | null
+  /** reason === 'resource_exhausted' | 'both' 时携带：首个失败的 resourceId（UI 用来查 max） */
+  invalidResourceId?: string | null
   isSelected: boolean
   zoomLevel: number
   trackY: number

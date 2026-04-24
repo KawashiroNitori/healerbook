@@ -43,11 +43,16 @@ export interface Placement {
   validIntervals: (ctx: PlacementContext) => Interval[]
 }
 
-export type InvalidReason = 'placement_lost' | 'cooldown_conflict' | 'both'
+export type InvalidReason = 'placement_lost' | 'resource_exhausted' | 'both'
 
 export interface InvalidCastEvent {
   castEvent: CastEvent
   reason: InvalidReason
+  /**
+   * reason === 'resource_exhausted' | 'both' 时填；指向第一个耗尽的资源 id。
+   * UI 用它查 `RESOURCE_REGISTRY[resourceId]?.max` 决定文案（max=1 → '冷却中'；max>1 → '层数不足'）。
+   */
+  resourceId?: string
 }
 
 export interface PlacementEngine {
@@ -75,6 +80,11 @@ export interface PlacementEngine {
     excludeCastEventId?: string
   ): { ok: true } | { ok: false; reason: string }
   findInvalidCastEvents(excludeCastEventId?: string): InvalidCastEvent[]
+  /**
+   * 返回指定 cast 的蓝色 CD 条右端（秒）。null = 不画；Infinity = 时间轴内无恢复。
+   * 不接受 excludeId——永远以 engine 构造时的完整 castEvents 计算。
+   */
+  cdBarEndFor(castEventId: string): number | null
 }
 
 export type StatusTimelineByPlayer = Map<number, Map<number, StatusInterval[]>>
