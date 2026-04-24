@@ -112,6 +112,12 @@ export interface MitigationAction {
    * 且成员间的 validIntervals 必须两两互斥、并集覆盖全时间轴。
    */
   placement?: import('@/utils/placement/types').Placement
+  /**
+   * 一次 cast 对资源池的影响。compute 层的合成规则：
+   *   - 本字段未声明，或声明了但不含 delta<0（纯产出）→ 合成单充能池 __cd__:${id} 强制 cooldown
+   *   - 含 delta<0（有显式消费者）→ 跳过合成，cooldown 字段沦为信息性
+   */
+  resourceEffects?: import('./resource').ResourceEffect[]
 }
 
 /**
