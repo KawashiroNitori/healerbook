@@ -7,22 +7,7 @@
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { ResourceDefinition, ResourceExhaustion } from '@/types/resource'
-import { deriveResourceEvents } from './compute'
-
-/**
- * 合成 `__cd__:${actionId}` 资源池定义。
- * 只在查到不存在 registry[resourceId] 且 id 以 '__cd__:' 开头时返回。
- */
-function syntheticCdDef(resourceId: string, actionCd: number): ResourceDefinition {
-  return {
-    id: resourceId,
-    name: `Synthetic CD ${resourceId}`,
-    job: 'SCH', // 合成池 job 无意义，随便填
-    initial: 1,
-    max: 1,
-    regen: { interval: actionCd, amount: 1 },
-  }
-}
+import { computeResourceTrace, deriveResourceEvents, syntheticCdDef } from './compute'
 
 /**
  * 返回所有因资源不足被判非法的 cast。
@@ -51,34 +36,18 @@ export function findResourceExhaustedCasts(
     }
     if (!def) continue
 
-    // 沿事件遍历，在每个 delta<0 事件应用前检查 amount < |delta|
-    let amount = def.initial
-    const pending: number[] = []
-    const firePendingUpTo = (t: number) => {
-      while (pending.length > 0 && pending[0] <= t) {
-        pending.shift()
-        if (def.regen) amount = Math.min(amount + def.regen.amount, def.max)
-      }
-    }
-
-    for (const ev of events) {
-      firePendingUpTo(ev.timestamp)
+    const trace = computeResourceTrace(def, events)
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i]
       if (ev.delta < 0 && ev.required) {
         const threshold = -ev.delta
-        if (amount < threshold) {
+        if (trace[i].amountBefore < threshold) {
           exhaustions.push({
             castEventId: ev.castEventId,
             resourceKey,
             resourceId,
             playerId: ev.playerId,
           })
-        }
-      }
-      amount = Math.min(amount + ev.delta, def.max)
-      if (ev.delta < 0 && def.regen) {
-        const count = -ev.delta
-        for (let k = 0; k < count; k++) {
-          pending.push(ev.timestamp + def.regen.interval)
         }
       }
     }

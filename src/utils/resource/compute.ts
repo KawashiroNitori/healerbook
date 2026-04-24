@@ -150,3 +150,21 @@ export function computeResourceAmount(
   firePendingUpTo(atTime)
   return amount
 }
+
+/**
+ * 合成 `__cd__:${actionId}` 单充能池的 def。
+ *
+ * 供 validator / legalIntervals / cdBar 共用——action 无显式消费者（`resourceEffects` 不含 delta<0）时，
+ * deriveResourceEvents 会生成 `__cd__:${id}` 合成消耗事件，下游查 registry 查不到这个 id，
+ * 就用此函数从 action.cooldown 构造一个 max=1 initial=1 的单层池 def。
+ */
+export function syntheticCdDef(resourceId: string, actionCooldown: number): ResourceDefinition {
+  return {
+    id: resourceId,
+    name: `Synthetic CD ${resourceId}`,
+    job: 'SCH', // 合成池的 job 无实际意义，仅占位
+    initial: 1,
+    max: 1,
+    regen: { interval: actionCooldown, amount: 1 },
+  }
+}

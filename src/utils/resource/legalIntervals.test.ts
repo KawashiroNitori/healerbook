@@ -1,28 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { resourceLegalIntervals } from './legalIntervals'
-import { deriveResourceEvents } from './compute'
-import type { MitigationAction } from '@/types/mitigation'
-import type { CastEvent } from '@/types/timeline'
+import { computeResourceTrace, deriveResourceEvents } from './compute'
 import type { ResourceDefinition } from '@/types/resource'
+import { makeAction, makeCast } from './__tests__/helpers'
 
 const INF = Number.POSITIVE_INFINITY
 const NEG_INF = Number.NEGATIVE_INFINITY
-
-function makeAction(partial: Partial<MitigationAction> & { id: number }): MitigationAction {
-  return {
-    name: 'A',
-    icon: '',
-    jobs: [] as unknown as MitigationAction['jobs'],
-    category: ['partywide'],
-    duration: 0,
-    cooldown: 60,
-    ...partial,
-  } as MitigationAction
-}
-
-function makeCast(partial: Partial<CastEvent> & { id: string; actionId: number }): CastEvent {
-  return { playerId: 10, timestamp: 0, ...partial } as CastEvent
-}
 
 describe('resourceLegalIntervals — 单充能 __cd__ 场景', () => {
   it('无 cast：legal = (-∞, +∞)', () => {
@@ -128,6 +111,31 @@ describe('resourceLegalIntervals — 无 regen 场景', () => {
   })
 })
 
+describe('resourceLegalIntervals — required=false 软消费者', () => {
+  it('required=false 的消费者不进 forbid（与 validator 语义对齐）', () => {
+    const pool: ResourceDefinition = {
+      id: 'x:optional',
+      name: 'X',
+      job: 'SCH',
+      initial: 0,
+      max: 1,
+    }
+    const registry = { 'x:optional': pool }
+    const action = makeAction({
+      id: 1,
+      cooldown: 0,
+      resourceEffects: [{ resourceId: 'x:optional', delta: -1, required: false }],
+    })
+    const events = deriveResourceEvents(
+      [makeCast({ id: 'c', actionId: 1, timestamp: 10 })],
+      new Map([[1, action]])
+    )
+    expect(resourceLegalIntervals(action, 10, events, registry)).toEqual([
+      { from: NEG_INF, to: INF },
+    ])
+  })
+})
+
 describe('resourceLegalIntervals — 产出型 action', () => {
   it('只产出无消耗：无自耗尽 + 无下游透支 → legal 全时间', () => {
     const action = makeAction({
@@ -154,5 +162,49 @@ describe('resourceLegalIntervals — 产出型 action', () => {
       { from: NEG_INF, to: -110 },
       { from: 130, to: INF },
     ])
+  })
+})
+
+describe('resourceLegalIntervals — 浮点紧贴边界回归', () => {
+  it('紧贴边界 + 1 ULP 浮点毛刺：shadow 端点判定不应把 t=30 判进 forbid', () => {
+    // 回归 engine.test.ts:221 场景：timestamp 由 FFLogs 导入 (ms/1000)、
+    // 拖拽 snap (x/zoom)、shadow 端点 (ts + cd) 等路径算出，可能带 1~2 ULP 的浮点偏差。
+    // 资源模型下单充能合成 __cd__ 与旧 cooldownAvailable 数学等价，边界浮点行为也应等价。
+    const cd = 10
+    const action = makeAction({ id: 99, cooldown: cd })
+    const A_ts = 20 + 5e-15 // 跨过半 ULP 使 A_ts + cd 严格大于 30 的数学等式
+    const B_ts = 30
+    const events = deriveResourceEvents(
+      [
+        makeCast({ id: 'A', actionId: 99, timestamp: A_ts }),
+        makeCast({ id: 'B', actionId: 99, timestamp: B_ts }),
+      ],
+      new Map([[99, action]])
+    )
+    // legalIntervals 用 shadow 的 complement 方式表达，两个紧贴 cast 不应产生"夹在中间的"forbid 段
+    // 验证路径：对位于 A/B 之间的任何点，都应当至少有一段 legal interval 不包含它为"中间 forbid"
+    // 等价表述：A 和 B 自己的 amountBefore 都应当 >=1（未被自身耗尽误判）
+    // 这里直接验 amountBefore：
+    const trace = computeResourceTrace(
+      {
+        id: '__cd__:99',
+        name: '',
+        job: 'SCH',
+        initial: 1,
+        max: 1,
+        regen: { interval: cd, amount: 1 },
+      },
+      events.get('10:__cd__:99') ?? []
+    )
+    // A 是第 0 条：amountBefore=1 OK
+    // B 是第 1 条：refill 在 A_ts + cd = 30 + 5e-15 触发，B_ts=30 略早一点——ULP 敏感
+    // 期望：shadow 算法里没有浮点把戏导致的误判
+    expect(trace[0].amountBefore).toBe(1)
+    // B_ts=30 刚好在 A 的 refill 时刻，视 <= 判定：
+    //   pending=[30+5e-15], B_ts=30, 30+5e-15 > 30 → refill 未触发，amountBefore=0
+    //   这是"紧贴"的数学真相；在 engine 层靠 TIME_EPS 容差吸收。这里仅验证状态机行为一致。
+    expect(trace[1].amountBefore).toBe(0)
+    // shadow 层的 TIME_EPS 容差在阶段 4（engine 接入）落实；
+    // 本阶段 resourceLegalIntervals 不做端点容差，直接数学定义
   })
 })

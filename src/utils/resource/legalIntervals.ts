@@ -8,21 +8,10 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { ResourceDefinition, ResourceEffect, ResourceEvent } from '@/types/resource'
 import type { Interval } from '@/utils/placement/types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from '@/utils/placement/intervals'
-import { computeResourceTrace } from './compute'
+import { computeResourceTrace, syntheticCdDef } from './compute'
 
 const INF = Number.POSITIVE_INFINITY
 const NEG_INF = Number.NEGATIVE_INFINITY
-
-function syntheticCdDef(resourceId: string, actionCd: number): ResourceDefinition {
-  return {
-    id: resourceId,
-    name: `Synthetic CD ${resourceId}`,
-    job: 'SCH',
-    initial: 1,
-    max: 1,
-    regen: { interval: actionCd, amount: 1 },
-  }
-}
 
 function resolveDef(
   resourceId: string,
@@ -46,7 +35,8 @@ function forbidForEffect(
   events: ResourceEvent[],
   def: ResourceDefinition
 ): Interval[] {
-  if (effect.delta >= 0) return [] // 产出不贡献 forbid
+  if (effect.delta >= 0 || effect.required === false) return []
+  // 产出不贡献 forbid；required=false 的软消费者也不贡献（与 validator 语义对齐）
   const threshold = -effect.delta
 
   const trace = computeResourceTrace(def, events)
