@@ -33,7 +33,10 @@ export interface ResourceEffect {
   resourceId: string
   /** 正 = 产出，负 = 消耗；一次 cast 可对多个资源声明多个 effect */
   delta: number
-  /** 仅对 delta < 0 有意义：资源不足是否阻止使用（默认 true） */
+  /**
+   * 仅对 delta < 0 有意义：资源不足是否阻止使用（默认 true）。
+   * compute 层实现必须忽略 delta >= 0 的 required 字段（即不因产出事件的 required 触发任何检查）。
+   */
   required?: boolean
 }
 
@@ -45,7 +48,9 @@ export interface ResourceEvent {
   delta: number
   castEventId: string
   actionId: number
+  /** 便利冗余，等价于 resourceKey.split(':')[0] 解包；避免 compute 层频繁拆 key */
   playerId: number
+  /** 便利冗余，等价于 resourceKey 去掉 `${playerId}:` 前缀；便于合成池查表 */
   resourceId: string
   required: boolean
   /**
@@ -59,7 +64,7 @@ export interface ResourceEvent {
 export interface ResourceSnapshot {
   /** 对应 events[index] */
   index: number
-  /** 事件 apply 前的 amount（已 apply 前面所有 refills） */
+  /** 事件 apply 前的 amount（已触发 ≤ ev.timestamp 的所有 pending refill，但未应用 ev.delta） */
   amountBefore: number
   /** 事件 apply 后的 amount（已 clamp 上限，下限不 clamp） */
   amountAfter: number

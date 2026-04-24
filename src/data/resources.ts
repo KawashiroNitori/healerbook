@@ -10,7 +10,8 @@ import type { ResourceDefinition } from '@/types/resource'
 
 export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {}
 
-// 模块导入时校验命名空间不冲突
+// 模块导入时校验命名空间不冲突。
+// 当前 registry 为空，断言实际不执行；阶段 4 填入条目后生效。
 for (const id of Object.keys(RESOURCE_REGISTRY)) {
   if (id.startsWith('__cd__:')) {
     throw new Error(`Resource id "${id}" conflicts with synthetic CD resource namespace`)
