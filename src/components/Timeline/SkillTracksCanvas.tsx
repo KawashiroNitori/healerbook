@@ -597,6 +597,9 @@ export default function SkillTracksCanvas({
               onClickIcon={onClickAction}
               isReadOnly={isReadOnly}
               cdBarEnd={engine?.cdBarEndFor(castEvent.id) ?? null}
+              // 传给 CastEventIcon 的 timelineEndSec 直接复用 canvas 自身的 maxTime prop——
+              // 二者目前语义一致（时间轴右端秒数）。若未来 canvas 边界与蓝条 Infinity 截断点分叉，
+              // 应把 timelineEndSec 上移到独立 prop 从 index.tsx 传下来。
               timelineEndSec={maxTime}
             />
           )

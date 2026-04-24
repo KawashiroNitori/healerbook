@@ -85,6 +85,10 @@ const CastEventIcon = memo(function CastEventIcon({
           (visualEndSec - castEvent.timestamp) * zoomLevel - effectiveDuration * zoomLevel
         )
   const showCdBar = cdBarWidth > 0
+  // cdRemainingSec：用于显示末端文本的剩余秒数。
+  // Infinity 场景下 rawEndSec 已被截到 timelineEndSec → 此值代表"到时间轴末尾的秒数"而非真实 CD；
+  // showCdText 的 visualEndSec === rawEndSec guard 在 nextCastTime 截短时会抑制文本，
+  // 真·Infinity 且无 nextCastTime 截短的场景仍会显示"到 timeline 末尾"这个秒数（可接受的 fallback）。
   const cdRemainingSec = rawEndSec === null ? 0 : rawEndSec - castEvent.timestamp
   const showCdText = rawEndSec !== null && visualEndSec === rawEndSec && cdRemainingSec >= 3
   const cdTextSeconds = Math.round(cdRemainingSec)
