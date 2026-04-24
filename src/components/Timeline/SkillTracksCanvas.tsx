@@ -9,7 +9,7 @@ import AnnotationIcon from './AnnotationIcon'
 import CastEventIcon from './CastEventIcon'
 import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME, useCanvasColors } from './constants'
 import type { SkillTrack } from '@/utils/skillTracks'
-import type { Annotation, Timeline } from '@/types/timeline'
+import type { Annotation, CastEvent, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
@@ -123,26 +123,58 @@ export default function SkillTracksCanvas({
   const visibleMinX = scrollLeft - buffer
   const visibleMaxX = scrollLeft + viewportWidth + buffer
 
-  // 预聚合每条可见条的区间，按 (playerId, groupId) 分桶；避免每个轨道在 render 里再扫一遍全量 castEvents。
+  // 预聚合每条可见条的区间，按 (playerId, groupId) 分桶；avoid shadow 与 duration / blue CD 条视觉重复。
+  //
+  // 新资源模型下，每条 cast 的"可见 bar 覆盖区"需精确按当前状态算：
+  //   - duration 条占 [ts, ts + effectiveDuration)（effectiveDuration 被同轨下一 cast 截短）
+  //   - blue CD 条占 [ts + effectiveDuration, visualEnd)，visualEnd = min(rawEnd, nextCastTime)
+  //   - rawEnd 来自 engine.cdBarEndFor（null = 无蓝条；Infinity = 截到 timelineEnd）
+  //
+  // 老版本用 max(action.cooldown, action.duration) 当固定窗口，在慰藉/献奉这类多充能场景下会过度 subtract
+  // shadow（例 献奉双 cast @ t=0/30：老算法扣 [0, 90)，真实只有 [0, 7) ∪ [30, 60)；[7, 30) 的 shadow 被错误吞掉）。
   const visibleBarsByTrack = useMemo(() => {
     const bucket = new Map<string, { from: number; to: number }[]>()
     if (!actionMap) return bucket
+
+    // 先按 (playerId, groupId) 分组、按 timestamp 升序，逐 cast 取 nextCastTime
+    const grouped = new Map<string, CastEvent[]>()
     for (const ce of timeline.castEvents) {
       const other = actionMap.get(ce.actionId)
       if (!other) continue
       const groupId = effectiveTrackGroup(other)
       const key = `${ce.playerId}|${groupId}`
-      const barExtent = Math.max(other.cooldown, other.duration)
-      const arr = bucket.get(key) ?? []
-      arr.push({ from: ce.timestamp, to: ce.timestamp + barExtent })
-      bucket.set(key, arr)
+      const arr = grouped.get(key) ?? []
+      arr.push(ce)
+      grouped.set(key, arr)
     }
+    for (const arr of grouped.values()) {
+      arr.sort((a, b) => a.timestamp - b.timestamp)
+    }
+
+    for (const [key, arr] of grouped) {
+      const bucketArr: { from: number; to: number }[] = []
+      for (let i = 0; i < arr.length; i++) {
+        const ce = arr[i]
+        const other = actionMap.get(ce.actionId)
+        if (!other) continue
+        const nextCastTime = i + 1 < arr.length ? arr[i + 1].timestamp : Infinity
+        const effectiveDuration = Math.min(other.duration, nextCastTime - ce.timestamp)
+        const cdEnd = engine?.cdBarEndFor(ce.id) ?? null
+        const rawEnd = cdEnd === null ? null : cdEnd === Infinity ? maxTime : cdEnd
+        const visualEnd =
+          rawEnd === null ? ce.timestamp + effectiveDuration : Math.min(rawEnd, nextCastTime)
+        const visibleEnd = Math.max(ce.timestamp + effectiveDuration, visualEnd)
+        bucketArr.push({ from: ce.timestamp, to: visibleEnd })
+      }
+      bucket.set(key, bucketArr)
+    }
+
     const merged = new Map<string, { from: number; to: number }[]>()
     for (const [k, arr] of bucket) {
       merged.set(k, mergeOverlapping(sortIntervals(arr)))
     }
     return merged
-  }, [timeline.castEvents, actionMap])
+  }, [timeline.castEvents, actionMap, engine, maxTime])
 
   return (
     <>

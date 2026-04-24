@@ -583,34 +583,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     return () => el.removeEventListener('wheel', handler)
   }, [handleDirectScroll])
 
-  // 检查技能是否与同轨道的其他技能重叠
-  const checkOverlap = (
-    newTime: number,
-    playerId: number,
-    actionId: number,
-    excludeCastEventId?: string
-  ): boolean => {
-    if (!timeline) return false
-
-    const currentAction = actions.find(a => a.id === actionId)
-    if (!currentAction) return false
-
-    const currentEndTime = newTime + currentAction.cooldown
-
-    return timeline.castEvents.some(other => {
-      if (excludeCastEventId && other.id === excludeCastEventId) return false
-      if (other.playerId !== playerId || other.actionId !== actionId) return false
-
-      const otherAction = actions.find(a => a.id === other.actionId)
-      if (!otherAction) return false
-
-      const otherTimeSeconds = other.timestamp
-      const otherEndTime = otherTimeSeconds + otherAction.cooldown
-
-      return newTime < otherEndTime && otherTimeSeconds < currentEndTime
-    })
-  }
-
   // 同步左侧标签列的垂直滚动（用 clampedScrollTop，在渲染阶段计算后通过 ref 同步）
 
   // 初始化缩放级别
@@ -763,10 +735,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       resolvedActionId = member.id
     }
 
-    if (checkOverlap(time, playerId, resolvedActionId)) {
-      toast.error('无法添加技能', { description: '该技能与已有技能重叠' })
-      return
-    }
+    // CD 冲突 / 资源耗尽 已由 pickUniqueMember 内部 canPlaceCastEvent 闭环过滤
+    // （legal = placement ∩ resourceLegalIntervals）；此处不再重复 overlap 窗口检查——
+    // 旧 checkOverlap 按 action.cooldown 硬窗口互斥，与多充能（慰藉/献奉）语义冲突。
 
     addCastEvent({
       id: `cast-${Date.now()}`,

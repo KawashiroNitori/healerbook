@@ -111,7 +111,6 @@ export default function TimelineTableView() {
       // 新增：先由 engine 选当前时刻唯一合法变体（buff 期 37013 列自动变 37016）；
       // 未接入 engine / 单成员组时退化为传入的 track.actionId。
       let resolvedActionId = track.actionId
-      let resolvedAction = parent
       if (engine) {
         const member = engine.pickUniqueMember(groupId, track.playerId, event.time)
         if (!member) {
@@ -119,22 +118,11 @@ export default function TimelineTableView() {
           return
         }
         resolvedActionId = member.id
-        resolvedAction = member
       }
 
-      // 重叠检查按 resolvedActionId（同 actionId 之间的 CD bar 互斥，与画布视图 checkOverlap 一致）
-      const newEnd = event.time + resolvedAction.cooldown
-      const overlap = timeline.castEvents.some(other => {
-        if (other.playerId !== track.playerId || other.actionId !== resolvedActionId) return false
-        const otherAction = actionsById.get(other.actionId)
-        if (!otherAction) return false
-        const otherEnd = other.timestamp + otherAction.cooldown
-        return event.time < otherEnd && other.timestamp < newEnd
-      })
-      if (overlap) {
-        toast.error('无法添加技能', { description: '该技能与已有技能重叠' })
-        return
-      }
+      // CD 冲突 / 资源耗尽 已由 pickUniqueMember 内部 canPlaceCastEvent 闭环过滤
+      // （legal = placement ∩ resourceLegalIntervals）；此处不再重复 overlap 窗口检查——
+      // 旧 overlap 按 action.cooldown 硬窗口互斥，与多充能（慰藉/献奉）语义冲突。
       addCastEvent({
         id: `cast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         actionId: resolvedActionId,

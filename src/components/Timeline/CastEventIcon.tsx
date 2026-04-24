@@ -90,7 +90,10 @@ const CastEventIcon = memo(function CastEventIcon({
   // showCdText 的 visualEndSec === rawEndSec guard 在 nextCastTime 截短时会抑制文本，
   // 真·Infinity 且无 nextCastTime 截短的场景仍会显示"到 timeline 末尾"这个秒数（可接受的 fallback）。
   const cdRemainingSec = rawEndSec === null ? 0 : rawEndSec - castEvent.timestamp
-  const showCdText = rawEndSec !== null && visualEndSec === rawEndSec && cdRemainingSec >= 3
+  // 文本显示条件需加 showCdBar：effectiveDuration >= (visualEndSec - t) 时 cdBarWidth=0 蓝条不画，
+  // 但文本位置 cdRemainingSec*zoom - 22 可能落进 green duration 条内部（如慰藉 duration=30 / rawEnd
+  // 距 t 只有 27s 的场景），变成 green 条上飘一个虚空秒数。绑定 showCdBar 一并抑制。
+  const showCdText = showCdBar && visualEndSec === rawEndSec && cdRemainingSec >= 3
   const cdTextSeconds = Math.round(cdRemainingSec)
   const cdTextX = cdRemainingSec * zoomLevel - 22
 
