@@ -764,7 +764,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
   ],
 }
 
-if (import.meta.env.DEV) {
+// Worker runtime 下 import.meta.env 为 undefined，用可选链避免顶层抛错
+if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
   // 异步导入避免生产打包时保留 validate 代码路径
   void import('@/utils/placement/validate').then(({ validateActions }) => {
     const issues = validateActions(MITIGATION_DATA.actions)
