@@ -68,6 +68,8 @@
 
 这条是"现有 CD 冲突行为与单充能池数学等价"的根。
 
+**与 `trackGroup` 完全解耦**：合成键用 `actionId`、**不使用** `effectiveTrackGroup`。`trackGroup` 仅是 UI 渲染概念（哪些 actionId 共用一行），不进入 compute / validator / legalIntervals 层。副作用：现有 `cooldownAvailable` 里"同 trackGroup 跨 actionId 的 CD 冲突"检测随迁移消失（例：意气 37013 @ t=0 + 降临 37016 @ t=1 原被 block，新模型视为合法）。该场景属于 GCD 窗口内连按两个 GCD 技能——现实玩家做不到，由 FF14 常识而非 planner 阻止。不视作 regression。
+
 ### D4. 资源 regen = 充能计时（非固定钟）
 
 FF14 充能类技能语义：**每次消耗调度一个 `interval` 秒后到点的独立 refill**，到点时若未满则 +amount、满则忽略。不是"从战斗 t=0 按 interval 固定 tick"。
@@ -192,6 +194,17 @@ for (const id of Object.keys(RESOURCE_REGISTRY)) {
 ```ts
 // cooldown_conflict 一把改 resource_exhausted，不保留 deprecated 别名
 export type InvalidReason = 'placement_lost' | 'resource_exhausted' | 'both'
+
+export interface InvalidCastEvent {
+  castEvent: CastEvent
+  reason: InvalidReason
+  /**
+   * reason === 'resource_exhausted' | 'both' 时填；指向第一个耗尽的资源 id。
+   * UI 用它查 `RESOURCE_REGISTRY[resourceId]?.max` 决定文案："冷却中"（max=1）/"层数不足"（max>1）。
+   * 一次 cast 若同时耗尽多个资源，取第一个（顺序由 action.resourceEffects 声明顺序决定）。
+   */
+  resourceId?: string
+}
 ```
 
 ## 计算层 API
@@ -569,9 +582,12 @@ if (rawEndSec === null) {
 - `src/utils/placement/engine.test.ts`：
   - 所有 `'cooldown_conflict'` 断言改 `'resource_exhausted'`
   - **浮点边界、回溯自身排除、紧贴边界 ULP** 等回归用例 **全部保留**
-- UI 文案分支：
-  - `src/components/Timeline/CastEventIcon.tsx` 若有"CD 冲突"文案 → 按 `action.resourceEffects ? '层数不足' : '冷却中'` 分支
-  - `src/components/Timeline/index.tsx` 同理
+  - **跨 actionId 同 trackGroup 的 CD 冲突测试**（若存在）：确认迁移后该组合转为合法；如需保留 GCD 级检测请改由 placement 层或独立 GCD validator 承担（本次不做）
+- UI 文案分支（按**失败资源的 `max`** 判）：
+  - 失败 resource `max == 1` → 文案"冷却中"（涵盖 `__cd__:${id}` 合成池 + 未来 max=1 的显式池）
+  - 失败 resource `max > 1` → 文案"层数不足"（慰藉 / 献奉）
+  - `InvalidCastEvent` 需携带失败的 `resourceId`（或 `resourceKey`）以便 UI 查 `registry[resourceId]?.max ?? 1`
+  - 落地点：`src/components/Timeline/CastEventIcon.tsx` + `src/components/Timeline/index.tsx`
   - 核查面：Grep `'CD 冲突'` / `'cooldown_conflict'` / `'resource_exhausted'`
 - 验证：`pnpm test:run`
 
@@ -679,7 +695,7 @@ shadow 由 `engine.computeTrackShadow` 走新 `resourceLegalIntervals` 自动承
 
 ## 风险与注意事项
 
-1. **UI 文案扫查**：步骤 3 完成后 Grep `CD 冲突` / `cooldown_conflict`，确认所有用户可见文案都已按 `action.resourceEffects ? '层数不足' : '冷却中'` 分支。
+1. **UI 文案扫查**：步骤 3 完成后 Grep `CD 冲突` / `cooldown_conflict`，确认所有用户可见文案按**失败资源 `max`** 分支（`max==1 → 冷却中`；`max>1 → 层数不足`）。需要 `InvalidCastEvent.resourceId` 传到 UI。
 
 2. **假 buff `20016546` 废弃连锁**：仅 `mitigationActions.ts` 3 处引用；`BuffExecutorOptions.stack` 字段随之删。步骤 4 末尾 Grep `20016546` / `\.stack` 确认零残留。
 
@@ -706,7 +722,8 @@ shadow 由 `engine.computeTrackShadow` 走新 `resourceLegalIntervals` 自动承
 - [ ] `InvalidReason` 一把改 `resource_exhausted`、不保留 `cooldown_conflict` 别名
 - [ ] 慰藉 placement 改 `whileStatus(3095)`、`cooldown` 恢复 30、假 buff 废弃
 - [ ] 献奉一起迁（步骤 4 + 5 同个 PR）
-- [ ] UI 文案按 `action.resourceEffects` 分支
+- [ ] UI 文案按失败资源 `max` 分支（`InvalidCastEvent.resourceId` 需携带）
+- [ ] 资源模型与 `trackGroup` 完全解耦；合成 `__cd__:${actionId}`
 - [ ] shadow 由 `resourceLegalIntervals` 推导（自耗尽段 + 下游透支段）
 - [ ] 蓝色 CD 条语义：此 cast 打空池子到恢复到 ≥|delta| 的时段；还有库存时不画
 - [ ] CD 条末端文本 = `Math.round(rawEnd − t_C)`；被 `nextCastTime` 截或 <3s 不画文本
