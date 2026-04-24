@@ -244,6 +244,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 10,
       cooldown: 60,
       executor: createBuffExecutor(2682, 10),
+      resourceEffects: [{ resourceId: 'drk:oblation', delta: -1 }],
     },
     {
       id: 36927,
@@ -504,10 +505,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 22,
       cooldown: 120,
-      executor: ctx => {
-        const partyState = createBuffExecutor(3095, 22)(ctx)
-        return createBuffExecutor(20016546, 22, { stack: 2 })({ ...ctx, partyState }) // 假 buff，模拟慰藉积蓄
-      },
+      executor: createBuffExecutor(3095, 22), // 只造炽天真 buff；慰藉充能由 sch:consolation 自行 regen
     },
 
     {
@@ -517,26 +515,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SCH'],
       category: ['partywide', 'shield'],
       duration: 30,
-      cooldown: 1,
-      //executor: createShieldExecutor(1917, 30),
-      executor: ctx => {
-        let partyState = createShieldExecutor(1917, 30)(ctx)
-        const charge = partyState.statuses.find(s => s.statusId === 20016546)
-        if (charge) {
-          const newStack = (charge.stack ?? 1) - 1
-          partyState =
-            newStack <= 0
-              ? { ...partyState, statuses: partyState.statuses.filter(s => s !== charge) }
-              : {
-                  ...partyState,
-                  statuses: partyState.statuses.map(s =>
-                    s === charge ? { ...s, stack: newStack } : s
-                  ),
-                }
-        }
-        return partyState
-      },
-      placement: whileStatus(20016546),
+      cooldown: 30, // 真实单层回充时间；实际 gating 交给 sch:consolation + whileStatus(3095)
+      executor: createShieldExecutor(1917, 30),
+      placement: whileStatus(3095), // 炽天真 buff 窗口
+      resourceEffects: [{ resourceId: 'sch:consolation', delta: -1 }],
       statDataEntries: [{ type: 'shield', key: 1917 }],
     },
 
