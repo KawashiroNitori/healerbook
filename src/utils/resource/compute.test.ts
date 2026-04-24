@@ -106,6 +106,23 @@ describe('deriveResourceEvents', () => {
   })
 })
 
+function makeRe(partial: {
+  timestamp: number
+  delta: number
+  index: number
+}): import('@/types/resource').ResourceEvent {
+  return {
+    resourceKey: '10:test',
+    playerId: 10,
+    resourceId: 'test',
+    castEventId: `c${partial.index}`,
+    actionId: 1,
+    required: true,
+    orderIndex: partial.index,
+    ...partial,
+  }
+}
+
 describe('computeResourceTrace — 充能计时语义', () => {
   function makeDef(partial: Partial<ResourceDefinition>): ResourceDefinition {
     return {
@@ -117,23 +134,6 @@ describe('computeResourceTrace — 充能计时语义', () => {
       regen: { interval: 60, amount: 1 },
       ...partial,
     } as ResourceDefinition
-  }
-
-  function makeRe(partial: {
-    timestamp: number
-    delta: number
-    index: number
-  }): import('@/types/resource').ResourceEvent {
-    return {
-      resourceKey: '10:test',
-      playerId: 10,
-      resourceId: 'test',
-      castEventId: `c${partial.index}`,
-      actionId: 1,
-      required: true,
-      orderIndex: partial.index,
-      ...partial,
-    }
   }
 
   it('单事件消耗调度单 refill，其 interval 秒后恢复', () => {
@@ -229,23 +229,6 @@ describe('computeResourceAmount', () => {
     } as ResourceDefinition
   }
 
-  function makeRe(partial: {
-    timestamp: number
-    delta: number
-    index: number
-  }): import('@/types/resource').ResourceEvent {
-    return {
-      resourceKey: '10:test',
-      playerId: 10,
-      resourceId: 'test',
-      castEventId: `c${partial.index}`,
-      actionId: 1,
-      required: true,
-      orderIndex: partial.index,
-      ...partial,
-    }
-  }
-
   it('无事件：返回 initial', () => {
     const def = makeDef({ initial: 2 })
     expect(computeResourceAmount(def, [], 100)).toBe(2)
@@ -280,5 +263,52 @@ describe('computeResourceAmount', () => {
     expect(computeResourceAmount(def, events, 89)).toBe(1)
     expect(computeResourceAmount(def, events, 90)).toBe(2)
     expect(computeResourceAmount(def, events, 200)).toBe(2)
+  })
+})
+
+describe('合成 __cd__: 资源与 cooldown 语义等价', () => {
+  // 当 action 无 resourceEffects 时，compute 层合成 { max:1, initial:1, regen:{ interval:cd, amount:1 } }
+  // 行为应与原 cooldownAvailable 对单充能 action 的判定等价
+  function makeCdDef(interval: number): ResourceDefinition {
+    return {
+      id: `__cd__:test`,
+      name: `Synthetic CD`,
+      job: 'SCH',
+      initial: 1,
+      max: 1,
+      regen: { interval, amount: 1 },
+    }
+  }
+
+  it('单 cast @ t=0 (cd=60)：t<60 amount=0（冷却中），t>=60 amount=1（可用）', () => {
+    const def = makeCdDef(60)
+    const events = [makeRe({ timestamp: 0, delta: -1, index: 0 })]
+    expect(computeResourceAmount(def, events, -1)).toBe(1) // cast 前
+    expect(computeResourceAmount(def, events, 0)).toBe(0) // cast 时
+    expect(computeResourceAmount(def, events, 59)).toBe(0) // cd 内
+    expect(computeResourceAmount(def, events, 60)).toBe(1) // 紧贴 cd 结束
+    expect(computeResourceAmount(def, events, 200)).toBe(1)
+  })
+
+  it('两 cast 紧贴 cd 边界 (t=0, t=60, cd=60)：都合法（amount 在 cast 前皆 ≥1）', () => {
+    const def = makeCdDef(60)
+    const events = [
+      makeRe({ timestamp: 0, delta: -1, index: 0 }),
+      makeRe({ timestamp: 60, delta: -1, index: 1 }),
+    ]
+    expect(computeResourceAmount(def, events, 60)).toBe(0) // 第二次 cast 之后
+    expect(computeResourceAmount(def, events, 120)).toBe(1) // 第二次 cast 的 refill
+  })
+
+  it('两 cast 距离 < cd (t=0, t=30, cd=60)：第二次 cast 会把 amount 打到 -1（不 clamp 下限）', () => {
+    const def = makeCdDef(60)
+    const events = [
+      makeRe({ timestamp: 0, delta: -1, index: 0 }),
+      makeRe({ timestamp: 30, delta: -1, index: 1 }),
+    ]
+    // t=30 时 amount 已被打到 -1（cd 内 refill 未到、再减 1）——validator 用这个 <0 判非法
+    expect(computeResourceAmount(def, events, 30)).toBe(-1)
+    expect(computeResourceAmount(def, events, 60)).toBe(0) // refill@60 来了，-1+1=0
+    expect(computeResourceAmount(def, events, 90)).toBe(1) // refill@90 来了，满
   })
 })

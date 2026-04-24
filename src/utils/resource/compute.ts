@@ -87,11 +87,10 @@ export function computeResourceTrace(
   const pending: number[] = []
 
   const firePendingUpTo = (t: number) => {
+    // 不变量：pending 非空 ⇒ def.regen 存在（由 push 条件保证）
     while (pending.length > 0 && pending[0] <= t) {
       pending.shift()
-      if (def.regen) {
-        amount = Math.min(amount + def.regen.amount, def.max)
-      }
+      amount = Math.min(amount + def.regen!.amount, def.max)
     }
   }
 
@@ -129,11 +128,10 @@ export function computeResourceAmount(
   const pending: number[] = []
 
   const firePendingUpTo = (t: number) => {
+    // 不变量：pending 非空 ⇒ def.regen 存在（由 push 条件保证）
     while (pending.length > 0 && pending[0] <= t) {
       pending.shift()
-      if (def.regen) {
-        amount = Math.min(amount + def.regen.amount, def.max)
-      }
+      amount = Math.min(amount + def.regen!.amount, def.max)
     }
   }
 
