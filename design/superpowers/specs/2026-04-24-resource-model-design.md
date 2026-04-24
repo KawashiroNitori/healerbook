@@ -105,6 +105,7 @@ export interface ResourceDefinition {
   /** 资源 id，如 'sch:consolation' / 'drk:oblation'。显式 id 不得以 '__cd__:' 开头 */
   id: string
   name: string
+  /** 所属职业。仅 registry 元数据 / 未来 UI 面板用；runtime compute 层不消费 */
   job: Job
   /** 战斗开始时的值 */
   initial: number
@@ -233,12 +234,34 @@ export function deriveResourceEvents(
 /**
  * 计算 (playerId, resourceId) 在 atTime 时刻的值（应用所有 timestamp <= atTime 的事件后）。
  * 采用充能计时语义，不 clamp 下限（负值由 validator 语义解释）。
+ * 注：内部实现是 computeResourceTrace 的派生；公开为便利 API。
  */
 export function computeResourceAmount(
   def: ResourceDefinition,
   events: ResourceEvent[],
   atTime: number
 ): number
+
+/** 事件处理前后 + pending refills 快照，供 validator / legalIntervals / cdBarEnd 共用 */
+export interface ResourceSnapshot {
+  /** 对应 events[index] */
+  index: number
+  /** 事件 apply 前的 amount（经 refills 触发后但未应用 ev.delta） */
+  amountBefore: number
+  /** 事件 apply 后的 amount（已 clamp 上限，下限不 clamp） */
+  amountAfter: number
+  /** 此事件 apply 后仍挂着的 refill 时间列表（升序） */
+  pendingAfter: number[]
+}
+
+/**
+ * 单遍扫描，返回每个事件处理点的快照。validator / legalIntervals / cdBarEnd 三者共用此结果
+ * 避免各自重复 O(N) 扫描。O(N log N)（pending refills 排序）。
+ */
+export function computeResourceTrace(
+  def: ResourceDefinition,
+  events: ResourceEvent[]
+): ResourceSnapshot[]
 ```
 
 ### 充能计时算法（`computeResourceAmount` 伪代码）
@@ -272,7 +295,7 @@ return amount
 关键性质：
 
 - **充能计时**：refill 是"在消耗事件 timestamp + interval 的绝对时刻"触发的单次事件，不是固定节拍 tick。献奉 t=45 消耗 → 对应 refill 在 t=105 而非 t=60。✓
-- **多个产出 / 消耗事件在同 timestamp**：按 `orderIndex` 稳定处理 → 确定性。
+- **多个产出 / 消耗事件在同 timestamp**：按 `orderIndex` 稳定处理 → 确定性。不 enforce "producer 先行"——若用户把消耗 cast 在 castEvents 数组中排在同 timestamp 产出之前，消耗会先评估并可能 exhaust。corner case，单测钉死行为，不改数据约定。
 - **amount 可为负**：`computeResourceAmount` 是纯数值函数，validator 决定合法性。
 - **产出溢出 clamp 到 max**：如 max=2 时炽天 +2 打在已满 pool 上 → 仍 2，多余部分丢失。
 - **`__cd__:${actionId}` 合成池**：`regen.amount = 1`，initial = 1，max = 1。单次消耗后下一次可用时间 = cast + cooldown，与原 `cooldownAvailable` 数学等价。
@@ -468,7 +491,9 @@ events  = resourceEventsByKey.get(`${castEvent.playerId}:${consume.resourceId}`)
 idx     = events.findIndex(e => e.castEventId === castEvent.id)
 
 # 1. 走到 idx（含），拿此 cast 应用后的 amount + pendingRefills
-{amount, pending} = traceUpThrough(def, events, idx)
+snapshot = computeResourceTrace(def, events)[idx]   // 复用共享 trace
+amount   = snapshot.amountAfter
+pending  = [...snapshot.pendingAfter]
 
 # 2. 判断是否画
 if amount >= thresh:
@@ -484,7 +509,7 @@ while amount < thresh:
 return timeOfRecoveryPoint
 ```
 
-复用 `computeResourceAmount` 的内部轨迹遍历，抽公共状态机。
+实施注意：步骤 1 的 `computeResourceTrace` 只算一次、engine 在构造时缓存；所有 visible cast 的 cdBarEndFor 查询共享；各自从 idx 开始做 O(剩余事件) 扫描。整体 O(N) + per-query O(N) worst-case、实际 per-query 很短。
 
 ### 数据流
 
@@ -493,6 +518,11 @@ return timeOfRecoveryPoint
 ```ts
 interface PlacementEngine {
   // ...
+  /**
+   * 返回指定 cast 的蓝条右端（秒）。null = 不画；Infinity = 时间轴内无恢复。
+   * **不接受 excludeId**——永远以 engine 构造时的完整 castEvents 计算。
+   * 拖拽期不更新（与现状蓝条行为一致：engine 不重建、cache 不失效）。
+   */
   cdBarEndFor(castEventId: string): number | null
 }
 ```
@@ -513,7 +543,7 @@ const rawEndSec =
   cdBarEnd === null
     ? null
     : cdBarEnd === Infinity
-      ? timelineEndSec // UI 层的时间轴右端
+      ? timeline.totalDuration // UI 层的时间轴右端（已有字段，从 timeline 取）
       : cdBarEnd
 
 // 无蓝条
@@ -687,7 +717,7 @@ if (rawEndSec === null) {
 - `PlacementEngine` 加 `cdBarEndFor(castEventId): number | null`，内部按 id cache
 - `SkillTracksCanvas.tsx:564+` 调用点增加 `cdBarEnd={engine?.cdBarEndFor(castEvent.id) ?? null}` prop 传递
 - `CastEventIcon.tsx:144-187` 六处 `action.cooldown` 全部改用 `rawEndSec / visualEndSec / remaining`（按"蓝色 CD 条渲染"节的渲染片段）
-- `Infinity` 情形（无 regen + 无下个产出）：UI 层截到时间轴右端 `timelineEndSec`（从已有 `timeline.totalDuration` 取）
+- `Infinity` 情形（无 regen + 无下个产出）：UI 层截到 `timeline.totalDuration`（已有字段、SkillTracksCanvas 可见）
 - 单测：`cdBar.test.ts` 覆盖四类场景 + 献奉三连 + 慰藉扫下一个产出 + 无下一产出 → Infinity + 单充能等价于 `t_C + cooldown`
 - 不新增层数角标
 
