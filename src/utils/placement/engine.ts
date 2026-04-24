@@ -169,7 +169,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
   }
 
   function findInvalidCastEvents(excludeId?: string): InvalidCastEvent[] {
-    const effectiveEvents = effectiveCastEvents(excludeId).filter(e => e.id !== excludeId)
+    const effectiveEvents = effectiveCastEvents(excludeId)
 
     // 1. placement 层失效
     const placementLost = new Map<string, boolean>()

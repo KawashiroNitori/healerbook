@@ -21,7 +21,7 @@ import {
   useDamageCalculationSimulate,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
-import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
+import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
@@ -194,7 +194,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }, [timeline?.castEvents])
 
   const invalidCastEventMap = useMemo(() => {
-    if (!engine) return new Map<string, { reason: InvalidReason; resourceId?: string }>()
+    if (!engine) return new Map<string, InvalidCastEventSummary>()
     const invalid = engine.findInvalidCastEvents(draggingId ?? undefined)
     return new Map(
       invalid.map(r => [r.castEvent.id, { reason: r.reason, resourceId: r.resourceId }])

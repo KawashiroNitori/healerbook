@@ -55,6 +55,15 @@ export interface InvalidCastEvent {
   resourceId?: string
 }
 
+/**
+ * 供 UI 层 map 查询的扁平化条目：`invalidCastEventMap` 按 castEventId 存这个 shape。
+ * 与 `InvalidCastEvent` 的关系：`InvalidCastEvent` 带 `castEvent` 引用，这里只保留 reason 和 resourceId。
+ */
+export interface InvalidCastEventSummary {
+  reason: InvalidReason
+  resourceId?: string
+}
+
 export interface PlacementEngine {
   getValidIntervals(
     action: MitigationAction,

@@ -12,7 +12,7 @@ import type { SkillTrack } from '@/utils/skillTracks'
 import type { Annotation, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { InvalidReason, PlacementEngine } from '@/utils/placement/types'
+import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
 import { TIME_EPS } from '@/utils/placement/types'
 import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
 import { effectiveTrackGroup } from '@/types/mitigation'
@@ -25,7 +25,7 @@ interface SkillTracksCanvasProps {
   /** Task 14 会用这些 prop 接入 engine 阴影 / 拖拽 / 红边框；Task 13 仅占位。 */
   actionMap?: Map<number, MitigationAction>
   engine?: PlacementEngine | null
-  invalidCastEventMap?: Map<string, { reason: InvalidReason; resourceId?: string }>
+  invalidCastEventMap?: Map<string, InvalidCastEventSummary>
   draggingId?: string | null
   setDraggingId?: (id: string | null) => void
   displayActionOverrides: Map<string, MitigationAction>
@@ -561,14 +561,16 @@ export default function SkillTracksCanvas({
             .sort((a, b) => a.timestamp - b.timestamp)[0]
           if (nextSameTrack) nextCastTime = nextSameTrack.timestamp
 
+          const invalidEntry = invalidCastEventMap?.get(castEvent.id) ?? null
+
           return (
             <CastEventIcon
               key={castEvent.id}
               castEvent={castEvent}
               action={action}
               displayAction={displayAction}
-              invalidReason={invalidCastEventMap?.get(castEvent.id)?.reason ?? null}
-              invalidResourceId={invalidCastEventMap?.get(castEvent.id)?.resourceId ?? null}
+              invalidReason={invalidEntry?.reason ?? null}
+              invalidResourceId={invalidEntry?.resourceId ?? null}
               isSelected={isSelected}
               zoomLevel={zoomLevel}
               trackY={trackY}
