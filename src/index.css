@@ -150,6 +150,43 @@
     vertical-align: -0.05em;
   }
 
+  /* 彩虹跑马灯文字：用于"敬请期待"等占位提示 */
+  .rainbow-marquee {
+    background-image: linear-gradient(
+      90deg,
+      #ef4444,
+      #f59e0b,
+      #eab308,
+      #22c55e,
+      #06b6d4,
+      #3b82f6,
+      #8b5cf6,
+      #ec4899,
+      #ef4444
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: rainbow-marquee-slide 3s linear infinite;
+  }
+
+  @keyframes rainbow-marquee-slide {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 200% 50%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rainbow-marquee {
+      animation: none;
+    }
+  }
+
   /* 职业图标 Unicode 字符映射 */
   .xiv-class_job_019:before {
     content: '\f019';

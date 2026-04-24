@@ -107,7 +107,7 @@ export default function CreateTimelineDialog({
                 <SelectValue placeholder="选择副本" />
               </SelectTrigger>
               <SelectContent>
-                {RAID_TIERS.map(tier => (
+                {RAID_TIERS.filter(tier => !tier.comingSoon).map(tier => (
                   <SelectGroup key={tier.zone}>
                     <SelectLabel>
                       {tier.name} ({tier.patch})

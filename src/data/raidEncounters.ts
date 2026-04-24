@@ -21,6 +21,8 @@ export interface RaidTier {
   patch: string
   // 副本列表
   encounters: RaidEncounter[]
+  // 未发布占位：Top100 面板显示"敬请期待"，下拉/导入等实际入口应过滤掉
+  comingSoon?: boolean
 }
 
 export const RAID_TIERS: RaidTier[] = [
@@ -41,6 +43,13 @@ export const RAID_TIERS: RaidTier[] = [
     zone: 65,
     patch: '7.1',
     encounters: [{ id: 1079, name: '光暗未来绝境战', shortName: 'FRU', gameZoneId: 1238 }],
+  },
+  {
+    name: '妖星乱舞绝境战',
+    zone: 0,
+    patch: '7.5',
+    encounters: [],
+    comingSoon: true,
   },
 ]
 

@@ -360,7 +360,13 @@ function EncounterTable({
 
 export default function Top100Section() {
   const [importUrl, setImportUrl] = useState<string | null>(null)
-  const [activeTierIdx, setActiveTierIdx] = useState(RAID_TIERS.length - 1) // 默认最新赛季
+  // 默认最新"已发布"赛季——避免用户打开页面直接落到 comingSoon 占位 Tab。
+  const [activeTierIdx, setActiveTierIdx] = useState(() => {
+    for (let i = RAID_TIERS.length - 1; i >= 0; i--) {
+      if (!RAID_TIERS[i].comingSoon) return i
+    }
+    return RAID_TIERS.length - 1
+  })
   const [refreshTick, setRefreshTick] = useState(0)
 
   const importedSources = useMemo(() => {
@@ -460,7 +466,11 @@ export default function Top100Section() {
       </div>
 
       {/* 内容区 */}
-      {isLoading ? (
+      {activeTier.comingSoon ? (
+        <div className="text-center py-12">
+          <span className="rainbow-marquee text-2xl font-bold tracking-wider">敬请期待！</span>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
           <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
           加载中...
