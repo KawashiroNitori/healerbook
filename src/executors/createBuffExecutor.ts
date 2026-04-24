@@ -17,6 +17,8 @@ export interface BuffExecutorOptions {
    * 直接在 call site 包一层 executor 即可，不必绕回 option。
    */
   performance?: PerformanceType
+  /** 层数：buff 耗尽后会减少层数并重置，默认为 1 */
+  stack?: number
 }
 
 /**
@@ -43,6 +45,7 @@ export function createBuffExecutor(
       statusId,
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,
+      stack: options?.stack ?? 1,
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
     }
