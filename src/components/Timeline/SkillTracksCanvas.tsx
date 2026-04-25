@@ -127,9 +127,10 @@ export default function SkillTracksCanvas({
 
   // 预聚合每条可见条的区间，按 (playerId, groupId) 分桶；avoid shadow 与 duration / blue CD 条视觉重复。
   //
-  // 新资源模型下，每条 cast 的"可见 bar 覆盖区"需精确按当前状态算：
-  //   - duration 条占 [ts, ts + effectiveDuration)（effectiveDuration 被同轨下一 cast 截短）
-  //   - blue CD 条占 [ts + effectiveDuration, visualEnd)，visualEnd = min(rawEnd, nextCastTime)
+  // 每条 cast 的"可见 bar 覆盖区"需精确按当前状态算：
+  //   - duration 条占 [ts, greenEnd)，greenEnd = castEffectiveEnd.get(id)（来自 simulate 的实际存活区间）
+  //     缺省时回退到 ts + action.duration（cast 无 executor / 无附着）
+  //   - blue CD 条占 [greenEnd, visualEnd)，visualEnd = min(rawEnd, nextCastTime)
   //   - rawEnd 来自 engine.cdBarEndFor（null = 无蓝条；Infinity = 截到 timelineEnd）
   //
   // 老版本用 max(action.cooldown, action.duration) 当固定窗口，在慰藉/献奉这类多充能场景下会过度 subtract
