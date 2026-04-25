@@ -114,7 +114,8 @@ export default function TimelineTableView() {
       if (engine) {
         const member = engine.pickUniqueMember(groupId, track.playerId, event.time)
         if (!member) {
-          toast.error('无法添加技能', { description: '此时刻不满足发动条件' })
+          const unmetMsg = engine.getResourceUnmetMessageAt(parent, track.playerId, event.time)
+          toast.error('无法添加技能', { description: unmetMsg ?? '此时刻不满足发动条件' })
           return
         }
         resolvedActionId = member.id

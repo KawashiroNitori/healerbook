@@ -729,7 +729,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const groupId = parent.trackGroup ?? parent.id
       const member = engine.pickUniqueMember(groupId, playerId, time)
       if (!member) {
-        toast.error('无法添加技能', { description: '此时刻不满足发动条件' })
+        const unmetMsg = engine.getResourceUnmetMessageAt(parent, playerId, time)
+        toast.error('无法添加技能', { description: unmetMsg ?? '此时刻不满足发动条件' })
         return
       }
       resolvedActionId = member.id

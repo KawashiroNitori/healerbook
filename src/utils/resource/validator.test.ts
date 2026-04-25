@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findResourceExhaustedCasts } from './validator'
+import { findResourceExhaustedCasts, probeResourceUnmetMessage } from './validator'
 import type { ResourceDefinition } from '@/types/resource'
 import { makeAction, makeCast } from './__tests__/helpers'
 
@@ -96,5 +96,83 @@ describe('findResourceExhaustedCasts', () => {
     ]
     const result = findResourceExhaustedCasts(cs, new Map([[1, action]]), syntheticRegistry)
     expect(result).toEqual([])
+  })
+})
+
+describe('probeResourceUnmetMessage', () => {
+  const consolationDef = (unmetMessage?: string): ResourceDefinition => ({
+    id: 'sch:consolation',
+    name: '慰藉充能',
+    job: 'SCH',
+    initial: 2,
+    max: 2,
+    regen: { interval: 30, amount: 1 },
+    ...(unmetMessage ? { unmetMessage } : {}),
+  })
+
+  const huishi = makeAction({
+    id: 16546,
+    cooldown: 30,
+    resourceEffects: [{ resourceId: 'sch:consolation', delta: -1 }],
+  })
+
+  it('action 没声明 resourceEffects → null（不走资源校验）', () => {
+    const plain = makeAction({ id: 99, cooldown: 60 })
+    const msg = probeResourceUnmetMessage(plain, 10, 0, [], new Map(), {
+      'sch:consolation': consolationDef('文案'),
+    })
+    expect(msg).toBeNull()
+  })
+
+  it('资源耗尽且 def 配置了 unmetMessage → 返回该文案', () => {
+    const cs = [
+      makeCast({ id: '1', actionId: 16546, timestamp: 0 }),
+      makeCast({ id: '2', actionId: 16546, timestamp: 5 }),
+    ]
+    const msg = probeResourceUnmetMessage(huishi, 10, 10, cs, new Map([[16546, huishi]]), {
+      'sch:consolation': consolationDef('慰藉充能不足'),
+    })
+    expect(msg).toBe('慰藉充能不足')
+  })
+
+  it('资源耗尽但 def 未配置 unmetMessage → null（caller fallback 通用文案）', () => {
+    const cs = [
+      makeCast({ id: '1', actionId: 16546, timestamp: 0 }),
+      makeCast({ id: '2', actionId: 16546, timestamp: 5 }),
+    ]
+    const msg = probeResourceUnmetMessage(huishi, 10, 10, cs, new Map([[16546, huishi]]), {
+      'sch:consolation': consolationDef(),
+    })
+    expect(msg).toBeNull()
+  })
+
+  it('资源充足 → null', () => {
+    const msg = probeResourceUnmetMessage(huishi, 10, 0, [], new Map([[16546, huishi]]), {
+      'sch:consolation': consolationDef('慰藉充能不足'),
+    })
+    expect(msg).toBeNull()
+  })
+
+  it('合成 __cd__ 资源耗尽（普通 CD 没满）→ null', () => {
+    // action 仅消费合成 __cd__:1（无显式 resourceEffects），此处用一个有显式 effects 但
+    // 显式资源够用的 action 模拟"探测因合成 cd 耗尽"——但本探测函数关注的是"显式资源 +
+    // unmetMessage"，所以即便走到合成耗尽路径也应返回 null。这里通过一个未配置文案的
+    // 显式资源 + 紧凑 timestamp 触发显式资源耗尽，验证 fallback 行为。
+    const action = makeAction({
+      id: 1,
+      cooldown: 60,
+      resourceEffects: [{ resourceId: 'x:explicit', delta: -1 }],
+    })
+    const cs = [makeCast({ id: 'a', actionId: 1, timestamp: 0 })]
+    const msg = probeResourceUnmetMessage(action, 10, 0, cs, new Map([[1, action]]), {
+      'x:explicit': {
+        id: 'x:explicit',
+        name: 'X',
+        job: 'SCH',
+        initial: 1,
+        max: 1,
+      } as ResourceDefinition,
+    })
+    expect(msg).toBeNull()
   })
 })

@@ -94,6 +94,19 @@ export interface PlacementEngine {
    * 不接受 excludeId——永远以 engine 构造时的完整 castEvents 计算。
    */
   cdBarEndFor(castEventId: string): number | null
+  /**
+   * 探测：若在 (playerId, t) 处放 action 的一个 cast，是否会因某个显式资源耗尽被拦截，
+   * 并返回该资源 def 的 `unmetMessage`。
+   * - 没声明 resourceEffects → null
+   * - 仅因合成 `__cd__:` 资源耗尽（普通 CD 没满）→ null（由 caller fallback 通用文案）
+   * - 资源够用 → null
+   */
+  getResourceUnmetMessageAt(
+    action: MitigationAction,
+    playerId: number,
+    t: number,
+    excludeCastEventId?: string
+  ): string | null
 }
 
 export type StatusTimelineByPlayer = Map<number, Map<number, StatusInterval[]>>

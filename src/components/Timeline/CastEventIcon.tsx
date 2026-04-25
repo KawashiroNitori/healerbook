@@ -95,7 +95,7 @@ const CastEventIcon = memo(function CastEventIcon({
   // 距 t 只有 27s 的场景），变成 green 条上飘一个虚空秒数。绑定 showCdBar 一并抑制。
   const showCdText = showCdBar && visualEndSec === rawEndSec && cdRemainingSec >= 3
   const cdTextSeconds = Math.round(cdRemainingSec)
-  const cdTextX = cdRemainingSec * zoomLevel - 22
+  const cdTextX = cdRemainingSec * zoomLevel - 32
 
   return (
     <Group
@@ -160,9 +160,9 @@ const CastEventIcon = memo(function CastEventIcon({
       {/* 持续时间文本（在持续时间条末尾内侧，右对齐保持固定右边距） */}
       {action.duration >= 3 && (
         <Text
-          x={effectiveDuration * zoomLevel - 22}
+          x={effectiveDuration * zoomLevel - 32}
           y={0}
-          width={18}
+          width={28}
           align="right"
           text={`${action.duration}s`}
           fontSize={10}
@@ -209,7 +209,7 @@ const CastEventIcon = memo(function CastEventIcon({
         <Text
           x={cdTextX}
           y={0}
-          width={18}
+          width={28}
           align="right"
           text={`${cdTextSeconds}s`}
           fontSize={10}

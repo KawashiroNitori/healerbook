@@ -12,7 +12,7 @@ import type {
 import { TIME_EPS } from './types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from './intervals'
 import { deriveResourceEvents } from '@/utils/resource/compute'
-import { findResourceExhaustedCasts } from '@/utils/resource/validator'
+import { findResourceExhaustedCasts, probeResourceUnmetMessage } from '@/utils/resource/validator'
 import { resourceLegalIntervals } from '@/utils/resource/legalIntervals'
 import { RESOURCE_REGISTRY } from '@/data/resources'
 import { computeCdBarEnd } from '@/utils/resource/cdBar'
@@ -179,6 +179,22 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     return { ok: false, reason: 'not_available' }
   }
 
+  function getResourceUnmetMessageAt(
+    action: MitigationAction,
+    playerId: number,
+    t: number,
+    excludeId?: string
+  ): string | null {
+    return probeResourceUnmetMessage(
+      action,
+      playerId,
+      t,
+      effectiveCastEvents(excludeId),
+      actions,
+      RESOURCE_REGISTRY
+    )
+  }
+
   function pickUniqueMember(
     groupId: number,
     playerId: number,
@@ -244,5 +260,6 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     canPlaceCastEvent,
     findInvalidCastEvents,
     cdBarEndFor,
+    getResourceUnmetMessageAt,
   }
 }

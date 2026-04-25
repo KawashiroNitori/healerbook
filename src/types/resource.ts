@@ -26,6 +26,12 @@ export interface ResourceDefinition {
     interval: number
     amount: number
   }
+  /**
+   * 可选：当 cast 因该资源不足被拦截时（双击轨道无法添加等），UI 弹出文案的 description。
+   * 省略时调用方使用通用 fallback 文案。仅对显式声明的 resource 有意义；
+   * compute 层合成的 `__cd__:` 资源不消费此字段（普通 cooldown 不足走通用文案）。
+   */
+  unmetMessage?: string
 }
 
 /** action 对资源的影响声明 */
