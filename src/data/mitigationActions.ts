@@ -82,7 +82,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 10,
       cooldown: 90,
-      executor: createBuffExecutor(1364, 10, {
+      executor: createBuffExecutor(77, 10, {
         performance: { physics: 0.8, magic: 0.8, darkness: 1 },
       }),
     },
@@ -241,9 +241,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       icon: '/i/003000/003089.png',
       jobs: ['DRK'],
       category: ['self', 'target', 'percentage'],
-      duration: 7,
+      duration: 10,
       cooldown: 60,
-      executor: createBuffExecutor(2682, 7),
+      executor: createBuffExecutor(2682, 10),
     },
     {
       id: 36927,
