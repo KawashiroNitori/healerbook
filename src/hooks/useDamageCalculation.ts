@@ -17,6 +17,8 @@ export type StatusTimelineByPlayer = Map<number, Map<number, StatusInterval[]>>
 export interface DamageCalculationResult {
   results: Map<string, CalculationResult>
   statusTimelineByPlayer: StatusTimelineByPlayer
+  /** castEvent.id → 该 cast 附着 instance 的实际收束时刻最大值（绿条末端用） */
+  castEffectiveEndByCastEventId: Map<string, number>
   /**
    * 与主路径共享 input（initialState/damageEvents/statistics/tankPlayerIds/baseRefMaxHP）的
    * simulate 回调。PlacementEngine 在处理 excludeCastEventId 时用它以过滤后的 castEvents 重放。
@@ -40,6 +42,7 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
     const empty: DamageCalculationResult = {
       results,
       statusTimelineByPlayer: new Map(),
+      castEffectiveEndByCastEventId: new Map(),
       simulate: null,
     }
 
@@ -137,6 +140,7 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
     return {
       results,
       statusTimelineByPlayer: full.statusTimelineByPlayer,
+      castEffectiveEndByCastEventId: full.castEffectiveEndByCastEventId,
       simulate,
     }
   }, [timeline, partyState, statistics])

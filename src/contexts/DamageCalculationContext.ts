@@ -5,6 +5,7 @@ import type { DamageCalculationResult, StatusTimelineByPlayer } from '@/hooks/us
 const emptyContext: DamageCalculationResult = {
   results: new Map(),
   statusTimelineByPlayer: new Map(),
+  castEffectiveEndByCastEventId: new Map(),
   simulate: null,
 }
 
@@ -16,6 +17,10 @@ export function useDamageCalculationResults(): Map<string, CalculationResult> {
 
 export function useStatusTimelineByPlayer(): StatusTimelineByPlayer {
   return useContext(DamageCalculationContext).statusTimelineByPlayer
+}
+
+export function useCastEffectiveEnd(): Map<string, number> {
+  return useContext(DamageCalculationContext).castEffectiveEndByCastEventId
 }
 
 export function useDamageCalculationSimulate(): DamageCalculationResult['simulate'] {
