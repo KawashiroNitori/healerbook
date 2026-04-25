@@ -110,6 +110,21 @@ src/
 
 执行器工厂实现见 `src/executors/`。
 
+### 2.1. Executor 写作规范
+
+修改既有 status 时**必须保持 `instanceId`** —— simulator 用 instanceId diff 判定
+buff 的 attach / persist / consume，并据此驱动绿条长度、status interval 等 UI 数据。
+
+| 场景                         | 写法                                                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 延长持续时间 / 变身 / 改字段 | `statuses.map(s => s.instanceId === id ? { ...s, ...patch } : s)`，或用 `updateStatus(state, id, patch)` |
+| 立即结束 / 引爆              | `statuses.filter(s => s.instanceId !== id)`，或用 `removeStatus(state, id)`                              |
+
+❌ 反例：`filter` 掉旧的再 `push` 一个 `generateId()` 的新 instance —— 会让原 cast 的
+绿条在此刻断开，新 interval 被错误归属到当前 cast。
+
+详细契约（带反例）见 `src/types/status.ts:MitigationStatus.instanceId` 注释。
+
 ### 3. 减伤计算公式
 
 ```

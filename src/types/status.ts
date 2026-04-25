@@ -41,7 +41,40 @@ export interface MitigationStatusMetadata extends Omit<Keigenn, 'performance' | 
  * 减伤状态实例（运行时）
  */
 export interface MitigationStatus {
-  /** 运行时生成的唯一 ID */
+  /**
+   * 运行时生成的唯一 ID。**整个 instance 的生命周期内必须保持稳定**——
+   * simulator 的 captureTransition 用 instanceId 集合 diff 判定 buff 的 attach / persist /
+   * consume，并由此驱动绿条长度、status interval 区间记录等 UI 数据。
+   *
+   * ─── 修改既有 status 的执行器写法 ───────────────────────────────
+   *
+   * ✅ 正确：保持 instanceId，只改字段
+   *   // 延长 30s
+   *   statuses.map(s => s.instanceId === target.instanceId
+   *     ? { ...s, endTime: s.endTime + 30 } : s)
+   *
+   *   // 变身（statusId 改、instanceId 不变）
+   *   statuses.map(s => s.instanceId === target.instanceId
+   *     ? { ...s, statusId: NEW_ID, endTime: ... } : s)
+   *
+   *   // 立即结束 / 引爆
+   *   statuses.filter(s => s.instanceId !== target.instanceId)
+   *
+   * 推荐使用 `src/executors/statusHelpers.ts` 的 `updateStatus` / `removeStatus`
+   * 以避免手写 map/filter 时遗漏字段。
+   *
+   * ❌ 错误：filter 掉再 push 新 instanceId
+   *   const filtered = statuses.filter(s => s.instanceId !== target.instanceId)
+   *   return [...filtered, { ...target, instanceId: generateId(), endTime: ... }]
+   *   // 后果：原 cast 的 interval 在此刻被收束，新 instance 被错误归属到当前 cast
+   *   //      —— 原 cast 的绿条会"断开 + 另起一条"，而不是延长。
+   *
+   * ─── 真的"换主人"了的例外 ───────────────────────────────────────
+   *
+   * 极少数场景（buff 转给另一个 cast 接管），新建 instanceId 是正确语义——
+   * 这条 interval 归新 cast，原 cast 的绿条收束在转移时刻。绝大多数
+   * extension / transformation / detonation 都不属于这种情况。
+   */
   instanceId: string
   /** 状态 ID（对应 Keigenn.id） */
   statusId: number
