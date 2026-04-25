@@ -25,7 +25,16 @@ interface CastEventIconProps {
   trackY: number
   leftBoundary: number
   rightBoundary: number
+  /**
+   * 同 trackGroup 下一 cast 的 timestamp。
+   * 仍保留：cdBar 的 visualEndSec 用它截短，绿条不再使用。
+   */
   nextCastTime: number
+  /**
+   * 该 cast 的绿条结束秒数（来自 simulate 的 castEffectiveEndByCastEventId）。
+   * 父组件已做 fallback：cast 无 executor / 无附着时 = ts + action.duration。
+   */
+  effectiveEndSec: number
   scrollLeft: number
   scrollTop: number
   onSelect: () => void
@@ -53,6 +62,7 @@ const CastEventIcon = memo(function CastEventIcon({
   leftBoundary,
   rightBoundary,
   nextCastTime,
+  effectiveEndSec,
   scrollLeft,
   scrollTop,
   onSelect,
@@ -69,10 +79,7 @@ const CastEventIcon = memo(function CastEventIcon({
   const [isHovered, setIsHovered] = useState(false)
   const dragStartAbsYRef = useRef<number | null>(null)
   const x = castEvent.timestamp * zoomLevel // timestamp 已经是秒
-  const effectiveDuration =
-    nextCastTime === Infinity
-      ? action.duration
-      : Math.min(action.duration, nextCastTime - castEvent.timestamp)
+  const effectiveDuration = Math.max(0, effectiveEndSec - castEvent.timestamp)
 
   // 蓝条几何
   const rawEndSec = cdBarEnd === null ? null : cdBarEnd === Infinity ? timelineEndSec : cdBarEnd
@@ -127,7 +134,7 @@ const CastEventIcon = memo(function CastEventIcon({
       onContextMenu={onContextMenu}
     >
       {/* 持续时间条外缘光晕（在填充条之前渲染，shadow 不被自身遮挡） */}
-      {isSelected && action.duration > 0 && (
+      {isSelected && effectiveDuration > 0 && (
         <Rect
           x={26}
           y={-15}
@@ -144,7 +151,7 @@ const CastEventIcon = memo(function CastEventIcon({
       )}
 
       {/* 持续时间条（从图标内部开始，填充圆角缺口，绿色，无圆角） */}
-      {action.duration > 0 && (
+      {effectiveDuration > 0 && (
         <Rect
           x={26}
           y={-15}
@@ -158,13 +165,13 @@ const CastEventIcon = memo(function CastEventIcon({
       )}
 
       {/* 持续时间文本（在持续时间条末尾内侧，右对齐保持固定右边距） */}
-      {action.duration >= 3 && (
+      {effectiveDuration >= 3 && (
         <Text
           x={effectiveDuration * zoomLevel - 32}
           y={0}
           width={28}
           align="right"
-          text={`${action.duration}s`}
+          text={`${Math.round(effectiveDuration)}s`}
           fontSize={10}
           fill={isSelected ? '#ffffff' : '#10b981'}
           fontStyle="bold"

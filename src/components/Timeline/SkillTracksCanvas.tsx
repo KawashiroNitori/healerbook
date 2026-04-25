@@ -17,6 +17,7 @@ import { TIME_EPS } from '@/utils/placement/types'
 import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
 import { effectiveTrackGroup } from '@/types/mitigation'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
+import { useCastEffectiveEnd } from '@/contexts/DamageCalculationContext'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
@@ -117,6 +118,7 @@ export default function SkillTracksCanvas({
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
   const { filteredDamageEvents } = useFilteredTimelineView()
+  const castEffectiveEnd = useCastEffectiveEnd()
 
   // 视口裁剪：只渲染可见范围内的元素（含 1 个 viewport 宽度的 buffer）
   const buffer = viewportWidth
@@ -158,12 +160,14 @@ export default function SkillTracksCanvas({
         const other = actionMap.get(ce.actionId)
         if (!other) continue
         const nextCastTime = i + 1 < arr.length ? arr[i + 1].timestamp : Infinity
-        const effectiveDuration = Math.min(other.duration, nextCastTime - ce.timestamp)
+        // 绿条末端：来自 simulate；缺失则回退 action.duration
+        const fallbackEnd = ce.timestamp + other.duration
+        const greenEnd = castEffectiveEnd.get(ce.id) ?? fallbackEnd
+        // cdBar 末端：原算法不变
         const cdEnd = engine?.cdBarEndFor(ce.id) ?? null
         const rawEnd = cdEnd === null ? null : cdEnd === Infinity ? maxTime : cdEnd
-        const visualEnd =
-          rawEnd === null ? ce.timestamp + effectiveDuration : Math.min(rawEnd, nextCastTime)
-        const visibleEnd = Math.max(ce.timestamp + effectiveDuration, visualEnd)
+        const visualEnd = rawEnd === null ? greenEnd : Math.min(rawEnd, nextCastTime)
+        const visibleEnd = Math.max(greenEnd, visualEnd)
         bucketArr.push({ from: ce.timestamp, to: visibleEnd })
       }
       bucket.set(key, bucketArr)
@@ -174,7 +178,7 @@ export default function SkillTracksCanvas({
       merged.set(k, mergeOverlapping(sortIntervals(arr)))
     }
     return merged
-  }, [timeline.castEvents, actionMap, engine, maxTime])
+  }, [timeline.castEvents, actionMap, engine, maxTime, castEffectiveEnd])
 
   return (
     <>
@@ -595,6 +599,9 @@ export default function SkillTracksCanvas({
 
           const invalidEntry = invalidCastEventMap?.get(castEvent.id) ?? null
 
+          const fallbackEnd = castEvent.timestamp + action.duration
+          const effectiveEndSec = castEffectiveEnd.get(castEvent.id) ?? fallbackEnd
+
           return (
             <CastEventIcon
               key={castEvent.id}
@@ -609,6 +616,7 @@ export default function SkillTracksCanvas({
               leftBoundary={leftBoundary}
               rightBoundary={rightBoundary}
               nextCastTime={nextCastTime}
+              effectiveEndSec={effectiveEndSec}
               scrollLeft={scrollLeft}
               scrollTop={scrollTop}
               onSelect={() => onSelectCastEvent(castEvent.id)}
