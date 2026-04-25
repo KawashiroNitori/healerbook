@@ -1302,3 +1302,154 @@ describe('多坦 per-victim 路径', () => {
     })
   })
 })
+
+describe('simulate → castEffectiveEndByCastEventId', () => {
+  it('cast 一个 buff，无后续事件 → effectiveEnd = ts + duration', () => {
+    // 节制 16536 attach 1873（25s）+ 3881（30s），max = 10 + 30 = 40
+    const castEvents = [
+      { id: 'c1', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
+    ]
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents,
+      damageEvents: [],
+      initialState: { players: [], statuses: [], timestamp: 0 },
+    })
+    expect(castEffectiveEndByCastEventId.get('c1')).toBe(40)
+  })
+
+  it('盾被中途打穿但 buff 还活 → effectiveEnd = max（取 buff 的 to）', () => {
+    // 极致防御 36920 给玩家 3829 buff (15s) + 3830 shield (15s)
+    const castEvents = [
+      { id: 'c1', actionId: 36920, playerId: 1, timestamp: 0 } as unknown as CastEvent,
+    ]
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents,
+      damageEvents: [
+        {
+          id: 'd1',
+          name: 'd1',
+          time: 5,
+          damage: 1_000_000,
+          type: 'tankbuster',
+          damageType: 'physical',
+        } as DamageEvent,
+      ],
+      initialState: { players: [{ id: 1, job: 'PLD', maxHP: 100000 }], statuses: [], timestamp: 0 },
+      statistics: {
+        shieldByAbility: { 3830: 5000 },
+        damageByAbility: {},
+        maxHPByJob: {},
+        critShieldByAbility: {},
+        healByAbility: {},
+        critHealByAbility: {},
+        sampleSize: 0,
+        updatedAt: '',
+        tankReferenceMaxHP: 100000,
+        referenceMaxHP: 100000,
+      } as never,
+    })
+    // 3830 在 t=5 被打穿且 removeOnBarrierBreak → interval to=5
+    // 3829 buff 没人动 → interval to=15
+    // max → 15
+    expect(castEffectiveEndByCastEventId.get('c1')).toBe(15)
+  })
+
+  it('uniqueGroup 替换 → 第一条 effectiveEnd = 第二条 timestamp', () => {
+    const castEvents = [
+      { id: 'first', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
+      { id: 'second', actionId: 16536, playerId: 1, timestamp: 20 } as unknown as CastEvent,
+    ]
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents,
+      damageEvents: [],
+      initialState: { players: [], statuses: [], timestamp: 0 },
+    })
+    expect(castEffectiveEndByCastEventId.get('first')).toBe(20)
+    // 节制 16536 attach 1873（25s）+ 3881（30s），second cast at t=20 → max = 20+30 = 50
+    expect(castEffectiveEndByCastEventId.get('second')).toBe(50)
+  })
+
+  it('多 status cast → effectiveEnd = max(interval.to)', () => {
+    // 干预 7382：buff 1174 (8s) + buff 2675 (4s)
+    const castEvents = [
+      { id: 'c1', actionId: 7382, playerId: 1, timestamp: 0 } as unknown as CastEvent,
+    ]
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents,
+      damageEvents: [],
+      initialState: { players: [], statuses: [], timestamp: 0 },
+    })
+    expect(castEffectiveEndByCastEventId.get('c1')).toBe(8)
+  })
+
+  it('单纯盾击穿（无伴随 buff）→ effectiveEnd = damage event time', () => {
+    // 意气轩昂之策 37013 只 attach shield 297（duration 30）
+    const castEvents = [
+      { id: 'c1', actionId: 37013, playerId: 1, timestamp: 0 } as unknown as CastEvent,
+    ]
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents,
+      damageEvents: [
+        {
+          id: 'd1',
+          name: 'd1',
+          time: 7,
+          damage: 1_000_000,
+          type: 'aoe',
+          damageType: 'physical',
+        } as DamageEvent,
+      ],
+      initialState: { players: [{ id: 1, job: 'SCH', maxHP: 100000 }], statuses: [], timestamp: 0 },
+      statistics: {
+        healByAbility: { 37013: 100 }, // shield = 100*1.8 = 180，必穿
+        damageByAbility: {},
+        maxHPByJob: {},
+        shieldByAbility: {},
+        critShieldByAbility: {},
+        critHealByAbility: {},
+        sampleSize: 0,
+        updatedAt: '',
+        tankReferenceMaxHP: 100000,
+        referenceMaxHP: 100000,
+      } as never,
+    })
+    expect(castEffectiveEndByCastEventId.get('c1')).toBe(7)
+  })
+
+  // 未实现的测试（等中期 extension / detonation executor 落地后补）：
+  // - "executor 通过 updateStatus 延长 endTime → effectiveEnd 跟到新 endTime"
+  // - "executor 通过 removeStatus 引爆 → effectiveEnd = 引爆 cast 时刻"
+  // - "反例：filter 旧 + push 新 instanceId 的写法下，原 cast effectiveEnd 收束到
+  //    transformation 时刻；新 cast 接管新 interval"
+  //
+  // 跳过原因：以上场景需要测试用 executor，但项目无运行时 action 注册；
+  // 通过 mock MITIGATION_DATA.actions 实施代价高于本 task 收益。
+  // 本 task 已通过 uniqueGroup 替换路径（仅仅是 instanceId diff 的另一面）
+  // 间接验证了 "instance 消失即收束" 的核心机制。
+
+  it('seeded buff（initialState 带的、无 cast 来源）不进 castEffectiveEnd', () => {
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents: [],
+      damageEvents: [],
+      initialState: {
+        players: [],
+        statuses: [
+          {
+            instanceId: 'seeded',
+            statusId: 1873,
+            startTime: 0,
+            endTime: 30,
+          },
+        ],
+        timestamp: 0,
+      },
+    })
+    expect(castEffectiveEndByCastEventId.size).toBe(0)
+  })
+})

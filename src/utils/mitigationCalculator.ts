@@ -110,6 +110,13 @@ export interface SimulateOutput {
   damageResults: Map<string, CalculationResult>
   /** playerId → statusId → StatusInterval[]；task 5 才填充，本 task 返回空 Map */
   statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>>
+  /**
+   * castEvent.id → 该 cast 附着的所有 instance 中实际收束时刻的最大值。
+   * 仅在 cast 有 executor 且产生了至少一个新 instance 时进表；
+   * seeded buff（sourceCastEventId === ''）不进表。
+   * 渲染层用此字段定位绿条末端，miss 时回退到 cast.timestamp + action.duration。
+   */
+  castEffectiveEndByCastEventId: Map<string, number>
 }
 
 /**
@@ -252,6 +259,7 @@ export class MitigationCalculator {
 
     const damageResults = new Map<string, CalculationResult>()
     const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
+    const castEffectiveEndByCastEventId = new Map<string, number>()
 
     interface OpenRecord {
       statusId: number
@@ -276,6 +284,12 @@ export class MitigationCalculator {
       })
       byStatus.set(rec.statusId, arr)
       statusTimelineByPlayer.set(rec.targetPlayerId, byStatus)
+
+      // 维护 castEffectiveEnd：sourceCastEventId 为空（seeded buff）跳过；否则取 max
+      if (rec.sourceCastEventId !== '') {
+        const prev = castEffectiveEndByCastEventId.get(rec.sourceCastEventId) ?? -Infinity
+        castEffectiveEndByCastEventId.set(rec.sourceCastEventId, Math.max(prev, to))
+      }
     }
 
     // 对比 state → state' 的 status instance 差异：
@@ -469,7 +483,7 @@ export class MitigationCalculator {
       }
     }
 
-    return { damageResults, statusTimelineByPlayer }
+    return { damageResults, statusTimelineByPlayer, castEffectiveEndByCastEventId }
   }
 
   /**
