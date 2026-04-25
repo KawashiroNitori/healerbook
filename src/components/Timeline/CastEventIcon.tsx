@@ -157,11 +157,13 @@ const CastEventIcon = memo(function CastEventIcon({
         />
       )}
 
-      {/* 持续时间文本（在持续时间条末尾内侧） */}
+      {/* 持续时间文本（在持续时间条末尾内侧，右对齐保持固定右边距） */}
       {action.duration >= 3 && (
         <Text
           x={effectiveDuration * zoomLevel - 22}
           y={0}
+          width={18}
+          align="right"
           text={`${action.duration}s`}
           fontSize={10}
           fill={isSelected ? '#ffffff' : '#10b981'}
@@ -202,11 +204,13 @@ const CastEventIcon = memo(function CastEventIcon({
         />
       )}
 
-      {/* 冷却时间文本（在冷却时间条末尾内侧） */}
+      {/* 冷却时间文本（在冷却时间条末尾内侧，右对齐保持固定右边距） */}
       {showCdText && (
         <Text
           x={cdTextX}
           y={0}
+          width={18}
+          align="right"
           text={`${cdTextSeconds}s`}
           fontSize={10}
           fill={isSelected ? '#ffffff' : '#3b82f6'}
