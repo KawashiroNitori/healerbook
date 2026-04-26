@@ -2,7 +2,7 @@
 *.generated.ts
 
 # 与 .gitignore 一致的常见忽略
-dist
+dist/
 coverage/
 .wrangler/
 node_modules/
