@@ -155,6 +155,7 @@ describe('containsBannedSubstring', () => {
     const { containsBannedSubstring } = await freshFilter()
 
     await containsBannedSubstring('aaa', { SENSITIVE_WORDS_HMAC_KEY: TEST_KEY })
+    await containsBannedSubstring('bbb', { SENSITIVE_WORDS_HMAC_KEY: TEST_KEY })
 
     const calls = warnSpy.mock.calls.filter(c =>
       String(c[0]).includes('[sensitive-words] disabled: empty hash table')
