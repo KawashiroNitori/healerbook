@@ -5,14 +5,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Loader2, Info } from 'lucide-react'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
-import { createFFLogsClient } from '@/api/fflogsClient'
-import {
-  parseComposition,
-  parseDamageEvents,
-  parseCastEvents,
-  parseSyncEvents,
-  findFirstDamageTimestamp,
-} from '@/utils/fflogsImporter'
+// fflogsClient / fflogsImporter 仅 ?client_import=1 才用，且该参数仅开发环境生效，
+// 改为 dynamic import：生产构建经 Vite 的 import.meta.env.DEV 常量折叠 + DCE，
+// 不会进 bundle。
 import { createNewTimeline, saveTimeline, buildFFLogsSourceIndex } from '@/utils/timelineStorage'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { getEncounterWithTier } from '@/data/raidEncounters'
@@ -78,7 +73,10 @@ export default function ImportFFLogsDialog({
     readClipboard()
   }, [initialUrl])
 
-  const clientImport = new URLSearchParams(window.location.search).get('client_import') === '1'
+  // 仅开发环境支持 ?client_import=1；生产环境短路为 false，下方 handleClientSubmit
+  // 永远进不去，配合 dynamic import 保证 fflogsImporter / fflogsClient 不进 bundle
+  const clientImport =
+    import.meta.env.DEV && new URLSearchParams(window.location.search).get('client_import') === '1'
 
   /** 服务端解析：一次请求返回完整 Timeline */
   const handleServerSubmit = async (e: React.FormEvent) => {
@@ -131,9 +129,12 @@ export default function ImportFFLogsDialog({
     }
   }
 
-  /** 前端解析：原有逻辑 */
+  /** 前端解析（仅开发环境）：?client_import=1 进入；生产 DCE 后整段不可达 */
   const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // 生产构建里 import.meta.env.DEV 折叠成 false → if(true) return → 下方全部死代码，
+    // dynamic import 站点被 Rollup/esbuild 一并清掉
+    if (!import.meta.env.DEV) return
     if (!parsed?.reportCode) return
 
     setError('')
@@ -141,6 +142,19 @@ export default function ImportFFLogsDialog({
     setLoadingStep('正在获取报告信息...')
 
     try {
+      // 仅在此处异步加载，生产 bundle 不引这两条链路
+      const [{ createFFLogsClient }, importer] = await Promise.all([
+        import('@/api/fflogsClient'),
+        import('@/utils/fflogsImporter'),
+      ])
+      const {
+        parseComposition,
+        parseDamageEvents,
+        parseCastEvents,
+        parseSyncEvents,
+        findFirstDamageTimestamp,
+      } = importer
+
       // 获取报告数据
       const client = createFFLogsClient()
       const report = await client.getReport(parsed.reportCode)
