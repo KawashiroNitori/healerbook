@@ -21,3 +21,8 @@ JWT_SECRET=your_jwt_secret_here
 
 # 认证端点允许的前端域名（生产环境替换为实际域名，如 https://healerbook.pages.dev）
 ALLOWED_ORIGIN=http://localhost:5173
+
+# 敏感词过滤 HMAC 密钥（HMAC-SHA256）
+# 生成方式: openssl rand -base64 32
+# 本地 .dev.vars 与线上 Workers Secret 两处必须同值
+SENSITIVE_WORDS_HMAC_KEY=your_hmac_key_here

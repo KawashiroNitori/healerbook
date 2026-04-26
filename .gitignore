@@ -44,3 +44,4 @@ docs/.vitepress/dist
 .superset/
 
 public/latest-release.json
+secrets/

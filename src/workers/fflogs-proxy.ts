@@ -53,6 +53,8 @@ export interface Env {
   JWT_SECRET?: string
   // 允许的前端域名（用于认证端点的 CORS，如 https://healerbook.pages.dev）
   ALLOWED_ORIGIN?: string
+  // 敏感词过滤 HMAC 密钥（与构建期生成 sensitiveWordHashes.generated.ts 时所用同值）
+  SENSITIVE_WORDS_HMAC_KEY?: string
 }
 
 /**

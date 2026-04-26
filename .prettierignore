@@ -1,0 +1,8 @@
+# 自动生成的产物，避免 prettier 扰动 byte-equal 输出
+*.generated.ts
+
+# 与 .gitignore 一致的常见忽略
+dist
+coverage/
+.wrangler/
+node_modules/
