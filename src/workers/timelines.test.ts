@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import * as v from 'valibot'
 import { handleTimelines } from './timelines'
 import { V2TimelineSchema } from './timelineSchema'
@@ -211,6 +211,67 @@ describe('POST /api/timelines', () => {
 
     const res = await handleTimelines(req, env)
     expect(res.status).toBe(400)
+  })
+
+  it('过滤器命中前 3 次后第 4 次过审，仍返回 201', async () => {
+    const filterModule = await import('./sensitiveWordFilter')
+    const spy = vi.spyOn(filterModule, 'containsBannedSubstring')
+    spy
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValue(false)
+
+    const env = makeMockEnv(makeMockD1())
+    const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
+    const req = new Request('https://example.com/api/timelines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(201)
+    expect(spy).toHaveBeenCalledTimes(4)
+
+    spy.mockRestore()
+  })
+
+  it('过滤器连续 32 次命中后返回 500 id_generation_failed', async () => {
+    const filterModule = await import('./sensitiveWordFilter')
+    const spy = vi.spyOn(filterModule, 'containsBannedSubstring')
+    spy.mockResolvedValue(true)
+
+    const env = makeMockEnv(makeMockD1())
+    const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
+    const req = new Request('https://example.com/api/timelines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toBe('id_generation_failed')
+    expect(spy).toHaveBeenCalledTimes(32)
+
+    spy.mockRestore()
+  })
+
+  it('过滤器从不命中（默认空表）时与既有路径一致：201 + 21 位 ID', async () => {
+    // 不 spy；用真实 filter，generated 模块当前空表 → no-op → 总返 false
+    // 注意：实际 generated.ts 此刻已有真实词表，但 21 位 ID 命中真实词概率约 0；
+    // 若你的本机 generated.ts 跑出来恰好命中，可以临时改用 spy 强制 false
+    const env = makeMockEnv(makeMockD1())
+    const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
+    const req = new Request('https://example.com/api/timelines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
+    })
+    const res = await handleTimelines(req, env)
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { id: string }
+    expect(body.id).toMatch(/^[0-9A-Za-z]{21}$/)
   })
 
   it('请求体缺少 ca (createdAt) 时返回 400', async () => {

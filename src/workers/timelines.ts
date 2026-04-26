@@ -4,6 +4,23 @@ import type { Env } from './fflogs-proxy'
 import { verifyToken } from './jwt'
 import { generateId } from '@/utils/id'
 import { validateCreateRequest, validateUpdateRequest } from './timelineSchema'
+import * as sensitiveWordFilter from './sensitiveWordFilter'
+
+const ID_GEN_MAX_ATTEMPTS = 32
+
+class IdGenerationError extends Error {
+  constructor() {
+    super('id generation exhausted')
+  }
+}
+
+async function generateCleanId(env: Env): Promise<string> {
+  for (let i = 0; i < ID_GEN_MAX_ATTEMPTS; i++) {
+    const id = generateId()
+    if (!(await sensitiveWordFilter.containsBannedSubstring(id, env))) return id
+  }
+  throw new IdGenerationError()
+}
 
 /** 格式化 Valibot 校验错误为可读字符串 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,7 +127,15 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
 
   const { timeline } = result.output
   const now = Math.floor(Date.now() / 1000)
-  const newId = generateId()
+  let newId: string
+  try {
+    newId = await generateCleanId(env)
+  } catch (e) {
+    if (e instanceof IdGenerationError) {
+      return jsonRes({ error: 'id_generation_failed' }, 500, env.ALLOWED_ORIGIN)
+    }
+    throw e
+  }
   const { n: _, ...rest } = timeline // eslint-disable-line @typescript-eslint/no-unused-vars
   const content = JSON.stringify(rest)
 
