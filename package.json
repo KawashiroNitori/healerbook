@@ -14,7 +14,7 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "workers:deploy": "wrangler deploy --config wrangler.toml --env production",
-    "gen:sensitive-words": "tsx scripts/buildSensitiveWords.ts",
+    "gen:sensitive-words": "tsx scripts/build-sensitive-words.ts",
     "prepare": "husky",
     "docs:dev": "vitepress dev docs --port 5174",
     "docs:build": "vitepress build docs",
