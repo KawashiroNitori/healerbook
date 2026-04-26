@@ -2,16 +2,25 @@
  * 状态元数据本地补充表
  *
  * 3rd party `keigenns` 提供基础数据（id / name / type / performance / isFriendly 等），
- * 本表按 statusId 提供本地扩展字段的覆盖值。未在此表中的状态走 statusRegistry 里的默认值。
+ * 本表按 statusId 提供本地扩展字段的覆盖值；同名 base 字段也可在此覆盖（extras 优先）。
+ *
+ * 当 statusId 在第三方 keigenns 中不存在时，本表条目必须自带 `name` / `isFriendly`
+ * 两项基础字段，registry 初始化时会校验并 fail-fast；`type` 可缺省（视为不参与
+ * % 减伤、不算盾的 executor-only 状态）；`performance` 缺省视为
+ * `{ physics: 1, magic: 1, darkness: 1 }`（不减伤）。
  */
 
+import type {
+  KeigennType,
+  PerformanceType as ExternalPerformanceType,
+} from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
 import type {
   MitigationStatusMetadata,
   StatusBeforeShieldContext,
   StatusExecutor,
 } from '@/types/status'
 import type { MitigationCategory } from '@/types/mitigation'
-import { addStatus, removeStatus } from '@/executors/statusHelpers'
+import { addStatus, removeStatus, updateStatusData } from '@/executors/statusHelpers'
 import { isStatusValidForTank } from '@/utils/statusFilter'
 
 /**
@@ -63,6 +72,23 @@ export function createSurvivalBarrierHook() {
 
 /** 单个状态的本地补充字段 */
 export interface StatusExtras {
+  // ── 基础字段（仅当 statusId 不在第三方 keigenns 中时必需；存在时作为 override）──
+  /** 状态名称；缺省取 keigenn.name */
+  name?: string
+  /**
+   * 状态类型 multiplier | absorbed；缺省取 keigenn.type；都缺省视为不参与
+   * % 减伤、不算盾（calculator Phase 1 与所有 `=== 'absorbed'` 二分点皆 fall-through），
+   * 适合纯靠 executor 起作用的状态（如延迟治疗 / 标记类 buff）。
+   */
+  type?: KeigennType
+  /** 是否友方；缺省取 keigenn.isFriendly */
+  isFriendly?: boolean
+  /** physics/magic/darkness 减伤数据；缺省取 keigenn.performance；都缺省视为 {1,1,1} */
+  performance?: ExternalPerformanceType
+  /** 图标 url；缺省取 keigenn.fullIcon */
+  fullIcon?: string
+
+  // ── 本地扩展字段 ──
   /** 是否仅对坦克生效；缺省为 false */
   isTankOnly?: boolean
   /** performance.heal 倍率（1 = 无影响，> 1 增疗）；缺省为 1 */
@@ -82,7 +108,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   1191: { isTankOnly: true, heal: 1.15, category: ['self', 'percentage'] }, // 铁壁
 
   // 骑士
-  17: { isTankOnly: true, category: ['self', 'percentage'] }, // 预警
+  74: { isTankOnly: true, category: ['self', 'percentage'] }, // 预警
   1856: { isTankOnly: true, category: ['self', 'percentage'] }, // 盾阵
   2674: { isTankOnly: true, category: ['self', 'percentage'] }, // 圣盾阵
   82: { isTankOnly: true, category: ['self', 'percentage'] }, // 神圣领域
@@ -154,4 +180,75 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   1840: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 石之心
   2683: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之心
   2684: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之清
+
+  // 白魔法师
+
+  // 占星术士
+  1224: {
+    name: '地星主宰',
+    category: ['self', 'heal'],
+    isFriendly: true,
+    executor: {
+      // 到期变身为 1248（巨星主宰），保持 instanceId 让绿条连续
+      onExpire: ctx => ({
+        ...ctx.partyState,
+        statuses: ctx.partyState.statuses.map(s =>
+          s.instanceId === ctx.status.instanceId
+            ? { ...s, statusId: 1248, endTime: ctx.expireTime + 10 }
+            : s
+        ),
+      }),
+    },
+  },
+  1248: {
+    name: '巨星主宰',
+    category: ['self', 'heal'],
+    isFriendly: true,
+    executor: {
+      onExpire: () => {
+        // TODO: 大地星爆炸治疗逻辑
+      },
+    },
+  },
+  1890: {
+    name: '天宫图',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: {
+      onExpire: () => {
+        // TODO: 天宫图治疗逻辑
+      },
+    },
+  },
+  1891: {
+    name: '阳星天宫图',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: {
+      onExpire: () => {
+        // TODO: 阳星天宫图治疗逻辑
+      },
+    },
+  },
+  2718: {
+    name: '大宇宙',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: {
+      // 累计非 T 职业受到的实际伤害；坦专事件（tankbuster / auto）跳过——非 T 不吃伤。
+      // 读取最新 data 必须从 ctx.partyState.statuses 里 find 同 instanceId（onAfterDamage 的
+      // ctx.status 是原始快照，data 字段可能落后于本事件 onConsume 等修改）。
+      onAfterDamage: ctx => {
+        if (ctx.event.type === 'tankbuster' || ctx.event.type === 'auto') return
+        const current = ctx.partyState.statuses.find(s => s.instanceId === ctx.status.instanceId)
+        const prev = (current?.data?.nonTankDamageTotal as number | undefined) ?? 0
+        return updateStatusData(ctx.partyState, ctx.status.instanceId, {
+          nonTankDamageTotal: prev + ctx.finalDamage,
+        })
+      },
+      onExpire: () => {
+        // TODO: 大宇宙治疗逻辑（按 ctx.status.data.nonTankDamageTotal 推导）
+      },
+    },
+  },
 }

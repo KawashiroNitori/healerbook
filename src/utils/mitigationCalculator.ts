@@ -76,6 +76,8 @@ export interface CalculateOptions {
    * - 否则 → 单路径（现有行为）
    */
   tankPlayerIds?: number[]
+  /** 时间轴内部统计数据，可选；用于 Status*Context.statistics 注入 */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -173,6 +175,7 @@ export class MitigationCalculator {
           multiplierFilter: tankFilter,
           shieldFilter: tankShieldFilter,
           referenceMaxHP: refHP,
+          statistics: opts?.statistics,
         })
         return {
           playerId: tankId,
@@ -225,6 +228,7 @@ export class MitigationCalculator {
       multiplierFilter: singleMultiplierFilter,
       shieldFilter: singleShieldFilter,
       referenceMaxHP,
+      statistics: opts?.statistics,
     })
 
     return {
@@ -341,8 +345,18 @@ export class MitigationCalculator {
 
     const advanceToTime = (state: PartyState, prev: number, cur: number): PartyState => {
       let next = state
+
+      // (prev, cur] 区间的 3s tick 时刻列表
+      const tickTimes: number[] = []
       const firstTick = Math.floor(prev / TICK_INTERVAL) * TICK_INTERVAL + TICK_INTERVAL
       for (let t = firstTick; t <= cur; t += TICK_INTERVAL) {
+        tickTimes.push(t)
+      }
+
+      // 已 fire 过 onExpire 的 instanceId（避免同一 advance 内重复触发）
+      const expired = new Set<string>()
+
+      const fireTick = (t: number) => {
         // 对同一个 tick 点，内层 for-of 以这一 tick 开始时刻的 statuses 快照为迭代对象：
         //   ✓ onTick 返回的新 state 会立即影响该 tick 后续 status 读到的 ctx.partyState
         //   ✗ 但新添加的状态不会在同一 tick 立即被遍历到——它们要等下一 tick 才参与
@@ -351,17 +365,49 @@ export class MitigationCalculator {
           if (status.startTime > t || status.endTime < t) continue
           const meta = getStatusById(status.statusId)
           if (!meta?.executor?.onTick) continue
-          const result = meta.executor.onTick({ status, tickTime: t, partyState: next })
+          const result = meta.executor.onTick({ status, tickTime: t, partyState: next, statistics })
           if (result) next = result
         }
       }
-      for (const status of next.statuses) {
-        if (status.endTime >= cur) continue
+
+      const fireExpire = (status: MitigationStatus) => {
+        expired.add(status.instanceId)
         const meta = getStatusById(status.statusId)
-        if (!meta?.executor?.onExpire) continue
-        const result = meta.executor.onExpire({ status, expireTime: cur, partyState: next })
+        if (!meta?.executor?.onExpire) return
+        const result = meta.executor.onExpire({
+          status,
+          expireTime: status.endTime,
+          partyState: next,
+          statistics,
+        })
         if (result) next = result
       }
+
+      // 主循环：每轮挑出"最早的下一个 tick"和"最早的下一个待过期 status"，
+      // 谁更早就先处理；同时刻 tick 优先（让 buff 在自己 endTime 那一刻仍能 tick 一次）。
+      // 通过每轮重算 pending 来捕获 onExpire / onTick 中新加入或被延长的 status，
+      // 让它们在同一 advance 内自然走到自己的 endTime。
+      let tickIdx = 0
+      // 设上限纯防御：脏 executor 引发循环时不至于 UI 卡死
+      let safety = 0
+      const SAFETY_LIMIT = 4096
+      while (safety++ < SAFETY_LIMIT) {
+        const pending = next.statuses
+          .filter(s => s.endTime < cur && !expired.has(s.instanceId))
+          .sort((a, b) => a.endTime - b.endTime)
+        const nextExpire = pending[0]
+        const nextTick = tickIdx < tickTimes.length ? tickTimes[tickIdx] : null
+
+        if (nextTick === null && nextExpire === undefined) break
+
+        if (nextTick !== null && (nextExpire === undefined || nextTick <= nextExpire.endTime)) {
+          fireTick(nextTick)
+          tickIdx++
+        } else {
+          fireExpire(nextExpire!)
+        }
+      }
+
       return { ...next, statuses: next.statuses.filter(s => s.endTime >= cur) }
     }
 
@@ -429,6 +475,7 @@ export class MitigationCalculator {
       const result = this.calculate(event, currentState, {
         baseReferenceMaxHP,
         tankPlayerIds: tankIds,
+        statistics,
       })
       damageResults.set(event.id, result)
       if (result.updatedPartyState) {
@@ -524,6 +571,7 @@ export class MitigationCalculator {
       multiplierFilter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
       shieldFilter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
       referenceMaxHP: number
+      statistics?: TimelineStatData
     }
   ): {
     finalDamage: number
@@ -536,7 +584,7 @@ export class MitigationCalculator {
     const damageType: DamageType = event.damageType || 'physical'
     const snapshotTime = event.snapshotTime
     const mitigationTime = snapshotTime ?? time
-    const { multiplierFilter, shieldFilter, referenceMaxHP } = opts
+    const { multiplierFilter, shieldFilter, referenceMaxHP, statistics } = opts
 
     // Phase 1: % 减伤
     let multiplier = 1.0
@@ -574,6 +622,7 @@ export class MitigationCalculator {
         partyState: workingState,
         candidateDamage,
         referenceMaxHP,
+        statistics,
       })
       if (result) workingState = result
     }
@@ -663,6 +712,7 @@ export class MitigationCalculator {
         event,
         partyState: updatedPartyState,
         absorbedAmount: absorbed,
+        statistics,
       })
       if (result) updatedPartyState = result
     }
@@ -685,6 +735,7 @@ export class MitigationCalculator {
         partyState: updatedPartyState,
         candidateDamage,
         finalDamage: Math.max(0, Math.round(damage)),
+        statistics,
       })
       if (result) updatedPartyState = result
     }

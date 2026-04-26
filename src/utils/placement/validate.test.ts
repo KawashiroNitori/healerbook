@@ -46,4 +46,12 @@ describe('validateActions', () => {
       true
     )
   })
+
+  it('place/collect 型同轨组（主技能 + cd=0 跟随 cast）不触发 mismatch warn', () => {
+    const issues = validateActions([
+      a({ id: 1, cooldown: 180, placement: { validIntervals: () => [] } }),
+      a({ id: 2, trackGroup: 1, cooldown: 0, placement: { validIntervals: () => [] } }),
+    ])
+    expect(issues.some(i => i.rule === 'trackgroup-cooldown-mismatch')).toBe(false)
+  })
 })

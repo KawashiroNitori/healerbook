@@ -130,7 +130,7 @@ export default function SkillTracksCanvas({
   // 每条 cast 的"可见 bar 覆盖区"需精确按当前状态算：
   //   - duration 条占 [ts, greenEnd)，greenEnd = castEffectiveEnd.get(id)（来自 simulate 的实际存活区间）
   //     缺省时回退到 ts + action.duration（cast 无 executor / 无附着）
-  //   - blue CD 条占 [greenEnd, visualEnd)，visualEnd = min(rawEnd, nextCastTime)
+  //   - blue CD 条占 [greenEnd, rawEnd)
   //   - rawEnd 来自 engine.cdBarEndFor（null = 无蓝条；Infinity = 截到 timelineEnd）
   //
   // 老版本用 max(action.cooldown, action.duration) 当固定窗口，在慰藉/献奉这类多充能场景下会过度 subtract
@@ -139,7 +139,7 @@ export default function SkillTracksCanvas({
     const bucket = new Map<string, { from: number; to: number }[]>()
     if (!actionMap) return bucket
 
-    // 先按 (playerId, groupId) 分组、按 timestamp 升序，逐 cast 取 nextCastTime
+    // 按 (playerId, groupId) 分组、按 timestamp 升序——分桶仅是为了后续合并区间
     const grouped = new Map<string, CastEvent[]>()
     for (const ce of timeline.castEvents) {
       const other = actionMap.get(ce.actionId)
@@ -160,14 +160,14 @@ export default function SkillTracksCanvas({
         const ce = arr[i]
         const other = actionMap.get(ce.actionId)
         if (!other) continue
-        const nextCastTime = i + 1 < arr.length ? arr[i + 1].timestamp : Infinity
         // 绿条末端：来自 simulate；缺失则回退 action.duration
         const fallbackEnd = ce.timestamp + other.duration
         const greenEnd = castEffectiveEnd.get(ce.id) ?? fallbackEnd
-        // cdBar 末端：原算法不变
+        // cdBar 末端：直接信任 engine.cdBarEndFor（资源池），与 CastEventIcon 一致；
+        // 不再用 nextCastTime 钳制（参见 CastEventIcon 中的注释）。
         const cdEnd = engine?.cdBarEndFor(ce.id) ?? null
         const rawEnd = cdEnd === null ? null : cdEnd === Infinity ? maxTime : cdEnd
-        const visualEnd = rawEnd === null ? greenEnd : Math.min(rawEnd, nextCastTime)
+        const visualEnd = rawEnd ?? greenEnd
         const visibleEnd = Math.max(greenEnd, visualEnd)
         bucketArr.push({ from: ce.timestamp, to: visibleEnd })
       }
@@ -554,7 +554,6 @@ export default function SkillTracksCanvas({
           // cast 的时间轴拖放后直接 100ms+ 卡顿。
           let leftBoundary = TIMELINE_START_TIME
           let rightBoundary = Infinity
-          let nextCastTime = Infinity
           if (engine && (isSelected || draggingId === castEvent.id)) {
             const trackGroupId = castAction?.trackGroup ?? castEvent.actionId
             const shadow = engine.computeTrackShadow(trackGroupId, castEvent.playerId, castEvent.id)
@@ -583,21 +582,6 @@ export default function SkillTracksCanvas({
             leftBoundary = Math.max(lo, TIMELINE_START_TIME)
             rightBoundary = hi
           }
-          // duration 条在同一 trackGroup 的下一 cast 处截断——共用按键的变体（37013/37016）
-          // 视觉上在同一轨道上先后按下，前一条的持续效果应在后一条按下时收束。
-          const castGroupIdForDuration = castAction?.trackGroup ?? castEvent.actionId
-          const nextSameTrack = timeline.castEvents
-            .filter(ce => {
-              if (ce.id === castEvent.id) return false
-              if (ce.playerId !== castEvent.playerId) return false
-              if (ce.timestamp <= castEvent.timestamp) return false
-              const ca = actionMap?.get(ce.actionId)
-              const gid = ca?.trackGroup ?? ce.actionId
-              return gid === castGroupIdForDuration
-            })
-            .sort((a, b) => a.timestamp - b.timestamp)[0]
-          if (nextSameTrack) nextCastTime = nextSameTrack.timestamp
-
           const invalidEntry = invalidCastEventMap?.get(castEvent.id) ?? null
 
           const fallbackEnd = castEvent.timestamp + action.duration
@@ -616,7 +600,6 @@ export default function SkillTracksCanvas({
               trackY={trackY}
               leftBoundary={leftBoundary}
               rightBoundary={rightBoundary}
-              nextCastTime={nextCastTime}
               effectiveEndSec={effectiveEndSec}
               scrollLeft={scrollLeft}
               scrollTop={scrollTop}

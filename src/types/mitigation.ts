@@ -24,7 +24,7 @@ export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'ba
  * - self: 可对自身生效
  * - target: 可对目标生效
  */
-export type MitigationCategory = 'shield' | 'percentage' | 'partywide' | 'self' | 'target'
+export type MitigationCategory = 'shield' | 'percentage' | 'heal' | 'partywide' | 'self' | 'target'
 
 /**
  * 副本统计数据

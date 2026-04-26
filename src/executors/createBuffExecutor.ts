@@ -17,6 +17,9 @@ export interface BuffExecutorOptions {
    * 直接在 call site 包一层 executor 即可，不必绕回 option。
    */
   performance?: PerformanceType
+
+  /** 层数 */
+  stack?: number
 }
 
 /**
@@ -43,7 +46,7 @@ export function createBuffExecutor(
       statusId,
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,
-      stack: 1,
+      stack: options?.stack ?? 1,
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
     }

@@ -65,14 +65,17 @@ export function validateActions(actions: MitigationAction[]): ValidationIssue[] 
         }
       }
     }
-    const cds = new Set(members.map(m => m.cooldown))
-    if (cds.size > 1) {
+    // 只检测"真·变体"互相 cd 不一致（如 37013/37016 同键变体应当有相同 cd）。
+    // place/collect 型（25862 主技能 cd=180 + 28509 跟随 cast cd=0）共享 trackGroup 但 cd
+    // 必然不同，不应误报；用 cd>0 过滤掉跟随 cast 后再比较。
+    const positiveCds = new Set(members.filter(m => m.cooldown > 0).map(m => m.cooldown))
+    if (positiveCds.size > 1) {
       for (const m of members) {
         issues.push({
           level: 'warn',
           rule: 'trackgroup-cooldown-mismatch',
           actionId: m.id,
-          message: `同轨组 ${gid} cooldown 不一致：${Array.from(cds).join(', ')}`,
+          message: `同轨组 ${gid} cooldown 不一致：${Array.from(positiveCds).join(', ')}`,
         })
       }
     }

@@ -4,11 +4,13 @@
 
 import type {
   Keigenn,
+  KeigennType,
   PerformanceType as ExternalPerformanceType,
 } from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
 import type { MitigationCategory } from './mitigation'
 import type { DamageEvent } from './timeline'
 import type { PartyState } from './partyState'
+import type { TimelineStatData } from './statData'
 
 /**
  * 减伤表现：在 3rd party 的 physics/magic/darkness 基础上新增 heal / maxHP
@@ -24,11 +26,19 @@ export type PerformanceType = ExternalPerformanceType & {
 /**
  * 减伤状态元数据（在 Keigenn 基础上扩展本地字段）
  *
- * fullIcon 与 3rd party 的 keigenns 数组声明一致，做成可选
+ * fullIcon 与 3rd party 的 keigenns 数组声明一致，做成可选。
+ *
+ * `type` 也做成可选：缺省视为"不参与 % 减伤、不算盾"，calculator Phase 1 与所有
+ * `type === 'absorbed'` 的二分点都会安全跳过——适合纯靠 executor 起作用的状态
+ * （如延迟治疗 / 标记类 buff）。
  */
-export interface MitigationStatusMetadata extends Omit<Keigenn, 'performance' | 'fullIcon'> {
+export interface MitigationStatusMetadata extends Omit<
+  Keigenn,
+  'performance' | 'fullIcon' | 'type'
+> {
   performance: PerformanceType
   fullIcon?: string
+  type?: KeigennType
   /** 是否仅对坦克生效 */
   isTankOnly: boolean
   /** 状态自身的副作用钩子（可选） */
@@ -130,6 +140,8 @@ export interface StatusBeforeShieldContext {
    * 已叠加活跃 buff 的 maxHP 倍率）。钩子只在编辑模式触发，由 calculator 注入。
    */
   referenceMaxHP: number
+  /** 时间轴内部统计数据（healByAbility / shieldByAbility / referenceMaxHP 等），可选 */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -142,6 +154,8 @@ export interface StatusConsumeContext {
   partyState: PartyState
   /** 此盾值在本事件被吸收的量 */
   absorbedAmount: number
+  /** 时间轴内部统计数据，可选 */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -155,6 +169,8 @@ export interface StatusAfterDamageContext {
   candidateDamage: number
   /** 盾吸收后的最终伤害 */
   finalDamage: number
+  /** 时间轴内部统计数据，可选 */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -163,9 +179,15 @@ export interface StatusAfterDamageContext {
 export interface StatusExpireContext {
   /** 即将过期的状态实例 */
   status: MitigationStatus
-  /** 过期检查的时刻（通常是下一个事件的 time / snapshotTime） */
+  /**
+   * 状态实际过期的时刻——即 `status.endTime`，与 simulator 处理这次过期的"墙上时刻"
+   * 解耦。executor 在此基础上派生新 status 的时间戳（addStatus 的 eventTime / 自变身后
+   * 的 endTime 等）即可保证逻辑时间正确锚定。
+   */
   expireTime: number
   partyState: PartyState
+  /** 时间轴内部统计数据，可选 */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -178,6 +200,8 @@ export interface StatusTickContext {
   status: MitigationStatus
   tickTime: number
   partyState: PartyState
+  /** 时间轴内部统计数据，可选 */
+  statistics?: TimelineStatData
 }
 
 /**
@@ -196,9 +220,10 @@ export interface StatusExecutor {
   /**
    * 状态到达 endTime、即将被 driver 清理时调用。
    *
-   * 注意：不要在 onExpire 中添加 `endTime <= ctx.expireTime` 的新状态——这类新状态
-   * 会被本次 filter 静默清掉且不再触发自己的 onExpire；如需链式过期，请将新状态的
-   * endTime 设得晚于 `ctx.expireTime`。
+   * driver 在 advanceToTime 内按时间顺序处理所有 tick 与 expire——onExpire 的触发
+   * 时刻 = `status.endTime`（不是下一个事件的 time）。这意味着 executor 在 onExpire
+   * 里添加的新 status 即使 endTime 仍 < cur 也能在同一次 advance 内被发现并触发自
+   * 己的 onExpire（按 endTime 升序、与剩余 tick 交错）。
    */
   onExpire?: (ctx: StatusExpireContext) => PartyState | void
   /** 全局 3s tick 网格上、状态仍活跃时触发（DoT / HoT 等） */

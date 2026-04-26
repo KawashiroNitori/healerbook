@@ -4,40 +4,88 @@
  */
 
 import { keigenns } from '../../3rdparty/ff14-overlay-vue/src/resources/keigenn'
-import { STATUS_EXTRAS } from '@/data/statusExtras'
+import type { Keigenn } from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
+import { STATUS_EXTRAS, type StatusExtras } from '@/data/statusExtras'
 import type { MitigationStatusMetadata } from '@/types/status'
 
-/**
- * 状态 ID 到元数据的映射
- */
-const statusMap = new Map<number, MitigationStatusMetadata>()
+/** 第三方 keigenns 数组的元素形状（fullIcon 可选） */
+type KeigennInput = Omit<Keigenn, 'fullIcon'> & { fullIcon?: string }
 
 /**
- * 初始化状态注册表
+ * 由 keigenn 列表 + extras 表构建状态注册表
  *
- * 合并规则：3rd party Keigenn 数据 + STATUS_EXTRAS 覆盖 + 默认值
- *   - performance.heal 缺省为 1（无影响）
- *   - performance.maxHP 缺省为 1（无影响）
- *   - isTankOnly 缺省为 false
+ * 合并规则：
+ *   - 迭代 `keigennList` ∪ `extrasMap` 的 statusId 并集
+ *   - extras 的同名 base 字段（name / type / isFriendly / performance / fullIcon）
+ *     覆盖 keigenn；缺省时回落到 keigenn 值
+ *   - 只在 extras 中的 id 必须自带 name / isFriendly，否则 throw；
+ *     `type` 可缺省（视为不参与 % 减伤、不算盾的 executor-only 状态）；
+ *     `performance` 缺省视为 `{ physics: 1, magic: 1, darkness: 1 }`
+ *   - performance.heal / maxHP 缺省为 1，isTankOnly 缺省为 false
+ *
+ * 纯函数；无副作用；用于真实初始化与单元测试两个场景。
  */
-function initializeStatusRegistry() {
-  if (statusMap.size > 0) return // 已初始化
+export function buildStatusRegistry(
+  keigennList: readonly KeigennInput[],
+  extrasMap: Record<number, StatusExtras>
+): Map<number, MitigationStatusMetadata> {
+  const result = new Map<number, MitigationStatusMetadata>()
 
-  for (const status of keigenns) {
-    const extras = STATUS_EXTRAS[status.id]
-    const merged: MitigationStatusMetadata = {
-      ...status,
+  const keigennById = new Map<number, KeigennInput>()
+  for (const k of keigennList) keigennById.set(k.id, k)
+
+  const allIds = new Set<number>([...keigennById.keys(), ...Object.keys(extrasMap).map(Number)])
+
+  for (const id of allIds) {
+    const keigenn = keigennById.get(id)
+    const extras = extrasMap[id]
+
+    const name = extras?.name ?? keigenn?.name
+    const type = extras?.type ?? keigenn?.type
+    const isFriendly = extras?.isFriendly ?? keigenn?.isFriendly
+    const basePerformance = extras?.performance ??
+      keigenn?.performance ?? { physics: 1, magic: 1, darkness: 1 }
+    const fullIcon = extras?.fullIcon ?? keigenn?.fullIcon
+
+    if (name === undefined || isFriendly === undefined) {
+      const missing = [
+        name === undefined ? 'name' : null,
+        isFriendly === undefined ? 'isFriendly' : null,
+      ]
+        .filter(Boolean)
+        .join(' / ')
+      throw new Error(`STATUS_EXTRAS[${id}] 在第三方 keigenns 中不存在，必须在本地补全 ${missing}`)
+    }
+
+    result.set(id, {
+      id,
+      name,
+      type,
+      isFriendly,
+      fullIcon,
       performance: {
-        ...status.performance,
+        ...basePerformance,
         heal: extras?.heal ?? 1,
         maxHP: extras?.maxHP ?? 1,
       },
       isTankOnly: extras?.isTankOnly ?? false,
       executor: extras?.executor,
       category: extras?.category,
-    }
-    statusMap.set(status.id, merged)
+    })
   }
+
+  return result
+}
+
+/**
+ * 状态 ID 到元数据的映射（模块级单例，懒加载）
+ */
+const statusMap = new Map<number, MitigationStatusMetadata>()
+
+function initializeStatusRegistry() {
+  if (statusMap.size > 0) return
+  const built = buildStatusRegistry(keigenns, STATUS_EXTRAS)
+  for (const [id, meta] of built) statusMap.set(id, meta)
 }
 
 /**

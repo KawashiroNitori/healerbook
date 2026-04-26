@@ -26,11 +26,6 @@ interface CastEventIconProps {
   leftBoundary: number
   rightBoundary: number
   /**
-   * 同 trackGroup 下一 cast 的 timestamp。
-   * 仍保留：cdBar 的 visualEndSec 用它截短，绿条不再使用。
-   */
-  nextCastTime: number
-  /**
    * 该 cast 的绿条结束秒数（来自 simulate 的 castEffectiveEndByCastEventId）。
    * 父组件已做 fallback：cast 无 executor / 无附着时 = ts + action.duration。
    */
@@ -61,7 +56,6 @@ const CastEventIcon = memo(function CastEventIcon({
   trackY,
   leftBoundary,
   rightBoundary,
-  nextCastTime,
   effectiveEndSec,
   scrollLeft,
   scrollTop,
@@ -83,7 +77,10 @@ const CastEventIcon = memo(function CastEventIcon({
 
   // 蓝条几何
   const rawEndSec = cdBarEnd === null ? null : cdBarEnd === Infinity ? timelineEndSec : cdBarEnd
-  const visualEndSec = rawEndSec === null ? null : Math.min(rawEndSec, nextCastTime)
+  // 蓝条只看资源池给出的 rawEnd（cdBarEndFor 已是单一可信源）；不再用 nextCastTime 钳制——
+  // 那是只对"同键变体"有意义的旧启发式，对 place/collect 型同 trackGroup 双 cast（如礼仪之铃
+  // 25862 + 收铃铛 28509）会把 180s 蓝条直接吃掉。
+  const visualEndSec = rawEndSec
   const cdBarWidth =
     visualEndSec === null
       ? 0

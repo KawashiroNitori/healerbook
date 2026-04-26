@@ -6,9 +6,9 @@
  */
 
 import type { MitigationAction } from '@/types/mitigation'
-import { createBuffExecutor, createShieldExecutor } from '@/executors'
+import { createBuffExecutor, createShieldExecutor, removeStatus } from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
-import { whileStatus, not } from '@/utils/placement/combinators'
+import { whileStatus, not, anyOf } from '@/utils/placement/combinators'
 
 const SERAPHISM_BUFF_ID = 3885 // 炽天附体
 
@@ -351,6 +351,38 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 60,
       executor: createBuffExecutor(1219, 10),
     },
+    {
+      id: 25862,
+      name: '礼仪之铃',
+      icon: '/i/002000/002649.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 20,
+      cooldown: 180,
+      placement: not(whileStatus(2709)),
+      executor: createBuffExecutor(2709, 20, { stack: 5, uniqueGroup: [] }),
+      statDataEntries: [{ type: 'heal', key: 1002709 }],
+    },
+    // 手动收铃铛
+    {
+      id: 28509,
+      name: '礼仪之铃',
+      icon: '/i/002000/002649.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 0,
+      trackGroup: 25862,
+      placement: whileStatus(2709),
+      executor: (ctx: ActionExecutionContext) => {
+        return removeStatus(
+          ctx.partyState,
+          ctx.partyState.statuses.find(
+            s => s.statusId === 2709 && s.sourcePlayerId === ctx.sourcePlayerId
+          )?.instanceId ?? ''
+        )
+      },
+    },
 
     // 学者 (SCH)
     // 展开战术 - 复制目标的鼓舞盾到所有成员（模拟为群体单盾）
@@ -524,6 +556,47 @@ export const MITIGATION_DATA: MitigationDataSource = {
 
     // 占星术士 (AST)
     {
+      id: 7439,
+      name: '地星',
+      icon: '/i/003000/003143.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 20,
+      cooldown: 60,
+      placement: not(anyOf(whileStatus(1224), whileStatus(1248))),
+      executor: createBuffExecutor(1224, 10),
+      statDataEntries: [
+        { type: 'heal', key: 1224, label: '地星主宰' },
+        { type: 'heal', key: 1248, label: '巨星主宰' },
+      ],
+    },
+    {
+      id: 8324,
+      name: '星体爆轰',
+      icon: '/i/003000/003144.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      trackGroup: 7439,
+      duration: 0,
+      cooldown: 0,
+      placement: anyOf(whileStatus(1224), whileStatus(1248)),
+      executor: ctx => {
+        const smallEarth = ctx.partyState.statuses.find(
+          s => s.statusId === 1224 && s.sourcePlayerId === ctx.sourcePlayerId
+        )
+        const largeEarth = ctx.partyState.statuses.find(
+          s => s.statusId === 1248 && s.sourcePlayerId === ctx.sourcePlayerId
+        )
+        if (largeEarth) {
+          return removeStatus(ctx.partyState, largeEarth.instanceId)
+        } else if (smallEarth) {
+          return removeStatus(ctx.partyState, smallEarth.instanceId)
+        }
+        // TODO: 星体爆轰治疗
+        return ctx.partyState
+      },
+    },
+    {
       id: 3613,
       name: '命运之轮',
       icon: '/i/003000/003140.png',
@@ -570,15 +643,107 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 1,
       executor: (ctx: ActionExecutionContext) => {
         const neutralSectId = 1892 // 中间学派
-        if (!ctx.partyState.statuses.some(s => s.statusId === neutralSectId)) {
-          return ctx.partyState
+
+        // 阶段 1：自己的 1890（天宫图）若还在，升级为 1891（阳星天宫图）30s。
+        let partyState = ctx.partyState
+        const horoscope = partyState.statuses.find(
+          s => s.statusId === 1890 && s.sourcePlayerId === ctx.sourcePlayerId
+        )
+        if (horoscope) {
+          partyState = {
+            ...partyState,
+            statuses: partyState.statuses.map(s =>
+              s.instanceId === horoscope.instanceId
+                ? { ...s, statusId: 1891, startTime: ctx.useTime, endTime: ctx.useTime + 30 }
+                : s
+            ),
+          }
+        }
+
+        // 阶段 2：中间学派激活时附加群盾
+        if (!partyState.statuses.some(s => s.statusId === neutralSectId)) {
+          return partyState
         }
         // 盾量 = 阳星合相治疗量 × 1.25（盾比例）× 1.2（中间学派加成）
         const baseHeal = ctx.statistics?.healByAbility[37030] ?? 10000
         const barrier = Math.round(baseHeal * 1.25 * 1.2)
-        return createShieldExecutor(1921, 30, { fixedBarrier: barrier })(ctx)
+        return createShieldExecutor(1921, 30, { fixedBarrier: barrier })({ ...ctx, partyState })
       },
       statDataEntries: [{ type: 'heal', key: 37030 }],
+    },
+    {
+      id: 16557,
+      name: '天宫图',
+      icon: '/i/003000/003550.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 10,
+      cooldown: 60,
+      placement: not(anyOf(whileStatus(1890), whileStatus(1891))),
+      executor: createBuffExecutor(1890, 10),
+      statDataEntries: [
+        { type: 'heal', key: 1890, label: '天宫图' },
+        { type: 'heal', key: 1891, label: '阳星天宫图' },
+      ],
+    },
+    // 手动收天宫图
+    {
+      id: 16558,
+      name: '天宫图',
+      icon: '/i/003000/003551.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 1,
+      trackGroup: 16557,
+      placement: anyOf(whileStatus(1890), whileStatus(1891)),
+      executor: ctx => {
+        const horoscope = ctx.partyState.statuses.find(
+          s => s.statusId === 1890 && s.sourcePlayerId === ctx.sourcePlayerId
+        )
+        const horoscopeHelios = ctx.partyState.statuses.find(
+          s => s.statusId === 1891 && s.sourcePlayerId === ctx.sourcePlayerId
+        )
+        if (horoscopeHelios) {
+          return removeStatus(ctx.partyState, horoscopeHelios.instanceId)
+        } else if (horoscope) {
+          return removeStatus(ctx.partyState, horoscope.instanceId)
+        }
+        // TODO: 天宫图治疗
+        return ctx.partyState
+      },
+    },
+    {
+      id: 25874,
+      name: '大宇宙',
+      icon: '/i/003000/003562.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 15,
+      cooldown: 180,
+      placement: not(whileStatus(2718)),
+      executor: createBuffExecutor(2718, 15),
+    },
+    {
+      id: 25875,
+      name: '小宇宙',
+      icon: '/i/003000/003563.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 1,
+      trackGroup: 25874,
+      placement: whileStatus(2718),
+      executor: ctx => {
+        const universe = ctx.partyState.statuses.find(
+          s => s.statusId === 2718 && s.sourcePlayerId === ctx.sourcePlayerId
+        )
+        if (universe) {
+          return removeStatus(ctx.partyState, universe.instanceId)
+        }
+        // TODO: 小宇宙治疗
+        return ctx.partyState
+      },
     },
 
     // 贤者 (SGE)
