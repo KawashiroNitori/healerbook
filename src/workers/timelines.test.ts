@@ -257,10 +257,11 @@ describe('POST /api/timelines', () => {
     spy.mockRestore()
   })
 
-  it('过滤器从不命中（默认空表）时与既有路径一致：201 + 21 位 ID', async () => {
-    // 不 spy；用真实 filter，generated 模块当前空表 → no-op → 总返 false
-    // 注意：实际 generated.ts 此刻已有真实词表，但 21 位 ID 命中真实词概率约 0；
-    // 若你的本机 generated.ts 跑出来恰好命中，可以临时改用 spy 强制 false
+  it('过滤器不命中时返回 201 + 21 位 ID', async () => {
+    const filterModule = await import('./sensitiveWordFilter')
+    const spy = vi.spyOn(filterModule, 'containsBannedSubstring')
+    spy.mockResolvedValue(false)
+
     const env = makeMockEnv(makeMockD1())
     const token = await makeAccessToken('user1', 'TestUser', 'test-secret')
     const req = new Request('https://example.com/api/timelines', {
@@ -272,6 +273,7 @@ describe('POST /api/timelines', () => {
     expect(res.status).toBe(201)
     const body = (await res.json()) as { id: string }
     expect(body.id).toMatch(/^[0-9A-Za-z]{21}$/)
+    spy.mockRestore()
   })
 
   it('请求体缺少 ca (createdAt) 时返回 400', async () => {
