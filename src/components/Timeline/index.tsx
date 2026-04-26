@@ -47,6 +47,7 @@ import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
+import { useFilterStore } from '@/store/filterStore'
 
 interface TimelineCanvasProps {
   width: number
@@ -526,6 +527,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       setScrollLeft(progress * maxScroll)
     }
   }, [layoutData, viewportWidth])
+
+  // 切换过滤器时把垂直滚动复位到最上：过滤后轨道顺序与高度可能变化，
+  // 保持原 scrollTop 容易让用户落在不可解释的位置
+  const activeFilterId = useFilterStore(s => s.activeFilterId)
+  const initialFilterRef = useRef(true)
+  useEffect(() => {
+    if (initialFilterRef.current) {
+      initialFilterRef.current = false
+      return
+    }
+    visualScrollTopRef.current = 0
+    clampedScrollRef.current.scrollTop = 0
+    setScrollTop(0)
+    handleDirectScroll(clampedScrollRef.current.scrollLeft, 0)
+  }, [activeFilterId, handleDirectScroll])
 
   // 同步滚动状态到 store（用于工具栏缩放）
   useEffect(() => {

@@ -97,6 +97,30 @@ describe('buildSoumaTimelineText', () => {
     expect(text).toContain('00:10.0')
   })
 
+  it('勾父 ID 时同 trackGroup 的变体 cast 一并导出（用变体自己的名字）', () => {
+    // 37013 意气轩昂之策（父）/ 37016 降临之章（变体，trackGroup: 37013）
+    const timeline = makeTimeline({
+      composition: { players: [{ id: 1, job: 'SCH' }] },
+      castEvents: [
+        makeCast({ actionId: 37013, timestamp: 10, playerId: 1, job: 'SCH' }),
+        makeCast({ actionId: 37016, timestamp: 20, playerId: 1, job: 'SCH' }),
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [37013], false)
+    const lines = text.split('\n')
+    expect(lines).toEqual(['00:10.0 "<意气轩昂之策>~"', '00:20.0 "<降临之章>~"'])
+  })
+
+  it('未勾父时变体 cast 不导出', () => {
+    const timeline = makeTimeline({
+      composition: { players: [{ id: 1, job: 'SCH' }] },
+      castEvents: [makeCast({ actionId: 37016, timestamp: 20, playerId: 1, job: 'SCH' })],
+    })
+    // 勾的是其他无关技能，不勾 37013
+    const text = buildSoumaTimelineText(timeline, 1, [16536], false)
+    expect(text).toBe('')
+  })
+
   it('过滤其他玩家的技能', () => {
     const timeline = makeTimeline({
       composition: {

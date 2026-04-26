@@ -59,12 +59,15 @@ export function buildSoumaTimelineText(
     }
   }
 
-  // 技能
+  // 技能：selectedActionIds 是主轨道（父）ID 集合；变体 cast 通过 trackGroup
+  // 回退匹配到父——勾父等同隐式勾全部共享主轨道的变体
   if (selectedActionIds.length > 0) {
     for (const cast of timeline.castEvents) {
-      if (cast.playerId !== playerId || !selectedSet.has(cast.actionId)) continue
+      if (cast.playerId !== playerId) continue
       const action = MITIGATION_DATA.actions.find(a => a.id === cast.actionId)
       if (!action) continue
+      const groupId = action.trackGroup ?? action.id
+      if (!selectedSet.has(groupId)) continue
       const time = formatSoumaTime(cast.timestamp)
       const tts = ttsEnabled ? ' tts' : ''
       entries.push({

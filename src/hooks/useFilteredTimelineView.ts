@@ -34,7 +34,10 @@ export function matchSingleAction(
     const role = getJobRole(playerJob)
     return role != null && jobRoles.includes(role)
   }
-  return preset.rule.selectedActionsByJob[playerJob]?.includes(action.id) ?? false
+  // 同 trackGroup 的变体（如 37016 trackGroup=37013）共用主轨道：
+  // 自定义预设里只能勾父，变体匹配时回退到父 ID。
+  const groupId = action.trackGroup ?? action.id
+  return preset.rule.selectedActionsByJob[playerJob]?.includes(groupId) ?? false
 }
 
 export function matchDamageEvent(e: DamageEvent, preset: FilterPreset): boolean {

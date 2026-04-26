@@ -83,10 +83,18 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
     [playerOptions, playerId]
   )
 
-  // 当前玩家在时间轴中用过的技能 ID（按 MITIGATION_DATA 定义顺序过滤）
+  // 当前玩家在时间轴中用过的"主轨道"ID 集合：变体 cast（如 37016 trackGroup=37013）
+  // 折算到父，列表里只展示父 action；勾父时由 soumaExporter 在 trackGroup 层面回收变体 cast
   const usedActionIds = useMemo(() => {
     if (!timeline || playerId == null) return new Set<number>()
-    return new Set(timeline.castEvents.filter(c => c.playerId === playerId).map(c => c.actionId))
+    const ids = new Set<number>()
+    for (const c of timeline.castEvents) {
+      if (c.playerId !== playerId) continue
+      const action = MITIGATION_DATA.actions.find(a => a.id === c.actionId)
+      if (!action) continue
+      ids.add(action.trackGroup ?? action.id)
+    }
+    return ids
   }, [timeline, playerId])
 
   if (!timeline) return null

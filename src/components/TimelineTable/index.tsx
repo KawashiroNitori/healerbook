@@ -10,13 +10,14 @@
  * - useUIStore → showOriginalDamage / showActualDamage
  */
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useUIStore } from '@/store/uiStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
+import { useFilterStore } from '@/store/filterStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import {
   useDamageCalculationResults,
@@ -250,6 +251,20 @@ export default function TimelineTableView() {
     const progress = maxScroll > 0 ? Math.min(1, Math.max(0, wrapper.scrollTop / maxScroll)) : 0
     setSyncScrollProgress(progress)
   }
+
+  // 切换过滤器时把垂直滚动复位到最上：过滤后行集合可能变化，
+  // 保持原 scrollTop 容易让用户落在不可解释的位置
+  const activeFilterId = useFilterStore(s => s.activeFilterId)
+  const initialFilterRef = useRef(true)
+  useEffect(() => {
+    if (initialFilterRef.current) {
+      initialFilterRef.current = false
+      return
+    }
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    wrapper.scrollTop = 0
+  }, [activeFilterId])
 
   if (!timeline) return null
 

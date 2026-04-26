@@ -123,6 +123,24 @@ describe('matchSingleAction', () => {
       expect(matchSingleAction(a, 'PLD', p)).toBe(true)
       expect(matchSingleAction(a, 'WHM', p)).toBe(false)
     })
+
+    it('勾父时变体（trackGroup 指向父）一并通过', () => {
+      const variant = makeAction({ id: 37016, trackGroup: 37013 })
+      const p = custom({ PLD: [37013] })
+      expect(matchSingleAction(variant, 'PLD', p)).toBe(true)
+    })
+
+    it('父自己也能匹配父 ID', () => {
+      const parent = makeAction({ id: 37013 })
+      const p = custom({ PLD: [37013] })
+      expect(matchSingleAction(parent, 'PLD', p)).toBe(true)
+    })
+
+    it('未勾父时变体不通过', () => {
+      const variant = makeAction({ id: 37016, trackGroup: 37013 })
+      const p = custom({ PLD: [99999] })
+      expect(matchSingleAction(variant, 'PLD', p)).toBe(false)
+    })
   })
 })
 
