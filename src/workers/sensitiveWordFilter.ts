@@ -8,6 +8,7 @@ export interface SensitiveWordEnv {
 
 let cachedHmacKey: CryptoKey | null = null
 let cachedKeyMaterial: string | null = null
+let healthChecked = false
 
 async function getHmacKey(material: string): Promise<CryptoKey> {
   if (cachedHmacKey && cachedKeyMaterial === material) return cachedHmacKey
@@ -29,7 +30,27 @@ function hashToBase64Trunc(buf: ArrayBuffer): string {
   return btoa(bin)
 }
 
+async function runHealthCheck(env: SensitiveWordEnv): Promise<void> {
+  if (healthChecked) return
+  healthChecked = true
+
+  if (!env.SENSITIVE_WORDS_HMAC_KEY) {
+    console.warn('[sensitive-words] disabled: missing SENSITIVE_WORDS_HMAC_KEY')
+    return
+  }
+  if (LENGTHS.length === 0) {
+    console.warn('[sensitive-words] disabled: empty hash table')
+    return
+  }
+
+  let total = 0
+  for (const L of LENGTHS) total += HASHES.get(L)?.size ?? 0
+  console.log(`[sensitive-words] active: ${total} entries across ${LENGTHS.length} lengths`)
+}
+
 export async function containsBannedSubstring(id: string, env: SensitiveWordEnv): Promise<boolean> {
+  await runHealthCheck(env)
+
   if (!env.SENSITIVE_WORDS_HMAC_KEY || LENGTHS.length === 0) return false
 
   const key = await getHmacKey(env.SENSITIVE_WORDS_HMAC_KEY)

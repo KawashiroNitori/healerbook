@@ -115,4 +115,52 @@ describe('containsBannedSubstring', () => {
     })
     expect(result).toBe(false)
   })
+
+  it('首次调用 log "active: N entries across M lengths"，且只 log 一次', async () => {
+    await setupHashes(['banword'])
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { containsBannedSubstring } = await freshFilter()
+
+    await containsBannedSubstring('aaa', { SENSITIVE_WORDS_HMAC_KEY: TEST_KEY })
+    await containsBannedSubstring('bbb', { SENSITIVE_WORDS_HMAC_KEY: TEST_KEY })
+
+    const activeCalls = logSpy.mock.calls.filter(c =>
+      String(c[0]).includes('[sensitive-words] active')
+    )
+    expect(activeCalls).toHaveLength(1)
+    expect(String(activeCalls[0][0])).toContain('1 entries across 1 lengths')
+
+    logSpy.mockRestore()
+  })
+
+  it('缺 key 时首次调用 log "disabled: missing"，只 log 一次', async () => {
+    await setupHashes(['banword'])
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { containsBannedSubstring } = await freshFilter()
+
+    await containsBannedSubstring('aaa', {})
+    await containsBannedSubstring('bbb', {})
+
+    const calls = warnSpy.mock.calls.filter(c =>
+      String(c[0]).includes('[sensitive-words] disabled: missing')
+    )
+    expect(calls).toHaveLength(1)
+
+    warnSpy.mockRestore()
+  })
+
+  it('空表时首次调用 log "disabled: empty hash table"', async () => {
+    // 不调 setupHashes，保持空表
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { containsBannedSubstring } = await freshFilter()
+
+    await containsBannedSubstring('aaa', { SENSITIVE_WORDS_HMAC_KEY: TEST_KEY })
+
+    const calls = warnSpy.mock.calls.filter(c =>
+      String(c[0]).includes('[sensitive-words] disabled: empty hash table')
+    )
+    expect(calls).toHaveLength(1)
+
+    warnSpy.mockRestore()
+  })
 })
