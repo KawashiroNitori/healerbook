@@ -1,10 +1,12 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { HASHES, LENGTHS } from './sensitiveWordHashes.generated'
+import { HASHES, LENGTHS, KEY_FINGERPRINT } from './sensitiveWordHashes.generated'
 
 export interface SensitiveWordEnv {
   SENSITIVE_WORDS_HMAC_KEY?: string
 }
+
+const FINGERPRINT_MAGIC = 'sensitive-words-fingerprint-v1'
 
 let cachedHmacKey: CryptoKey | null = null
 let cachedKeyMaterial: string | null = null
@@ -40,6 +42,16 @@ async function runHealthCheck(env: SensitiveWordEnv): Promise<void> {
   }
   if (LENGTHS.length === 0) {
     console.warn('[sensitive-words] disabled: empty hash table')
+    return
+  }
+
+  const key = await getHmacKey(env.SENSITIVE_WORDS_HMAC_KEY)
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(FINGERPRINT_MAGIC))
+  const fp = hashToBase64Trunc(sig)
+  if (fp !== KEY_FINGERPRINT) {
+    console.warn(
+      '[sensitive-words] key drift: runtime key does not match generated table; filter will not match anything'
+    )
     return
   }
 

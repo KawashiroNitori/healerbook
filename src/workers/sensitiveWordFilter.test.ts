@@ -164,4 +164,45 @@ describe('containsBannedSubstring', () => {
 
     warnSpy.mockRestore()
   })
+
+  it('runtime key 与 KEY_FINGERPRINT 不一致时 log drift warn，且不命中', async () => {
+    // 用 OTHER_KEY 算出 banword 哈希以及 fingerprint，模拟 generated 表
+    const OTHER_KEY = 'other-key-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    const hashedWithOther = await hmacB64Trunc(OTHER_KEY, 'banword')
+    const fingerprintWithOther = await hmacB64Trunc(OTHER_KEY, FINGERPRINT_MAGIC)
+    vi.mocked(generated, true).HASHES = new Map([[7, new Set([hashedWithOther])]])
+    ;(generated as { LENGTHS: number[] }).LENGTHS = [7]
+    ;(generated as { KEY_FINGERPRINT: string }).KEY_FINGERPRINT = fingerprintWithOther
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { containsBannedSubstring } = await freshFilter()
+
+    // runtime 用 TEST_KEY（不同），匹配应失败 + log drift
+    const hit = await containsBannedSubstring('xxbanwordyy', {
+      SENSITIVE_WORDS_HMAC_KEY: TEST_KEY,
+    })
+    expect(hit).toBe(false)
+
+    const driftCalls = warnSpy.mock.calls.filter(c =>
+      String(c[0]).includes('[sensitive-words] key drift')
+    )
+    expect(driftCalls).toHaveLength(1)
+
+    warnSpy.mockRestore()
+  })
+
+  it('runtime key 与 KEY_FINGERPRINT 一致时不 log drift', async () => {
+    await setupHashes(['banword']) // setupHashes 内部已 set 与 TEST_KEY 一致的 fingerprint
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { containsBannedSubstring } = await freshFilter()
+
+    await containsBannedSubstring('xxbanwordyy', { SENSITIVE_WORDS_HMAC_KEY: TEST_KEY })
+
+    const driftCalls = warnSpy.mock.calls.filter(c =>
+      String(c[0]).includes('[sensitive-words] key drift')
+    )
+    expect(driftCalls).toHaveLength(0)
+
+    warnSpy.mockRestore()
+  })
 })
