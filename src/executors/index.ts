@@ -13,3 +13,5 @@ export {
   updateStatusData,
 } from './statusHelpers'
 export type { AddStatusInput } from './statusHelpers'
+export { createHealExecutor } from './createHealExecutor'
+export type { HealExecutorOptions } from './createHealExecutor'
