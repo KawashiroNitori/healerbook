@@ -273,6 +273,33 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     expect(back.castEvents).toEqual([])
     expect(back.annotations).toEqual([])
   })
+
+  it('partial_aoe 走完整 V2 round-trip', () => {
+    const tl = makeEditorTimeline()
+    tl.damageEvents[1].type = 'partial_aoe'
+    const v2 = toV2(tl)
+    expect(v2.de[1].ty).toBe(3)
+    const back = hydrateFromV2(v2)
+    expect(back.damageEvents[1].type).toBe('partial_aoe')
+  })
+
+  it('partial_final_aoe 走完整 V2 round-trip', () => {
+    const tl = makeEditorTimeline()
+    tl.damageEvents[1].type = 'partial_final_aoe'
+    const v2 = toV2(tl)
+    expect(v2.de[1].ty).toBe(4)
+    const back = hydrateFromV2(v2)
+    expect(back.damageEvents[1].type).toBe('partial_final_aoe')
+  })
+
+  it('反序列化未知数字编码兜底为 aoe', () => {
+    const tl = makeEditorTimeline()
+    const v2 = toV2(tl)
+    // 模拟旧 SPA 缓存遇到未来扩展的数字编码：直接把 ty 改成超出现有枚举的值
+    ;(v2.de[1] as { ty: number }).ty = 99
+    const back = hydrateFromV2(v2)
+    expect(back.damageEvents[1].type).toBe('aoe')
+  })
 })
 
 describe('toV2 / hydrateFromV2 (replay mode)', () => {
