@@ -64,6 +64,10 @@ export interface ActionExecutionContext {
   sourcePlayerId: number
   /** 时间轴统计数据（可选，用于盾值计算） */
   statistics?: TimelineStatData
+  /** 触发本次 executor 的 castEvent.id（治疗 executor 用于 healSnapshot.castEventId） */
+  castEventId?: string
+  /** simulator 注入的治疗 snapshot 收集器（一次性治疗在 cast 时记录） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**

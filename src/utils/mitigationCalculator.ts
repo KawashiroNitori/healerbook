@@ -13,6 +13,7 @@ import type {
 import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext } from '@/types/mitigation'
+import type { HealSnapshot } from '@/types/healSnapshot'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { isStatusValidForTank } from './statusFilter'
@@ -28,6 +29,25 @@ export interface PerTankResult {
   appliedStatuses: MitigationStatus[]
   /** 该分支个性化后的参考 HP（叠乘 maxHP 倍率） */
   referenceMaxHP: number
+}
+
+/**
+ * HP 池模拟快照（编辑模式非坦事件填充）
+ *
+ * 坦专事件（tankbuster / auto）走 perVictim 多坦分支，hpSimulation 为 undefined。
+ * 回放模式与 hp 池未初始化时同样为 undefined。
+ */
+export interface HpSimulationSnapshot {
+  /** 事件前 HP（cast / HoT 已结算） */
+  hpBefore: number
+  /** 事件后 HP（已扣段增量 / aoe 全额，clamp 到 [0, max]） */
+  hpAfter: number
+  /** 当前 HP 上限（含 maxHP buff） */
+  hpMax: number
+  /** 段内 max（partial 事件填充；非 partial 事件不填） */
+  segMax?: number
+  /** 溢出伤害 = max(0, 应扣量 - hpBefore)（应扣量：partial = delta、aoe = finalDamage） */
+  overkill?: number
 }
 
 /**
@@ -54,6 +74,8 @@ export interface CalculationResult {
    * maxDamage 取 max(perVictim.finalDamage)。
    */
   perVictim?: PerTankResult[]
+  /** HP 池模拟快照；编辑模式下非坦事件填充；坦专 / 回放模式 / hp 缺失时为 undefined */
+  hpSimulation?: HpSimulationSnapshot
 }
 
 /**
@@ -119,6 +141,8 @@ export interface SimulateOutput {
    * 渲染层用此字段定位绿条末端，miss 时回退到 cast.timestamp + action.duration。
    */
   castEffectiveEndByCastEventId: Map<string, number>
+  /** 所有治疗事件（cast + HoT tick）的 snapshot，按 time 升序 */
+  healSnapshots: HealSnapshot[]
 }
 
 /**
@@ -530,7 +554,12 @@ export class MitigationCalculator {
       }
     }
 
-    return { damageResults, statusTimelineByPlayer, castEffectiveEndByCastEventId }
+    return {
+      damageResults,
+      statusTimelineByPlayer,
+      castEffectiveEndByCastEventId,
+      healSnapshots: [],
+    }
   }
 
   /**
