@@ -15,3 +15,5 @@ export {
 export type { AddStatusInput } from './statusHelpers'
 export { createHealExecutor } from './createHealExecutor'
 export type { HealExecutorOptions } from './createHealExecutor'
+export { createRegenExecutor, regenStatusExecutor } from './createRegenExecutor'
+export type { RegenExecutorOptions } from './createRegenExecutor'
