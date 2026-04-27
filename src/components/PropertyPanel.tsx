@@ -29,8 +29,10 @@ import {
   DAMAGE_EVENT_TYPE_LABELS,
   type DamageType,
   type DamageEventType,
+  type DamageEvent,
 } from '@/types/timeline'
 import type { MitigationStatus } from '@/types/status'
+import type { HpSimulationSnapshot } from '@/utils/mitigationCalculator'
 
 interface BranchViewData {
   finalDamage: number
@@ -136,6 +138,92 @@ export default function PropertyPanel() {
     )
   }
 
+  /** HP 条（累积视角，基于 HpSimulationSnapshot） */
+  function renderHpBarAccumulative(snap: HpSimulationSnapshot) {
+    const { hpBefore, hpAfter, hpMax, overkill } = snap
+    const dealt = hpBefore - hpAfter
+    const survivePct = (hpAfter / hpMax) * 100
+    const damagePct = (dealt / hpMax) * 100
+    const isLethal = hpAfter === 0 && (overkill ?? 0) > 0
+    const isDangerous = !isLethal && survivePct < 5
+
+    return (
+      <div className="space-y-1.5">
+        {isLethal && (
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 px-3 py-2">
+            <Skull className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">致死</p>
+              <p className="text-xs text-red-600/80 dark:text-red-400/80">
+                伤害溢出 {(overkill ?? 0).toLocaleString()} HP，需要更多减伤 / 治疗
+              </p>
+            </div>
+          </div>
+        )}
+        {isDangerous && (
+          <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-3 py-2">
+            <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">危险</p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                伤害后仅剩 {hpAfter.toLocaleString()} HP（{survivePct.toFixed(1)}%）
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-between text-xs">
+          <span className="text-muted-foreground">HP</span>
+          <span className="tabular-nums">
+            <span className="text-foreground">{hpAfter.toLocaleString()}</span>
+            <span className="text-muted-foreground"> / {hpMax.toLocaleString()}</span>
+            <span className="text-red-500 ml-1">(-{dealt.toLocaleString()})</span>
+          </span>
+        </div>
+        <div className="h-2.5 bg-secondary rounded-full overflow-hidden flex">
+          <div
+            className="h-full rounded-l-full"
+            style={{
+              width: `${Math.max(0, Math.min(100, survivePct))}%`,
+              backgroundColor: 'rgb(34, 197, 94)',
+            }}
+          />
+          <div
+            className="h-full"
+            style={{
+              width: `${Math.max(0, Math.min(100, damagePct))}%`,
+              backgroundColor: 'rgb(239, 68, 68)',
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)',
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  /** partial AOE 段累积信息 */
+  function renderPartialSegInfo(snap: HpSimulationSnapshot, ev: DamageEvent) {
+    if (snap.segMax === undefined) return null
+    const dealt = snap.hpBefore - snap.hpAfter
+    const isFinal = ev.type === 'partial_final_aoe'
+
+    return (
+      <div className="space-y-1 text-xs border-t pt-2 mt-2">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">段累积</span>
+          <span className="tabular-nums text-foreground">
+            {snap.segMax.toLocaleString()}
+            {isFinal && <span className="ml-1 text-amber-600">（段结束）</span>}
+          </span>
+        </div>
+        <div className="text-muted-foreground">
+          本次扣血 = max(0, {ev.damage.toLocaleString()} - {(snap.segMax - dealt).toLocaleString()})
+          = {dealt.toLocaleString()}
+        </div>
+      </div>
+    )
+  }
+
   /** 减伤构成条 */
   function renderMitigationBar(branch: BranchViewData, originalDamage: number) {
     const total = originalDamage
@@ -147,7 +235,8 @@ export default function PropertyPanel() {
       0
     )
     const pctMitigation = Math.max(0, total - branch.finalDamage - shieldAbsorb)
-    const overkill = maxHP > 0 ? Math.max(0, branch.finalDamage - maxHP) : 0
+    const overkill =
+      result?.hpSimulation?.overkill ?? (maxHP > 0 ? Math.max(0, branch.finalDamage - maxHP) : 0)
     const effectiveDamage = branch.finalDamage - overkill
 
     // 原始伤害为 0（如 FFLogs 完全被盾吸收的事件）时，用各段之和做分母回退，
@@ -330,11 +419,16 @@ export default function PropertyPanel() {
     damageType: DamageType,
     originalDamage: number
   ) {
+    // 非坦事件优先走累积视角；坦专 / 缺失 hpSimulation 时回退孤立视角
+    const hpSnap = result?.hpSimulation
     return (
       <>
-        {renderHpBar(branch)}
+        {hpSnap ? renderHpBarAccumulative(hpSnap) : renderHpBar(branch)}
         {renderMitigationBar(branch, originalDamage)}
         {renderAppliedStatuses(branch, damageType, originalDamage)}
+        {hpSnap &&
+          (event!.type === 'partial_aoe' || event!.type === 'partial_final_aoe') &&
+          renderPartialSegInfo(hpSnap, event!)}
       </>
     )
   }
