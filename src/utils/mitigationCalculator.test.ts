@@ -1453,3 +1453,232 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     expect(castEffectiveEndByCastEventId.size).toBe(0)
   })
 })
+
+const mkDmg = (
+  id: string,
+  time: number,
+  type: DamageEvent['type'],
+  damage: number
+): DamageEvent => ({
+  id,
+  name: id,
+  time,
+  damage,
+  type,
+  damageType: 'magical',
+})
+
+describe('HP 池演化 - partial 段累积', () => {
+  const baseInitialState: PartyState = { statuses: [], timestamp: 0 }
+
+  it('段内每次扣 max 增量；pfaoe 触发段结束', () => {
+    const calculator = new MitigationCalculator()
+    const damageEvents = [
+      mkDmg('A', 10, 'aoe', 20000),
+      mkDmg('B', 15, 'partial_aoe', 15000),
+      mkDmg('D', 22, 'partial_aoe', 22000),
+      mkDmg('E', 25, 'partial_aoe', 18000),
+      mkDmg('G', 30, 'partial_final_aoe', 30000),
+      mkDmg('I', 40, 'partial_aoe', 12000),
+      mkDmg('J', 43, 'partial_aoe', 14000),
+      mkDmg('L', 50, 'partial_aoe', 20000),
+    ]
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents,
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    const r = (id: string) => out.damageResults.get(id)!.hpSimulation!
+    expect(r('A').hpAfter).toBe(80000)
+    expect(r('B').hpAfter).toBe(65000)
+    expect(r('D').hpAfter).toBe(58000)
+    expect(r('E').hpAfter).toBe(58000) // 增量 0
+    expect(r('G').hpAfter).toBe(50000) // pfaoe = partial_aoe + 段结束：dealt = max(0, 30k - 22k) = 8k
+    expect(r('I').hpAfter).toBe(38000) // I 开新段 segMax=12k, dealt=12k
+    expect(r('J').hpAfter).toBe(36000) // J segMax=14k, dealt=2k
+    expect(r('L').hpAfter).toBe(30000) // L segMax=20k, dealt=6k
+  })
+
+  it('aoe 中段插入打断 partial 段', () => {
+    const calculator = new MitigationCalculator()
+    const damageEvents = [
+      mkDmg('X1', 5, 'partial_aoe', 20000),
+      mkDmg('X2', 10, 'partial_aoe', 25000),
+      mkDmg('X3', 15, 'aoe', 30000),
+      mkDmg('X4', 20, 'partial_aoe', 15000),
+      mkDmg('X5', 25, 'partial_final_aoe', 28000),
+    ]
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents,
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    const r = (id: string) => out.damageResults.get(id)!.hpSimulation!
+    expect(r('X1').hpAfter).toBe(80000)
+    expect(r('X2').hpAfter).toBe(75000)
+    expect(r('X3').hpAfter).toBe(45000)
+    expect(r('X4').hpAfter).toBe(30000)
+    expect(r('X5').hpAfter).toBe(17000)
+  })
+
+  it('tankbuster / auto 段穿透；tankbuster 接 partial_aoe 段不被打断', () => {
+    const calculator = new MitigationCalculator()
+    const damageEvents = [
+      mkDmg('p1', 5, 'partial_aoe', 20000),
+      mkDmg('t1', 10, 'tankbuster', 50000),
+      mkDmg('p2', 15, 'partial_aoe', 25000),
+    ]
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents,
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    expect(out.damageResults.get('p1')!.hpSimulation!.hpAfter).toBe(80000)
+    expect(out.damageResults.get('t1')!.hpSimulation).toBeUndefined()
+    expect(out.damageResults.get('p2')!.hpSimulation!.hpAfter).toBe(75000)
+  })
+
+  it('overkill：aoe finalDamage > hp.current 时 hp clamp 到 0', () => {
+    const calculator = new MitigationCalculator()
+    const damageEvents = [mkDmg('A', 5, 'aoe', 50000), mkDmg('B', 10, 'aoe', 80000)]
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents,
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    const r = out.damageResults.get('B')!.hpSimulation!
+    expect(r.hpAfter).toBe(0)
+    expect(r.overkill).toBe(30000)
+  })
+
+  it('段未收尾时 EOF 不强制结算', () => {
+    const calculator = new MitigationCalculator()
+    const damageEvents = [
+      mkDmg('p1', 5, 'partial_aoe', 20000),
+      mkDmg('p2', 10, 'partial_aoe', 30000),
+    ]
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents,
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    expect(out.damageResults.get('p2')!.hpSimulation!.hpAfter).toBe(70000)
+  })
+})
+
+const MAX_HP_BUFF_ID = 999700
+
+const mkMaxHpMeta = (multiplier: number, isTankOnly = false): MitigationStatusMetadata =>
+  ({
+    id: MAX_HP_BUFF_ID,
+    name: 'mock-maxhp',
+    type: 'multiplier',
+    performance: { physics: 1, magic: 1, darkness: 1, maxHP: multiplier },
+    isFriendly: true,
+    isTankOnly,
+  }) as MitigationStatusMetadata
+
+describe('HP 池 - maxHP buff 同步伸缩', () => {
+  it('initialState 已挂 +10% maxHP buff：hp.max=110k、hp.current=110k', () => {
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === MAX_HP_BUFF_ID ? mkMaxHpMeta(1.1) : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'maxhp',
+            statusId: MAX_HP_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('A', 10, 'aoe', 20000)],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      const r = out.damageResults.get('A')!.hpSimulation!
+      expect(r.hpMax).toBe(110000)
+      expect(r.hpBefore).toBe(110000)
+      expect(r.hpAfter).toBe(90000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('isTankOnly maxHP buff 永远不抬升非坦池上限', () => {
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === MAX_HP_BUFF_ID ? mkMaxHpMeta(1.1, true) : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'maxhp-tank',
+            statusId: MAX_HP_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('A', 10, 'aoe', 20000)],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      const r = out.damageResults.get('A')!.hpSimulation!
+      expect(r.hpMax).toBe(100000)
+      expect(r.hpAfter).toBe(80000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('maxHP buff 在事件之间 expire：hp.max 还原、hp.current 按比例回缩', () => {
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === MAX_HP_BUFF_ID ? mkMaxHpMeta(1.1) : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'maxhp',
+            statusId: MAX_HP_BUFF_ID,
+            startTime: 0,
+            endTime: 15,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('A', 10, 'aoe', 20000), mkDmg('B', 20, 'aoe', 20000)],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      expect(out.damageResults.get('A')!.hpSimulation!.hpAfter).toBe(90000)
+      const rB = out.damageResults.get('B')!.hpSimulation!
+      expect(rB.hpMax).toBe(100000)
+      expect(rB.hpAfter).toBeCloseTo(61818.18, 1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
