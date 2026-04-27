@@ -10,6 +10,13 @@ import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/com
 import { TimeInput } from '@/components/ui/time-input'
 import { Switch } from '@/components/ui/switch'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   DAMAGE_EVENT_TYPES,
   DAMAGE_EVENT_TYPE_LABELS,
   type DamageType,
@@ -95,30 +102,32 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
 
           <div>
             <label className="block text-sm font-medium mb-1">攻击类型</label>
-            <select
-              value={type}
-              onChange={e => setType(e.target.value as DamageEventType)}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-            >
-              {DAMAGE_EVENT_TYPES.map(t => (
-                <option key={t} value={t}>
-                  {DAMAGE_EVENT_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+            <Select value={type} onValueChange={v => setType(v as DamageEventType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="item-aligned">
+                {DAMAGE_EVENT_TYPES.map(t => (
+                  <SelectItem key={t} value={t}>
+                    {DAMAGE_EVENT_TYPE_LABELS[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">伤害类型</label>
-            <select
-              value={damageType}
-              onChange={e => setDamageType(e.target.value as DamageType)}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-            >
-              <option value="physical">物理</option>
-              <option value="magical">魔法</option>
-              <option value="darkness">特殊</option>
-            </select>
+            <Select value={damageType} onValueChange={v => setDamageType(v as DamageType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="item-aligned">
+                <SelectItem value="physical">物理</SelectItem>
+                <SelectItem value="magical">魔法</SelectItem>
+                <SelectItem value="darkness">特殊</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2 h-8">

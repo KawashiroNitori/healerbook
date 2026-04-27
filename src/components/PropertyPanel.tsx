@@ -394,39 +394,47 @@ export default function PropertyPanel() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-muted-foreground mb-1">伤害类型</label>
-            <select
+            <Select
               value={event.damageType || 'physical'}
-              onChange={e =>
+              onValueChange={v =>
                 updateDamageEvent(event.id, {
-                  damageType: e.target.value as DamageType,
+                  damageType: v as DamageType,
                 })
               }
-              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             >
-              <option value="physical">物理</option>
-              <option value="magical">魔法</option>
-              <option value="darkness">特殊</option>
-            </select>
+              <SelectTrigger className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="item-aligned">
+                <SelectItem value="physical">物理</SelectItem>
+                <SelectItem value="magical">魔法</SelectItem>
+                <SelectItem value="darkness">特殊</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="block text-xs text-muted-foreground mb-1">攻击类型</label>
-            <select
+            <Select
               value={event.type || 'aoe'}
-              onChange={e =>
+              onValueChange={v =>
                 updateDamageEvent(event.id, {
-                  type: e.target.value as DamageEventType,
+                  type: v as DamageEventType,
                 })
               }
-              className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             >
-              {DAMAGE_EVENT_TYPES.map(t => (
-                <option key={t} value={t}>
-                  {DAMAGE_EVENT_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="item-aligned">
+                {DAMAGE_EVENT_TYPES.map(t => (
+                  <SelectItem key={t} value={t}>
+                    {DAMAGE_EVENT_TYPE_LABELS[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
