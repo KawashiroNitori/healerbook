@@ -26,7 +26,11 @@ import { getIconUrl } from '@/utils/iconUtils'
 import JobIcon from '../JobIcon'
 import { cn } from '@/lib/utils'
 import type { FilterPreset, CustomFilterRule } from '@/types/filter'
-import type { DamageEventType } from '@/types/timeline'
+import {
+  DAMAGE_EVENT_TYPES,
+  DAMAGE_EVENT_TYPE_LABELS,
+  type DamageEventType,
+} from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import { track } from '@/utils/analytics'
 
@@ -73,7 +77,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
   const [damageTypes, setDamageTypes] = useState<DamageEventType[]>(() =>
     preset?.kind === 'custom' && preset.rule.damageTypes
       ? preset.rule.damageTypes
-      : ['aoe', 'tankbuster', 'auto']
+      : [...DAMAGE_EVENT_TYPES]
   )
   const [selectedActionsByJob, setSelectedActionsByJob] = useState<Partial<Record<Job, number[]>>>(
     () => (preset?.kind === 'custom' ? preset.rule.selectedActionsByJob : defaultSelectedAll)
@@ -188,28 +192,16 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium">伤害事件类型</label>
-            <div className="flex items-center gap-6 px-2 py-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Switch
-                  checked={damageTypes.includes('aoe')}
-                  onCheckedChange={() => toggleDamageType('aoe')}
-                />
-                <span className="text-sm">AOE</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Switch
-                  checked={damageTypes.includes('tankbuster')}
-                  onCheckedChange={() => toggleDamageType('tankbuster')}
-                />
-                <span className="text-sm">死刑</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Switch
-                  checked={damageTypes.includes('auto')}
-                  onCheckedChange={() => toggleDamageType('auto')}
-                />
-                <span className="text-sm">普通攻击</span>
-              </label>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-2 py-1">
+              {DAMAGE_EVENT_TYPES.map(t => (
+                <label key={t} className="flex items-center gap-2 cursor-pointer">
+                  <Switch
+                    checked={damageTypes.includes(t)}
+                    onCheckedChange={() => toggleDamageType(t)}
+                  />
+                  <span className="text-sm">{DAMAGE_EVENT_TYPE_LABELS[t]}</span>
+                </label>
+              ))}
             </div>
           </div>
 
