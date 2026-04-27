@@ -170,6 +170,45 @@ describe('matchDamageEvent', () => {
     const p = builtin({ damageTypes: ['aoe'] })
     expect(matchDamageEvent(e, p)).toBe(false)
   })
+
+  it('内置 raidwide 预设命中 partial_aoe', () => {
+    const e: DamageEvent = {
+      id: 'e',
+      name: 'p',
+      time: 0,
+      damage: 0,
+      type: 'partial_aoe',
+      damageType: 'magical',
+    }
+    const p = builtin({ damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'] })
+    expect(matchDamageEvent(e, p)).toBe(true)
+  })
+
+  it('内置 raidwide 预设命中 partial_final_aoe', () => {
+    const e: DamageEvent = {
+      id: 'e',
+      name: 'p',
+      time: 0,
+      damage: 0,
+      type: 'partial_final_aoe',
+      damageType: 'magical',
+    }
+    const p = builtin({ damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'] })
+    expect(matchDamageEvent(e, p)).toBe(true)
+  })
+
+  it('自定义预设老数据 damageTypes:["aoe"] 不被迁移，partial 事件不命中', () => {
+    const e: DamageEvent = {
+      id: 'e',
+      name: 'p',
+      time: 0,
+      damage: 0,
+      type: 'partial_aoe',
+      damageType: 'magical',
+    }
+    const p = custom({}, ['aoe'])
+    expect(matchDamageEvent(e, p)).toBe(false)
+  })
 })
 
 describe('matchCastEvent', () => {

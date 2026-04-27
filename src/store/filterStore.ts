@@ -19,7 +19,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:raidwide',
     name: '仅团减',
     rule: {
-      damageTypes: ['aoe'],
+      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'],
       categories: ['partywide'],
     },
   },
@@ -28,7 +28,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:dps',
     name: '仅 DPS',
     rule: {
-      damageTypes: ['aoe'],
+      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'],
       jobRoles: ['melee', 'ranged', 'caster'],
     },
   },
@@ -37,7 +37,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:tank',
     name: '仅坦克',
     rule: {
-      damageTypes: ['aoe', 'tankbuster', 'auto'],
+      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe', 'tankbuster', 'auto'],
       jobRoles: ['tank'],
     },
   },
@@ -46,7 +46,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:healer',
     name: '仅治疗',
     rule: {
-      damageTypes: ['aoe'],
+      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'],
       jobRoles: ['healer'],
     },
   },

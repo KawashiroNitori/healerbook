@@ -22,6 +22,22 @@ describe('filterStore', () => {
         'builtin:healer',
       ])
     })
+
+    it('内置预设 raidwide 包含 partial_aoe / partial_final_aoe', () => {
+      const p = BUILTIN_PRESETS.find(x => x.id === 'builtin:raidwide')!
+      if (p.kind !== 'builtin') throw new Error('not builtin')
+      expect(p.rule.damageTypes).toEqual(
+        expect.arrayContaining(['aoe', 'partial_aoe', 'partial_final_aoe'])
+      )
+    })
+
+    it('内置预设 tank 包含全部 5 个攻击类型', () => {
+      const p = BUILTIN_PRESETS.find(x => x.id === 'builtin:tank')!
+      if (p.kind !== 'builtin') throw new Error('not builtin')
+      expect(p.rule.damageTypes).toEqual(
+        expect.arrayContaining(['aoe', 'partial_aoe', 'partial_final_aoe', 'tankbuster', 'auto'])
+      )
+    })
   })
 
   describe('getAllPresets', () => {
