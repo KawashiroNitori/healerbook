@@ -6,6 +6,9 @@ import { useDamageCalculation } from './useDamageCalculation'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { MitigationStatusMetadata } from '@/types/status'
 import type { Timeline } from '@/types/timeline'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { createHealExecutor } from '@/executors/createHealExecutor'
+import { createRegenExecutor, regenStatusExecutor } from '@/executors/createRegenExecutor'
 
 function fakeMeta(
   id: number,
@@ -225,6 +228,137 @@ describe('useDamageCalculation: onExpire / onTick 钩子', () => {
       expect(onTick).not.toHaveBeenCalled()
     } finally {
       spy.mockRestore()
+    }
+  })
+})
+
+describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
+  it('partial 段 + cast 一次性治疗 + HoT 演化正确，healSnapshots 反向溯源 castEventId', () => {
+    const HEAL_ACTION_ID = 999801
+    const HOT_ACTION_ID = 999802
+    const HOT_STATUS_ID = 999803
+
+    // 注入临时 mitigation actions（仅用于本用例）
+    // statDataEntries 必须声明，否则 resolveStatData 不会将 statData.healByAbility 中的值传递给 simulator
+    const original = [...MITIGATION_DATA.actions]
+    MITIGATION_DATA.actions.push(
+      {
+        id: HEAL_ACTION_ID,
+        name: 'mock-heal',
+        icon: '',
+        jobs: ['WHM'],
+        duration: 0,
+        cooldown: 0,
+        category: ['heal', 'partywide'],
+        executor: createHealExecutor(),
+        statDataEntries: [{ type: 'heal', key: HEAL_ACTION_ID }],
+      },
+      {
+        id: HOT_ACTION_ID,
+        name: 'mock-regen',
+        icon: '',
+        jobs: ['WHM'],
+        duration: 30,
+        cooldown: 0,
+        category: ['heal', 'partywide'],
+        executor: createRegenExecutor(HOT_STATUS_ID, 30),
+        statDataEntries: [{ type: 'heal', key: HOT_STATUS_ID }],
+      }
+    )
+
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation(id => {
+      if (id === HOT_STATUS_ID) {
+        return fakeMeta(id, {
+          executor: regenStatusExecutor,
+          performance: { physics: 1, magic: 1, darkness: 1, heal: 1, maxHP: 1 },
+        })
+      }
+      return undefined
+    })
+
+    try {
+      const timeline: Timeline = {
+        id: 't',
+        name: 't',
+        encounter: { id: 0, name: '', displayName: '', zone: '', damageEvents: [] },
+        composition: { players: [{ id: 1, job: 'WHM' }] },
+        damageEvents: [
+          {
+            id: 'p1',
+            name: '',
+            time: 10,
+            damage: 20000,
+            type: 'partial_aoe',
+            damageType: 'magical',
+          },
+          {
+            id: 'p2',
+            name: '',
+            time: 15,
+            damage: 25000,
+            type: 'partial_aoe',
+            damageType: 'magical',
+          },
+          {
+            id: 'p3',
+            name: '',
+            time: 25,
+            damage: 30000,
+            type: 'partial_final_aoe',
+            damageType: 'magical',
+          },
+        ],
+        castEvents: [
+          { id: 'cast-heal', actionId: HEAL_ACTION_ID, timestamp: 5, playerId: 1 },
+          { id: 'cast-hot', actionId: HOT_ACTION_ID, timestamp: 18, playerId: 1 },
+        ],
+        statusEvents: [],
+        annotations: [],
+        statData: {
+          referenceMaxHP: 100000,
+          tankReferenceMaxHP: 100000,
+          shieldByAbility: {},
+          critShieldByAbility: {},
+          healByAbility: {
+            [HEAL_ACTION_ID]: 10000,
+            [HOT_STATUS_ID]: 30000,
+          },
+          critHealByAbility: {},
+        },
+        createdAt: 0,
+        updatedAt: 0,
+      }
+
+      useTimelineStore.setState({
+        partyState: { statuses: [], timestamp: 0 },
+        statistics: null,
+      })
+
+      const { result } = renderHook(() => useDamageCalculation(timeline))
+
+      // p1 (t=10): hp 100k（cast 在 t=5 时刻 hp 满血、+10k overheal）→ partial 20k → 80k
+      expect(result.current.results.get('p1')!.hpSimulation!.hpAfter).toBe(80000)
+      // p2 (t=15): segMax 20k → 25k，增量 5k → 75k
+      expect(result.current.results.get('p2')!.hpSimulation!.hpAfter).toBe(75000)
+      // HoT cast 在 t=18，tick 在 t=21、t=24 触发（每次 +3k）→ p3 前 hp = 75 + 6 = 81k
+      // p3 (t=25): segMax 25k → 30k，增量 5k → 76k
+      expect(result.current.results.get('p3')!.hpSimulation!.hpAfter).toBe(76000)
+
+      // healSnapshots：1 次 cast 一次性 + 2 次 HoT tick = 3
+      const snaps = result.current.healSnapshots
+      expect(snaps).toHaveLength(3)
+      expect(snaps[0]).toMatchObject({
+        castEventId: 'cast-heal',
+        isHotTick: false,
+        applied: 0,
+        overheal: 10000,
+      })
+      expect(snaps[1]).toMatchObject({ castEventId: 'cast-hot', isHotTick: true, time: 21 })
+      expect(snaps[2]).toMatchObject({ castEventId: 'cast-hot', isHotTick: true, time: 24 })
+    } finally {
+      spy.mockRestore()
+      MITIGATION_DATA.actions.length = 0
+      MITIGATION_DATA.actions.push(...original)
     }
   })
 })
