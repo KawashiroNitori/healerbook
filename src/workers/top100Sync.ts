@@ -8,13 +8,13 @@
 
 import { FFLogsClientV2, type RankingEntry } from './fflogsClientV2'
 import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
-import type { FFLogsEvent, FFLogsV1Report, FFLogsAbility } from '@/types/fflogs'
+import type { FFLogsEvent, FFLogsV1Report, FFLogsAbility, FFLogsReport } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import { calculatePercentile } from '@/utils/stats'
 import { JOB_MAP } from '@/data/jobMap'
 import type { DamageEvent } from '@/types/timeline'
-import { parseDamageEvents } from '@/utils/fflogsImporter'
+import { parseDamageEvents, parseComposition } from '@/utils/fflogsImporter'
 import { generateId } from '@/utils/id'
 
 /** KV 中存储的 TOP100 数据结构 */
@@ -440,11 +440,13 @@ export async function extractFightStatistics(
     }
 
     // 解析完整 DamageEvent 后精简存储
+    const composition = parseComposition(report as unknown as FFLogsReport, fightID)
     const fullDamageEvents = parseDamageEvents(
       eventsResponse.events,
       fight.start_time,
       playerMap,
-      abilityMap
+      abilityMap,
+      composition
     )
     const slimEvents = slimDamageEvents(fullDamageEvents)
     const durationMs = fight.end_time - fight.start_time
