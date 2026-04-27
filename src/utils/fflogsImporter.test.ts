@@ -1566,6 +1566,100 @@ describe('parseDamageEvents', () => {
     expect(result[0].damage).toBe(0)
     expect(result[0].packetId).toBeUndefined()
   })
+
+  describe('集成 classifyPartialAOE', () => {
+    it('传入 composition 时，aoe 事件被细分为 partial_aoe / partial_final_aoe', () => {
+      const playerMap = new Map<number, V2Actor>([
+        [1, { id: 1, name: 'Tank1', type: 'Paladin' }],
+        [2, { id: 2, name: 'Tank2', type: 'Warrior' }],
+        [3, { id: 3, name: 'Healer1', type: 'WhiteMage' }],
+        [4, { id: 4, name: 'Healer2', type: 'Scholar' }],
+        [5, { id: 5, name: 'DPS1', type: 'Samurai' }],
+        [6, { id: 6, name: 'DPS2', type: 'BlackMage' }],
+        [7, { id: 7, name: 'DPS3', type: 'Bard' }],
+        [8, { id: 8, name: 'DPS4', type: 'Ninja' }],
+      ])
+      const abilityMap = makeAbilityMap(900001, 'Mech', 1024)
+
+      // 第一波（t=5）：只命中 3,4,5（partial_aoe）
+      // 第二波（t=10）：命中 6,7,8（partial_final_aoe，全员到齐清零）
+      // 第三波（t=15）：命中全部非T（aoe）
+      const wave = (t: number, targets: number[], packetID: number) =>
+        targets.map(targetID => ({
+          type: 'damage' as const,
+          packetID,
+          abilityGameID: 900001,
+          targetID,
+          unmitigatedAmount: 1000,
+          absorbed: 0,
+          amount: 800,
+          timestamp: fightStartTime + t * 1000,
+          sourceID: 999,
+        }))
+
+      const events = [
+        ...wave(5, [3, 4, 5], 1),
+        ...wave(10, [6, 7, 8], 2),
+        ...wave(15, [3, 4, 5, 6, 7, 8], 3),
+      ]
+
+      const composition = {
+        players: [
+          { id: 1, job: 'PLD' as const },
+          { id: 2, job: 'WAR' as const },
+          { id: 3, job: 'WHM' as const },
+          { id: 4, job: 'SCH' as const },
+          { id: 5, job: 'SAM' as const },
+          { id: 6, job: 'BLM' as const },
+          { id: 7, job: 'BRD' as const },
+          { id: 8, job: 'NIN' as const },
+        ],
+      }
+
+      const result = parseDamageEvents(
+        withCalculatedDamage(events),
+        fightStartTime,
+        playerMap,
+        abilityMap,
+        composition
+      )
+
+      expect(result).toHaveLength(3)
+      expect(result.map(e => e.type)).toEqual(['partial_aoe', 'partial_final_aoe', 'aoe'])
+    })
+
+    it('不传 composition 时（既有调用方），状态机跳过，type 等同旧行为', () => {
+      const playerMap = new Map<number, V2Actor>([
+        [3, { id: 3, name: 'Healer1', type: 'WhiteMage' }],
+        [4, { id: 4, name: 'Healer2', type: 'Scholar' }],
+      ])
+      const abilityMap = makeAbilityMap(900002, 'Mech2', 1024)
+
+      const events = [
+        {
+          type: 'damage' as const,
+          packetID: 1,
+          abilityGameID: 900002,
+          targetID: 3,
+          unmitigatedAmount: 1000,
+          absorbed: 0,
+          amount: 800,
+          timestamp: fightStartTime + 5000,
+          sourceID: 999,
+        },
+      ]
+
+      const result = parseDamageEvents(
+        withCalculatedDamage(events),
+        fightStartTime,
+        playerMap,
+        abilityMap
+      )
+
+      // 单个非 T 命中、无 composition：保持原 detect 路径的归类（aoe）
+      expect(result[0].type).toBe('aoe')
+    })
+  })
 })
 
 describe('parseSyncEvents', () => {

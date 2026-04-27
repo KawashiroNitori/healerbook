@@ -19,6 +19,7 @@ import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.js
 import { JOB_MAP } from '@/data/jobMap'
 import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
+import { classifyPartialAOE } from './partialAoeClassifier'
 
 const actionChinese: Record<string, string> = actionChineseRaw
 
@@ -108,7 +109,8 @@ export function parseDamageEvents(
   events: FFLogsEvent[],
   fightStartTime: number,
   playerMap: Map<number, { id: number; name: string; type: string }>,
-  abilityMap?: Map<number, FFLogsAbility>
+  abilityMap?: Map<number, FFLogsAbility>,
+  composition?: Composition
 ): DamageEvent[] {
   const TANK_JOBS = getTankJobs()
 
@@ -374,6 +376,10 @@ export function parseDamageEvents(
   refineTankbusterClassification(damageEvents)
   // 后处理：用"出现次数 × 全 T 比例"启发式补捞 regex 漏掉的普通攻击
   refineAutoAttackClassification(damageEvents, TANK_JOBS)
+  // 后处理：把 type==='aoe' 的事件按非 T 命中集合细分为
+  //   'aoe' / 'partial_aoe' / 'partial_final_aoe'
+  // composition 缺失（既有 dev 调用方）时 no-op，保持向后兼容
+  classifyPartialAOE(damageEvents, composition)
 
   return damageEvents
 }

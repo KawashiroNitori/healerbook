@@ -244,12 +244,13 @@ export default function ImportFFLogsDialog({
         // 战斗零时间：第一个 damage 事件的时间戳
         const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
 
-        // 解析伤害事件
+        // 解析伤害事件（传入 composition 启用 partial AOE 状态机识别）
         const damageEvents = parseDamageEvents(
           eventsData.events || [],
           fightStartTime,
           playerMap,
-          abilityMap
+          abilityMap,
+          composition
         )
         newTimeline.damageEvents = damageEvents
 
