@@ -24,13 +24,16 @@ export type DamageType = (typeof DAMAGE_TYPES)[number]
  * - aoe / partial_aoe / partial_final_aoe：非坦专（partial 是 aoe 的子类，
  *   仅 FFLogs 导入期由 partialAoeClassifier 自动判别产生，用户也可手动选择）
  * - tankbuster / auto：坦专路径，走多坦多分支计算
+ *
+ * 数组顺序仅影响 UI 渲染顺序（select / Switch 列表），与持久化编码无关——
+ * V2 数字编码由 timelineFormat.ts 的 DAMAGE_EVENT_TYPE_TO_NUM 独立维护。
  */
 export const DAMAGE_EVENT_TYPES = [
   'aoe',
-  'tankbuster',
-  'auto',
   'partial_aoe',
   'partial_final_aoe',
+  'tankbuster',
+  'auto',
 ] as const
 export type DamageEventType = (typeof DAMAGE_EVENT_TYPES)[number]
 
