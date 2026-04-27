@@ -41,12 +41,20 @@ import { nextShortId, resetIdCounter } from '@/utils/shortId'
 // 枚举映射
 // ──────────────────────────────────────────────────────────────
 
-const DAMAGE_EVENT_TYPE_TO_NUM: Record<DamageEventType, 0 | 1 | 2> = {
+const DAMAGE_EVENT_TYPE_TO_NUM: Record<DamageEventType, 0 | 1 | 2 | 3 | 4> = {
   aoe: 0,
   tankbuster: 1,
   auto: 2,
+  partial_aoe: 3,
+  partial_final_aoe: 4,
 }
-const NUM_TO_DAMAGE_EVENT_TYPE: readonly DamageEventType[] = ['aoe', 'tankbuster', 'auto']
+const NUM_TO_DAMAGE_EVENT_TYPE: readonly DamageEventType[] = [
+  'aoe',
+  'tankbuster',
+  'auto',
+  'partial_aoe',
+  'partial_final_aoe',
+]
 
 const DAMAGE_TYPE_TO_NUM: Record<DamageType, 0 | 1 | 2> = {
   physical: 0,
@@ -257,7 +265,7 @@ function fromV2DamageEvent(e: V2DamageEvent, composition: Composition): DamageEv
     name: e.n,
     time: e.t,
     damage: e.d,
-    type: NUM_TO_DAMAGE_EVENT_TYPE[e.ty],
+    type: NUM_TO_DAMAGE_EVENT_TYPE[e.ty] ?? 'aoe',
     damageType: NUM_TO_DAMAGE_TYPE[e.dt],
   }
   if (e.st !== undefined) out.snapshotTime = e.st

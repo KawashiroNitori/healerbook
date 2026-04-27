@@ -50,8 +50,8 @@ export interface V2DamageEvent {
   t: number
   /** damage */
   d: number
-  /** type: 0=aoe, 1=tankbuster, 2=auto */
-  ty: 0 | 1 | 2
+  /** type: 0=aoe, 1=tankbuster, 2=auto, 3=partial_aoe, 4=partial_final_aoe */
+  ty: 0 | 1 | 2 | 3 | 4
   /** damageType: 0=physical, 1=magical, 2=darkness */
   dt: 0 | 1 | 2
   /** snapshotTime（DOT 快照） */

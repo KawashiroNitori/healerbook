@@ -20,9 +20,28 @@ export type DamageType = (typeof DAMAGE_TYPES)[number]
 
 /**
  * 攻击类型
+ *
+ * - aoe / partial_aoe / partial_final_aoe：非坦专（partial 是 aoe 的子类，
+ *   仅 FFLogs 导入期由 partialAoeClassifier 自动判别产生，用户也可手动选择）
+ * - tankbuster / auto：坦专路径，走多坦多分支计算
  */
-export const DAMAGE_EVENT_TYPES = ['aoe', 'tankbuster', 'auto'] as const
+export const DAMAGE_EVENT_TYPES = [
+  'aoe',
+  'tankbuster',
+  'auto',
+  'partial_aoe',
+  'partial_final_aoe',
+] as const
 export type DamageEventType = (typeof DAMAGE_EVENT_TYPES)[number]
+
+/** 攻击类型的中文展示标签（UI 下拉与过滤器 Switch 共用） */
+export const DAMAGE_EVENT_TYPE_LABELS: Record<DamageEventType, string> = {
+  aoe: '全员 AOE',
+  partial_aoe: '部分 AOE',
+  partial_final_aoe: '部分 AOE（结算）',
+  tankbuster: '死刑',
+  auto: '普通攻击',
+}
 
 /**
  * 时间轴
