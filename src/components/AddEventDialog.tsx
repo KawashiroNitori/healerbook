@@ -9,7 +9,12 @@ import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { TimeInput } from '@/components/ui/time-input'
 import { Switch } from '@/components/ui/switch'
-import type { DamageType, DamageEventType } from '@/types/timeline'
+import {
+  DAMAGE_EVENT_TYPES,
+  DAMAGE_EVENT_TYPE_LABELS,
+  type DamageType,
+  type DamageEventType,
+} from '@/types/timeline'
 
 interface AddEventDialogProps {
   open: boolean
@@ -95,9 +100,11 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               onChange={e => setType(e.target.value as DamageEventType)}
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
             >
-              <option value="aoe">AOE</option>
-              <option value="tankbuster">死刑</option>
-              <option value="auto">普通攻击</option>
+              {DAMAGE_EVENT_TYPES.map(t => (
+                <option key={t} value={t}>
+                  {DAMAGE_EVENT_TYPE_LABELS[t]}
+                </option>
+              ))}
             </select>
           </div>
 

@@ -24,7 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { DamageType, DamageEventType } from '@/types/timeline'
+import {
+  DAMAGE_EVENT_TYPES,
+  DAMAGE_EVENT_TYPE_LABELS,
+  type DamageType,
+  type DamageEventType,
+} from '@/types/timeline'
 import type { MitigationStatus } from '@/types/status'
 
 interface BranchViewData {
@@ -416,9 +421,11 @@ export default function PropertyPanel() {
               className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             >
-              <option value="aoe">AOE</option>
-              <option value="tankbuster">死刑</option>
-              <option value="auto">普通攻击</option>
+              {DAMAGE_EVENT_TYPES.map(t => (
+                <option key={t} value={t}>
+                  {DAMAGE_EVENT_TYPE_LABELS[t]}
+                </option>
+              ))}
             </select>
           </div>
         </div>
