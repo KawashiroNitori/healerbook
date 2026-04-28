@@ -10,6 +10,30 @@ import { createBuffExecutor, createShieldExecutor, removeStatus } from '@/execut
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { whileStatus, not, anyOf } from '@/utils/placement/combinators'
 
+/**
+ * 治疗 action executor 接入进度
+ *
+ * HP 模拟基础设施已落地（HpPool / createHealExecutor / createRegenExecutor /
+ * regenStatusExecutor / simulate 主循环 hp 演化），但本期未给具体治疗 action 挂载。
+ *
+ * 待接入（按 spec §4.5 mapping 表，逐步铺开）：
+ *   - 单次治疗：选定 action 加 statDataEntries: [{ type: 'heal', key: <id> }]，
+ *     executor: createHealExecutor()。statistics 缺失时 healByAbility 取默认 10000
+ *     兜底（statDataUtils.DEFAULT_VALUE），用户可在数值设置面板调整。
+ *   - 纯 HoT：action.executor = createRegenExecutor(<HOT_STATUS_ID>, <DURATION>)；
+ *     在 statusExtras.ts 给 HoT status 挂 executor: regenStatusExecutor。
+ *   - 单次 + buff 组合：用 createHealExecutor + createBuffExecutor 串联（先 heal 后 buff），
+ *     避免自身 buff 加成自身治疗（snapshot-on-apply 语义）。
+ *   - heal/selfHeal 倍率：给对应 buff status 的 metadata.performance 加 heal/selfHeal 字段
+ *     （只对非坦专 buff 生效；isTankOnly buff 不参与 HP 池累乘）。
+ *
+ * 注意：现有 `category: ['heal']` 的 action 多数已挂 createBuffExecutor 或自定义 executor
+ * （延时治疗 / buff-trigger 模式），接入时需评估是否改为组合 executor，**不要直接覆盖**
+ * 既有 executor。
+ *
+ * 详见 design/superpowers/specs/2026-04-28-hp-simulate-design.md §4.5。
+ */
+
 const SERAPHISM_BUFF_ID = 3885 // 炽天附体
 
 export interface MitigationDataSource {
