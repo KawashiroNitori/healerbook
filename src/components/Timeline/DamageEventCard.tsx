@@ -78,11 +78,24 @@ const DamageEventCard = memo(function DamageEventCard({
       d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
     ) ?? false
 
-  // 编辑模式警示（referenceMaxHP 仅编辑模式存在）
+  // 致死/危险判定：按事件类型分流
+  // 非坦事件（aoe 系列）：用 hpSimulation 累积视角，与 PropertyPanel 一致
+  // 坦专事件 / 无 hpSim 时：用孤立 finalDamage vs referenceMaxHP 回退
+  const hpSim = calculatedEvent?.hpSimulation
   const refHP = calculatedEvent?.referenceMaxHP
-  const isLethal = !hasOverkill && refHP != null && calculatedEvent!.finalDamage >= refHP
-  const isDangerous =
-    !hasOverkill && !isLethal && refHP != null && calculatedEvent!.finalDamage >= refHP * 0.9
+
+  let isLethal = false
+  let isDangerous = false
+  if (!hasOverkill) {
+    if (hpSim) {
+      isLethal = hpSim.hpAfter === 0 && (hpSim.overkill ?? 0) > 0
+      isDangerous = !isLethal && hpSim.hpAfter > 0 && hpSim.hpAfter / hpSim.hpMax < 0.05
+    } else if (refHP != null) {
+      const damage = calculatedEvent!.finalDamage
+      isLethal = damage >= refHP
+      isDangerous = !isLethal && damage >= refHP * 0.9
+    }
+  }
 
   const getDamageText = (): string => {
     if (!showActualDamage && !showOriginalDamage) return ''
