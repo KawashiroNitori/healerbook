@@ -14,6 +14,7 @@ import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import type { HealSnapshot } from '@/types/healSnapshot'
+import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplier } from '@/executors/healMath'
@@ -146,6 +147,8 @@ export interface SimulateOutput {
   castEffectiveEndByCastEventId: Map<string, number>
   /** 所有治疗事件（cast + HoT tick）的 snapshot，按 time 升序 */
   healSnapshots: HealSnapshot[]
+  /** HP 池演化序列（time 升序）；回放模式 / hp 池未初始化时为空数组 */
+  hpTimeline: HpTimelinePoint[]
 }
 
 /**
@@ -373,6 +376,7 @@ export class MitigationCalculator {
     const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
     const castEffectiveEndByCastEventId = new Map<string, number>()
     const healSnapshots: HealSnapshot[] = []
+    const hpTimeline: HpTimelinePoint[] = []
     const recordHeal = (snap: HealSnapshot) => healSnapshots.push(snap)
 
     interface OpenRecord {
@@ -708,6 +712,7 @@ export class MitigationCalculator {
       statusTimelineByPlayer,
       castEffectiveEndByCastEventId,
       healSnapshots,
+      hpTimeline,
     }
   }
 

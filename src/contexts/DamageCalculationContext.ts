@@ -7,6 +7,7 @@ const emptyContext: DamageCalculationResult = {
   statusTimelineByPlayer: new Map(),
   castEffectiveEndByCastEventId: new Map(),
   healSnapshots: [],
+  hpTimeline: [],
   simulate: null,
 }
 

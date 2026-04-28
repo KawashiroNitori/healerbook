@@ -8,6 +8,7 @@ import { MitigationCalculator, type CalculationResult } from '@/utils/mitigation
 import type { CastEvent, Timeline } from '@/types/timeline'
 import type { StatusInterval } from '@/types/status'
 import type { HealSnapshot } from '@/types/healSnapshot'
+import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { useTimelineStore } from '@/store/timelineStore'
 import { calculatePercentile } from '@/utils/stats'
 import { resolveStatData } from '@/utils/statDataUtils'
@@ -22,6 +23,8 @@ export interface DamageCalculationResult {
   castEffectiveEndByCastEventId: Map<string, number>
   /** 治疗 snapshot（一次性 cast + HoT tick）按 time 升序 */
   healSnapshots: HealSnapshot[]
+  /** HP 池演化序列（time 升序）；空时 HP 曲线轨道不挂载 */
+  hpTimeline: HpTimelinePoint[]
   /**
    * 与主路径共享 input（initialState/damageEvents/statistics/tankPlayerIds/baseRefMaxHP）的
    * simulate 回调。PlacementEngine 在处理 excludeCastEventId 时用它以过滤后的 castEvents 重放。
@@ -47,6 +50,7 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
       statusTimelineByPlayer: new Map(),
       castEffectiveEndByCastEventId: new Map(),
       healSnapshots: [],
+      hpTimeline: [],
       simulate: null,
     }
 
@@ -146,6 +150,7 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
       statusTimelineByPlayer: full.statusTimelineByPlayer,
       castEffectiveEndByCastEventId: full.castEffectiveEndByCastEventId,
       healSnapshots: full.healSnapshots,
+      hpTimeline: full.hpTimeline,
       simulate,
     }
   }, [timeline, partyState, statistics])
