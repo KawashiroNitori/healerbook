@@ -15,13 +15,19 @@ import type {
   PerformanceType as ExternalPerformanceType,
 } from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
 import type {
+  MitigationStatus,
   MitigationStatusMetadata,
   StatusBeforeShieldContext,
   StatusExecutor,
 } from '@/types/status'
 import type { MitigationCategory } from '@/types/mitigation'
-import { addStatus, removeStatus, updateStatusData } from '@/executors/statusHelpers'
+import type { PartyState } from '@/types/partyState'
+import type { TimelineStatData } from '@/types/statData'
+import { addStatus, removeStatus, updateStatus, updateStatusData } from '@/executors/statusHelpers'
 import { isStatusValidForTank } from '@/utils/statusFilter'
+import { regenStatusExecutor } from '@/executors/regenStatusExecutor'
+import { applyDirectHeal } from '@/executors/applyDirectHeal'
+import { computeFinalHeal } from '@/executors/healMath'
 
 /**
  * 创建"按需生成盾值"的 onBeforeShield 钩子。
@@ -70,6 +76,38 @@ export function createSurvivalBarrierHook() {
   }
 }
 
+/**
+ * 神爱抚 (3903) → 神爱环 (3904) 链式 HoT 生成器。
+ *
+ * 在 onConsume / onExpire 时刻先把父盾摘掉，再对当前 partyState snapshot 治疗倍率，
+ * 把每 tick 量写进新 status 的 data.tickAmount——之后 regenStatusExecutor.onTick 直接消费。
+ */
+function spawnHaloRegen(
+  state: PartyState,
+  parent: MitigationStatus,
+  time: number,
+  statistics?: TimelineStatData
+): PartyState {
+  const HALO_STATUS_ID = 3904
+  const HALO_DURATION = 15
+  const cleared = removeStatus(state, parent.instanceId)
+  const baseTickAmount = statistics?.healByAbility?.[1e6 + HALO_STATUS_ID] ?? 0
+  const snapshotTickAmount = computeFinalHeal(
+    baseTickAmount,
+    cleared,
+    parent.sourcePlayerId ?? 0,
+    time
+  )
+  return addStatus(cleared, {
+    statusId: HALO_STATUS_ID,
+    eventTime: time,
+    duration: HALO_DURATION,
+    sourcePlayerId: parent.sourcePlayerId,
+    sourceActionId: parent.sourceActionId,
+    data: { tickAmount: snapshotTickAmount, castEventId: '' },
+  })
+}
+
 /** 单个状态的本地补充字段 */
 export interface StatusExtras {
   // ── 基础字段（仅当 statusId 不在第三方 keigenns 中时必需；存在时作为 override）──
@@ -93,6 +131,8 @@ export interface StatusExtras {
   isTankOnly?: boolean
   /** performance.heal 倍率（1 = 无影响，> 1 增疗）；缺省为 1 */
   heal?: number
+  /** performance.selfHeal 倍率（仅 buff 持有者本人施治时生效）；缺省为 1 */
+  selfHeal?: number
   /** performance.maxHP 倍率（1 = 无影响，> 1 增加最大 HP）；缺省为 1 */
   maxHP?: number
   /** 状态自身的副作用钩子（可选） */
@@ -182,6 +222,79 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   2684: { isTankOnly: true, category: ['self', 'target', 'percentage'] }, // 刚玉之清
 
   // 白魔法师
+  1873: { selfHeal: 1.2 }, // 节制
+  3880: {
+    name: '医养',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
+  1911: {
+    name: '庇护所',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    heal: 1.1,
+    executor: regenStatusExecutor,
+  },
+  2709: {
+    name: '礼仪之铃',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: {
+      // 实际伤害 > 0 且距上次触发 > 1s 时治疗一次并消耗一层；扣到 0 移除。
+      onAfterDamage: ctx => {
+        if (ctx.finalDamage <= 0) return
+        const current = ctx.partyState.statuses.find(s => s.instanceId === ctx.status.instanceId)
+        if (!current) return
+        const lastTriggerTime = current.data?.lastTriggerTime as number | undefined
+        if (lastTriggerTime !== undefined && ctx.event.time - lastTriggerTime <= 1) return
+
+        const BELL_HEAL_ID = 25863
+        const baseAmount = ctx.statistics?.healByAbility?.[BELL_HEAL_ID] ?? 0
+        const stateAfterHeal = applyDirectHeal(
+          ctx.partyState,
+          baseAmount,
+          {
+            castEventId: (current.data?.castEventId as string | undefined) ?? '',
+            actionId: BELL_HEAL_ID,
+            sourcePlayerId: current.sourcePlayerId ?? 0,
+            time: ctx.event.time,
+          },
+          ctx.recordHeal
+        )
+
+        const newStack = (current.stack ?? 1) - 1
+        if (newStack <= 0) {
+          return removeStatus(stateAfterHeal, ctx.status.instanceId)
+        }
+        return updateStatus(
+          updateStatusData(stateAfterHeal, ctx.status.instanceId, {
+            lastTriggerTime: ctx.event.time,
+          }),
+          ctx.status.instanceId,
+          { stack: newStack }
+        )
+      },
+    },
+  },
+  3903: {
+    name: '神爱抚',
+    category: ['partywide', 'shield'],
+    isFriendly: true,
+    executor: {
+      // 盾被打穿 / 自然到期后挂 15s 的神爱环 (3904) HoT。
+      // tickAmount 在生成时刻 snapshot（与 createRegenExecutor 的 cast-time 口径一致），
+      // 之后由 regenStatusExecutor.onTick 直接消费 status.data.tickAmount。
+      onConsume: ctx => spawnHaloRegen(ctx.partyState, ctx.status, ctx.event.time, ctx.statistics),
+      onExpire: ctx => spawnHaloRegen(ctx.partyState, ctx.status, ctx.expireTime, ctx.statistics),
+    },
+  },
+  3904: {
+    name: '神爱环',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
 
   // 占星术士
   1224: {

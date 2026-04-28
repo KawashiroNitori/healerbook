@@ -1234,6 +1234,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 height={timeRulerHeight}
               />
 
+              {/* HP 轨道在 DamageEventTrack 之前渲染，让伤害轨的网格线 / 事件竖线（由
+                  bottomExtension 延伸到 HP 轨）画在 HP 曲线之上。 */}
+              {hpTrackHeight > 0 && (
+                <HpCurveTrack
+                  hpTimeline={hpTimeline}
+                  zoomLevel={zoomLevel}
+                  yOffset={timeRulerHeight + eventTrackHeight}
+                  width={timelineWidth}
+                  height={HP_CURVE_HEIGHT}
+                  viewportWidth={viewportWidth}
+                  scrollLeft={clampedScrollLeft}
+                />
+              )}
+
               <DamageEventTrack
                 events={filteredDamageEvents}
                 selectedEventId={selectedEventId}
@@ -1247,6 +1261,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 draggingEventPosition={draggingEventPosition}
                 viewportWidth={viewportWidth}
                 scrollLeft={clampedScrollLeft}
+                bottomExtension={hpTrackHeight}
                 onSelectEvent={handleSelectEvent}
                 onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}
                 onDragMove={(eventId, x) => {
@@ -1265,18 +1280,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onAnnotationDragStart={handleAnnotationDragStart}
                 onAnnotationDragEnd={handleAnnotationDragEnd}
               />
-
-              {hpTrackHeight > 0 && (
-                <HpCurveTrack
-                  hpTimeline={hpTimeline}
-                  zoomLevel={zoomLevel}
-                  yOffset={timeRulerHeight + eventTrackHeight}
-                  width={timelineWidth}
-                  height={HP_CURVE_HEIGHT}
-                  viewportWidth={viewportWidth}
-                  scrollLeft={clampedScrollLeft}
-                />
-              )}
             </Layer>
             {/* 固定区域十字准线纵线（由 ref 直接控制，绕过 React 渲染） */}
             <Layer ref={fixedOverlayLayerRef} x={-clampedScrollLeft} listening={false}>

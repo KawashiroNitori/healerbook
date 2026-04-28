@@ -10,7 +10,7 @@
 import { memo } from 'react'
 import { Line, Rect } from 'react-konva'
 import type { HpTimelinePoint } from '@/types/hpTimeline'
-import { useCanvasColors } from './constants'
+import { TIMELINE_START_TIME, useCanvasColors } from './constants'
 
 interface HpCurveTrackProps {
   hpTimeline: HpTimelinePoint[]
@@ -36,7 +36,7 @@ const HpCurveTrack = memo(function HpCurveTrack({
 }: HpCurveTrackProps) {
   const colors = useCanvasColors()
 
-  if (hpTimeline.length < 2) return null
+  if (hpTimeline.length === 0) return null
 
   // Y 映射：hp/hpMax = 1 → top；= 0 → bottom（留 2px 边距）
   const PADDING = 2
@@ -49,26 +49,40 @@ const HpCurveTrack = memo(function HpCurveTrack({
   const minX = scrollLeft - buffer
   const maxX = scrollLeft + viewportWidth + buffer
 
-  // 找到第一个 X >= minX 的点的前一条（保证曲线左端连接到视口外）
   const xs = hpTimeline.map(p => p.time * zoomLevel)
-  let startIdx = xs.findIndex(x => x >= minX)
-  if (startIdx === -1) return null // 所有点都在视口左侧
-  if (startIdx > 0) startIdx -= 1
 
+  // startIdx：第一个 X >= minX 的点的前一个（保证左端连接到视口外）；
+  // 全部点都在视口右侧时退化为 0——下面用第一个点的 hp 水平延伸到 minX。
+  let startIdx: number
+  const firstAtOrAfterMin = xs.findIndex(x => x >= minX)
+  if (firstAtOrAfterMin === -1) startIdx = hpTimeline.length - 1
+  else if (firstAtOrAfterMin > 0) startIdx = firstAtOrAfterMin - 1
+  else startIdx = 0
+
+  // endIdx：最后一个 X <= maxX 的点的后一个；
+  // 全部点都在视口左侧时退化为 0——下面用最后一个点的 hp 水平延伸到 maxX。
   let endIdx = xs.reduce((last, x, i) => (x <= maxX ? i : last), -1)
-  if (endIdx === -1) return null // 所有点都在视口右侧
-  if (endIdx < hpTimeline.length - 1) endIdx += 1
-
-  if (endIdx <= startIdx) return null
+  if (endIdx === -1) endIdx = 0
+  else if (endIdx < hpTimeline.length - 1) endIdx += 1
 
   // 折线点序列：阶梯状（每相邻两点先水平延伸到下个 time，再垂直跳到下个 hp）。
   // 反映"hp 在事件之间保持不变，事件瞬间改变 hp"的真实语义——伤害陡降、治疗 tick
   // 阶梯爬升、maxHP buff 切换瞬时缩放。
   // 实现：在写第 i 个点前先插一个 connector (currentTime, prevHp) 形成水平延伸。
   const points: number[] = []
+
+  // 第一个数据点之前的水平延伸——保持 hpTimeline[startIdx] 的 hp/hpMax 不变。
+  // 覆盖 t<0、cast 之前的"满血保持"区。
+  const firstHpX = xs[startIdx]
+  const firstHpY = yFor(hpTimeline[startIdx].hp, hpTimeline[startIdx].hpMax)
+  const leftEdge = Math.min(firstHpX, minX)
+  if (leftEdge < firstHpX) {
+    points.push(leftEdge, firstHpY)
+  }
+
   for (let i = startIdx; i <= endIdx; i++) {
     const p = hpTimeline[i]
-    const x = p.time * zoomLevel
+    const x = xs[i]
     if (i > startIdx) {
       const prev = hpTimeline[i - 1]
       points.push(x, yFor(prev.hp, prev.hpMax))
@@ -76,11 +90,19 @@ const HpCurveTrack = memo(function HpCurveTrack({
     points.push(x, yFor(p.hp, p.hpMax))
   }
 
-  // 面积填充：闭合到 [first.x, bottom] 与 [last.x, bottom]
-  const firstX = hpTimeline[startIdx].time * zoomLevel
-  const lastX = hpTimeline[endIdx].time * zoomLevel
+  // 最后一个数据点之后的水平延伸——保持 hpTimeline[endIdx] 的 hp/hpMax 不变。
+  const lastHpX = xs[endIdx]
+  const lastHpY = yFor(hpTimeline[endIdx].hp, hpTimeline[endIdx].hpMax)
+  const rightEdge = Math.max(lastHpX, maxX)
+  if (rightEdge > lastHpX) {
+    points.push(rightEdge, lastHpY)
+  }
+
+  if (points.length < 4) return null // 至少两个点
+
+  // 面积填充：闭合到 [leftEdge, bottom] 与 [rightEdge, bottom]
   const bottomY = yOffset + height
-  const fillPoints = [firstX, bottomY, ...points, lastX, bottomY]
+  const fillPoints = [leftEdge, bottomY, ...points, rightEdge, bottomY]
 
   // maxHP 基线（视口内）
   const baselineY = yFor(1, 1)
@@ -89,13 +111,13 @@ const HpCurveTrack = memo(function HpCurveTrack({
 
   return (
     <>
-      {/* 轨道背景（使用伤害轨道同色，让 HP 曲线视觉上紧贴） */}
+      {/* 轨道背景（用 trackBgEven 与 damageTrackBg 区分；从 TIMELINE_START_TIME 起覆盖 pre-zero 区） */}
       <Rect
-        x={0}
+        x={TIMELINE_START_TIME * zoomLevel}
         y={yOffset}
         width={width}
         height={height}
-        fill={colors.damageTrackBg}
+        fill={colors.trackBgEven}
         listening={false}
         perfectDrawEnabled={false}
       />

@@ -66,6 +66,7 @@ export function buildStatusRegistry(
       performance: {
         ...basePerformance,
         heal: extras?.heal ?? 1,
+        selfHeal: extras?.selfHeal ?? 1,
         maxHP: extras?.maxHP ?? 1,
       },
       isTankOnly: extras?.isTankOnly ?? false,

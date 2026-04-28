@@ -9,17 +9,17 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import type { MitigationStatus, StatusExecutor } from '@/types/status'
+import type { MitigationStatus } from '@/types/status'
 import { computeFinalHeal } from './healMath'
 import { generateId } from './utils'
 
 export interface RegenExecutorOptions {
-  /** 互斥组：默认 [statusId] */
+  /** 互斥组：默认 [] (HOT 一般可以同名 buff 共存) */
   uniqueGroup?: number[]
   /**
    * 每个 tick 的固定治疗量。
-   * 不指定 → tickAmount = healByAbility[statusId] / floor(duration / 3)
-   *         （"全 duration 收满 healByAbility 总量"为锚）
+   * 不指定 → tickAmount = healByAbility[1e6 + statusId]
+   *         （buff 类治疗在 statistics 中以 1e6 + statusId 为 key，值已是每 tick 量）
    */
   tickAmount?: number
 }
@@ -29,13 +29,11 @@ export function createRegenExecutor(
   duration: number,
   options?: RegenExecutorOptions
 ): ActionExecutor {
-  const uniqueGroup = options?.uniqueGroup ?? [statusId]
+  const uniqueGroup = options?.uniqueGroup ?? []
 
   return ctx => {
-    const totalTicks = Math.floor(duration / 3)
     const baseTickAmount =
-      options?.tickAmount ??
-      (totalTicks > 0 ? (ctx.statistics?.healByAbility?.[statusId] ?? 0) / totalTicks : 0)
+      options?.tickAmount ?? ctx.statistics?.healByAbility?.[1e6 + statusId] ?? 0
     const snapshotTickAmount = computeFinalHeal(
       baseTickAmount,
       ctx.partyState,
@@ -60,36 +58,4 @@ export function createRegenExecutor(
       statuses: [...filteredStatuses, newStatus],
     }
   }
-}
-
-/**
- * HoT 状态自带的 onTick：每 3s 网格 +tickAmount 到 hp.current，clamp 到 hp.max。
- *
- * 在 STATUS_EXTRAS 中给所有 HoT statusId 注册此 executor 即可。
- */
-export const regenStatusExecutor: StatusExecutor = {
-  onTick: ctx => {
-    if (!ctx.partyState.hp) return
-    const tickAmount = (ctx.status.data?.tickAmount as number | undefined) ?? 0
-    if (tickAmount <= 0) return
-
-    const before = ctx.partyState.hp.current
-    const next = Math.min(before + tickAmount, ctx.partyState.hp.max)
-    const applied = next - before
-    const overheal = tickAmount - applied
-
-    ctx.recordHeal?.({
-      castEventId: (ctx.status.data?.castEventId as string | undefined) ?? '',
-      actionId: ctx.status.sourceActionId ?? 0,
-      sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
-      time: ctx.tickTime,
-      baseAmount: tickAmount,
-      finalHeal: tickAmount,
-      applied,
-      overheal,
-      isHotTick: true,
-    })
-
-    return { ...ctx.partyState, hp: { ...ctx.partyState.hp, current: next } }
-  },
 }

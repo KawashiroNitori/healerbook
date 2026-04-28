@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useFilterStore } from '@/store/filterStore'
-import { getJobRole, type Job } from '@/data/jobs'
+import { type Job } from '@/data/jobs'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { FilterPreset } from '@/types/filter'
@@ -26,13 +26,7 @@ export function matchSingleAction(
   preset: FilterPreset
 ): boolean {
   if (preset.kind === 'builtin') {
-    const { categories, jobRoles } = preset.rule
-    if (categories && categories.length > 0) {
-      if (!categories.some(c => action.category.includes(c))) return false
-    }
-    if (!jobRoles || jobRoles.length === 0) return true
-    const role = getJobRole(playerJob)
-    return role != null && jobRoles.includes(role)
+    return preset.rule.action(action, playerJob)
   }
   // 同 trackGroup 的变体（如 37016 trackGroup=37013）共用主轨道：
   // 自定义预设里只能勾父，变体匹配时回退到父 ID。
@@ -41,6 +35,9 @@ export function matchSingleAction(
 }
 
 export function matchDamageEvent(e: DamageEvent, preset: FilterPreset): boolean {
+  if (preset.kind === 'builtin') {
+    return preset.rule.damage(e)
+  }
   const { damageTypes } = preset.rule
   if (!damageTypes || damageTypes.length === 0) return true
   return damageTypes.includes(e.type)

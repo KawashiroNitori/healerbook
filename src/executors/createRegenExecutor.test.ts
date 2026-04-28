@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createRegenExecutor, regenStatusExecutor } from './createRegenExecutor'
+import { createRegenExecutor } from './createRegenExecutor'
+import { regenStatusExecutor } from './regenStatusExecutor'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import type { PartyState, HpPool } from '@/types/partyState'
 import type { MitigationStatus, StatusTickContext } from '@/types/status'
@@ -79,7 +80,7 @@ describe('createRegenExecutor (cast 时挂状态)', () => {
     expect(next.statuses.find(s => s.statusId === 500)!.data!.tickAmount).toBeCloseTo(1200, 5)
   })
 
-  it('uniqueGroup 删除已有同组状态再挂新状态', () => {
+  it('默认 uniqueGroup 为空，同名 HoT 可以共存', () => {
     const partyState: PartyState = {
       statuses: [{ instanceId: 'old', statusId: 500, startTime: 0, endTime: 30 }],
       timestamp: 0,
@@ -87,22 +88,22 @@ describe('createRegenExecutor (cast 时挂状态)', () => {
     }
     const exec = createRegenExecutor(500, 30, { tickAmount: 1000 })
     const next = exec(mkCtx({ partyState, useTime: 10 }))
-    expect(next.statuses).toHaveLength(1)
-    expect(next.statuses[0].instanceId).not.toBe('old')
+    expect(next.statuses).toHaveLength(2)
+    expect(next.statuses.map(s => s.instanceId)).toContain('old')
   })
 
-  it('未指定 tickAmount 时按 healByAbility / floor(duration/3) 推导', () => {
-    const exec = createRegenExecutor(500, 30) // 30s = 10 ticks
+  it('未指定 tickAmount 时按 healByAbility[1e6 + statusId] 取每 tick 量', () => {
+    const exec = createRegenExecutor(500, 30)
     const ctx = mkCtx({
       statistics: {
         shieldByAbility: {},
         critShieldByAbility: {},
-        healByAbility: { 500: 50000 },
+        healByAbility: { [1e6 + 500]: 5000 },
         critHealByAbility: {},
       },
     })
     const next = exec(ctx)
-    expect(next.statuses[0].data!.tickAmount).toBeCloseTo(5000, 5) // 50k / 10
+    expect(next.statuses[0].data!.tickAmount).toBeCloseTo(5000, 5)
   })
 })
 

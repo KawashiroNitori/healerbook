@@ -1,12 +1,12 @@
-/**
- * FF14 减伤技能数据（新版本 - 使用 executor 模式）
- * 数据来源: CafeMaker API
- * 版本: 7.1
- * 最后更新: 2026-02-21
- */
-
 import type { MitigationAction } from '@/types/mitigation'
-import { createBuffExecutor, createShieldExecutor, removeStatus } from '@/executors'
+import {
+  applyDirectHeal,
+  createBuffExecutor,
+  createHealExecutor,
+  createRegenExecutor,
+  createShieldExecutor,
+  removeStatus,
+} from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { whileStatus, not, anyOf } from '@/utils/placement/combinators'
 
@@ -347,10 +347,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 25,
       cooldown: 120,
-      // executor: createBuffExecutor(1873, 25),
       executor: ctx => {
-        const partyState = createBuffExecutor(1873, 25)(ctx)
-        return createBuffExecutor(3881, 30)({ ...ctx, partyState })
+        const partyState = createBuffExecutor(1873, 25)(ctx) // 节制
+        return createBuffExecutor(3881, 30)({ ...ctx, partyState }) // 神爱抚预备
       },
     },
     {
@@ -363,7 +362,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 1,
       placement: whileStatus(3881),
       executor: createShieldExecutor(3903, 10, { uniqueGroup: [3881] }),
-      statDataEntries: [{ type: 'shield', key: 3903 }],
+      statDataEntries: [
+        { type: 'shield', key: 3903 },
+        { type: 'heal', key: 1003904, label: '神爱环' },
+      ],
     },
     {
       id: 7433,
@@ -374,6 +376,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 10,
       cooldown: 60,
       executor: createBuffExecutor(1219, 10),
+      statDataEntries: [{ type: 'heal', key: 1001219 }],
     },
     {
       id: 25862,
@@ -385,7 +388,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 180,
       placement: not(whileStatus(2709)),
       executor: createBuffExecutor(2709, 20, { stack: 5, uniqueGroup: [] }),
-      statDataEntries: [{ type: 'heal', key: 1002709 }],
+      statDataEntries: [{ type: 'heal', key: 25863 }],
     },
     // 手动收铃铛
     {
@@ -399,13 +402,125 @@ export const MITIGATION_DATA: MitigationDataSource = {
       trackGroup: 25862,
       placement: whileStatus(2709),
       executor: (ctx: ActionExecutionContext) => {
-        return removeStatus(
-          ctx.partyState,
-          ctx.partyState.statuses.find(
-            s => s.statusId === 2709 && s.sourcePlayerId === ctx.sourcePlayerId
-          )?.instanceId ?? ''
+        const bell = ctx.partyState.statuses.find(
+          s => s.statusId === 2709 && s.sourcePlayerId === ctx.sourcePlayerId
         )
+        if (!bell) return ctx.partyState
+
+        const remainingStacks = bell.stack ?? 1
+        const baseAmount = ((ctx.statistics?.healByAbility?.[25863] ?? 0) / 2) * remainingStacks
+        const stateAfterHeal = applyDirectHeal(
+          ctx.partyState,
+          baseAmount,
+          {
+            castEventId: ctx.castEventId ?? '',
+            actionId: 25863,
+            sourcePlayerId: ctx.sourcePlayerId,
+            time: ctx.useTime,
+          },
+          ctx.recordHeal
+        )
+        return removeStatus(stateAfterHeal, bell.instanceId)
       },
+    },
+    {
+      id: 124,
+      name: '医治',
+      icon: '/i/000000/000408.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2.5,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return createHealExecutor({ amountSourceId: 1001219 })(ctx)
+        }
+        return partyState
+      },
+      statDataEntries: [{ type: 'heal', key: 124 }],
+    },
+    {
+      id: 37010,
+      name: '医养',
+      icon: '/i/002000/002127.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2.5,
+      executor: ctx => {
+        let partyState = createHealExecutor()(ctx)
+        partyState = createRegenExecutor(3880, 15)({ ...ctx, partyState })
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          partyState = createHealExecutor({ amountSourceId: 1001219 })(ctx)
+        }
+        return partyState
+      },
+      statDataEntries: [
+        { type: 'heal', key: 37010 },
+        { type: 'heal', key: 1003880, label: 'HoT' },
+      ],
+    },
+    {
+      id: 131,
+      name: '愈疗',
+      icon: '/i/000000/000407.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2.5,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return createHealExecutor({ amountSourceId: 1001219 })(ctx)
+        }
+        return partyState
+      },
+      statDataEntries: [{ type: 'heal', key: 131 }],
+    },
+    {
+      id: 3569,
+      name: '庇护所',
+      icon: '/i/002000/002632.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 24,
+      cooldown: 90,
+      executor: createRegenExecutor(1911, 24),
+      statDataEntries: [{ type: 'heal', key: 1001911, label: 'HoT' }],
+    },
+    {
+      id: 16534,
+      name: '狂喜之心',
+      icon: '/i/002000/002643.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2.5,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return createHealExecutor({ amountSourceId: 1001219 })(ctx)
+        }
+        return partyState
+      },
+      statDataEntries: [{ type: 'heal', key: 16534 }],
     },
 
     // 学者 (SCH)

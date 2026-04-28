@@ -8,7 +8,7 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import { computeFinalHeal } from './healMath'
+import { applyDirectHeal } from './applyDirectHeal'
 
 export interface HealExecutorOptions {
   /** 固定治疗量；指定时跳过 statistics 读取 */
@@ -25,31 +25,19 @@ export function createHealExecutor(options?: HealExecutorOptions): ActionExecuto
   const amountSourceId = options?.amountSourceId
 
   return ctx => {
-    if (!ctx.partyState.hp) return ctx.partyState
-
     const sourceId = amountSourceId ?? ctx.actionId
     const baseAmount = fixedAmount ?? ctx.statistics?.healByAbility?.[sourceId] ?? 0
-    if (baseAmount <= 0) return ctx.partyState
 
-    const finalHeal = computeFinalHeal(baseAmount, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
-
-    const before = ctx.partyState.hp.current
-    const next = Math.min(before + finalHeal, ctx.partyState.hp.max)
-    const applied = next - before
-    const overheal = finalHeal - applied
-
-    ctx.recordHeal?.({
-      castEventId: ctx.castEventId ?? '',
-      actionId: ctx.actionId,
-      sourcePlayerId: ctx.sourcePlayerId,
-      time: ctx.useTime,
+    return applyDirectHeal(
+      ctx.partyState,
       baseAmount,
-      finalHeal,
-      applied,
-      overheal,
-      isHotTick: false,
-    })
-
-    return { ...ctx.partyState, hp: { ...ctx.partyState.hp, current: next } }
+      {
+        castEventId: ctx.castEventId ?? '',
+        actionId: ctx.actionId,
+        sourcePlayerId: ctx.sourcePlayerId,
+        time: ctx.useTime,
+      },
+      ctx.recordHeal
+    )
   }
 }

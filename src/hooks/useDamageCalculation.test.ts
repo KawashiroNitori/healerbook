@@ -8,7 +8,8 @@ import type { MitigationStatusMetadata } from '@/types/status'
 import type { Timeline } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { createHealExecutor } from '@/executors/createHealExecutor'
-import { createRegenExecutor, regenStatusExecutor } from '@/executors/createRegenExecutor'
+import { createRegenExecutor } from '@/executors/createRegenExecutor'
+import { regenStatusExecutor } from '@/executors/regenStatusExecutor'
 
 function fakeMeta(
   id: number,
@@ -262,7 +263,7 @@ describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
         cooldown: 0,
         category: ['heal', 'partywide'],
         executor: createRegenExecutor(HOT_STATUS_ID, 30),
-        statDataEntries: [{ type: 'heal', key: HOT_STATUS_ID }],
+        statDataEntries: [{ type: 'heal', key: 1e6 + HOT_STATUS_ID }],
       }
     )
 
@@ -321,7 +322,7 @@ describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
           critShieldByAbility: {},
           healByAbility: {
             [HEAL_ACTION_ID]: 10000,
-            [HOT_STATUS_ID]: 30000,
+            [1e6 + HOT_STATUS_ID]: 3000,
           },
           critHealByAbility: {},
         },
