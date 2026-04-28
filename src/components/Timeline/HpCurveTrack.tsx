@@ -52,11 +52,11 @@ const HpCurveTrack = memo(function HpCurveTrack({
   // 找到第一个 X >= minX 的点的前一条（保证曲线左端连接到视口外）
   const xs = hpTimeline.map(p => p.time * zoomLevel)
   let startIdx = xs.findIndex(x => x >= minX)
-  if (startIdx === -1) startIdx = hpTimeline.length - 1
+  if (startIdx === -1) return null // 所有点都在视口左侧
   if (startIdx > 0) startIdx -= 1
 
   let endIdx = xs.reduce((last, x, i) => (x <= maxX ? i : last), -1)
-  if (endIdx === -1) endIdx = 0
+  if (endIdx === -1) return null // 所有点都在视口右侧
   if (endIdx < hpTimeline.length - 1) endIdx += 1
 
   if (endIdx <= startIdx) return null
