@@ -377,13 +377,18 @@ export class MitigationCalculator {
     const castEffectiveEndByCastEventId = new Map<string, number>()
     const healSnapshots: HealSnapshot[] = []
     const hpTimeline: HpTimelinePoint[] = []
+    // 闭包变量：跟踪"最近已知 hp 值"，让 recordHeal 在钩子还未 return 新 state 时也能正确回填
+    let lastKnownHp = 0
+    let lastKnownHpMax = 0
     const recomputeAndTrack = (state: PartyState, time: number): PartyState => {
       const next = this.recomputeHpMax(state)
       if (state.hp && next.hp && state.hp.max !== next.hp.max) {
+        lastKnownHp = next.hp.current
+        lastKnownHpMax = next.hp.max
         hpTimeline.push({
           time,
-          hp: next.hp.current,
-          hpMax: next.hp.max,
+          hp: lastKnownHp,
+          hpMax: lastKnownHpMax,
           kind: 'maxhp-change',
         })
       }
@@ -391,13 +396,17 @@ export class MitigationCalculator {
     }
     const recordHeal = (snap: HealSnapshot) => {
       healSnapshots.push(snap)
+      // 治疗后 hp = 当前已知 hp + applied（钩子里还没 return，所以 lastKnown 还是治疗前的 hp.current）
+      const hpAfter = Math.min(lastKnownHp + snap.applied, lastKnownHpMax)
       hpTimeline.push({
         time: snap.time,
-        hp: 0, // 占位，task 7 回填
-        hpMax: 0, // 同上
+        hp: hpAfter,
+        hpMax: lastKnownHpMax,
         kind: snap.isHotTick ? 'tick' : 'heal',
+        // castEventId 为空字符串时转 undefined，与 refEventId 语义一致（无来源 cast）
         refEventId: snap.castEventId || undefined,
       })
+      lastKnownHp = hpAfter
     }
 
     interface OpenRecord {
@@ -592,10 +601,12 @@ export class MitigationCalculator {
     // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
     currentState = recomputeAndTrack(currentState, currentState.timestamp)
     if (currentState.hp) {
+      lastKnownHp = currentState.hp.current
+      lastKnownHpMax = currentState.hp.max
       hpTimeline.push({
         time: currentState.timestamp,
-        hp: currentState.hp.current,
-        hpMax: currentState.hp.max,
+        hp: lastKnownHp,
+        hpMax: lastKnownHpMax,
         kind: 'init',
       })
     }
@@ -679,10 +690,12 @@ export class MitigationCalculator {
       )
       damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
       if (stateAfterHp.hp) {
+        lastKnownHp = stateAfterHp.hp.current
+        lastKnownHpMax = stateAfterHp.hp.max
         hpTimeline.push({
           time: filterTime,
-          hp: stateAfterHp.hp.current,
-          hpMax: stateAfterHp.hp.max,
+          hp: lastKnownHp,
+          hpMax: lastKnownHpMax,
           kind: 'damage',
           refEventId: event.id,
         })
@@ -744,6 +757,8 @@ export class MitigationCalculator {
     // onAfterDamage）的 recordHeal 与同时刻 advanceToTime 先 fire 的 onTick 入列顺序依赖
     // 主循环执行顺序，出口处显式排序避免下游消费者依赖隐式约定。
     healSnapshots.sort((a, b) => a.time - b.time)
+    // JS Array.sort 是稳定排序（ES2019+），同时刻 push 顺序（主循环内序）得以保留。
+    hpTimeline.sort((a, b) => a.time - b.time)
 
     return {
       damageResults,

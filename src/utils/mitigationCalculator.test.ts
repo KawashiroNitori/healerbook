@@ -1946,7 +1946,7 @@ describe('HP 池 · hpTimeline', () => {
       })
 
       // 顺序：init → heal（onAfterDamage 钩子在 hp 扣血之前 fire，hp 满 → 全溢出）→ damage
-      // 注：hp 字段在 task 5 阶段先占位为 0；task 7 回填正确值
+      // hp 满时治疗全溢出：applied=0，heal 点 hp = 100000+0 = 100000
       const events = out.hpTimeline.map(p => ({
         time: p.time,
         kind: p.kind,
@@ -1955,7 +1955,7 @@ describe('HP 池 · hpTimeline', () => {
       }))
       expect(events).toEqual([
         { time: 0, kind: 'init', hp: 100000, refEventId: undefined },
-        { time: 10, kind: 'heal', hp: 0, refEventId: 'cast-heal-1' },
+        { time: 10, kind: 'heal', hp: 100000, refEventId: 'cast-heal-1' },
         { time: 10, kind: 'damage', hp: 70000, refEventId: 'A' },
       ])
     } finally {
@@ -2029,8 +2029,9 @@ describe('HP 池 · hpTimeline', () => {
 
       const tickPoints = out.hpTimeline.filter(p => p.kind === 'tick')
       // tick 在 (prev, cur] 区间触发：第一段 (0,1] 无；第二段 (1,12] 触发 3,6,9,12
-      // 注：本 task hp 字段不验证，task 7 回填后追加断言
       expect(tickPoints.map(p => p.time)).toEqual([3, 6, 9, 12])
+      // 第一个 tick：50000 + 1000 = 51000，依次类推
+      expect(tickPoints.map(p => p.hp)).toEqual([51000, 52000, 53000, 54000])
       expect(tickPoints[0].refEventId).toBe('hot-cast')
     } finally {
       spy.mockRestore()
@@ -2082,5 +2083,38 @@ describe('HP 池 · hpTimeline', () => {
     } finally {
       spy.mockRestore()
     }
+  })
+
+  it('hpTimeline 按 time 升序 sort', () => {
+    // 同一 time 多事件（cast at t=10 同时 damage at t=10）的 push 顺序由 simulate 主循环内序定，
+    // 出口 sort 用稳定排序保留同时刻先后
+    const calculator = new MitigationCalculator()
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [
+        mkDmg('A', 5, 'aoe', 10000),
+        mkDmg('B', 3, 'aoe', 10000), // 故意时间倒序
+        mkDmg('C', 8, 'aoe', 10000),
+      ],
+      initialState: { statuses: [], timestamp: 0 },
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    const times = out.hpTimeline.map(p => p.time)
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]).toBeGreaterThanOrEqual(times[i - 1])
+    }
+  })
+
+  it('回放模式 hpTimeline 为空', () => {
+    // simulate 不被回放模式直接调用，但 useDamageCalculation 在 isReplayMode 时短路返回 empty。
+    // 此处只需验证：当 initialState.hp 为空 + 不传 baseReferenceMaxHPForAoe → hpTimeline 为空。
+    const calculator = new MitigationCalculator()
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [mkDmg('A', 5, 'aoe', 10000)],
+      initialState: { statuses: [], timestamp: 0 },
+      // 不传 baseReferenceMaxHPForAoe → 没有 init point，applyDamageToHp 也跳过
+    })
+    expect(out.hpTimeline).toEqual([])
   })
 })
