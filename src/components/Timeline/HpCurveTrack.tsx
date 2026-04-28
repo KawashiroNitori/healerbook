@@ -61,13 +61,19 @@ const HpCurveTrack = memo(function HpCurveTrack({
 
   if (endIdx <= startIdx) return null
 
-  // 折线点序列（每相邻两个点之间用阶梯：先水平延伸到下个 time，再垂直跳到下个 hp）
-  // 但本期为简单起见用直接连线（与 mockup 一致）。如果未来要"瞬时下落"效果，改成
-  // 在每个 damage point 前插一个 (time, prev.hp) 点。
+  // 折线点序列：阶梯状（每相邻两点先水平延伸到下个 time，再垂直跳到下个 hp）。
+  // 反映"hp 在事件之间保持不变，事件瞬间改变 hp"的真实语义——伤害陡降、治疗 tick
+  // 阶梯爬升、maxHP buff 切换瞬时缩放。
+  // 实现：在写第 i 个点前先插一个 connector (currentTime, prevHp) 形成水平延伸。
   const points: number[] = []
   for (let i = startIdx; i <= endIdx; i++) {
     const p = hpTimeline[i]
-    points.push(p.time * zoomLevel, yFor(p.hp, p.hpMax))
+    const x = p.time * zoomLevel
+    if (i > startIdx) {
+      const prev = hpTimeline[i - 1]
+      points.push(x, yFor(prev.hp, prev.hpMax))
+    }
+    points.push(x, yFor(p.hp, p.hpMax))
   }
 
   // 面积填充：闭合到 [first.x, bottom] 与 [last.x, bottom]
