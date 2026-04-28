@@ -28,3 +28,7 @@ export function useCastEffectiveEnd(): Map<string, number> {
 export function useDamageCalculationSimulate(): DamageCalculationResult['simulate'] {
   return useContext(DamageCalculationContext).simulate
 }
+
+export function useHpTimeline(): DamageCalculationResult['hpTimeline'] {
+  return useContext(DamageCalculationContext).hpTimeline
+}
