@@ -202,7 +202,7 @@ export default function PropertyPanel() {
   }
 
   /** partial AOE 段累积信息 */
-  function renderPartialSegInfo(snap: HpSimulationSnapshot, ev: DamageEvent) {
+  function renderPartialSegInfo(snap: HpSimulationSnapshot, ev: DamageEvent, finalDamage: number) {
     if (snap.segMax === undefined) return null
     const dealt = snap.hpBefore - snap.hpAfter
     const isFinal = ev.type === 'partial_final_aoe'
@@ -217,8 +217,8 @@ export default function PropertyPanel() {
           </span>
         </div>
         <div className="text-muted-foreground">
-          本次扣血 = max(0, {ev.damage.toLocaleString()} - {(snap.segMax - dealt).toLocaleString()})
-          = {dealt.toLocaleString()}
+          本次扣血 = max(0, {finalDamage.toLocaleString()} -{' '}
+          {(snap.segMax - dealt).toLocaleString()}) = {dealt.toLocaleString()}
         </div>
       </div>
     )
@@ -428,7 +428,7 @@ export default function PropertyPanel() {
         {renderAppliedStatuses(branch, damageType, originalDamage)}
         {hpSnap &&
           (event!.type === 'partial_aoe' || event!.type === 'partial_final_aoe') &&
-          renderPartialSegInfo(hpSnap, event!)}
+          renderPartialSegInfo(hpSnap, event!, branch.finalDamage)}
       </>
     )
   }
