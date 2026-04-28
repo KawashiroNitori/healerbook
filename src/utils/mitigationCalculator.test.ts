@@ -1883,4 +1883,157 @@ describe('HP 池 · hpTimeline', () => {
       { time: 15, hp: 70000, hpMax: 100000, kind: 'damage', refEventId: 'C' },
     ])
   })
+
+  it('recordHeal 触发时 push heal point（isHotTick=false）', () => {
+    // 复用现有 onAfterDamage reactive heal mock：每次伤害后 +5000 治疗
+    const REACTIVE_HEAL_BUFF_ID = 999900
+    const mkMeta = (): MitigationStatusMetadata =>
+      ({
+        id: REACTIVE_HEAL_BUFF_ID,
+        name: 'mock-heal',
+        type: 'multiplier',
+        performance: { physics: 1, magic: 1, darkness: 1 },
+        isFriendly: true,
+        isTankOnly: false,
+        executor: {
+          onAfterDamage: (ctx: {
+            partyState: PartyState
+            event: { time: number }
+            recordHeal?: (snap: unknown) => void
+          }) => {
+            if (!ctx.partyState.hp) return
+            const heal = 5000
+            const before = ctx.partyState.hp.current
+            const next = Math.min(before + heal, ctx.partyState.hp.max)
+            ctx.recordHeal?.({
+              castEventId: 'cast-heal-1',
+              actionId: 0,
+              sourcePlayerId: 1,
+              time: ctx.event.time,
+              baseAmount: heal,
+              finalHeal: heal,
+              applied: next - before,
+              overheal: heal - (next - before),
+              isHotTick: false,
+            })
+            return { ...ctx.partyState, hp: { ...ctx.partyState.hp, current: next } }
+          },
+        },
+      }) as unknown as MitigationStatusMetadata
+
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === REACTIVE_HEAL_BUFF_ID ? mkMeta() : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'reactive',
+            statusId: REACTIVE_HEAL_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('A', 10, 'aoe', 30000)],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+
+      // 顺序：init → heal（onAfterDamage 钩子在 hp 扣血之前 fire，hp 满 → 全溢出）→ damage
+      // 注：hp 字段在 task 5 阶段先占位为 0；task 7 回填正确值
+      const events = out.hpTimeline.map(p => ({
+        time: p.time,
+        kind: p.kind,
+        hp: p.hp,
+        refEventId: p.refEventId,
+      }))
+      expect(events).toEqual([
+        { time: 0, kind: 'init', hp: 100000, refEventId: undefined },
+        { time: 10, kind: 'heal', hp: 0, refEventId: 'cast-heal-1' },
+        { time: 10, kind: 'damage', hp: 70000, refEventId: 'A' },
+      ])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('isHotTick=true 时 kind=tick', () => {
+    const TICK_BUFF_ID = 999901
+    const mkTickMeta = (): MitigationStatusMetadata =>
+      ({
+        id: TICK_BUFF_ID,
+        name: 'mock-tick',
+        type: 'multiplier',
+        performance: { physics: 1, magic: 1, darkness: 1 },
+        isFriendly: true,
+        isTankOnly: false,
+        executor: {
+          onTick: (ctx: {
+            partyState: PartyState
+            tickTime: number
+            recordHeal?: (snap: unknown) => void
+          }) => {
+            if (!ctx.partyState.hp) return
+            const heal = 1000
+            const before = ctx.partyState.hp.current
+            const next = Math.min(before + heal, ctx.partyState.hp.max)
+            ctx.recordHeal?.({
+              castEventId: 'hot-cast',
+              actionId: 0,
+              sourcePlayerId: 1,
+              time: ctx.tickTime,
+              baseAmount: heal,
+              finalHeal: heal,
+              applied: next - before,
+              overheal: heal - (next - before),
+              isHotTick: true,
+            })
+            return { ...ctx.partyState, hp: { ...ctx.partyState.hp, current: next } }
+          },
+        },
+      }) as unknown as MitigationStatusMetadata
+
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === TICK_BUFF_ID ? mkTickMeta() : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      // 先一次伤害把血扣到 50k 留出 tick 空间，再 advanceToTime 跨 9s 触发 3 个 tick
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'hot',
+            statusId: TICK_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('A', 1, 'aoe', 50000), // hp → 50000
+          mkDmg('B', 12, 'aoe', 0), // 走到 12s 触发 t=3,6,9,12 共 4 个 tick
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+
+      const tickPoints = out.hpTimeline.filter(p => p.kind === 'tick')
+      // tick 在 (prev, cur] 区间触发：第一段 (0,1] 无；第二段 (1,12] 触发 3,6,9,12
+      // 注：本 task hp 字段不验证，task 7 回填后追加断言
+      expect(tickPoints.map(p => p.time)).toEqual([3, 6, 9, 12])
+      expect(tickPoints[0].refEventId).toBe('hot-cast')
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })

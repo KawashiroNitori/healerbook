@@ -377,7 +377,16 @@ export class MitigationCalculator {
     const castEffectiveEndByCastEventId = new Map<string, number>()
     const healSnapshots: HealSnapshot[] = []
     const hpTimeline: HpTimelinePoint[] = []
-    const recordHeal = (snap: HealSnapshot) => healSnapshots.push(snap)
+    const recordHeal = (snap: HealSnapshot) => {
+      healSnapshots.push(snap)
+      hpTimeline.push({
+        time: snap.time,
+        hp: 0, // 占位，task 7 回填
+        hpMax: 0, // 同上
+        kind: snap.isHotTick ? 'tick' : 'heal',
+        refEventId: snap.castEventId || undefined,
+      })
+    }
 
     interface OpenRecord {
       statusId: number
