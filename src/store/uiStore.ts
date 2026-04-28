@@ -22,6 +22,12 @@ interface UIState {
   showActualDamage: boolean
   /** 是否显示原始伤害 */
   showOriginalDamage: boolean
+  /**
+   * 是否启用 HP 模拟（累积扣血 + 治疗补回）。
+   * 关闭时三视图（PropertyPanel / 卡片 / 表格）回退到孤立 finalDamage vs maxHP 视角，
+   * 但 calculator 仍然算 HP 池演化，便于未来"主时间轴 HP 曲线 overlay" 按需消费。
+   */
+  enableHpSimulation: boolean
 
   // Actions
   /** 切换网格显示 */
@@ -40,6 +46,8 @@ interface UIState {
   toggleShowActualDamage: () => void
   /** 切换显示原始伤害 */
   toggleShowOriginalDamage: () => void
+  /** 切换 HP 模拟显示 */
+  toggleEnableHpSimulation: () => void
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -67,6 +75,7 @@ export const useUIStore = create<UIState>()(
       isDamageTrackCollapsed: false,
       showActualDamage: true,
       showOriginalDamage: false,
+      enableHpSimulation: true,
 
       toggleGrid: () =>
         set(state => ({
@@ -106,6 +115,11 @@ export const useUIStore = create<UIState>()(
       toggleShowOriginalDamage: () =>
         set(state => ({
           showOriginalDamage: !state.showOriginalDamage,
+        })),
+
+      toggleEnableHpSimulation: () =>
+        set(state => ({
+          enableHpSimulation: !state.enableHpSimulation,
         })),
     }),
     {

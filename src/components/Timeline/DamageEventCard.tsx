@@ -9,6 +9,7 @@ import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { useUIStore } from '@/store/uiStore'
 import { formatDamageValue } from '@/utils/formatters'
+import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useCanvasColors } from './constants'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
@@ -59,6 +60,7 @@ const DamageEventCard = memo(function DamageEventCard({
   const colors = useCanvasColors()
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
   const isTankOnly = event.type === 'tankbuster' || event.type === 'auto'
@@ -78,25 +80,12 @@ const DamageEventCard = memo(function DamageEventCard({
       d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
     ) ?? false
 
-  // 致死/危险判定：按事件类型分流
-  // 非坦事件（aoe 系列）：用 hpSimulation 累积视角，与 PropertyPanel 一致
-  // 坦专事件 / 无 hpSim 时：用孤立 finalDamage vs referenceMaxHP 回退
-  const hpSim = calculatedEvent?.hpSimulation
-  const refHP = calculatedEvent?.referenceMaxHP
-
-  let isLethal = false
-  let isDangerous = false
-  if (!hasOverkill) {
-    if (hpSim) {
-      isLethal = hpSim.hpAfter === 0 && (hpSim.overkill ?? 0) > 0
-      isDangerous = !isLethal && hpSim.hpAfter > 0 && hpSim.hpAfter / hpSim.hpMax < 0.05
-    } else if (refHP != null) {
-      // 坦专 fallback 阈值与累积视角对齐：致死=damage>=refHP；危险=剩余<5% (damage>=refHP*0.95)
-      const damage = calculatedEvent!.finalDamage
-      isLethal = damage >= refHP
-      isDangerous = !isLethal && damage >= refHP * 0.95
-    }
-  }
+  const { isLethal, isDangerous } = deriveLethalDangerous(
+    enableHpSimulation ? calculatedEvent?.hpSimulation : undefined,
+    calculatedEvent?.finalDamage ?? 0,
+    calculatedEvent?.referenceMaxHP,
+    hasOverkill
+  )
 
   const getDamageText = (): string => {
     if (!showActualDamage && !showOriginalDamage) return ''
@@ -200,72 +189,68 @@ const DamageEventCard = memo(function DamageEventCard({
       />
 
       {/* 死亡图标（回放模式） */}
-      {hasOverkill && (
-        <Text
-          x={3}
-          y={-15}
-          width={18}
-          height={30}
-          text="💀"
-          fontSize={12}
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={3}
+        y={-15}
+        width={18}
+        height={30}
+        text="💀"
+        fontSize={12}
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={hasOverkill}
+      />
 
       {/* 致死警示（编辑模式） */}
-      {isLethal && (
-        <Text
-          x={3}
-          y={-15}
-          width={18}
-          height={30}
-          text="⚠"
-          fontSize={13}
-          fill="#dc2626"
-          fontStyle="bold"
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={3}
+        y={-15}
+        width={18}
+        height={30}
+        text="⚠"
+        fontSize={13}
+        fill="#dc2626"
+        fontStyle="bold"
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={isLethal}
+      />
 
       {/* 危险警示（编辑模式） */}
-      {isDangerous && (
-        <Text
-          x={3}
-          y={-15}
-          width={18}
-          height={30}
-          text="⚠"
-          fontSize={13}
-          fill="#f59e0b"
-          fontStyle="bold"
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={3}
+        y={-15}
+        width={18}
+        height={30}
+        text="⚠"
+        fontSize={13}
+        fill="#f59e0b"
+        fontStyle="bold"
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={isDangerous}
+      />
 
       {/* 最终伤害数值 */}
-      {damageText && (
-        <Text
-          x={150 - damageTextWidth}
-          y={-15}
-          width={damageTextWidth - 5}
-          height={30}
-          text={damageText}
-          fontSize={12}
-          fill={colors.textPrimary}
-          fontFamily="Arial, sans-serif"
-          wrap="none"
-          align="right"
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={150 - damageTextWidth}
+        y={-15}
+        width={damageTextWidth - 5}
+        height={30}
+        text={damageText}
+        fontSize={12}
+        fill={colors.textPrimary}
+        fontFamily="Arial, sans-serif"
+        wrap="none"
+        align="right"
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={!!damageText}
+      />
     </Group>
   )
 })

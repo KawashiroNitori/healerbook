@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useUIStore } from '@/store/uiStore'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
@@ -29,10 +30,10 @@ import {
   DAMAGE_EVENT_TYPE_LABELS,
   type DamageType,
   type DamageEventType,
-  type DamageEvent,
 } from '@/types/timeline'
 import type { MitigationStatus } from '@/types/status'
 import type { HpSimulationSnapshot } from '@/utils/mitigationCalculator'
+import { deriveLethalDangerous } from '@/utils/lethalDanger'
 
 interface BranchViewData {
   finalDamage: number
@@ -43,6 +44,7 @@ interface BranchViewData {
 
 export default function PropertyPanel() {
   const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent } = useTimelineStore()
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const isReadOnly = useEditorReadOnly()
   const [helpOpen, setHelpOpen] = useState(false)
   // 多坦展示：选中的坦克（绑 eventId，事件切换自动失效 → fallback 到最优减伤分支）。
@@ -79,8 +81,12 @@ export default function PropertyPanel() {
     const remainHP = Math.max(0, maxHP - branch.finalDamage)
     const survivePct = Math.max(0, Math.min(100, (remainHP / maxHP) * 100))
     const damagePct = Math.max(0, Math.min(100, (branch.finalDamage / maxHP) * 100))
-    const isLethal = branch.finalDamage >= maxHP
-    const isDangerous = !isLethal && branch.finalDamage >= maxHP * 0.95
+    const { isLethal, isDangerous } = deriveLethalDangerous(
+      undefined,
+      branch.finalDamage,
+      maxHP,
+      false
+    )
 
     return (
       <div className="space-y-1.5">
@@ -144,8 +150,7 @@ export default function PropertyPanel() {
     const dealt = hpBefore - hpAfter
     const survivePct = (hpAfter / hpMax) * 100
     const damagePct = (dealt / hpMax) * 100
-    const isLethal = hpAfter === 0 && (overkill ?? 0) > 0
-    const isDangerous = !isLethal && survivePct < 5
+    const { isLethal, isDangerous } = deriveLethalDangerous(snap, 0, undefined, false)
 
     return (
       <div className="space-y-1.5">
@@ -201,31 +206,12 @@ export default function PropertyPanel() {
     )
   }
 
-  /** partial AOE 段累积信息 */
-  function renderPartialSegInfo(snap: HpSimulationSnapshot, ev: DamageEvent, finalDamage: number) {
-    if (snap.segMax === undefined) return null
-    const dealt = snap.hpBefore - snap.hpAfter
-    const isFinal = ev.type === 'partial_final_aoe'
-
-    return (
-      <div className="space-y-1 text-xs border-t pt-2 mt-2">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">段累积</span>
-          <span className="tabular-nums text-foreground">
-            {snap.segMax.toLocaleString()}
-            {isFinal && <span className="ml-1 text-amber-600">（段结束）</span>}
-          </span>
-        </div>
-        <div className="text-muted-foreground">
-          本次扣血 = max(0, {finalDamage.toLocaleString()} -{' '}
-          {(snap.segMax - dealt).toLocaleString()}) = {dealt.toLocaleString()}
-        </div>
-      </div>
-    )
-  }
-
   /** 减伤构成条 */
-  function renderMitigationBar(branch: BranchViewData, originalDamage: number) {
+  function renderMitigationBar(
+    branch: BranchViewData,
+    originalDamage: number,
+    hpSnap: HpSimulationSnapshot | undefined
+  ) {
     const total = originalDamage
     const maxHP = branch.referenceMaxHP || 0
     // 按实例级 remainingBarrier 判盾（与 calculator Phase 3 口径一致）
@@ -235,8 +221,9 @@ export default function PropertyPanel() {
       0
     )
     const pctMitigation = Math.max(0, total - branch.finalDamage - shieldAbsorb)
-    const overkill =
-      result?.hpSimulation?.overkill ?? (maxHP > 0 ? Math.max(0, branch.finalDamage - maxHP) : 0)
+    // hpSnap 由 renderBranchContent 入口处统一屏蔽（HP 模拟开关关时为 undefined），
+    // 自动落到孤立 finalDamage vs maxHP 计算
+    const overkill = hpSnap?.overkill ?? (maxHP > 0 ? Math.max(0, branch.finalDamage - maxHP) : 0)
     const effectiveDamage = branch.finalDamage - overkill
 
     // 原始伤害为 0（如 FFLogs 完全被盾吸收的事件）时，用各段之和做分母回退，
@@ -419,16 +406,13 @@ export default function PropertyPanel() {
     damageType: DamageType,
     originalDamage: number
   ) {
-    // 非坦事件优先走累积视角；坦专 / 缺失 hpSimulation 时回退孤立视角
-    const hpSnap = result?.hpSimulation
+    // 非坦事件优先走累积视角；坦专 / 缺失 hpSimulation / HP 模拟开关关 时回退孤立视角
+    const hpSnap = enableHpSimulation ? result?.hpSimulation : undefined
     return (
       <>
         {hpSnap ? renderHpBarAccumulative(hpSnap) : renderHpBar(branch)}
-        {renderMitigationBar(branch, originalDamage)}
+        {renderMitigationBar(branch, originalDamage, hpSnap)}
         {renderAppliedStatuses(branch, damageType, originalDamage)}
-        {hpSnap &&
-          (event!.type === 'partial_aoe' || event!.type === 'partial_final_aoe') &&
-          renderPartialSegInfo(hpSnap, event!, branch.finalDamage)}
       </>
     )
   }

@@ -630,7 +630,6 @@ export class MitigationCalculator {
         statistics,
         recordHeal,
       })
-      damageResults.set(event.id, result)
       if (result.updatedPartyState) {
         // calculate 内部钩子（onBeforeShield / onConsume / onAfterDamage）允许改 hp.current
         // （如反应式治疗 buff），主循环信任并接受 calculate 输出的 hp 状态。
@@ -639,13 +638,13 @@ export class MitigationCalculator {
         currentState = this.recomputeHpMax(currentState)
         captureTransition(beforeCalc, currentState, filterTime)
       }
-      // calculate 之后扣 HP 池
+      // calculate 之后扣 HP 池；hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
       const { nextState: stateAfterHp, snapshot: hpSnap } = this.applyDamageToHp(
         currentState,
         event,
         result.finalDamage
       )
-      result.hpSimulation = hpSnap
+      damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
       currentState = stateAfterHp
     }
 
@@ -698,6 +697,11 @@ export class MitigationCalculator {
         list.sort((a, b) => a.from - b.from)
       }
     }
+
+    // 按 time 升序：cast / HoT tick 自然按主循环时序入列，但 calculate 内部钩子（onConsume /
+    // onAfterDamage）的 recordHeal 与同时刻 advanceToTime 先 fire 的 onTick 入列顺序依赖
+    // 主循环执行顺序，出口处显式排序避免下游消费者依赖隐式约定。
+    healSnapshots.sort((a, b) => a.time - b.time)
 
     return {
       damageResults,

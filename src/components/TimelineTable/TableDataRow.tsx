@@ -11,6 +11,8 @@
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { getIconUrl } from '@/utils/iconUtils'
 import { cellKey } from '@/utils/castWindow'
+import { deriveLethalDangerous } from '@/utils/lethalDanger'
+import { useUIStore } from '@/store/uiStore'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
@@ -114,25 +116,13 @@ export default function TableDataRow({
       d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
     ) ?? false
 
-  // 致死/危险判定：按事件类型分流
-  // 非坦事件（aoe 系列）：用 hpSimulation 累积视角，与 PropertyPanel 一致
-  // 坦专事件 / 无 hpSim 时：用孤立 finalDamage vs referenceMaxHP 回退
-  const hpSim = calculationResult?.hpSimulation
-  const refHP = calculationResult?.referenceMaxHP
-
-  let isLethal = false
-  let isDangerous = false
-  if (!hasOverkill) {
-    if (hpSim) {
-      isLethal = hpSim.hpAfter === 0 && (hpSim.overkill ?? 0) > 0
-      isDangerous = !isLethal && hpSim.hpAfter > 0 && hpSim.hpAfter / hpSim.hpMax < 0.05
-    } else if (refHP != null) {
-      // 坦专 fallback 阈值与累积视角对齐：致死=damage>=refHP；危险=剩余<5% (damage>=refHP*0.95)
-      const damage = calculationResult?.finalDamage ?? 0
-      isLethal = damage >= refHP
-      isDangerous = !isLethal && damage >= refHP * 0.95
-    }
-  }
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
+  const { isLethal, isDangerous } = deriveLethalDangerous(
+    enableHpSimulation ? calculationResult?.hpSimulation : undefined,
+    calculationResult?.finalDamage ?? 0,
+    calculationResult?.referenceMaxHP,
+    hasOverkill
+  )
 
   // 计算粘性左偏移
   let leftOffset = 0
