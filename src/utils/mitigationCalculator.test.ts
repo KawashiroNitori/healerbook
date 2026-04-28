@@ -1824,3 +1824,29 @@ describe('HP 池 - calculate 内钩子改 hp 真正生效', () => {
     }
   })
 })
+
+describe('HP 池 · hpTimeline', () => {
+  const baseInitialState: PartyState = { statuses: [], timestamp: 0 }
+
+  it('hp 池初始化后立即 push 一条 init point', () => {
+    const calculator = new MitigationCalculator()
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [],
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    expect(out.hpTimeline).toEqual([{ time: 0, hp: 100000, hpMax: 100000, kind: 'init' }])
+  })
+
+  it('未配 hp 池时 hpTimeline 为空', () => {
+    const calculator = new MitigationCalculator()
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [],
+      initialState: baseInitialState,
+      // 不传 baseReferenceMaxHPForAoe → initialHpPool=undefined
+    })
+    expect(out.hpTimeline).toEqual([])
+  })
+})

@@ -570,6 +570,14 @@ export class MitigationCalculator {
     }
     // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
     currentState = this.recomputeHpMax(currentState)
+    if (currentState.hp) {
+      hpTimeline.push({
+        time: currentState.timestamp,
+        hp: currentState.hp.current,
+        hpMax: currentState.hp.max,
+        kind: 'init',
+      })
+    }
     // 初始 state 的 open 区间（用户 seeded buff 等）：sourceCastEventId = ''（空字符串）
     captureTransition({ statuses: [], timestamp: 0 }, currentState, 0)
 
