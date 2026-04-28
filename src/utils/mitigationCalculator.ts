@@ -657,6 +657,15 @@ export class MitigationCalculator {
         result.finalDamage
       )
       damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
+      if (stateAfterHp.hp) {
+        hpTimeline.push({
+          time: filterTime,
+          hp: stateAfterHp.hp.current,
+          hpMax: stateAfterHp.hp.max,
+          kind: 'damage',
+          refEventId: event.id,
+        })
+      }
       currentState = stateAfterHp
     }
 

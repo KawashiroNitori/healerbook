@@ -1849,4 +1849,38 @@ describe('HP 池 · hpTimeline', () => {
     })
     expect(out.hpTimeline).toEqual([])
   })
+
+  it('aoe 事件后 push damage point，hp 反映扣血结果', () => {
+    const calculator = new MitigationCalculator()
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [mkDmg('A', 10, 'aoe', 30000)],
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    expect(out.hpTimeline).toEqual([
+      { time: 0, hp: 100000, hpMax: 100000, kind: 'init' },
+      { time: 10, hp: 70000, hpMax: 100000, kind: 'damage', refEventId: 'A' },
+    ])
+  })
+
+  it('partial 段每条扣血都各自 push 一条 damage point', () => {
+    const calculator = new MitigationCalculator()
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [
+        mkDmg('A', 5, 'partial_aoe', 20000),
+        mkDmg('B', 10, 'partial_aoe', 25000),
+        mkDmg('C', 15, 'partial_final_aoe', 30000),
+      ],
+      initialState: baseInitialState,
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    const dmgPoints = out.hpTimeline.filter(p => p.kind === 'damage')
+    expect(dmgPoints).toEqual([
+      { time: 5, hp: 80000, hpMax: 100000, kind: 'damage', refEventId: 'A' },
+      { time: 10, hp: 75000, hpMax: 100000, kind: 'damage', refEventId: 'B' },
+      { time: 15, hp: 70000, hpMax: 100000, kind: 'damage', refEventId: 'C' },
+    ])
+  })
 })
