@@ -127,9 +127,10 @@ export default function TableDataRow({
       isLethal = hpSim.hpAfter === 0 && (hpSim.overkill ?? 0) > 0
       isDangerous = !isLethal && hpSim.hpAfter > 0 && hpSim.hpAfter / hpSim.hpMax < 0.05
     } else if (refHP != null) {
+      // 坦专 fallback 阈值与累积视角对齐：致死=damage>=refHP；危险=剩余<5% (damage>=refHP*0.95)
       const damage = calculationResult?.finalDamage ?? 0
       isLethal = damage >= refHP
-      isDangerous = !isLethal && damage >= refHP * 0.9
+      isDangerous = !isLethal && damage >= refHP * 0.95
     }
   }
 
