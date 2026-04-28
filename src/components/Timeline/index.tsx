@@ -1215,8 +1215,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
           {hpTrackHeight > 0 && (
             <div
-              className="flex items-center justify-center border-t border-r"
-              style={{ height: HP_CURVE_HEIGHT, width: labelColumnWidth }}
+              className="border-b bg-muted/30 flex items-center justify-end px-2"
+              style={{ height: HP_CURVE_HEIGHT }}
             >
               <span className="text-xs text-muted-foreground">HP</span>
             </div>
