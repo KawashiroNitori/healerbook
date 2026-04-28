@@ -2036,4 +2036,51 @@ describe('HP 池 · hpTimeline', () => {
       spy.mockRestore()
     }
   })
+
+  it('maxHP buff 切换时 push maxhp-change point', () => {
+    // 复用现有 maxHP buff 测试模式：mock 一个 +20% maxHP buff
+    const MAXHP_BUFF_ID = 999902
+    const mkMaxHpMeta = (): MitigationStatusMetadata =>
+      ({
+        id: MAXHP_BUFF_ID,
+        name: 'mock-maxhp',
+        type: 'multiplier',
+        performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.2 },
+        isFriendly: true,
+        isTankOnly: false,
+      }) as unknown as MitigationStatusMetadata
+
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === MAXHP_BUFF_ID ? mkMaxHpMeta() : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      // buff 在 t=5 自然过期 → recomputeHpMax 缩 hp.max → 应该 push 一条 maxhp-change
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'maxhp-buff',
+            statusId: MAXHP_BUFF_ID,
+            startTime: 0,
+            endTime: 5,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('A', 10, 'aoe', 0)], // 推进时间到 10s 让 buff 过期
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+
+      const maxhpPoints = out.hpTimeline.filter(p => p.kind === 'maxhp-change')
+      expect(maxhpPoints.length).toBeGreaterThanOrEqual(1)
+      // 至少有一条 hp.max 不是 120000（过期后）
+      expect(maxhpPoints.some(p => p.hpMax === 100000)).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })

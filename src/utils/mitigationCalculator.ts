@@ -377,6 +377,18 @@ export class MitigationCalculator {
     const castEffectiveEndByCastEventId = new Map<string, number>()
     const healSnapshots: HealSnapshot[] = []
     const hpTimeline: HpTimelinePoint[] = []
+    const recomputeAndTrack = (state: PartyState, time: number): PartyState => {
+      const next = this.recomputeHpMax(state)
+      if (state.hp && next.hp && state.hp.max !== next.hp.max) {
+        hpTimeline.push({
+          time,
+          hp: next.hp.current,
+          hpMax: next.hp.max,
+          kind: 'maxhp-change',
+        })
+      }
+      return next
+    }
     const recordHeal = (snap: HealSnapshot) => {
       healSnapshots.push(snap)
       hpTimeline.push({
@@ -485,7 +497,7 @@ export class MitigationCalculator {
         //   ✗ 但新添加的状态不会在同一 tick 立即被遍历到——它们要等下一 tick 才参与
         // 避免了"tick 内自触发"，也让每个 tick 点的 executor 调用次数可预测。
         next = { ...next, timestamp: t }
-        next = this.recomputeHpMax(next)
+        next = recomputeAndTrack(next, t)
         for (const status of next.statuses) {
           if (status.startTime > t || status.endTime < t) continue
           const meta = getStatusById(status.statusId)
@@ -499,7 +511,7 @@ export class MitigationCalculator {
           })
           if (result) {
             next = result
-            next = this.recomputeHpMax(next)
+            next = recomputeAndTrack(next, t)
           }
         }
       }
@@ -510,7 +522,7 @@ export class MitigationCalculator {
         const meta = getStatusById(status.statusId)
         if (!meta?.executor?.onExpire) {
           // 即使没有 onExpire 钩子，timestamp 推进也可能让 maxHP buff active 状态变化
-          next = this.recomputeHpMax(next)
+          next = recomputeAndTrack(next, status.endTime)
           return
         }
         const result = meta.executor.onExpire({
@@ -521,7 +533,7 @@ export class MitigationCalculator {
           recordHeal,
         })
         if (result) next = result
-        next = this.recomputeHpMax(next)
+        next = recomputeAndTrack(next, status.endTime)
       }
 
       // 主循环：每轮挑出"最早的下一个 tick"和"最早的下一个待过期 status"，
@@ -554,7 +566,7 @@ export class MitigationCalculator {
         statuses: next.statuses.filter(s => s.endTime >= cur),
         timestamp: cur,
       }
-      next = this.recomputeHpMax(next)
+      next = recomputeAndTrack(next, cur)
       return next
     }
 
@@ -578,7 +590,7 @@ export class MitigationCalculator {
       hp: initialHpPool,
     }
     // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
-    currentState = this.recomputeHpMax(currentState)
+    currentState = recomputeAndTrack(currentState, currentState.timestamp)
     if (currentState.hp) {
       hpTimeline.push({
         time: currentState.timestamp,
@@ -620,7 +632,7 @@ export class MitigationCalculator {
               recordHeal,
             }
             currentState = action.executor(ctx)
-            currentState = this.recomputeHpMax(currentState)
+            currentState = recomputeAndTrack(currentState, castEvent.timestamp)
             captureTransition(
               before,
               currentState,
@@ -656,7 +668,7 @@ export class MitigationCalculator {
         // （如反应式治疗 buff），主循环信任并接受 calculate 输出的 hp 状态。
         // calculate 内所有 PartyState 重建均通过 spread 透传 hp 字段，因此不会丢失。
         currentState = result.updatedPartyState
-        currentState = this.recomputeHpMax(currentState)
+        currentState = recomputeAndTrack(currentState, filterTime)
         captureTransition(beforeCalc, currentState, filterTime)
       }
       // calculate 之后扣 HP 池；hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
@@ -704,7 +716,7 @@ export class MitigationCalculator {
             recordHeal,
           }
           currentState = action.executor(ctx)
-          currentState = this.recomputeHpMax(currentState)
+          currentState = recomputeAndTrack(currentState, castEvent.timestamp)
           captureTransition(
             before,
             currentState,
