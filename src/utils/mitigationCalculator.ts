@@ -626,9 +626,10 @@ export class MitigationCalculator {
       })
       damageResults.set(event.id, result)
       if (result.updatedPartyState) {
-        // calculate 不参与 hp 演化（其内部钩子不读/写 hp）；保留主循环侧的 hp，
-        // 避免 calculate 内部的 statuses 重建意外丢失 hp 字段
-        currentState = { ...result.updatedPartyState, hp: currentState.hp }
+        // calculate 内部钩子（onBeforeShield / onConsume / onAfterDamage）允许改 hp.current
+        // （如反应式治疗 buff），主循环信任并接受 calculate 输出的 hp 状态。
+        // calculate 内所有 PartyState 重建均通过 spread 透传 hp 字段，因此不会丢失。
+        currentState = result.updatedPartyState
         currentState = this.recomputeHpMax(currentState)
         captureTransition(beforeCalc, currentState, filterTime)
       }

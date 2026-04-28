@@ -1682,3 +1682,61 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
     }
   })
 })
+
+describe('HP 池 - calculate 内钩子改 hp 真正生效', () => {
+  const REACTIVE_HEAL_BUFF_ID = 999900
+
+  // 模拟 "挂着此 buff 时，每次 onAfterDamage 触发后回血 1000"
+  const mkReactiveHealMeta = (): MitigationStatusMetadata =>
+    ({
+      id: REACTIVE_HEAL_BUFF_ID,
+      name: 'mock-reactive-heal',
+      type: 'multiplier',
+      performance: { physics: 1, magic: 1, darkness: 1 },
+      isFriendly: true,
+      isTankOnly: false,
+      executor: {
+        onAfterDamage: (ctx: { partyState: PartyState }) => {
+          if (!ctx.partyState.hp) return
+          const next = Math.min(ctx.partyState.hp.current + 1000, ctx.partyState.hp.max)
+          return { ...ctx.partyState, hp: { ...ctx.partyState.hp, current: next } }
+        },
+      },
+    }) as unknown as MitigationStatusMetadata
+
+  it('onAfterDamage 钩子改 hp.current 后，主循环不丢失这个改动', () => {
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === REACTIVE_HEAL_BUFF_ID ? mkReactiveHealMeta() : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'reactive-heal',
+            statusId: REACTIVE_HEAL_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('A', 10, 'aoe', 20000), // 100k → 钩子 +1k clamp 到 100k → 扣 20k = 80k
+          mkDmg('B', 20, 'aoe', 20000), // 80k → 钩子 +1k = 81k → 扣 20k = 61k
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // 修复前：B.hpAfter = 60000（主循环还原 hp，钩子的 +1k 丢失）
+      // 修复后：B.hpAfter = 61000（钩子的 +1k 生效）
+      expect(out.damageResults.get('A')!.hpSimulation!.hpAfter).toBe(80000)
+      expect(out.damageResults.get('B')!.hpSimulation!.hpAfter).toBe(61000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
