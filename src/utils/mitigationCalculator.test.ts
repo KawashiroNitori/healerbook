@@ -1683,6 +1683,90 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
   })
 })
 
+describe('HP 池 - calculate 内钩子能 push HealSnapshot', () => {
+  const REACTIVE_HEAL_BUFF_ID = 999901
+
+  const mkReactiveHealMeta = (): MitigationStatusMetadata =>
+    ({
+      id: REACTIVE_HEAL_BUFF_ID,
+      name: 'mock-reactive-heal-with-snapshot',
+      type: 'multiplier',
+      performance: { physics: 1, magic: 1, darkness: 1 },
+      isFriendly: true,
+      isTankOnly: false,
+      executor: {
+        onAfterDamage: (ctx: {
+          partyState: PartyState
+          status: { sourcePlayerId?: number }
+          event: { time: number }
+          recordHeal?: (snap: unknown) => void
+        }) => {
+          if (!ctx.partyState.hp) return
+          const heal = 1500
+          const before = ctx.partyState.hp.current
+          const next = Math.min(before + heal, ctx.partyState.hp.max)
+          const applied = next - before
+          const overheal = heal - applied
+
+          ctx.recordHeal?.({
+            castEventId: '',
+            actionId: 0,
+            sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
+            time: ctx.event.time,
+            baseAmount: heal,
+            finalHeal: heal,
+            applied,
+            overheal,
+            isHotTick: false,
+          })
+
+          return { ...ctx.partyState, hp: { ...ctx.partyState.hp, current: next } }
+        },
+      },
+    }) as unknown as MitigationStatusMetadata
+
+  it('onAfterDamage 钩子的 recordHeal 能产出 HealSnapshot', () => {
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === REACTIVE_HEAL_BUFF_ID ? mkReactiveHealMeta() : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'reactive',
+            statusId: REACTIVE_HEAL_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('A', 10, 'aoe', 30000)],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+
+      expect(out.healSnapshots).toHaveLength(1)
+      expect(out.healSnapshots[0]).toMatchObject({
+        sourcePlayerId: 1,
+        time: 10,
+        baseAmount: 1500,
+        applied: 0, // 满血时触发，全溢出
+        overheal: 1500,
+        isHotTick: false,
+      })
+      // hp 100k → 钩子触发 +1500 clamp 100k（满血）→ 扣 30k = 70k
+      expect(out.damageResults.get('A')!.hpSimulation!.hpAfter).toBe(70000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
 describe('HP 池 - calculate 内钩子改 hp 真正生效', () => {
   const REACTIVE_HEAL_BUFF_ID = 999900
 

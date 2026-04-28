@@ -101,6 +101,8 @@ export interface CalculateOptions {
   tankPlayerIds?: number[]
   /** 时间轴内部统计数据，可选；用于 Status*Context.statistics 注入 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器；钩子改 hp 时通过此回调记录 HealSnapshot */
+  recordHeal?: (snap: HealSnapshot) => void
 }
 
 /**
@@ -201,6 +203,7 @@ export class MitigationCalculator {
           shieldFilter: tankShieldFilter,
           referenceMaxHP: refHP,
           statistics: opts?.statistics,
+          recordHeal: opts?.recordHeal,
         })
         return {
           playerId: tankId,
@@ -254,6 +257,7 @@ export class MitigationCalculator {
       shieldFilter: singleShieldFilter,
       referenceMaxHP,
       statistics: opts?.statistics,
+      recordHeal: opts?.recordHeal,
     })
 
     return {
@@ -501,6 +505,7 @@ export class MitigationCalculator {
           expireTime: status.endTime,
           partyState: next,
           statistics,
+          recordHeal,
         })
         if (result) next = result
         next = this.recomputeHpMax(next)
@@ -623,6 +628,7 @@ export class MitigationCalculator {
         baseReferenceMaxHP,
         tankPlayerIds: tankIds,
         statistics,
+        recordHeal,
       })
       damageResults.set(event.id, result)
       if (result.updatedPartyState) {
@@ -740,6 +746,7 @@ export class MitigationCalculator {
       shieldFilter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
       referenceMaxHP: number
       statistics?: TimelineStatData
+      recordHeal?: (snap: HealSnapshot) => void
     }
   ): {
     finalDamage: number
@@ -752,7 +759,7 @@ export class MitigationCalculator {
     const damageType: DamageType = event.damageType || 'physical'
     const snapshotTime = event.snapshotTime
     const mitigationTime = snapshotTime ?? time
-    const { multiplierFilter, shieldFilter, referenceMaxHP, statistics } = opts
+    const { multiplierFilter, shieldFilter, referenceMaxHP, statistics, recordHeal } = opts
 
     // Phase 1: % 减伤
     let multiplier = 1.0
@@ -791,6 +798,7 @@ export class MitigationCalculator {
         candidateDamage,
         referenceMaxHP,
         statistics,
+        recordHeal,
       })
       if (result) workingState = result
     }
@@ -881,6 +889,7 @@ export class MitigationCalculator {
         partyState: updatedPartyState,
         absorbedAmount: absorbed,
         statistics,
+        recordHeal,
       })
       if (result) updatedPartyState = result
     }
@@ -904,6 +913,7 @@ export class MitigationCalculator {
         candidateDamage,
         finalDamage: Math.max(0, Math.round(damage)),
         statistics,
+        recordHeal,
       })
       if (result) updatedPartyState = result
     }

@@ -149,6 +149,8 @@ export interface StatusBeforeShieldContext {
   referenceMaxHP: number
   /** 时间轴内部统计数据（healByAbility / shieldByAbility / referenceMaxHP 等），可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -163,6 +165,8 @@ export interface StatusConsumeContext {
   absorbedAmount: number
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -178,6 +182,8 @@ export interface StatusAfterDamageContext {
   finalDamage: number
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -195,6 +201,8 @@ export interface StatusExpireContext {
   partyState: PartyState
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
