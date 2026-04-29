@@ -431,7 +431,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
-      cooldown: 2.5,
+      cooldown: 2,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         if (
@@ -452,7 +452,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
-      cooldown: 2.5,
+      cooldown: 2,
       executor: ctx => {
         let partyState = createHealExecutor()(ctx)
         partyState = createRegenExecutor(3880, 15)({ ...ctx, partyState })
@@ -477,7 +477,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
-      cooldown: 2.5,
+      cooldown: 2,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         if (
@@ -509,7 +509,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
-      cooldown: 2.5,
+      cooldown: 2,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         if (

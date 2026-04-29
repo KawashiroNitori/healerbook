@@ -438,10 +438,18 @@ export class MitigationCalculator {
           })
           lastKnownHp = hpAfter
 
-          // 调试日志：每次治疗的时间 / 技能名 / prevHP / afterHP / 变化量
-          const actionName =
-            MITIGATION_DATA.actions.find(a => a.id === snap.actionId)?.name ??
-            `action#${snap.actionId}`
+          // 调试日志：每次治疗的时间 / 技能名 / prevHP / afterHP / 变化量。
+          // actionId 形如 1e6+statusId（healByAbility 中 buff 类治疗的 key 形式，如全大赦
+          // 给医治追加的附属治疗 amountSourceId=1001219）时反查 statusRegistry 拿 buff 名。
+          const actionName = (() => {
+            const action = MITIGATION_DATA.actions.find(a => a.id === snap.actionId)
+            if (action) return action.name
+            if (snap.actionId >= 1_000_000) {
+              const status = getStatusById(snap.actionId - 1_000_000)
+              if (status) return status.name
+            }
+            return `action#${snap.actionId}`
+          })()
           const tag = snap.isHotTick ? 'HoT' : 'cast'
           const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
           console.log(
@@ -661,50 +669,53 @@ export class MitigationCalculator {
     let lastAdvanceTime = 0
     let castIdx = 0
 
-    for (const event of sortedDamage) {
-      const filterTime = event.snapshotTime ?? event.time
-      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp <= event.time) {
-        const castEvent = sortedCasts[castIdx]
-        const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
-        if (action) {
-          // 保留 DOT 快照兼容：推进到 cast 时间点和快照时间点的较早者，
-          // 避免在 cast 时刻已过期但快照时刻仍需保留的 DOT 状态被提前清理
-          const castAdvanceTarget = Math.min(castEvent.timestamp, filterTime)
-          const prevState = currentState
-          currentState = advanceToTime(currentState, lastAdvanceTime, castAdvanceTarget)
-          captureTransition(prevState, currentState, castAdvanceTarget)
-          lastAdvanceTime = castAdvanceTarget
+    // 抽出"处理一个 cast"的逻辑：damage 前 while、damage 后同时刻 while、末尾干推进三处复用。
+    // advanceTarget 一律传 cast.timestamp——主循环已统一以 event.time 推进，DOT 快照
+    // 由 historicalStatuses（advance 剔除的 buff）在 calculate Phase 1 找回，无需在
+    // advance 终点上 hack。
+    const processCast = (castEvent: CastEvent, advanceTarget: number) => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
+      if (!action) return
+      const prevState = currentState
+      currentState = advanceToTime(currentState, lastAdvanceTime, advanceTarget)
+      captureTransition(prevState, currentState, advanceTarget)
+      lastAdvanceTime = advanceTarget
 
-          if (action.executor) {
-            const before = currentState
-            currentState = { ...currentState, timestamp: castEvent.timestamp }
-            const ctx: ActionExecutionContext = {
-              actionId: castEvent.actionId,
-              useTime: castEvent.timestamp,
-              partyState: currentState,
-              sourcePlayerId: castEvent.playerId,
-              statistics,
-              castEventId: castEvent.id,
-              recordHeal,
-            }
-            currentState = action.executor(ctx)
-            currentState = recomputeAndTrack(currentState, castEvent.timestamp)
-            captureTransition(
-              before,
-              currentState,
-              castEvent.timestamp,
-              castEvent.id,
-              castEvent.playerId
-            )
-          }
-        }
+      if (!action.executor) return
+      const before = currentState
+      currentState = { ...currentState, timestamp: castEvent.timestamp }
+      const ctx: ActionExecutionContext = {
+        actionId: castEvent.actionId,
+        useTime: castEvent.timestamp,
+        partyState: currentState,
+        sourcePlayerId: castEvent.playerId,
+        statistics,
+        castEventId: castEvent.id,
+        recordHeal,
+      }
+      currentState = action.executor(ctx)
+      currentState = recomputeAndTrack(currentState, castEvent.timestamp)
+      captureTransition(before, currentState, castEvent.timestamp, castEvent.id, castEvent.playerId)
+    }
+
+    for (const event of sortedDamage) {
+      // 主循环的时间推进、状态收束、HP 演化全部以 event.time 为准。
+      // event.snapshotTime（DOT 快照时刻）只影响 calculate 内 Phase 1 % 减伤计算——
+      // mitigationTime = snapshotTime ?? event.time，用 historicalStatuses（advance 已剔除
+      // 的 buff）找回快照时刻 active 的过期 buff。其他所有处理（advance / captureTransition /
+      // Phase 4 onConsume / Phase 5 onAfterDamage 钩子）一律用 event.time，避免 DOT 语义
+      // 渗透到不该影响的链路（典型 bug：礼仪之铃 stack 在 onAfterDamage 里 removeStatus，
+      // 用 filterTime 收束 → 绿条在 snapshotTime 提前断）。
+      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp < event.time) {
+        const castEvent = sortedCasts[castIdx]
+        processCast(castEvent, castEvent.timestamp)
         castIdx++
       }
 
       const beforeAdvance = currentState
-      currentState = advanceToTime(currentState, lastAdvanceTime, filterTime)
-      captureTransition(beforeAdvance, currentState, filterTime)
-      lastAdvanceTime = filterTime
+      currentState = advanceToTime(currentState, lastAdvanceTime, event.time)
+      captureTransition(beforeAdvance, currentState, event.time)
+      lastAdvanceTime = event.time
 
       const includeTankOnly = event.type === 'tankbuster' || event.type === 'auto'
       const baseReferenceMaxHP = includeTankOnly
@@ -724,20 +735,9 @@ export class MitigationCalculator {
       if (result.updatedPartyState) {
         // calculate 内部钩子（onBeforeShield / onConsume / onAfterDamage）允许改 hp.current
         // （如反应式治疗 buff），主循环信任并接受 calculate 输出的 hp 状态。
-        // calculate 内所有 PartyState 重建均通过 spread 透传 hp 字段，因此不会丢失。
         currentState = result.updatedPartyState
-        currentState = recomputeAndTrack(currentState, filterTime)
-        captureTransition(beforeCalc, currentState, filterTime)
-      }
-
-      // DOT 快照与实际伤害时刻分离：% 减伤已在 filterTime（snapshotTime）算完，
-      // 扣血时刻仍是 event.time——把状态推到 event.time，让中间的 HoT tick / 状态过期
-      // 在扣血之前生效（hpBefore 反映 event.time 而非 snapshotTime 的血量）。
-      if (event.time > filterTime) {
-        const beforeFinalAdvance = currentState
-        currentState = advanceToTime(currentState, filterTime, event.time)
-        captureTransition(beforeFinalAdvance, currentState, event.time)
-        lastAdvanceTime = event.time
+        currentState = recomputeAndTrack(currentState, event.time)
+        captureTransition(beforeCalc, currentState, event.time)
       }
 
       // calculate 之后扣 HP 池；hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
@@ -759,44 +759,23 @@ export class MitigationCalculator {
         })
       }
       currentState = stateAfterHp
+
+      // 同时刻 cast 推迟到 damage 之后处理：先扣再回，hp 曲线/日志顺序与计算流程一致。
+      // state 已经在 event.time，advanceTarget 传 cast.timestamp（=== event.time）即 no-op。
+      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp === event.time) {
+        const castEvent = sortedCasts[castIdx]
+        processCast(castEvent, castEvent.timestamp)
+        castIdx++
+      }
     }
 
-    // 处理最后一个 damage event 之后的剩余 casts：damage event 的 for-of 内部 while 循环
-    // 只追到 timestamp <= event.time 的 cast。如果没有 damage event、或 damage 都在某个
-    // cast 之前，该 cast 永远不会被 executor 执行，statusTimelineByPlayer 就会漏掉它
-    // attach 的状态。这里补一轮"干推进"，把剩余 casts 按时序处理完。
+    // 处理最后一个 damage event 之后的剩余 casts：damage event 的 for-of 循环只追到
+    // timestamp <= event.time 的 cast。如果没有 damage event、或 damage 都在某个 cast
+    // 之前，该 cast 永远不会被 executor 执行，statusTimelineByPlayer 就会漏掉它 attach
+    // 的状态。这里补一轮"干推进"，把剩余 casts 按时序处理完。
     while (castIdx < sortedCasts.length) {
       const castEvent = sortedCasts[castIdx]
-      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
-      if (action) {
-        const prevState = currentState
-        currentState = advanceToTime(currentState, lastAdvanceTime, castEvent.timestamp)
-        captureTransition(prevState, currentState, castEvent.timestamp)
-        lastAdvanceTime = castEvent.timestamp
-
-        if (action.executor) {
-          const before = currentState
-          currentState = { ...currentState, timestamp: castEvent.timestamp }
-          const ctx: ActionExecutionContext = {
-            actionId: castEvent.actionId,
-            useTime: castEvent.timestamp,
-            partyState: currentState,
-            sourcePlayerId: castEvent.playerId,
-            statistics,
-            castEventId: castEvent.id,
-            recordHeal,
-          }
-          currentState = action.executor(ctx)
-          currentState = recomputeAndTrack(currentState, castEvent.timestamp)
-          captureTransition(
-            before,
-            currentState,
-            castEvent.timestamp,
-            castEvent.id,
-            castEvent.playerId
-          )
-        }
-      }
+      processCast(castEvent, castEvent.timestamp)
       castIdx++
     }
 
@@ -840,10 +819,13 @@ export class MitigationCalculator {
     filter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
   ): number {
     if (base <= 0) return 0
-    const mitigationTime = event.snapshotTime ?? event.time
+    // referenceMaxHP 按 event.time 算（与 simulate 主循环维护的 hp.max 同步）。
+    // snapshotTime 只决定 Phase 1 % 减伤的 buff 选择，与 HP 上限无关——DOT 期间
+    // 已过期的 maxHP buff 不应继续把坦克"理论 HP 上限"撑大。
+    const time = event.time
     let m = 1
     for (const status of partyState.statuses) {
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      if (time < status.startTime || time > status.endTime) continue
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (!filter(meta, status)) continue
@@ -920,7 +902,9 @@ export class MitigationCalculator {
       const meta = getStatusById(status.statusId)
       if (!meta?.executor?.onBeforeShield) continue
       if (!multiplierFilter(meta, status)) continue
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      // 用 event.time（不是 mitigationTime）：snapshotTime 只决定 Phase 1 % 减伤的 buff
+      // 选择，"buff 是否在伤害实际发生时 active"应按 event.time 判定。
+      if (time < status.startTime || time > status.endTime) continue
 
       const result = meta.executor.onBeforeShield({
         status,
@@ -1035,7 +1019,9 @@ export class MitigationCalculator {
       const meta = getStatusById(status.statusId)
       if (!meta?.executor?.onAfterDamage) continue
       if (!multiplierFilter(meta, status)) continue
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      // Phase 5 钩子用 event.time（不是 mitigationTime）：snapshotTime 只决定 % 减伤
+      // 计算的 buff 选择，"buff 是否在伤害实际发生时 active"应按 event.time 判定。
+      if (time < status.startTime || time > status.endTime) continue
 
       const result = meta.executor.onAfterDamage({
         status,

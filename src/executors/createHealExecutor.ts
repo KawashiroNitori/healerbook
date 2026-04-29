@@ -14,8 +14,9 @@ export interface HealExecutorOptions {
   /** 固定治疗量；指定时跳过 statistics 读取 */
   fixedAmount?: number
   /**
-   * 治疗量来源 actionId，缺省 = ctx.actionId。
-   * 罕见场景下（一个 cast 的"治疗效果"绑在另一个 statId 上）使用。
+   * 治疗量来源 ID，缺省 = ctx.actionId。指定时同时改 recordHeal 的 actionId 归属——
+   * 让"主 cast 触发但治疗量来自其他技能"（如全大赦给医治追加的附属治疗）能在日志/统计里
+   * 与主治疗区分。来源 ID 形如 1001219（=1e6+statusId）时日志会反查 statusRegistry。
    */
   amountSourceId?: number
 }
@@ -33,7 +34,7 @@ export function createHealExecutor(options?: HealExecutorOptions): ActionExecuto
       baseAmount,
       {
         castEventId: ctx.castEventId ?? '',
-        actionId: ctx.actionId,
+        actionId: sourceId,
         sourcePlayerId: ctx.sourcePlayerId,
         time: ctx.useTime,
       },
