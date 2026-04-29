@@ -104,6 +104,13 @@ export interface CalculateOptions {
   statistics?: TimelineStatData
   /** simulator 注入的治疗 snapshot 收集器；钩子改 hp 时通过此回调记录 HealSnapshot */
   recordHeal?: (snap: HealSnapshot) => void
+  /**
+   * 已经过期但快照时刻仍可能 active 的状态（DOT 快照专用）。
+   * 主循环按 event.time 单调推进，buff endTime < cur 会被剔除；DOT 的 snapshotTime
+   * 落在某个已剔除 buff 的 [start, end] 内时需要靠这个补丁找回。仅参与 Phase 1 % 减伤
+   * 计算（Phase 2-5 钩子继续走当前 partyState，避免对已消失的 buff 重复触发）。
+   */
+  historicalStatuses?: MitigationStatus[]
 }
 
 /**
@@ -207,6 +214,7 @@ export class MitigationCalculator {
           referenceMaxHP: refHP,
           statistics: opts?.statistics,
           recordHeal: opts?.recordHeal,
+          historicalStatuses: opts?.historicalStatuses,
         })
         return {
           playerId: tankId,
@@ -261,6 +269,7 @@ export class MitigationCalculator {
       referenceMaxHP,
       statistics: opts?.statistics,
       recordHeal: opts?.recordHeal,
+      historicalStatuses: opts?.historicalStatuses,
     })
 
     return {
@@ -377,6 +386,9 @@ export class MitigationCalculator {
     const castEffectiveEndByCastEventId = new Map<string, number>()
     const healSnapshots: HealSnapshot[] = []
     const hpTimeline: HpTimelinePoint[] = []
+    // 已被 advance 剔除（endTime < cur）但 DOT snapshotTime 仍可能落在区间内的 buff。
+    // 主循环按 event.time 单调推进，无法回滚状态——靠这个补丁让 Phase 1 % 减伤找回它们。
+    const pastStatuses: MitigationStatus[] = []
     // 闭包变量：跟踪"最近已知 hp 值"，让 recordHeal 在钩子还未 return 新 state 时也能正确回填
     let lastKnownHp = 0
     let lastKnownHpMax = 0
@@ -570,9 +582,14 @@ export class MitigationCalculator {
         }
       }
 
+      const kept: MitigationStatus[] = []
+      for (const s of next.statuses) {
+        if (s.endTime >= cur) kept.push(s)
+        else pastStatuses.push(s)
+      }
       next = {
         ...next,
-        statuses: next.statuses.filter(s => s.endTime >= cur),
+        statuses: kept,
         timestamp: cur,
       }
       next = recomputeAndTrack(next, cur)
@@ -673,6 +690,8 @@ export class MitigationCalculator {
         tankPlayerIds: tankIds,
         statistics,
         recordHeal,
+        // 仅 DOT 事件（snapshotTime 显式给出）需要找回过期 buff；普通事件不传，避免歧义。
+        historicalStatuses: event.snapshotTime !== undefined ? pastStatuses : undefined,
       })
       if (result.updatedPartyState) {
         // calculate 内部钩子（onBeforeShield / onConsume / onAfterDamage）允许改 hp.current
@@ -682,6 +701,17 @@ export class MitigationCalculator {
         currentState = recomputeAndTrack(currentState, filterTime)
         captureTransition(beforeCalc, currentState, filterTime)
       }
+
+      // DOT 快照与实际伤害时刻分离：% 减伤已在 filterTime（snapshotTime）算完，
+      // 扣血时刻仍是 event.time——把状态推到 event.time，让中间的 HoT tick / 状态过期
+      // 在扣血之前生效（hpBefore 反映 event.time 而非 snapshotTime 的血量）。
+      if (event.time > filterTime) {
+        const beforeFinalAdvance = currentState
+        currentState = advanceToTime(currentState, filterTime, event.time)
+        captureTransition(beforeFinalAdvance, currentState, event.time)
+        lastAdvanceTime = event.time
+      }
+
       // calculate 之后扣 HP 池；hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
       const { nextState: stateAfterHp, snapshot: hpSnap } = this.applyDamageToHp(
         currentState,
@@ -693,7 +723,7 @@ export class MitigationCalculator {
         lastKnownHp = stateAfterHp.hp.current
         lastKnownHpMax = stateAfterHp.hp.max
         hpTimeline.push({
-          time: filterTime,
+          time: event.time,
           hp: lastKnownHp,
           hpMax: lastKnownHpMax,
           kind: 'damage',
@@ -809,6 +839,7 @@ export class MitigationCalculator {
       referenceMaxHP: number
       statistics?: TimelineStatData
       recordHeal?: (snap: HealSnapshot) => void
+      historicalStatuses?: MitigationStatus[]
     }
   ): {
     finalDamage: number
@@ -824,10 +855,17 @@ export class MitigationCalculator {
     const { multiplierFilter, shieldFilter, referenceMaxHP, statistics, recordHeal } = opts
 
     // Phase 1: % 减伤
+    // 同时遍历 partyState.statuses 与 historicalStatuses（已被主循环 advance 剔除但
+    // snapshotTime 仍落在区间内的 buff），让 DOT 快照能找回已"过期"但应快照的 buff。
+    // Phase 2-5 钩子继续只跑 partyState.statuses，避免对消失的 buff 重复触发副作用。
     let multiplier = 1.0
     const appliedStatuses: MitigationStatus[] = []
 
-    for (const status of partyState.statuses) {
+    const phase1Statuses = opts.historicalStatuses
+      ? [...partyState.statuses, ...opts.historicalStatuses]
+      : partyState.statuses
+
+    for (const status of phase1Statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (!multiplierFilter(meta, status)) continue
