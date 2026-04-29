@@ -19,6 +19,7 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplier } from '@/executors/healMath'
 import { isStatusValidForTank } from './statusFilter'
+import { formatTimeWithDecimal } from '@/utils/formatters'
 
 /**
  * 多坦路径单坦克的计算结果
@@ -78,6 +79,8 @@ export interface CalculationResult {
   perVictim?: PerTankResult[]
   /** HP 池模拟快照；编辑模式下非坦事件填充；坦专 / 回放模式 / hp 缺失时为 undefined */
   hpSimulation?: HpSimulationSnapshot
+  /** 盾前伤害（phase 1 % 减伤后、phase 2/3 盾扣前）；phase 5 钩子需要它。 */
+  candidateDamage?: number
 }
 
 /**
@@ -108,7 +111,7 @@ export interface CalculateOptions {
    * 已经过期但快照时刻仍可能 active 的状态（DOT 快照专用）。
    * 主循环按 event.time 单调推进，buff endTime < cur 会被剔除；DOT 的 snapshotTime
    * 落在某个已剔除 buff 的 [start, end] 内时需要靠这个补丁找回。仅参与 Phase 1 % 减伤
-   * 计算（Phase 2-5 钩子继续走当前 partyState，避免对已消失的 buff 重复触发）。
+   * 计算（Phase 2-4 钩子继续走当前 partyState，避免对已消失的 buff 重复触发）。
    */
   historicalStatuses?: MitigationStatus[]
 }
@@ -233,6 +236,7 @@ export class MitigationCalculator {
           appliedStatuses: branch.appliedStatuses,
           referenceMaxHP: refHP,
           state: branch.updatedPartyState,
+          candidateDamage: branch.candidateDamage,
         }
       })
 
@@ -260,6 +264,7 @@ export class MitigationCalculator {
         updatedPartyState: bestBranch.state,
         referenceMaxHP: bestBranch.referenceMaxHP,
         perVictim,
+        candidateDamage: bestBranch.candidateDamage,
       }
     }
 
@@ -286,6 +291,7 @@ export class MitigationCalculator {
       originalDamage,
       finalDamage: branch.finalDamage,
       maxDamage: branch.finalDamage,
+      candidateDamage: branch.candidateDamage,
       mitigationPercentage: branch.mitigationPercentage,
       appliedStatuses: branch.appliedStatuses,
       updatedPartyState: branch.updatedPartyState,
@@ -453,7 +459,7 @@ export class MitigationCalculator {
           const tag = snap.isHotTick ? 'HoT' : 'cast'
           const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
           console.log(
-            `[hp-sim heal] t=${snap.time.toFixed(1)}s [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
+            `[hp-sim heal] ${formatTimeWithDecimal(snap.time)} [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
           )
         }
 
@@ -733,7 +739,7 @@ export class MitigationCalculator {
         historicalStatuses: event.snapshotTime !== undefined ? pastStatuses : undefined,
       })
       if (result.updatedPartyState) {
-        // calculate 内部钩子（onBeforeShield / onConsume / onAfterDamage）允许改 hp.current
+        // calculate 内 phase 2 onBeforeShield / phase 4 onConsume 钩子允许改 hp.current
         // （如反应式治疗 buff），主循环信任并接受 calculate 输出的 hp 状态。
         currentState = result.updatedPartyState
         currentState = recomputeAndTrack(currentState, event.time)
@@ -758,7 +764,42 @@ export class MitigationCalculator {
           refEventId: event.id,
         })
       }
+      if (!skipHpPipeline && hpSnap) {
+        const dealt = hpSnap.hpBefore - hpSnap.hpAfter
+        const overkillNote = hpSnap.overkill ? ` (overkill ${hpSnap.overkill})` : ''
+        console.log(
+          `[hp-sim damage] ${formatTimeWithDecimal(event.time)} [${event.type}] ${event.name}: ${hpSnap.hpBefore} → ${hpSnap.hpAfter} (-${dealt})${overkillNote}`
+        )
+      }
       currentState = stateAfterHp
+
+      // Phase 5 onAfterDamage：在 applyDamageToHp 之后跑，让反应式治疗（如礼仪之铃）看到
+      // hp_after_damage 而非 hp_before。filter 复刻 calculate 单路径的 multiplierFilter
+      // 口径——aoe 排除坦专 buff，tankbuster 全包含。多坦下 phase 5 钩子目前只做 partywide
+      // 操作（礼仪之铃 stack 减 / nonTankDamageTotal 累计），按"最优分支后的共享 partyState"
+      // 跑一次即可，避免按 tank 分支重复触发让 stack 加倍消耗。
+      const beforePhase5 = currentState
+      let phase5State = currentState
+      for (const status of currentState.statuses) {
+        const meta = getStatusById(status.statusId)
+        if (!meta?.executor?.onAfterDamage) continue
+        if (meta.isTankOnly && !includeTankOnly) continue
+        if (event.time < status.startTime || event.time > status.endTime) continue
+        const phase5Result = meta.executor.onAfterDamage({
+          status,
+          event,
+          partyState: phase5State,
+          candidateDamage: result.candidateDamage ?? result.finalDamage,
+          finalDamage: result.finalDamage,
+          statistics,
+          recordHeal,
+        })
+        if (phase5Result) phase5State = phase5Result
+      }
+      if (phase5State !== currentState) {
+        currentState = recomputeAndTrack(phase5State, event.time)
+        captureTransition(beforePhase5, currentState, event.time)
+      }
 
       // 同时刻 cast 推迟到 damage 之后处理：先扣再回，hp 曲线/日志顺序与计算流程一致。
       // state 已经在 event.time，advanceTarget 传 cast.timestamp（=== event.time）即 no-op。
@@ -859,6 +900,7 @@ export class MitigationCalculator {
     mitigationPercentage: number
     appliedStatuses: MitigationStatus[]
     updatedPartyState: PartyState
+    candidateDamage: number
   } {
     const originalDamage = event.damage
     const time = event.time
@@ -1009,31 +1051,9 @@ export class MitigationCalculator {
       if (result) updatedPartyState = result
     }
 
-    // Phase 5: onAfterDamage — 盾吸收后的通用收尾
-    // 遍历 partyState.statuses（原始活跃集合），不遍历 updatedPartyState：
-    //   ✓ 本事件 onBeforeShield/onConsume 新添的状态不会在同一事件立即触发自己的 onAfterDamage；
-    //   ✗ 代价：status 参数是原始实例快照，其 remainingBarrier / stack / data 等字段可能与
-    //     updatedPartyState 里同 instanceId 的最新值不一致。需要读自身最新状态的 executor 应从
-    //     ctx.partyState.statuses.find(s => s.instanceId === ctx.status.instanceId) 取。
-    for (const status of partyState.statuses) {
-      const meta = getStatusById(status.statusId)
-      if (!meta?.executor?.onAfterDamage) continue
-      if (!multiplierFilter(meta, status)) continue
-      // Phase 5 钩子用 event.time（不是 mitigationTime）：snapshotTime 只决定 % 减伤
-      // 计算的 buff 选择，"buff 是否在伤害实际发生时 active"应按 event.time 判定。
-      if (time < status.startTime || time > status.endTime) continue
-
-      const result = meta.executor.onAfterDamage({
-        status,
-        event,
-        partyState: updatedPartyState,
-        candidateDamage,
-        finalDamage: Math.max(0, Math.round(damage)),
-        statistics,
-        recordHeal,
-      })
-      if (result) updatedPartyState = result
-    }
+    // Phase 5 onAfterDamage 由 simulate 主循环在 applyDamageToHp 之后跑——让反应式
+    // 治疗（如礼仪之铃）看到 hp_after_damage 而非 hp_before，符合"先扣再回"语义。
+    // calculate 输出 candidateDamage 让 simulate 拿到 phase 5 钩子需要的中间值。
 
     const mitigationPercentage =
       originalDamage > 0 ? ((originalDamage - damage) / originalDamage) * 100 : 0
@@ -1043,6 +1063,7 @@ export class MitigationCalculator {
       mitigationPercentage: Math.round(mitigationPercentage * 10) / 10,
       appliedStatuses,
       updatedPartyState,
+      candidateDamage,
     }
   }
 

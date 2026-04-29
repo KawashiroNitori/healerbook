@@ -822,36 +822,22 @@ describe('MitigationCalculator', () => {
       }
     })
 
-    it('onAfterDamage 在盾吸收后调用，能拿到 finalDamage', () => {
-      const onAfterDamage = vi.fn().mockImplementation(ctx => ctx.partyState)
-
-      const spy = withFakeMeta({
-        [FAKE_BUFF_ID]: { type: 'multiplier', executor: { onAfterDamage } },
-      })
-
-      try {
-        const partyState: PartyState = {
-          statuses: [
-            {
-              instanceId: 'watcher',
-              statusId: FAKE_BUFF_ID,
-              startTime: 0,
-              endTime: 10,
-              sourcePlayerId: 1,
-            },
-          ],
-          timestamp: 0,
-        }
-
-        calculator.calculate(makeEvent(4000, 5, 'physical', 'tankbuster'), partyState)
-
-        expect(onAfterDamage).toHaveBeenCalledTimes(1)
-        const passed = onAfterDamage.mock.calls[0][0]
-        expect(passed.candidateDamage).toBe(4000)
-        expect(passed.finalDamage).toBe(4000)
-      } finally {
-        spy.mockRestore()
+    it('calculate 输出 candidateDamage：phase 5 由 simulate 在 applyDamageToHp 之后跑，calculate 只算中间值', () => {
+      const partyState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'watcher',
+            statusId: FAKE_BUFF_ID,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
       }
+      const result = calculator.calculate(makeEvent(4000, 5, 'physical', 'tankbuster'), partyState)
+      expect(result.candidateDamage).toBe(4000)
+      expect(result.finalDamage).toBe(4000)
     })
   })
 
@@ -1757,11 +1743,11 @@ describe('HP 池 - calculate 内钩子能 push HealSnapshot', () => {
         sourcePlayerId: 1,
         time: 10,
         baseAmount: 1500,
-        applied: 0, // 满血时触发，全溢出
-        overheal: 1500,
+        applied: 1500, // 先扣再回：扣 30k 后 hp=70k 有空间 +1500
+        overheal: 0,
         isHotTick: false,
       })
-      // hp 100k → 钩子触发 +1500 clamp 100k（满血）→ 扣 30k = 70k
+      // hpSimulation 反映 applyDamageToHp 出口（phase 5 钩子在它之后跑）：100k → 70k
       expect(out.damageResults.get('A')!.hpSimulation!.hpAfter).toBe(70000)
     } finally {
       spy.mockRestore()
@@ -1947,8 +1933,8 @@ describe('HP 池 · hpTimeline', () => {
         baseReferenceMaxHPForAoe: 100000,
       })
 
-      // 顺序：init → heal（onAfterDamage 钩子在 hp 扣血之前 fire，hp 满 → 全溢出）→ damage
-      // hp 满时治疗全溢出：applied=0，heal 点 hp = 100000+0 = 100000
+      // 顺序：init → damage → heal（onAfterDamage 钩子在 applyDamageToHp 之后 fire，先扣再回）
+      // 100k 扣 30k → 70k；钩子 +5000 应用后 → 75000
       const events = out.hpTimeline.map(p => ({
         time: p.time,
         kind: p.kind,
@@ -1957,8 +1943,8 @@ describe('HP 池 · hpTimeline', () => {
       }))
       expect(events).toEqual([
         { time: 0, kind: 'init', hp: 100000, refEventId: undefined },
-        { time: 10, kind: 'heal', hp: 100000, refEventId: 'cast-heal-1' },
         { time: 10, kind: 'damage', hp: 70000, refEventId: 'A' },
+        { time: 10, kind: 'heal', hp: 75000, refEventId: 'cast-heal-1' },
       ])
     } finally {
       spy.mockRestore()

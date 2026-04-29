@@ -169,8 +169,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
-      executor: createShieldExecutor(1457, 30),
-      statDataEntries: [{ type: 'shield', key: 1457 }],
+      executor: ctx => {
+        const partyState = createShieldExecutor(1457, 30)(ctx)
+        return createHealExecutor()({ ...ctx, partyState })
+      },
+      statDataEntries: [
+        { type: 'shield', key: 1457 },
+        { type: 'heal', key: 7388 },
+      ],
     },
     {
       id: 40,
@@ -439,7 +445,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
             s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
           )
         ) {
-          return createHealExecutor({ amountSourceId: 1001219 })(ctx)
+          return createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
         }
         return partyState
       },
@@ -461,7 +467,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
             s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
           )
         ) {
-          partyState = createHealExecutor({ amountSourceId: 1001219 })(ctx)
+          partyState = createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
         }
         return partyState
       },
@@ -485,7 +491,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
             s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
           )
         ) {
-          return createHealExecutor({ amountSourceId: 1001219 })(ctx)
+          return createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
         }
         return partyState
       },
@@ -517,7 +523,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
             s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
           )
         ) {
-          return createHealExecutor({ amountSourceId: 1001219 })(ctx)
+          return createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
         }
         return partyState
       },
