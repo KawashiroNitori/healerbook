@@ -296,6 +296,38 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     executor: regenStatusExecutor,
   },
 
+  // 学者
+  315: {
+    name: '仙光的低语',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
+  317: {
+    name: '异想的幻光',
+    category: ['partywide', 'percentage'],
+    heal: 1.1,
+    isFriendly: true,
+  },
+  791: {
+    name: '转化',
+    category: ['self'],
+    isFriendly: true,
+    selfHeal: 1.2,
+  },
+  1944: {
+    name: '野战治疗阵',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
+  3885: {
+    name: '炽天之光',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
+
   // 占星术士
   1224: {
     name: '地星主宰',

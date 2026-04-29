@@ -1,3 +1,4 @@
+import { computeFinalHeal } from '@/executors/healMath'
 import type { MitigationAction } from '@/types/mitigation'
 import {
   applyDirectHeal,
@@ -537,14 +538,19 @@ export const MITIGATION_DATA: MitigationDataSource = {
         // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
-        const baseHeal = ctx.statistics?.healByAbility[185] ?? 10000
+        const baseHeal = computeFinalHeal(
+          ctx.statistics?.healByAbility[185] ?? 10000,
+          ctx.partyState,
+          ctx.sourcePlayerId,
+          ctx.useTime
+        )
         const barrier = Math.round(baseHeal * 1.8)
         return createShieldExecutor(baseShieldId, 30, {
           fixedBarrier: barrier,
           uniqueGroup: [baseShieldId, sageShieldId],
         })(ctx)
       },
-      statDataEntries: [{ type: 'heal', key: 185, label: '鼓舞激励之策' }],
+      statDataEntries: [{ type: 'heal', key: 185, label: '单盾' }],
     },
     {
       id: 16542,
@@ -567,31 +573,26 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
-        const seraphismId = 3885 // 炽天附体
         const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
 
-        const hasSeraphism = ctx.partyState.statuses.some(s => s.statusId === seraphismId)
-
         let baseHeal: number
-        if (hasSeraphism) {
-          // 炽天附体激活：等效降临之章，使用 37016 基础恢复力，秘策无效
-          baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
-        } else {
-          // 普通意气轩昂之策：检测秘策决定是否用暴击治疗量
-          const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
-          baseHeal = hasRecitation
-            ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
-            : (ctx.statistics?.healByAbility[37013] ?? 10000)
-        }
+        // 检测秘策决定是否用暴击治疗量
+        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
+        baseHeal = hasRecitation
+          ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
+          : (ctx.statistics?.healByAbility[37013] ?? 10000)
+        baseHeal = computeFinalHeal(baseHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
+        const partyState = createHealExecutor()(ctx)
 
         const barrier = Math.round(baseHeal * 1.8)
-        const uniqueGroup = hasSeraphism
-          ? [baseShieldId, sageShieldId]
-          : [recitationId, baseShieldId, sageShieldId]
+        const uniqueGroup = [recitationId, baseShieldId, sageShieldId]
 
-        return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })(ctx)
+        return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })({
+          ...ctx,
+          partyState,
+        })
       },
       placement: not(whileStatus(SERAPHISM_BUFF_ID)),
       statDataEntries: [
@@ -608,7 +609,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 30,
       cooldown: 180,
-      executor: createBuffExecutor(3885, 30),
+      placement: not(whileStatus(791)),
+      executor: createRegenExecutor(3885, 30),
+      statDataEntries: [{ type: 'heal', key: 1003885 }],
     },
 
     {
@@ -625,15 +628,23 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
         // 降临之章的鼓舞盾是 240 恢复力，而且秘策无效
-        const baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
+        const baseHeal = computeFinalHeal(
+          ctx.statistics?.healByAbility[37016] ?? 10000,
+          ctx.partyState,
+          ctx.sourcePlayerId,
+          ctx.useTime
+        )
         const barrier = Math.round(baseHeal * 1.8)
+        const partyState = createHealExecutor()(ctx)
         return createShieldExecutor(baseShieldId, 30, {
           fixedBarrier: barrier,
           uniqueGroup: [baseShieldId, sageShieldId],
-        })(ctx)
+        })({ ...ctx, partyState })
       },
       statDataEntries: [{ type: 'heal', key: 37016 }],
     },
+
+    // 豆子技能
 
     {
       id: 188,
@@ -643,9 +654,48 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 18,
       cooldown: 30,
-      executor: createBuffExecutor(299, 18),
+      executor: ctx => {
+        const partyState = createBuffExecutor(299, 18)(ctx)
+        return createRegenExecutor(1944, 15)({ ...ctx, partyState })
+      },
+      statDataEntries: [{ type: 'heal', key: 1001944 }],
+    },
+    {
+      id: 3583,
+      name: '不屈不挠之策',
+      icon: '/i/002000/002806.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 30,
+      executor: createHealExecutor(),
+      statDataEntries: [{ type: 'heal', key: 3583 }],
     },
 
+    // 小仙女技能
+
+    {
+      id: 3587,
+      name: '转化',
+      icon: '/i/002000/002810.png',
+      jobs: ['SCH'],
+      category: ['self'],
+      duration: 30,
+      cooldown: 180,
+      executor: createBuffExecutor(791, 30),
+    },
+    {
+      id: 16537,
+      name: '仙光的低语',
+      icon: '/i/002000/002852.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'heal'],
+      duration: 21,
+      cooldown: 60,
+      placement: not(whileStatus(791)),
+      executor: createRegenExecutor(315, 21),
+      statDataEntries: [{ type: 'heal', key: 1000315, label: 'HoT' }],
+    },
     {
       id: 16538,
       name: '异想的幻光',
@@ -654,7 +704,20 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 20,
       cooldown: 120,
+      placement: not(whileStatus(791)),
       executor: createBuffExecutor(317, 20),
+    },
+    {
+      id: 16543,
+      name: '异想的祥光',
+      icon: '/i/002000/002854.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 60,
+      placement: not(whileStatus(791)),
+      executor: createHealExecutor({ amountSourceId: 16544 }),
+      statDataEntries: [{ type: 'heal', key: 16544 }],
     },
 
     {
@@ -676,6 +739,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 22,
       cooldown: 120,
+      placement: not(whileStatus(791)),
       executor: createBuffExecutor(3095, 22), // 只造炽天真 buff；慰藉充能由 sch:consolation 自行 regen
     },
 

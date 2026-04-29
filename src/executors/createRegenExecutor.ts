@@ -14,8 +14,6 @@ import { computeFinalHeal } from './healMath'
 import { generateId } from './utils'
 
 export interface RegenExecutorOptions {
-  /** 互斥组：默认 [] (HOT 一般可以同名 buff 共存) */
-  uniqueGroup?: number[]
   /**
    * 每个 tick 的固定治疗量。
    * 不指定 → tickAmount = healByAbility[1e6 + statusId]
@@ -29,8 +27,6 @@ export function createRegenExecutor(
   duration: number,
   options?: RegenExecutorOptions
 ): ActionExecutor {
-  const uniqueGroup = options?.uniqueGroup ?? []
-
   return ctx => {
     const baseTickAmount =
       options?.tickAmount ?? ctx.statistics?.healByAbility?.[1e6 + statusId] ?? 0
@@ -41,7 +37,10 @@ export function createRegenExecutor(
       ctx.useTime
     )
 
-    const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))
+    // 同一玩家的同名 HoT 不共存：新 cast 替换旧实例（不同玩家可共存）
+    const filteredStatuses = ctx.partyState.statuses.filter(
+      s => !(s.statusId === statusId && s.sourcePlayerId === ctx.sourcePlayerId)
+    )
 
     const newStatus: MitigationStatus = {
       instanceId: generateId(),

@@ -80,16 +80,32 @@ describe('createRegenExecutor (cast 时挂状态)', () => {
     expect(next.statuses.find(s => s.statusId === 500)!.data!.tickAmount).toBeCloseTo(1200, 5)
   })
 
-  it('默认 uniqueGroup 为空，同名 HoT 可以共存', () => {
+  it('同一玩家的同名 HoT 替换：旧实例被移除，只保留新实例', () => {
     const partyState: PartyState = {
-      statuses: [{ instanceId: 'old', statusId: 500, startTime: 0, endTime: 30 }],
+      statuses: [
+        { instanceId: 'old', statusId: 500, startTime: 0, endTime: 30, sourcePlayerId: 7 },
+      ],
       timestamp: 0,
       hp: mkHp(),
     }
     const exec = createRegenExecutor(500, 30, { tickAmount: 1000 })
-    const next = exec(mkCtx({ partyState, useTime: 10 }))
+    const next = exec(mkCtx({ partyState, useTime: 10, sourcePlayerId: 7 }))
+    expect(next.statuses).toHaveLength(1)
+    expect(next.statuses[0].instanceId).not.toBe('old')
+  })
+
+  it('不同玩家的同名 HoT 共存', () => {
+    const partyState: PartyState = {
+      statuses: [
+        { instanceId: 'other', statusId: 500, startTime: 0, endTime: 30, sourcePlayerId: 9 },
+      ],
+      timestamp: 0,
+      hp: mkHp(),
+    }
+    const exec = createRegenExecutor(500, 30, { tickAmount: 1000 })
+    const next = exec(mkCtx({ partyState, useTime: 10, sourcePlayerId: 7 }))
     expect(next.statuses).toHaveLength(2)
-    expect(next.statuses.map(s => s.instanceId)).toContain('old')
+    expect(next.statuses.map(s => s.instanceId)).toContain('other')
   })
 
   it('未指定 tickAmount 时按 healByAbility[1e6 + statusId] 取每 tick 量', () => {
