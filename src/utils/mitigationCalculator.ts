@@ -136,6 +136,16 @@ export interface SimulateInput {
    * 用于 calculator.calculate 的 baseReferenceMaxHP（单路径路径）。
    */
   baseReferenceMaxHPForAoe?: number
+  /**
+   * 跳过 HP 管线：不初始化 HP 池、不记录 heal snapshot / hpTimeline、不发治疗调试日志。
+   * 仅用于 PlacementEngine 这类只消费 statusTimelineByPlayer 的轻量调用，
+   * 避免 N 次 engine simulate 重复跑完整 HP 模拟（每跑一次刷一遍治疗日志）。
+   *
+   * status 推进逻辑（executor / advance / capture）完全保留，statusTimelineByPlayer
+   * 输出与完整模式一致。HP 相关的 executor 行为（如死斗 hp.current = 1）会因 hp =
+   * undefined 自然走早返回，不影响 status 列表。
+   */
+  skipHpPipeline?: boolean
 }
 
 /**
@@ -355,9 +365,11 @@ export class MitigationCalculator {
     if (Math.abs(newMultiplier - prevMultiplier) < 1e-9) return state
 
     const ratio = newMultiplier / prevMultiplier
-    // Round 后避免浮点误差（Math.round 与 computeReferenceMaxHP 口径一致）
+    // Round 后避免浮点误差（Math.round 与 computeReferenceMaxHP 口径一致）。
+    // hp.current 也 round——maxHP 缩放是写 hp 的链路之一，与 computeFinalHeal /
+    // calculate.finalDamage 出口取整对齐，保证 hp.current 始终整数。
     const newMax = Math.round(state.hp.base * newMultiplier)
-    const newCurrent = Math.max(0, Math.min(state.hp.current * ratio, newMax))
+    const newCurrent = Math.max(0, Math.min(Math.round(state.hp.current * ratio), newMax))
 
     return { ...state, hp: { ...state.hp, current: newCurrent, max: newMax } }
   }
@@ -379,6 +391,7 @@ export class MitigationCalculator {
       tankPlayerIds = [],
       baseReferenceMaxHPForTank = 0,
       baseReferenceMaxHPForAoe = 0,
+      skipHpPipeline = false,
     } = input
 
     const damageResults = new Map<string, CalculationResult>()
@@ -394,7 +407,7 @@ export class MitigationCalculator {
     let lastKnownHpMax = 0
     const recomputeAndTrack = (state: PartyState, time: number): PartyState => {
       const next = this.recomputeHpMax(state)
-      if (state.hp && next.hp && state.hp.max !== next.hp.max) {
+      if (!skipHpPipeline && state.hp && next.hp && state.hp.max !== next.hp.max) {
         lastKnownHp = next.hp.current
         lastKnownHpMax = next.hp.max
         hpTimeline.push({
@@ -406,20 +419,35 @@ export class MitigationCalculator {
       }
       return next
     }
-    const recordHeal = (snap: HealSnapshot) => {
-      healSnapshots.push(snap)
-      // 治疗后 hp = 当前已知 hp + applied（钩子里还没 return，所以 lastKnown 还是治疗前的 hp.current）
-      const hpAfter = Math.min(lastKnownHp + snap.applied, lastKnownHpMax)
-      hpTimeline.push({
-        time: snap.time,
-        hp: hpAfter,
-        hpMax: lastKnownHpMax,
-        kind: snap.isHotTick ? 'tick' : 'heal',
-        // castEventId 为空字符串时转 undefined，与 refEventId 语义一致（无来源 cast）
-        refEventId: snap.castEventId || undefined,
-      })
-      lastKnownHp = hpAfter
-    }
+    // skipHpPipeline 时 recordHeal 设为 undefined：让 executor 的 ctx.recordHeal?.(...)
+    // 调用直接走 optional chaining 短路；降低无效对象构造与日志开销。
+    const recordHeal = skipHpPipeline
+      ? undefined
+      : (snap: HealSnapshot) => {
+          healSnapshots.push(snap)
+          // 治疗后 hp = 当前已知 hp + applied（钩子里还没 return，所以 lastKnown 还是治疗前的 hp.current）
+          const prevHp = lastKnownHp
+          const hpAfter = Math.min(prevHp + snap.applied, lastKnownHpMax)
+          hpTimeline.push({
+            time: snap.time,
+            hp: hpAfter,
+            hpMax: lastKnownHpMax,
+            kind: snap.isHotTick ? 'tick' : 'heal',
+            // castEventId 为空字符串时转 undefined，与 refEventId 语义一致（无来源 cast）
+            refEventId: snap.castEventId || undefined,
+          })
+          lastKnownHp = hpAfter
+
+          // 调试日志：每次治疗的时间 / 技能名 / prevHP / afterHP / 变化量
+          const actionName =
+            MITIGATION_DATA.actions.find(a => a.id === snap.actionId)?.name ??
+            `action#${snap.actionId}`
+          const tag = snap.isHotTick ? 'HoT' : 'cast'
+          const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
+          console.log(
+            `[hp-sim heal] t=${snap.time.toFixed(1)}s [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
+          )
+        }
 
     interface OpenRecord {
       statusId: number
@@ -600,7 +628,7 @@ export class MitigationCalculator {
     const sortedCasts = [...castEvents].sort((a, b) => a.timestamp - b.timestamp)
 
     const initialHpPool: HpPool | undefined =
-      baseReferenceMaxHPForAoe > 0
+      !skipHpPipeline && baseReferenceMaxHPForAoe > 0
         ? {
             current: baseReferenceMaxHPForAoe,
             max: baseReferenceMaxHPForAoe,
@@ -617,7 +645,7 @@ export class MitigationCalculator {
     }
     // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
     currentState = recomputeAndTrack(currentState, currentState.timestamp)
-    if (currentState.hp) {
+    if (!skipHpPipeline && currentState.hp) {
       lastKnownHp = currentState.hp.current
       lastKnownHpMax = currentState.hp.max
       hpTimeline.push({
@@ -719,7 +747,7 @@ export class MitigationCalculator {
         result.finalDamage
       )
       damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
-      if (stateAfterHp.hp) {
+      if (!skipHpPipeline && stateAfterHp.hp) {
         lastKnownHp = stateAfterHp.hp.current
         lastKnownHpMax = stateAfterHp.hp.max
         hpTimeline.push({
@@ -786,9 +814,12 @@ export class MitigationCalculator {
     // 按 time 升序：cast / HoT tick 自然按主循环时序入列，但 calculate 内部钩子（onConsume /
     // onAfterDamage）的 recordHeal 与同时刻 advanceToTime 先 fire 的 onTick 入列顺序依赖
     // 主循环执行顺序，出口处显式排序避免下游消费者依赖隐式约定。
-    healSnapshots.sort((a, b) => a.time - b.time)
-    // JS Array.sort 是稳定排序（ES2019+），同时刻 push 顺序（主循环内序）得以保留。
-    hpTimeline.sort((a, b) => a.time - b.time)
+    // skipHpPipeline 下两个数组都是空，跳排序。
+    if (!skipHpPipeline) {
+      healSnapshots.sort((a, b) => a.time - b.time)
+      // JS Array.sort 是稳定排序（ES2019+），同时刻 push 顺序（主循环内序）得以保留。
+      hpTimeline.sort((a, b) => a.time - b.time)
+    }
 
     return {
       damageResults,

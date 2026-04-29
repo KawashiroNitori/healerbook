@@ -140,8 +140,15 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
     })
     for (const [id, result] of full.damageResults) results.set(id, result)
 
+    // PlacementEngine 只消费 statusTimelineByPlayer：跳过 HP 池/heal/timeline 管线。
+    // 这里 + engine 入参的 defaultTimeline 一起把"3 engine × 默认 simulate + N excludeId
+    // simulate"全部从完整 simulate 改成轻量 simulate，治疗调试日志只在主路径打一次。
     const simulate = (castEvents: CastEvent[]) => {
-      const out = calculator.simulate({ ...sharedInput, castEvents })
+      const out = calculator.simulate({
+        ...sharedInput,
+        castEvents,
+        skipHpPipeline: true,
+      })
       return { statusTimelineByPlayer: out.statusTimelineByPlayer }
     }
 

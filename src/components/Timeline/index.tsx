@@ -20,6 +20,7 @@ import {
   useDamageCalculationResults,
   useDamageCalculationSimulate,
   useHpTimeline,
+  useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
@@ -174,6 +175,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const calculationResults = useDamageCalculationResults()
   const simulate = useDamageCalculationSimulate()
+  const statusTimelineByPlayer = useStatusTimelineByPlayer()
   const hpTimeline = useHpTimeline()
 
   const actionMap = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
@@ -184,8 +186,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       castEvents: timeline.castEvents,
       actions: actionMap,
       simulate,
+      defaultTimeline: statusTimelineByPlayer,
     })
-  }, [timeline, simulate, actionMap])
+  }, [timeline, simulate, actionMap, statusTimelineByPlayer])
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
 

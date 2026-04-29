@@ -1676,7 +1676,9 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
       expect(out.damageResults.get('A')!.hpSimulation!.hpAfter).toBe(90000)
       const rB = out.damageResults.get('B')!.hpSimulation!
       expect(rB.hpMax).toBe(100000)
-      expect(rB.hpAfter).toBeCloseTo(61818.18, 1)
+      // hp 110k → A 扣 20k 余 90k → B 时 maxHP buff 仍在缩到 (90k/110k)*100k=81818 后扣 20k
+      // 旧逻辑: 90000/110000 * 100000 = 81818.18 浮点；新逻辑 recomputeHpMax round → 81818
+      expect(rB.hpAfter).toBe(61818)
     } finally {
       spy.mockRestore()
     }

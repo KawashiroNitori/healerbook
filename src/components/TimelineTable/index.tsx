@@ -22,6 +22,7 @@ import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import {
   useDamageCalculationResults,
   useDamageCalculationSimulate,
+  useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import type { PlacementEngine } from '@/utils/placement/types'
@@ -53,6 +54,7 @@ export default function TimelineTableView() {
   const skillTracks = useSkillTracks()
   const calculationResults = useDamageCalculationResults()
   const simulate = useDamageCalculationSimulate()
+  const statusTimelineByPlayer = useStatusTimelineByPlayer()
   const isReadOnly = useEditorReadOnly()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
@@ -70,8 +72,9 @@ export default function TimelineTableView() {
       castEvents: timeline.castEvents,
       actions: actionsById,
       simulate,
+      defaultTimeline: statusTimelineByPlayer,
     })
-  }, [timeline, simulate, actionsById])
+  }, [timeline, simulate, actionsById, statusTimelineByPlayer])
 
   const litCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()

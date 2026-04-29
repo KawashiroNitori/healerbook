@@ -51,7 +51,9 @@ export function computeFinalHeal(
     }
   }
 
-  return baseAmount * multiplier
+  // 出口取整：单点保证所有治疗（一次性 cast / HoT snapshot）入 hp.current 时是整数，
+  // 与 calculate 出口 round finalDamage / recomputeHpMax round newMax 的口径一致。
+  return Math.round(baseAmount * multiplier)
 }
 
 /**

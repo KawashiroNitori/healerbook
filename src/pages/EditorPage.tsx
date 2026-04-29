@@ -115,6 +115,7 @@ export default function EditorPage() {
       castEvents: timeline.castEvents,
       actions: new Map(mitigationActions.map(a => [a.id, a])),
       simulate: calculationResults.simulate,
+      defaultTimeline: calculationResults.statusTimelineByPlayer,
     })
     const actionById = new Map(mitigationActions.map(a => [a.id, a]))
     const { updateCastEvent } = useTimelineStore.getState()
@@ -134,7 +135,13 @@ export default function EditorPage() {
         updateCastEvent(ce.id, { actionId: member.id })
       }
     }
-  }, [calculationResults.simulate, timeline, mitigationActions, isReadOnly])
+  }, [
+    calculationResults.simulate,
+    calculationResults.statusTimelineByPlayer,
+    timeline,
+    mitigationActions,
+    isReadOnly,
+  ])
 
   // 离开页面（id 变化或卸载）时清空 store
   useEffect(() => {

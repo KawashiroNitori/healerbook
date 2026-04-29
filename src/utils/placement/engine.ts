@@ -21,11 +21,18 @@ export interface PlacementEngineInput {
   castEvents: CastEvent[]
   actions: Map<number, MitigationAction>
   simulate: (castEvents: CastEvent[]) => { statusTimelineByPlayer: StatusTimelineByPlayer }
+  /**
+   * 预算好的 default timeline，与 `simulate(castEvents)` 等价。
+   * 提供时跳过 engine 构造时的默认 simulate 调用——主路径已经算过一次，3 个调用点
+   * （Timeline / TimelineTable / EditorPage）共享同一份 timeline 引用，免去 N 次重复跑。
+   * 仅 excludeId 路径仍按需 simulate。
+   */
+  defaultTimeline?: StatusTimelineByPlayer
 }
 
 export function createPlacementEngine(input: PlacementEngineInput): PlacementEngine {
   const { castEvents, actions, simulate } = input
-  const defaultTimeline = simulate(castEvents).statusTimelineByPlayer
+  const defaultTimeline = input.defaultTimeline ?? simulate(castEvents).statusTimelineByPlayer
   const resourceEventsByKey = deriveResourceEvents(castEvents, actions)
 
   const excludedTimelineCache = new Map<string, StatusTimelineByPlayer>()
