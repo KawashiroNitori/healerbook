@@ -110,12 +110,13 @@ export default function EditorPage() {
   // castEvents 变化后扫一遍，把能自动切到唯一合法变体的 cast 改 actionId。放在
   // EditorPage 层而不是 Timeline 里——表格视图下 Timeline 不挂载，否则 hook 不跑。
   useEffect(() => {
-    if (!calculationResults.simulate || !timeline || isReadOnly) return
+    if (!timeline || isReadOnly) return
+    // 自动重分类不调 findInvalidCastEvents（不需要拖拽预览语义）→ 不传 simulateOnRemove，
+    // 所有 canPlaceCastEvent / pickUniqueMember 直接共享主路径 statusTimelineByPlayer。
     const engine = createPlacementEngine({
       castEvents: timeline.castEvents,
       actions: new Map(mitigationActions.map(a => [a.id, a])),
-      simulate: calculationResults.simulate,
-      defaultTimeline: calculationResults.statusTimelineByPlayer,
+      statusTimelineByPlayer: calculationResults.statusTimelineByPlayer,
     })
     const actionById = new Map(mitigationActions.map(a => [a.id, a]))
     const { updateCastEvent } = useTimelineStore.getState()
@@ -135,13 +136,7 @@ export default function EditorPage() {
         updateCastEvent(ce.id, { actionId: member.id })
       }
     }
-  }, [
-    calculationResults.simulate,
-    calculationResults.statusTimelineByPlayer,
-    timeline,
-    mitigationActions,
-    isReadOnly,
-  ])
+  }, [calculationResults.statusTimelineByPlayer, timeline, mitigationActions, isReadOnly])
 
   // 离开页面（id 变化或卸载）时清空 store
   useEffect(() => {

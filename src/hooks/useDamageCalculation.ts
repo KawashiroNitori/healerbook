@@ -26,11 +26,14 @@ export interface DamageCalculationResult {
   /** HP 池演化序列（time 升序）；空时 HP 曲线轨道不挂载 */
   hpTimeline: HpTimelinePoint[]
   /**
-   * 与主路径共享 input（initialState/damageEvents/statistics/tankPlayerIds/baseRefMaxHP）的
-   * simulate 回调。PlacementEngine 在处理 excludeCastEventId 时用它以过滤后的 castEvents 重放。
-   * partyState 未就绪或回放模式下为 null。
+   * 与主路径共享 input 的轻量 simulate 回调（skipHpPipeline）。仅用于 PlacementEngine
+   * 的 findInvalidCastEvents(removeCastEventId) 拖拽预览语义——重跑"假装删除某 cast"后
+   * 的 status timeline，让依赖被删 cast buff 的其他 cast 在预览中真实失效。常规 cast
+   * 合法性查询不再走这里，直接共享 statusTimelineByPlayer。partyState 未就绪或回放模式下为 null。
    */
-  simulate: ((castEvents: CastEvent[]) => { statusTimelineByPlayer: StatusTimelineByPlayer }) | null
+  simulateOnRemove:
+    | ((castEvents: CastEvent[]) => { statusTimelineByPlayer: StatusTimelineByPlayer })
+    | null
 }
 
 /**
@@ -51,7 +54,7 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
       castEffectiveEndByCastEventId: new Map(),
       healSnapshots: [],
       hpTimeline: [],
-      simulate: null,
+      simulateOnRemove: null,
     }
 
     if (!timeline) return empty
@@ -140,10 +143,9 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
     })
     for (const [id, result] of full.damageResults) results.set(id, result)
 
-    // PlacementEngine 只消费 statusTimelineByPlayer：跳过 HP 池/heal/timeline 管线。
-    // 这里 + engine 入参的 defaultTimeline 一起把"3 engine × 默认 simulate + N excludeId
-    // simulate"全部从完整 simulate 改成轻量 simulate，治疗调试日志只在主路径打一次。
-    const simulate = (castEvents: CastEvent[]) => {
+    // 拖拽预览专用：findInvalidCastEvents(removeCastEventId) 用它跑"假装删除"后的 timeline。
+    // skipHpPipeline 让这次重跑不动 HP 池、不发治疗调试日志（只主路径完整 simulate 发）。
+    const simulateOnRemove = (castEvents: CastEvent[]) => {
       const out = calculator.simulate({
         ...sharedInput,
         castEvents,
@@ -158,7 +160,7 @@ export function useDamageCalculation(timeline: Timeline | null): DamageCalculati
       castEffectiveEndByCastEventId: full.castEffectiveEndByCastEventId,
       healSnapshots: full.healSnapshots,
       hpTimeline: full.hpTimeline,
-      simulate,
+      simulateOnRemove,
     }
   }, [timeline, partyState, statistics])
 }

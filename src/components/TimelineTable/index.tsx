@@ -53,7 +53,7 @@ export default function TimelineTableView() {
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const skillTracks = useSkillTracks()
   const calculationResults = useDamageCalculationResults()
-  const simulate = useDamageCalculationSimulate()
+  const simulateOnRemove = useDamageCalculationSimulate()
   const statusTimelineByPlayer = useStatusTimelineByPlayer()
   const isReadOnly = useEditorReadOnly()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
@@ -64,17 +64,17 @@ export default function TimelineTableView() {
     return map
   }, [actions])
 
-  // 和画布视图共享 simulate callback 构造 PlacementEngine——双击/右键/表格单元格添加都要走
+  // 和画布视图共享主路径 status timeline 构造 PlacementEngine——双击/右键/表格单元格添加都要走
   // variant 选择，避免 buff 期点"意气轩昂"列实际加进去的是 37013（带红框）。
   const engine: PlacementEngine | null = useMemo(() => {
-    if (!timeline || !simulate) return null
+    if (!timeline) return null
     return createPlacementEngine({
       castEvents: timeline.castEvents,
       actions: actionsById,
-      simulate,
-      defaultTimeline: statusTimelineByPlayer,
+      statusTimelineByPlayer,
+      simulateOnRemove: simulateOnRemove ?? undefined,
     })
-  }, [timeline, simulate, actionsById, statusTimelineByPlayer])
+  }, [timeline, actionsById, statusTimelineByPlayer, simulateOnRemove])
 
   const litCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()

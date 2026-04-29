@@ -174,21 +174,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const calculationResults = useDamageCalculationResults()
-  const simulate = useDamageCalculationSimulate()
+  const simulateOnRemove = useDamageCalculationSimulate()
   const statusTimelineByPlayer = useStatusTimelineByPlayer()
   const hpTimeline = useHpTimeline()
 
   const actionMap = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
 
   const engine: PlacementEngine | null = useMemo(() => {
-    if (!timeline || !simulate) return null
+    if (!timeline) return null
     return createPlacementEngine({
       castEvents: timeline.castEvents,
       actions: actionMap,
-      simulate,
-      defaultTimeline: statusTimelineByPlayer,
+      statusTimelineByPlayer,
+      simulateOnRemove: simulateOnRemove ?? undefined,
     })
-  }, [timeline, simulate, actionMap, statusTimelineByPlayer])
+  }, [timeline, actionMap, statusTimelineByPlayer, simulateOnRemove])
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
 

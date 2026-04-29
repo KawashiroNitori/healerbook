@@ -20,32 +20,23 @@ import { computeCdBarEnd } from '@/utils/resource/cdBar'
 export interface PlacementEngineInput {
   castEvents: CastEvent[]
   actions: Map<number, MitigationAction>
-  simulate: (castEvents: CastEvent[]) => { statusTimelineByPlayer: StatusTimelineByPlayer }
   /**
-   * 预算好的 default timeline，与 `simulate(castEvents)` 等价。
-   * 提供时跳过 engine 构造时的默认 simulate 调用——主路径已经算过一次，3 个调用点
-   * （Timeline / TimelineTable / EditorPage）共享同一份 timeline 引用，免去 N 次重复跑。
-   * 仅 excludeId 路径仍按需 simulate。
+   * 主路径预算好的 status timeline。所有常规查询（getValidIntervals / canPlaceCastEvent /
+   * pickUniqueMember / shadow / findInvalidCastEvents 默认调用）共享这一份——这些路径
+   * 中 excludeId 仅用来过滤 castEvents 给资源/CD 用，不影响 placement timeline。
    */
-  defaultTimeline?: StatusTimelineByPlayer
+  statusTimelineByPlayer: StatusTimelineByPlayer
+  /**
+   * 显式"模拟删除某 cast"的 simulate 回调，仅 findInvalidCastEvents(removeCastEventId)
+   * 拖拽预览语义会调用——比如拖动 37014 时预览"假设 37014 被移走，依赖 seraphism 的
+   * 37016 是否会失效"。常规 excludeId 查询（自身 CD 排除）不再走这里。
+   */
+  simulateOnRemove?: (castEvents: CastEvent[]) => { statusTimelineByPlayer: StatusTimelineByPlayer }
 }
 
 export function createPlacementEngine(input: PlacementEngineInput): PlacementEngine {
-  const { castEvents, actions, simulate } = input
-  const defaultTimeline = input.defaultTimeline ?? simulate(castEvents).statusTimelineByPlayer
+  const { castEvents, actions, statusTimelineByPlayer: defaultTimeline, simulateOnRemove } = input
   const resourceEventsByKey = deriveResourceEvents(castEvents, actions)
-
-  const excludedTimelineCache = new Map<string, StatusTimelineByPlayer>()
-
-  function timelineFor(excludeId?: string): StatusTimelineByPlayer {
-    if (!excludeId) return defaultTimeline
-    const cached = excludedTimelineCache.get(excludeId)
-    if (cached) return cached
-    const filtered = castEvents.filter(e => e.id !== excludeId)
-    const next = simulate(filtered).statusTimelineByPlayer
-    excludedTimelineCache.set(excludeId, next)
-    return next
-  }
 
   function effectiveCastEvents(excludeId?: string): CastEvent[] {
     return excludeId ? castEvents.filter(e => e.id !== excludeId) : castEvents
@@ -63,7 +54,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       castEvent,
       castEvents: effectiveCastEvents(excludeId),
       actions,
-      statusTimelineByPlayer: timelineFor(excludeId),
+      statusTimelineByPlayer: defaultTimeline,
     }
   }
 
@@ -213,8 +204,15 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     return legal.length === 1 ? legal[0] : null
   }
 
-  function findInvalidCastEvents(excludeId?: string): InvalidCastEvent[] {
-    const effectiveEvents = effectiveCastEvents(excludeId)
+  function findInvalidCastEvents(removeCastEventId?: string): InvalidCastEvent[] {
+    const effectiveEvents = effectiveCastEvents(removeCastEventId)
+
+    // 显式"模拟删除某 cast"语义：placement 必须用重跑后的 timeline，让依赖被删 cast
+    // buff 的其他 cast 在预览中真实失效。常规调用（无 removeCastEventId）共享 default。
+    const placementTimeline =
+      removeCastEventId && simulateOnRemove
+        ? simulateOnRemove(effectiveEvents).statusTimelineByPlayer
+        : defaultTimeline
 
     // 1. placement 层失效
     const placementLost = new Map<string, boolean>()
@@ -222,7 +220,14 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       const action = actions.get(castEvent.actionId)
       if (!action) continue
       const t = castEvent.timestamp
-      const ctx = buildContext(action, castEvent.playerId, excludeId, castEvent)
+      const ctx: PlacementContext = {
+        action,
+        playerId: castEvent.playerId,
+        castEvent,
+        castEvents: effectiveEvents,
+        actions,
+        statusTimelineByPlayer: placementTimeline,
+      }
       const ok =
         !action.placement ||
         action.placement
@@ -236,7 +241,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       castEvents,
       actions,
       RESOURCE_REGISTRY,
-      excludeId
+      removeCastEventId
     )
     const exhaustedMap = new Map<string, string>()
     for (const ex of resourceExhausted) {
