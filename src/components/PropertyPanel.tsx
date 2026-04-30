@@ -59,13 +59,35 @@ export default function PropertyPanel() {
   // 使用新的伤害计算 Hook（基于状态）
   const { results: eventResults } = useDamageCalculation(timeline)
 
+  // 显示伤害事件属性（event 可能不存在；hooks 必须在 early return 前声明）
+  const event = timeline?.damageEvents.find(e => e.id === selectedEventId)
+
+  // 文本框 draft：每次按键不触发 store 更新，失焦时再 commit，避免高频重算时间轴。
+  // 切换事件 / 外部 undo-redo 时按 React "Adjusting state when a prop changes" 模式
+  // 在 render 期把外部值同步回 draft（用 storedKey 三元组防止覆盖正在编辑的内容）。
+  const [nameDraft, setNameDraft] = useState(event?.name ?? '')
+  const [damageDraft, setDamageDraft] = useState(event ? String(event.damage) : '')
+  const [syncedKey, setSyncedKey] = useState({
+    id: event?.id,
+    name: event?.name,
+    damage: event?.damage,
+  })
+  if (
+    event &&
+    (event.id !== syncedKey.id ||
+      event.name !== syncedKey.name ||
+      event.damage !== syncedKey.damage)
+  ) {
+    setSyncedKey({ id: event.id, name: event.name, damage: event.damage })
+    setNameDraft(event.name)
+    setDamageDraft(String(event.damage))
+  }
+
   // 只有在选中伤害事件时才显示面板（不响应技能选中）
   if (!timeline || !selectedEventId) {
     return null
   }
 
-  // 显示伤害事件属性
-  const event = timeline.damageEvents.find(e => e.id === selectedEventId)
   if (!event) return null
 
   // 使用预先计算的结果（可能为空）
@@ -438,8 +460,13 @@ export default function PropertyPanel() {
           <label className="block text-xs text-muted-foreground mb-1">事件名称</label>
           <input
             type="text"
-            value={event.name}
-            onChange={e => updateDamageEvent(event.id, { name: e.target.value })}
+            value={nameDraft}
+            onChange={e => setNameDraft(e.target.value)}
+            onBlur={() => {
+              if (nameDraft !== event.name) {
+                updateDamageEvent(event.id, { name: nameDraft })
+              }
+            }}
             maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
             className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
             disabled={isReadOnly}
@@ -461,8 +488,17 @@ export default function PropertyPanel() {
             <label className="block text-xs text-muted-foreground mb-1">原始伤害</label>
             <input
               type="number"
-              value={event.damage}
-              onChange={e => updateDamageEvent(event.id, { damage: parseInt(e.target.value) || 0 })}
+              value={damageDraft}
+              onChange={e => setDamageDraft(e.target.value)}
+              onBlur={() => {
+                const parsed = parseInt(damageDraft) || 0
+                if (parsed !== event.damage) {
+                  updateDamageEvent(event.id, { damage: parsed })
+                } else if (damageDraft !== String(event.damage)) {
+                  // draft 是 "" 或 "0a" 等非法输入但 parsed 等于现值；规整显示
+                  setDamageDraft(String(event.damage))
+                }
+              }}
               className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             />

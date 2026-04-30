@@ -76,8 +76,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
-      executor: createShieldExecutor(1362, 30),
-      statDataEntries: [{ type: 'shield', key: 1362 }],
+      executor: ctx => {
+        const partyState = createShieldExecutor(1362, 30)(ctx)
+        return createHealExecutor()({ ...ctx, partyState })
+      },
+      statDataEntries: [
+        { type: 'shield', key: 1362 },
+        { type: 'heal', key: 3540 },
+      ],
     },
     {
       id: 7385,
@@ -170,12 +176,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 90,
       executor: ctx => {
-        const partyState = createShieldExecutor(1457, 30)(ctx)
+        let partyState = createShieldExecutor(1457, 30)(ctx)
+        partyState = createRegenExecutor(2108, 15)({ ...ctx, partyState })
         return createHealExecutor()({ ...ctx, partyState })
       },
       statDataEntries: [
         { type: 'shield', key: 1457 },
         { type: 'heal', key: 7388 },
+        { type: 'heal', key: 1002108, label: 'HoT' },
       ],
     },
     {
@@ -529,6 +537,17 @@ export const MITIGATION_DATA: MitigationDataSource = {
       },
       statDataEntries: [{ type: 'heal', key: 16534 }],
     },
+    {
+      id: 3571,
+      name: '法令',
+      icon: '/i/002000/002634.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 40,
+      executor: createHealExecutor(),
+      statDataEntries: [{ type: 'heal', key: 3571 }],
+    },
 
     // 学者 (SCH)
     // 展开战术 - 复制目标的鼓舞盾到所有成员（模拟为群体单盾）
@@ -705,7 +724,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16538,
       name: '异想的幻光',
-      icon: '/i/002000/002826.png',
+      icon: '/i/002000/002853.png',
       jobs: ['SCH'],
       category: ['partywide', 'percentage'],
       duration: 20,
@@ -757,10 +776,17 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 30, // 真实单层回充时间；实际 gating 交给 sch:consolation + whileStatus(3095)
-      executor: createShieldExecutor(1917, 30),
+      // executor: createShieldExecutor(1917, 30),
+      executor: ctx => {
+        const partyState = createShieldExecutor(1917, 30)(ctx)
+        return createHealExecutor({ amountSourceId: 16547 })({ ...ctx, partyState })
+      },
       placement: whileStatus(3095), // 炽天真 buff 窗口
       resourceEffects: [{ resourceId: 'sch:consolation', delta: -1 }],
-      statDataEntries: [{ type: 'shield', key: 1917 }],
+      statDataEntries: [
+        { type: 'shield', key: 1917 },
+        { type: 'heal', key: 16547 },
+      ],
     },
 
     // 占星术士 (AST)

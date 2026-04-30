@@ -11,8 +11,6 @@ const mkHp = (overrides: Partial<HpPool> = {}): HpPool => ({
   current: 100000,
   max: 100000,
   base: 100000,
-  segMax: 0,
-  inSegment: false,
   ...overrides,
 })
 

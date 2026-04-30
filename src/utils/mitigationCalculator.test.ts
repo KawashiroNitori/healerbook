@@ -2106,3 +2106,235 @@ describe('HP 池 · hpTimeline', () => {
     expect(out.hpTimeline).toEqual([])
   })
 })
+
+describe('partial 段延迟扣盾', () => {
+  const SHIELD_STATUS_ID = 999_811
+
+  const mkShieldMeta = (
+    onConsume?: (ctx: { absorbedAmount: number }) => void
+  ): MitigationStatusMetadata =>
+    ({
+      id: SHIELD_STATUS_ID,
+      name: 'mock-shield',
+      type: 'absorbed',
+      performance: { physics: 1, magic: 1, darkness: 1 },
+      isFriendly: true,
+      isTankOnly: false,
+      executor: onConsume
+        ? {
+            onConsume: (ctx2: { absorbedAmount: number; partyState: PartyState }) => {
+              onConsume({ absorbedAmount: ctx2.absorbedAmount })
+              return ctx2.partyState
+            },
+          }
+        : undefined,
+    }) as MitigationStatusMetadata
+
+  const mkShieldStatus = (
+    instanceId: string,
+    startTime: number,
+    initialBarrier: number,
+    statusId = SHIELD_STATUS_ID
+  ) => ({
+    instanceId,
+    statusId,
+    startTime,
+    endTime: startTime + 999,
+    sourceActionId: 0,
+    sourcePlayerId: 1,
+    initialBarrier,
+    remainingBarrier: initialBarrier,
+    removeOnBarrierBreak: true,
+  })
+
+  function spyShield(onConsume?: (a: { absorbedAmount: number }) => void) {
+    return vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === SHIELD_STATUS_ID ? mkShieldMeta(onConsume) : undefined))
+  }
+
+  it('partial_aoe 期间 remainingBarrier 不变（盾仅显示参与）', () => {
+    const spy = spyShield()
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [mkShieldStatus('sh1', 0, 50000)],
+        timestamp: 0,
+      }
+      // 段未收尾：partial_aoe 总和 50k 应"看起来"全吸收，但盾不被实扣。
+      // 末尾 aoe 5k 验证盾仍是 50k（旧行为下盾已归 0，aoe finalDamage=5k）。
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('p1', 5, 'partial_aoe', 20000),
+          mkDmg('p2', 10, 'partial_aoe', 30000),
+          mkDmg('aoe', 15, 'aoe', 5000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // p1 / p2 显示：盾完整吸收 → finalDamage=0
+      expect(out.damageResults.get('p1')!.finalDamage).toBe(0)
+      expect(out.damageResults.get('p2')!.finalDamage).toBe(0)
+      // 段未收尾，盾仍 50k：aoe 5k 被盾吸收 → finalDamage=0
+      expect(out.damageResults.get('aoe')!.finalDamage).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('partial_final_aoe 按 max(自身 cd, segCandidateMax) 扣盾', () => {
+    const spy = spyShield()
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [mkShieldStatus('sh1', 0, 50000)],
+        timestamp: 0,
+      }
+      // 段：partial_aoe 30k → partial_aoe 40k → partial_final_aoe 20k
+      // segCandidateMax 在 final 时段累积到 max(30k, 40k) = 40k；自身 cd = 20k
+      // effectiveDamage = max(20k, 40k) = 40k → 盾 50k 吃掉 40k → 残 10k
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('p1', 5, 'partial_aoe', 30000),
+          mkDmg('p2', 10, 'partial_aoe', 40000),
+          mkDmg('pf', 15, 'partial_final_aoe', 20000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // pf 自身显示：candidate=20k - absorb=20k → finalDamage=0
+      expect(out.damageResults.get('pf')!.finalDamage).toBe(0)
+
+      // 盾被结算扣到剩 10k：再来一个 aoe 验证 remainingBarrier 已变更
+      const out2 = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('p1', 5, 'partial_aoe', 30000),
+          mkDmg('p2', 10, 'partial_aoe', 40000),
+          mkDmg('pf', 15, 'partial_final_aoe', 20000),
+          mkDmg('aoe', 20, 'aoe', 5000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // aoe candidate=5k, 盾残 10k 吃掉 5k → finalDamage=0
+      expect(out2.damageResults.get('aoe')!.finalDamage).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('单 partial_final_aoe（无前置 partial_aoe）按自身 cd 扣盾', () => {
+    const spy = spyShield()
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [mkShieldStatus('sh1', 0, 50000)],
+        timestamp: 0,
+      }
+      // segCandidateMax = 0；effectiveDamage = max(35k, 0) = 35k → 盾残 15k
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [mkDmg('pf', 5, 'partial_final_aoe', 35000), mkDmg('aoe', 10, 'aoe', 10000)],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // pf 自身显示：35k - 35k = 0
+      expect(out.damageResults.get('pf')!.finalDamage).toBe(0)
+      // aoe candidate=10k, 盾残 15k 吃掉 10k → finalDamage=0
+      expect(out.damageResults.get('aoe')!.finalDamage).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('Phase 4 onConsume 仅在 partial_final_aoe 结算时触发，absorbedAmount 反映实扣量', () => {
+    const consumeCalls: number[] = []
+    const spy = spyShield(({ absorbedAmount }) => consumeCalls.push(absorbedAmount))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [mkShieldStatus('sh1', 0, 30000)],
+        timestamp: 0,
+      }
+      // segCandidateMax 在 final 时段累积到 max(40k, 50k) = 50k
+      // effectiveDamage = max(15k, 50k) = 50k；盾 30k 全吃掉 → 触发 onConsume(absorbed=30k)
+      calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('p1', 5, 'partial_aoe', 40000),
+          mkDmg('p2', 10, 'partial_aoe', 50000),
+          mkDmg('pf', 15, 'partial_final_aoe', 15000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // partial_aoe 阶段不该触发 onConsume；只有 partial_final_aoe 一次
+      expect(consumeCalls).toEqual([30000])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('段被 aoe 打断后，下一段 segCandidateMax 重置', () => {
+    const spy = spyShield()
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [mkShieldStatus('sh1', 0, 50000)],
+        timestamp: 0,
+      }
+      // 段1：p1=40k → aoe(40k) 打断（吃掉 40k 盾，残 10k）
+      // 段2：p2=15k → pf=10k；segCandidateMax=15k；effectiveDamage=max(10k,15k)=15k
+      // 残盾 10k 不够吃 15k → 全消耗 → 盾归 0
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('p1', 5, 'partial_aoe', 40000),
+          mkDmg('aoe', 10, 'aoe', 40000),
+          mkDmg('p2', 15, 'partial_aoe', 15000),
+          mkDmg('pf', 20, 'partial_final_aoe', 10000),
+          mkDmg('aoe2', 25, 'aoe', 1000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // aoe 把盾吃到剩 10k → finalDamage=0
+      expect(out.damageResults.get('aoe')!.finalDamage).toBe(0)
+      // aoe2 candidate=1k，盾此时已全部消耗 → finalDamage=1k
+      expect(out.damageResults.get('aoe2')!.finalDamage).toBe(1000)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('removeOnBarrierBreak: true 的盾在结算被打穿时自动从 statuses 移除', () => {
+    const spy = spyShield()
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [mkShieldStatus('sh1', 0, 20000)],
+        timestamp: 0,
+      }
+      // segCandidateMax = 50k；盾 20k 被打穿
+      const out = calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('p1', 5, 'partial_aoe', 50000),
+          mkDmg('pf', 10, 'partial_final_aoe', 10000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+      })
+      // 通过 statusTimelineByPlayer 验证盾的 interval 在 pf 时刻收束
+      const timeline = out.statusTimelineByPlayer.get(1)?.get(SHIELD_STATUS_ID) ?? []
+      expect(timeline.length).toBeGreaterThan(0)
+      const lastInterval = timeline[timeline.length - 1]
+      expect(lastInterval.to).toBe(10) // pf 时刻
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})

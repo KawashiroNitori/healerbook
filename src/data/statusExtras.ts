@@ -169,6 +169,12 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     category: ['self', 'shield'],
     executor: { onBeforeShield: createSurvivalBarrierHook() },
   },
+  2108: {
+    name: '摆脱',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
 
   735: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的直觉
   1858: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的武猛

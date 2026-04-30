@@ -300,46 +300,73 @@ export class MitigationCalculator {
   }
 
   /**
-   * 按事件类型扣 HP 池，处理 partial 段累积。
-   * 返回新的 PartyState（hp 字段更新）与本次产出的 HpSimulationSnapshot。
+   * 按事件类型扣 HP 池，处理 partial 段累积；同时维护 partyState.segment。
+   *
+   * 段累积器读写：
+   *   aoe                → 段重置（inSegment=false, segMax/segCandidateMax=0），扣全额
+   *   partial_aoe        → 进/留段内，segMax / segCandidateMax 累加 max
+   *   partial_final_aoe  → 累加后段结束（inSegment=false, segMax/segCandidateMax=0）
+   *   tankbuster / auto  → 段不动，HP 不入池
+   *
+   * candidateDamage 来自 calculate 输出，用于驱动 segCandidateMax —— partial_final_aoe
+   * 的延迟结算需要这个值。partial_aoe 在 Phase 3 走 read-only 路径，event 自身的
+   * finalDamage 在盾够大时为 0，不能驱动 segCandidateMax；必须用 candidateDamage。
+   *
    * 坦专事件（tankbuster / auto）不入池，snapshot 为 undefined。
    */
   private applyDamageToHp(
     state: PartyState,
     ev: DamageEvent,
-    finalDamage: number
+    finalDamage: number,
+    candidateDamage: number
   ): { nextState: PartyState; snapshot?: HpSimulationSnapshot } {
-    if (!state.hp) return { nextState: state }
-    const hp = state.hp
-
     if (ev.type === 'tankbuster' || ev.type === 'auto') {
       return { nextState: state }
     }
 
+    // 段累积：先把段更新到"含本事件"的状态，再算扣血量
+    const prevSegment = state.segment ?? {
+      inSegment: false,
+      segMax: 0,
+      segCandidateMax: 0,
+    }
+
+    let nextSegment = prevSegment
+    if (ev.type === 'aoe') {
+      nextSegment = { inSegment: false, segMax: 0, segCandidateMax: 0 }
+    } else if (ev.type === 'partial_aoe' || ev.type === 'partial_final_aoe') {
+      const baseSeg = prevSegment.inSegment
+        ? prevSegment
+        : { inSegment: true, segMax: 0, segCandidateMax: 0 }
+      nextSegment = {
+        inSegment: ev.type === 'partial_final_aoe' ? false : true,
+        segMax: ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segMax, finalDamage),
+        segCandidateMax:
+          ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segCandidateMax, candidateDamage),
+      }
+    }
+
+    if (!state.hp) {
+      return { nextState: { ...state, segment: nextSegment } }
+    }
+    const hp = state.hp
+
     const before = hp.current
     let nextCurrent = hp.current
-    let nextSegMax = hp.segMax
-    let nextInSegment = hp.inSegment
     let dealt = 0
     let snapshotSegMax: number | undefined
 
     if (ev.type === 'aoe') {
       dealt = finalDamage
       nextCurrent -= finalDamage
-      nextSegMax = 0
-      nextInSegment = false
     } else if (ev.type === 'partial_aoe' || ev.type === 'partial_final_aoe') {
-      if (!nextInSegment) {
-        nextSegMax = 0
-        nextInSegment = true
-      }
-      dealt = Math.max(0, finalDamage - nextSegMax)
+      // 用"段进入本事件前的 segMax"算增量；结算事件 nextSegment.segMax 已被清零，
+      // 不能用它做增量参照。
+      const segMaxBefore = prevSegment.inSegment ? prevSegment.segMax : 0
+      const newSegMax = Math.max(segMaxBefore, finalDamage)
+      dealt = Math.max(0, finalDamage - segMaxBefore)
       nextCurrent -= dealt
-      nextSegMax = Math.max(nextSegMax, finalDamage)
-      snapshotSegMax = nextSegMax
-      if (ev.type === 'partial_final_aoe') {
-        nextInSegment = false
-      }
+      snapshotSegMax = newSegMax
     }
 
     const overkill = Math.max(0, dealt - before)
@@ -348,7 +375,8 @@ export class MitigationCalculator {
     return {
       nextState: {
         ...state,
-        hp: { ...hp, current: nextCurrent, segMax: nextSegMax, inSegment: nextInSegment },
+        hp: { ...hp, current: nextCurrent },
+        segment: nextSegment,
       },
       snapshot: {
         hpBefore: before,
@@ -647,8 +675,6 @@ export class MitigationCalculator {
             current: baseReferenceMaxHPForAoe,
             max: baseReferenceMaxHPForAoe,
             base: baseReferenceMaxHPForAoe,
-            segMax: 0,
-            inSegment: false,
           }
         : undefined
 
@@ -656,6 +682,7 @@ export class MitigationCalculator {
       statuses: [...initialState.statuses],
       timestamp: initialState.timestamp,
       hp: initialHpPool,
+      segment: { inSegment: false, segMax: 0, segCandidateMax: 0 },
     }
     // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
     currentState = recomputeAndTrack(currentState, currentState.timestamp)
@@ -750,7 +777,8 @@ export class MitigationCalculator {
       const { nextState: stateAfterHp, snapshot: hpSnap } = this.applyDamageToHp(
         currentState,
         event,
-        result.finalDamage
+        result.finalDamage,
+        result.candidateDamage ?? result.finalDamage
       )
       damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
       if (!skipHpPipeline && stateAfterHp.hp) {
@@ -963,6 +991,10 @@ export class MitigationCalculator {
     // Phase 3: 盾值吸收（基于 workingState，含 onBeforeShield 阶段的修改）
     // 判定依据是 **实例级** `remainingBarrier > 0`，不看 metadata 类型 ——
     // 这样 buff 类 executor（如死斗）通过 onBeforeShield 给自己挂 transient barrier 也能参与吸收。
+    //
+    // partial_aoe 走 read-only 路径：算 absorbed 给 finalDamage 显示，但不真正扣 remainingBarrier、
+    // 不收集 consumedShields。partial_final_aoe 在阶段 A 按自身 candidateDamage 走完整 mutation，
+    // 阶段 B 再按"段最坏一次"对剩余盾补刀。aoe / 坦专保持单次 mutation。
     const shieldStatuses: MitigationStatus[] = []
     for (const status of workingState.statuses) {
       const meta = getStatusById(status.statusId)
@@ -981,6 +1013,8 @@ export class MitigationCalculator {
     const consumedShields: Array<{ status: MitigationStatus; absorbed: number }> = []
     let playerDamage = candidateDamage
 
+    // 阶段 A：本事件自身的"显示口径"扣盾——所有事件类型都跑，决定 finalDamage / appliedStatuses。
+    // partial_aoe 在这里只 read，不写 statusUpdates / consumedShields；其它事件走完整 mutation。
     for (const status of shieldStatuses) {
       const absorbed = Math.min(playerDamage, status.remainingBarrier!)
       playerDamage -= absorbed
@@ -995,20 +1029,21 @@ export class MitigationCalculator {
         appliedStatuses.push(status)
       }
 
-      const newRemainingBarrier = status.remainingBarrier! - absorbed
-
-      if (newRemainingBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
-        statusUpdates.set(status.instanceId, {
-          remainingBarrier: status.initialBarrier,
-          stack: status.stack - 1,
-        })
-      } else {
-        statusUpdates.set(status.instanceId, {
-          remainingBarrier: newRemainingBarrier,
-        })
-        if (newRemainingBarrier <= 0) {
-          // 仅 stack <= 1 且被打穿的盾算"消耗殆尽"，会触发 onConsume
-          consumedShields.push({ status, absorbed })
+      if (event.type !== 'partial_aoe') {
+        const newRemainingBarrier = status.remainingBarrier! - absorbed
+        if (newRemainingBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
+          statusUpdates.set(status.instanceId, {
+            remainingBarrier: status.initialBarrier,
+            stack: status.stack - 1,
+          })
+        } else {
+          statusUpdates.set(status.instanceId, {
+            remainingBarrier: newRemainingBarrier,
+          })
+          if (newRemainingBarrier <= 0) {
+            // 仅 stack <= 1 且被打穿的盾算"消耗殆尽"，会触发 onConsume
+            consumedShields.push({ status, absorbed })
+          }
         }
       }
 
@@ -1016,6 +1051,45 @@ export class MitigationCalculator {
     }
 
     const damage = playerDamage
+
+    // 阶段 B（仅 partial_final_aoe）：按 max(自身 cd, segCandidateMax) 给剩余盾补差额。
+    // 阶段 A 已按 candidateDamage 实扣过一遍，这里只补"effectiveDamage - candidateDamage"那部分。
+    // displayed finalDamage（即 `damage`）不受影响——event.damage 是用户输入的单一权威。
+    if (event.type === 'partial_final_aoe') {
+      const segCandidateMax = partyState.segment?.segCandidateMax ?? 0
+      const effectiveDamage = Math.max(candidateDamage, segCandidateMax)
+      let extra = effectiveDamage - candidateDamage
+      if (extra > 0) {
+        for (const status of shieldStatuses) {
+          const partial = statusUpdates.get(status.instanceId)
+          const currentBarrier = partial?.remainingBarrier ?? status.remainingBarrier!
+          if (currentBarrier <= 0) continue
+          const absorbed = Math.min(extra, currentBarrier)
+          extra -= absorbed
+          const newBarrier = currentBarrier - absorbed
+          if (newBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
+            // stack 衰减不算"消耗殆尽"——与阶段 A 语义对齐
+            statusUpdates.set(status.instanceId, {
+              remainingBarrier: status.initialBarrier,
+              stack: status.stack - 1,
+            })
+          } else {
+            statusUpdates.set(status.instanceId, { remainingBarrier: newBarrier })
+            if (newBarrier <= 0) {
+              const alreadyMarked = consumedShields.some(
+                c => c.status.instanceId === status.instanceId
+              )
+              if (!alreadyMarked) {
+                // 阶段 A 在该 status 上扣的量 = 原始 remainingBarrier - 阶段 A 后的值
+                const aAbsorb = status.remainingBarrier! - currentBarrier
+                consumedShields.push({ status, absorbed: aAbsorb + absorbed })
+              }
+            }
+          }
+          if (extra <= 0) break
+        }
+      }
+    }
 
     let updatedPartyState: PartyState = {
       ...workingState,

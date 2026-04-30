@@ -317,17 +317,18 @@ export default function EditorToolbar({
                     >
                       原始伤害
                     </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={enableHpSimulation}
-                      onCheckedChange={checked => {
-                        track('view-toggle-hp-simulation', { checked })
-                        toggleEnableHpSimulation()
-                      }}
-                    >
-                      HP 模拟
-                    </DropdownMenuCheckboxItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={enableHpSimulation}
+                  onCheckedChange={checked => {
+                    track('view-toggle-hp-simulation', { checked })
+                    toggleEnableHpSimulation()
+                  }}
+                >
+                  HP 模拟
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
