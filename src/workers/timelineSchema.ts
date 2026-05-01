@@ -39,7 +39,7 @@ const V2DamageEventSchema = v.object({
   n: v.pipe(v.string(), v.maxLength(DAMAGE_EVENT_NAME_MAX_LENGTH)),
   t: v.number(),
   d: v.number(),
-  ty: v.union([v.literal(0), v.literal(1), v.literal(2)]),
+  ty: v.union([v.literal(0), v.literal(1), v.literal(2), v.literal(3), v.literal(4)]),
   dt: v.union([v.literal(0), v.literal(1), v.literal(2)]),
   st: v.optional(v.number()),
   pdd: v.optional(v.array(V2PlayerDamageDetailSchema)),
