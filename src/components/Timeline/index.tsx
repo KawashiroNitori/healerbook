@@ -19,6 +19,8 @@ import { toast } from 'sonner'
 import {
   useDamageCalculationResults,
   useDamageCalculationSimulate,
+  useHpTimeline,
+  useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
@@ -43,7 +45,8 @@ import type { SkillTrack } from '@/utils/skillTracks'
 import type { AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import { TIMELINE_START_TIME, useCanvasColors } from './constants'
+import { TIMELINE_START_TIME, useCanvasColors, HP_CURVE_HEIGHT } from './constants'
+import HpCurveTrack from './HpCurveTrack'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
@@ -169,19 +172,23 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   } = useTimelineStore()
   const { actions } = useMitigationStore()
   const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const calculationResults = useDamageCalculationResults()
-  const simulate = useDamageCalculationSimulate()
+  const simulateOnRemove = useDamageCalculationSimulate()
+  const statusTimelineByPlayer = useStatusTimelineByPlayer()
+  const hpTimeline = useHpTimeline()
 
   const actionMap = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
 
   const engine: PlacementEngine | null = useMemo(() => {
-    if (!timeline || !simulate) return null
+    if (!timeline) return null
     return createPlacementEngine({
       castEvents: timeline.castEvents,
       actions: actionMap,
-      simulate,
+      statusTimelineByPlayer,
+      simulateOnRemove: simulateOnRemove ?? undefined,
     })
-  }, [timeline, simulate, actionMap])
+  }, [timeline, actionMap, statusTimelineByPlayer, simulateOnRemove])
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
 
@@ -330,7 +337,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
     const maxTime = Math.max(300, lastEventTime + 60)
     const timelineWidth = (maxTime - TIMELINE_START_TIME) * zoomLevel
-    const fixedAreaHeight = timeRulerHeight + eventTrackHeight
+    const hasHpData = hpTimeline.length >= 2
+    const hpTrackHeight = enableHpSimulation && hasHpData ? HP_CURVE_HEIGHT : 0
+    const fixedAreaHeight = timeRulerHeight + eventTrackHeight + hpTrackHeight
     const skillTracksHeight = skillTracks.length * skillTrackHeight
 
     return {
@@ -341,12 +350,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       skillTracksHeight,
       laneCount,
       LANE_ROW_HEIGHT,
+      hpTrackHeight,
       // Task 14/15 会移除 displayActionOverrides prop 管道；trackGroup + 原始 actionId
       // 已经让渲染层自然挂载，此 Map 暂留为空占位以保持编译。
       displayActionOverrides: new Map<string, MitigationAction>(),
       maxTime,
     }
-  }, [timeline, zoomLevel, skillTracks, isDamageTrackCollapsed, filteredDamageEvents])
+  }, [
+    timeline,
+    zoomLevel,
+    skillTracks,
+    isDamageTrackCollapsed,
+    filteredDamageEvents,
+    enableHpSimulation,
+    hpTimeline.length,
+  ])
 
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
@@ -1094,6 +1112,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     fixedAreaHeight,
     skillTracksHeight,
     LANE_ROW_HEIGHT,
+    hpTrackHeight,
     displayActionOverrides,
     maxTime,
   } = layoutData
@@ -1196,6 +1215,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             </button>
             <span className="text-xs text-muted-foreground">伤害</span>
           </div>
+
+          {hpTrackHeight > 0 && (
+            <div
+              className="border-b bg-muted/30 flex items-center justify-end px-2"
+              style={{ height: HP_CURVE_HEIGHT }}
+            >
+              <span className="text-xs text-muted-foreground">HP</span>
+            </div>
+          )}
         </div>
 
         {/* 右侧固定 Stage 区域 */}
@@ -1208,6 +1236,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 timelineWidth={timelineWidth}
                 height={timeRulerHeight}
               />
+
+              {/* HP 轨道在 DamageEventTrack 之前渲染，让伤害轨的网格线 / 事件竖线（由
+                  bottomExtension 延伸到 HP 轨）画在 HP 曲线之上。 */}
+              {hpTrackHeight > 0 && (
+                <HpCurveTrack
+                  hpTimeline={hpTimeline}
+                  zoomLevel={zoomLevel}
+                  yOffset={timeRulerHeight + eventTrackHeight}
+                  width={timelineWidth}
+                  height={HP_CURVE_HEIGHT}
+                  viewportWidth={viewportWidth}
+                  scrollLeft={clampedScrollLeft}
+                />
+              )}
 
               <DamageEventTrack
                 events={filteredDamageEvents}
@@ -1222,6 +1264,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 draggingEventPosition={draggingEventPosition}
                 viewportWidth={viewportWidth}
                 scrollLeft={clampedScrollLeft}
+                bottomExtension={hpTrackHeight}
                 onSelectEvent={handleSelectEvent}
                 onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}
                 onDragMove={(eventId, x) => {

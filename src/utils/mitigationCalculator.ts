@@ -3,7 +3,7 @@
  * 实现核心减伤计算逻辑
  */
 
-import type { PartyState } from '@/types/partyState'
+import type { HpPool, PartyState } from '@/types/partyState'
 import type {
   MitigationStatus,
   MitigationStatusMetadata,
@@ -13,9 +13,13 @@ import type {
 import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext } from '@/types/mitigation'
+import type { HealSnapshot } from '@/types/healSnapshot'
+import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
+import { computeMaxHpMultiplier } from '@/executors/healMath'
 import { isStatusValidForTank } from './statusFilter'
+import { formatTimeWithDecimal } from '@/utils/formatters'
 
 /**
  * 多坦路径单坦克的计算结果
@@ -28,6 +32,41 @@ export interface PerTankResult {
   appliedStatuses: MitigationStatus[]
   /** 该分支个性化后的参考 HP（叠乘 maxHP 倍率） */
   referenceMaxHP: number
+}
+
+/**
+ * HP 池模拟快照（编辑模式非坦事件填充）
+ *
+ * 坦专事件（tankbuster / auto）走 perVictim 多坦分支，hpSimulation 为 undefined。
+ * 回放模式与 hp 池未初始化时同样为 undefined。
+ */
+export interface HpSimulationSnapshot {
+  /** 事件前 HP（cast / HoT 已结算） */
+  hpBefore: number
+  /** 事件后 HP（已扣段增量 / aoe 全额，clamp 到 [0, max]） */
+  hpAfter: number
+  /** 当前 HP 上限（含 maxHP buff） */
+  hpMax: number
+  /** 段内 max（partial 事件填充；非 partial 事件不填） */
+  segMax?: number
+  /**
+   * 段进入本事件前的最大 event.damage（原始空间，partial 事件填充；**不含本事件**）。
+   * 段刚开（本事件是首个 partial）时为 0。
+   * 仅供 UI 展示（PropertyPanel 的"部分 AOE 伤害详情"），不参与扣血 / 扣盾；
+   * partyState.segment.segOriginalMax 仍维护含本事件的最大值给下一事件用。
+   */
+  segOriginalMax?: number
+  /**
+   * 段内盾前增量（partial 事件填充）= max(0, candidateDamage - 段进入本事件前的 segCandidateMax)。
+   * 与 hpSnap.dealt（盾后增量 = hpBefore - hpAfter + overkill）成对：
+   *   pctMit_settlement   = raw_settlement - preShieldDealt
+   *   shield_settlement   = preShieldDealt - preClampDealt
+   *   finalDamage_settlement = preClampDealt
+   * 让 PropertyPanel 减伤构成与 HP 条扣血量保持一致。
+   */
+  preShieldDealt?: number
+  /** 溢出伤害 = max(0, 应扣量 - hpBefore)（应扣量：partial = delta、aoe = finalDamage） */
+  overkill?: number
 }
 
 /**
@@ -54,6 +93,10 @@ export interface CalculationResult {
    * maxDamage 取 max(perVictim.finalDamage)。
    */
   perVictim?: PerTankResult[]
+  /** HP 池模拟快照；编辑模式下非坦事件填充；坦专 / 回放模式 / hp 缺失时为 undefined */
+  hpSimulation?: HpSimulationSnapshot
+  /** 盾前伤害（phase 1 % 减伤后、phase 2/3 盾扣前）；phase 5 钩子需要它。 */
+  candidateDamage?: number
 }
 
 /**
@@ -78,6 +121,15 @@ export interface CalculateOptions {
   tankPlayerIds?: number[]
   /** 时间轴内部统计数据，可选；用于 Status*Context.statistics 注入 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器；钩子改 hp 时通过此回调记录 HealSnapshot */
+  recordHeal?: (snap: HealSnapshot) => void
+  /**
+   * 已经过期但快照时刻仍可能 active 的状态（DOT 快照专用）。
+   * 主循环按 event.time 单调推进，buff endTime < cur 会被剔除；DOT 的 snapshotTime
+   * 落在某个已剔除 buff 的 [start, end] 内时需要靠这个补丁找回。仅参与 Phase 1 % 减伤
+   * 计算（Phase 2-4 钩子继续走当前 partyState，避免对已消失的 buff 重复触发）。
+   */
+  historicalStatuses?: MitigationStatus[]
 }
 
 /**
@@ -103,6 +155,16 @@ export interface SimulateInput {
    * 用于 calculator.calculate 的 baseReferenceMaxHP（单路径路径）。
    */
   baseReferenceMaxHPForAoe?: number
+  /**
+   * 跳过 HP 管线：不初始化 HP 池、不记录 heal snapshot / hpTimeline、不发治疗调试日志。
+   * 仅用于 PlacementEngine 这类只消费 statusTimelineByPlayer 的轻量调用，
+   * 避免 N 次 engine simulate 重复跑完整 HP 模拟（每跑一次刷一遍治疗日志）。
+   *
+   * status 推进逻辑（executor / advance / capture）完全保留，statusTimelineByPlayer
+   * 输出与完整模式一致。HP 相关的 executor 行为（如死斗 hp.current = 1）会因 hp =
+   * undefined 自然走早返回，不影响 status 列表。
+   */
+  skipHpPipeline?: boolean
 }
 
 /**
@@ -119,6 +181,10 @@ export interface SimulateOutput {
    * 渲染层用此字段定位绿条末端，miss 时回退到 cast.timestamp + action.duration。
    */
   castEffectiveEndByCastEventId: Map<string, number>
+  /** 所有治疗事件（cast + HoT tick）的 snapshot，按 time 升序 */
+  healSnapshots: HealSnapshot[]
+  /** HP 池演化序列（time 升序）；回放模式 / hp 池未初始化时为空数组 */
+  hpTimeline: HpTimelinePoint[]
 }
 
 /**
@@ -176,6 +242,8 @@ export class MitigationCalculator {
           shieldFilter: tankShieldFilter,
           referenceMaxHP: refHP,
           statistics: opts?.statistics,
+          recordHeal: opts?.recordHeal,
+          historicalStatuses: opts?.historicalStatuses,
         })
         return {
           playerId: tankId,
@@ -184,6 +252,7 @@ export class MitigationCalculator {
           appliedStatuses: branch.appliedStatuses,
           referenceMaxHP: refHP,
           state: branch.updatedPartyState,
+          candidateDamage: branch.candidateDamage,
         }
       })
 
@@ -211,6 +280,7 @@ export class MitigationCalculator {
         updatedPartyState: bestBranch.state,
         referenceMaxHP: bestBranch.referenceMaxHP,
         perVictim,
+        candidateDamage: bestBranch.candidateDamage,
       }
     }
 
@@ -229,17 +299,141 @@ export class MitigationCalculator {
       shieldFilter: singleShieldFilter,
       referenceMaxHP,
       statistics: opts?.statistics,
+      recordHeal: opts?.recordHeal,
+      historicalStatuses: opts?.historicalStatuses,
     })
 
     return {
       originalDamage,
       finalDamage: branch.finalDamage,
       maxDamage: branch.finalDamage,
+      candidateDamage: branch.candidateDamage,
       mitigationPercentage: branch.mitigationPercentage,
       appliedStatuses: branch.appliedStatuses,
       updatedPartyState: branch.updatedPartyState,
       referenceMaxHP,
     }
+  }
+
+  /**
+   * 按事件类型扣 HP 池，处理 partial 段累积；同时维护 partyState.segment。
+   *
+   * 段累积器读写：
+   *   aoe                → 段重置（inSegment=false, segMax/segCandidateMax=0），扣全额
+   *   partial_aoe        → 进/留段内，segMax / segCandidateMax 累加 max
+   *   partial_final_aoe  → 累加后段结束（inSegment=false, segMax/segCandidateMax=0）
+   *   tankbuster / auto  → 段不动，HP 不入池
+   *
+   * candidateDamage 来自 calculate 输出，用于驱动 segCandidateMax —— partial_final_aoe
+   * 的延迟结算需要这个值。partial_aoe 在 Phase 3 走 read-only 路径，event 自身的
+   * finalDamage 在盾够大时为 0，不能驱动 segCandidateMax；必须用 candidateDamage。
+   *
+   * 坦专事件（tankbuster / auto）不入池，snapshot 为 undefined。
+   */
+  private applyDamageToHp(
+    state: PartyState,
+    ev: DamageEvent,
+    finalDamage: number,
+    candidateDamage: number
+  ): { nextState: PartyState; snapshot?: HpSimulationSnapshot } {
+    if (ev.type === 'tankbuster' || ev.type === 'auto') {
+      return { nextState: state }
+    }
+
+    // 段累积：先把段更新到"含本事件"的状态，再算扣血量
+    const prevSegment = state.segment ?? {
+      inSegment: false,
+      segMax: 0,
+      segCandidateMax: 0,
+      segOriginalMax: 0,
+    }
+
+    let nextSegment = prevSegment
+    let snapshotSegOriginalMax: number | undefined
+    if (ev.type === 'aoe') {
+      nextSegment = { inSegment: false, segMax: 0, segCandidateMax: 0, segOriginalMax: 0 }
+    } else if (ev.type === 'partial_aoe' || ev.type === 'partial_final_aoe') {
+      const baseSeg = prevSegment.inSegment
+        ? prevSegment
+        : { inSegment: true, segMax: 0, segCandidateMax: 0, segOriginalMax: 0 }
+      // snapshot 暴露给 UI 的"最高区间伤害"= 段进入本事件前的最大 event.damage（不含自身），
+      // 否则本事件就是段最大时会退化成"最高 = 原始 = 自身、结算 = 0"，不携带信息。
+      // nextSegment.segOriginalMax 仍维护含自身的最大值，给下一事件用。
+      snapshotSegOriginalMax = baseSeg.segOriginalMax
+      nextSegment = {
+        inSegment: ev.type === 'partial_final_aoe' ? false : true,
+        segMax: ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segMax, finalDamage),
+        segCandidateMax:
+          ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segCandidateMax, candidateDamage),
+        segOriginalMax:
+          ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segOriginalMax, ev.damage),
+      }
+    }
+
+    if (!state.hp) {
+      return { nextState: { ...state, segment: nextSegment } }
+    }
+    const hp = state.hp
+
+    const before = hp.current
+    let nextCurrent = hp.current
+    let dealt = 0
+    let snapshotSegMax: number | undefined
+    let snapshotPreShieldDealt: number | undefined
+
+    if (ev.type === 'aoe') {
+      dealt = finalDamage
+      nextCurrent -= finalDamage
+    } else if (ev.type === 'partial_aoe' || ev.type === 'partial_final_aoe') {
+      // 用"段进入本事件前的 segMax / segCandidateMax"算增量；结算事件 nextSegment 已清零。
+      const segMaxBefore = prevSegment.inSegment ? prevSegment.segMax : 0
+      const segCandidateMaxBefore = prevSegment.inSegment ? prevSegment.segCandidateMax : 0
+      const newSegMax = Math.max(segMaxBefore, finalDamage)
+      dealt = Math.max(0, finalDamage - segMaxBefore)
+      nextCurrent -= dealt
+      snapshotSegMax = newSegMax
+      snapshotPreShieldDealt = Math.max(0, candidateDamage - segCandidateMaxBefore)
+    }
+
+    const overkill = Math.max(0, dealt - before)
+    nextCurrent = Math.max(0, Math.min(nextCurrent, hp.max))
+
+    return {
+      nextState: {
+        ...state,
+        hp: { ...hp, current: nextCurrent },
+        segment: nextSegment,
+      },
+      snapshot: {
+        hpBefore: before,
+        hpAfter: nextCurrent,
+        hpMax: hp.max,
+        segMax: snapshotSegMax,
+        segOriginalMax: snapshotSegOriginalMax,
+        preShieldDealt: snapshotPreShieldDealt,
+        overkill: overkill > 0 ? overkill : undefined,
+      },
+    }
+  }
+
+  /**
+   * 重算 hp.max（按 active 非坦专 maxHP buff 累乘），按比例同步伸缩 hp.current。
+   * 在每次 status mutation（applyExecutor / advanceToTime expire / onConsume）后调用。
+   */
+  private recomputeHpMax(state: PartyState): PartyState {
+    if (!state.hp) return state
+    const newMultiplier = computeMaxHpMultiplier(state.statuses, state.timestamp)
+    const prevMultiplier = state.hp.max / state.hp.base
+    if (Math.abs(newMultiplier - prevMultiplier) < 1e-9) return state
+
+    const ratio = newMultiplier / prevMultiplier
+    // Round 后避免浮点误差（Math.round 与 computeReferenceMaxHP 口径一致）。
+    // hp.current 也 round——maxHP 缩放是写 hp 的链路之一，与 computeFinalHeal /
+    // calculate.finalDamage 出口取整对齐，保证 hp.current 始终整数。
+    const newMax = Math.round(state.hp.base * newMultiplier)
+    const newCurrent = Math.max(0, Math.min(Math.round(state.hp.current * ratio), newMax))
+
+    return { ...state, hp: { ...state.hp, current: newCurrent, max: newMax } }
   }
 
   /**
@@ -259,11 +453,75 @@ export class MitigationCalculator {
       tankPlayerIds = [],
       baseReferenceMaxHPForTank = 0,
       baseReferenceMaxHPForAoe = 0,
+      skipHpPipeline = false,
     } = input
 
     const damageResults = new Map<string, CalculationResult>()
     const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
     const castEffectiveEndByCastEventId = new Map<string, number>()
+    const healSnapshots: HealSnapshot[] = []
+    const hpTimeline: HpTimelinePoint[] = []
+    // 已被 advance 剔除（endTime < cur）但 DOT snapshotTime 仍可能落在区间内的 buff。
+    // 主循环按 event.time 单调推进，无法回滚状态——靠这个补丁让 Phase 1 % 减伤找回它们。
+    const pastStatuses: MitigationStatus[] = []
+    // 闭包变量：跟踪"最近已知 hp 值"，让 recordHeal 在钩子还未 return 新 state 时也能正确回填
+    let lastKnownHp = 0
+    let lastKnownHpMax = 0
+    const recomputeAndTrack = (state: PartyState, time: number): PartyState => {
+      const next = this.recomputeHpMax(state)
+      if (!skipHpPipeline && state.hp && next.hp && state.hp.max !== next.hp.max) {
+        lastKnownHp = next.hp.current
+        lastKnownHpMax = next.hp.max
+        hpTimeline.push({
+          time,
+          hp: lastKnownHp,
+          hpMax: lastKnownHpMax,
+          kind: 'maxhp-change',
+        })
+      }
+      return next
+    }
+    // skipHpPipeline 时 recordHeal 设为 undefined：让 executor 的 ctx.recordHeal?.(...)
+    // 调用直接走 optional chaining 短路；降低无效对象构造与日志开销。
+    const recordHeal = skipHpPipeline
+      ? undefined
+      : (snap: HealSnapshot) => {
+          healSnapshots.push(snap)
+          // 治疗后 hp = 当前已知 hp + applied（钩子里还没 return，所以 lastKnown 还是治疗前的 hp.current）
+          const prevHp = lastKnownHp
+          const hpAfter = Math.min(prevHp + snap.applied, lastKnownHpMax)
+          hpTimeline.push({
+            time: snap.time,
+            hp: hpAfter,
+            hpMax: lastKnownHpMax,
+            kind: snap.isHotTick ? 'tick' : 'heal',
+            // castEventId 为空字符串时转 undefined，与 refEventId 语义一致（无来源 cast）
+            refEventId: snap.castEventId || undefined,
+          })
+          lastKnownHp = hpAfter
+
+          // 调试日志：每次治疗的时间 / 技能名 / prevHP / afterHP / 变化量。
+          // actionId 形如 1e6+statusId（healByAbility 中 buff 类治疗的 key 形式，如全大赦
+          // 给医治追加的附属治疗 amountSourceId=1001219）时反查 statusRegistry 拿 buff 名。
+          // 仅 DEV 构建保留；生产期 import.meta.env.DEV 常量折叠成 false → 整段 DCE，
+          // 包含 actionName 反查（每条 snap 一次 MITIGATION_DATA.actions.find）的运行期开销。
+          if (import.meta.env.DEV) {
+            const actionName = (() => {
+              const action = MITIGATION_DATA.actions.find(a => a.id === snap.actionId)
+              if (action) return action.name
+              if (snap.actionId >= 1_000_000) {
+                const status = getStatusById(snap.actionId - 1_000_000)
+                if (status) return status.name
+              }
+              return `action#${snap.actionId}`
+            })()
+            const tag = snap.isHotTick ? 'HoT' : 'cast'
+            const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
+            console.log(
+              `[hp-sim heal] ${formatTimeWithDecimal(snap.time)} [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
+            )
+          }
+        }
 
     interface OpenRecord {
       statusId: number
@@ -361,26 +619,44 @@ export class MitigationCalculator {
         //   ✓ onTick 返回的新 state 会立即影响该 tick 后续 status 读到的 ctx.partyState
         //   ✗ 但新添加的状态不会在同一 tick 立即被遍历到——它们要等下一 tick 才参与
         // 避免了"tick 内自触发"，也让每个 tick 点的 executor 调用次数可预测。
+        next = { ...next, timestamp: t }
+        next = recomputeAndTrack(next, t)
         for (const status of next.statuses) {
           if (status.startTime > t || status.endTime < t) continue
           const meta = getStatusById(status.statusId)
           if (!meta?.executor?.onTick) continue
-          const result = meta.executor.onTick({ status, tickTime: t, partyState: next, statistics })
-          if (result) next = result
+          const result = meta.executor.onTick({
+            status,
+            tickTime: t,
+            partyState: next,
+            statistics,
+            recordHeal,
+          })
+          if (result) {
+            next = result
+            next = recomputeAndTrack(next, t)
+          }
         }
       }
 
       const fireExpire = (status: MitigationStatus) => {
         expired.add(status.instanceId)
+        next = { ...next, timestamp: status.endTime }
         const meta = getStatusById(status.statusId)
-        if (!meta?.executor?.onExpire) return
+        if (!meta?.executor?.onExpire) {
+          // 即使没有 onExpire 钩子，timestamp 推进也可能让 maxHP buff active 状态变化
+          next = recomputeAndTrack(next, status.endTime)
+          return
+        }
         const result = meta.executor.onExpire({
           status,
           expireTime: status.endTime,
           partyState: next,
           statistics,
+          recordHeal,
         })
         if (result) next = result
+        next = recomputeAndTrack(next, status.endTime)
       }
 
       // 主循环：每轮挑出"最早的下一个 tick"和"最早的下一个待过期 status"，
@@ -408,15 +684,49 @@ export class MitigationCalculator {
         }
       }
 
-      return { ...next, statuses: next.statuses.filter(s => s.endTime >= cur) }
+      const kept: MitigationStatus[] = []
+      for (const s of next.statuses) {
+        if (s.endTime >= cur) kept.push(s)
+        else pastStatuses.push(s)
+      }
+      next = {
+        ...next,
+        statuses: kept,
+        timestamp: cur,
+      }
+      next = recomputeAndTrack(next, cur)
+      return next
     }
 
     const sortedDamage = [...damageEvents].sort((a, b) => a.time - b.time)
     const sortedCasts = [...castEvents].sort((a, b) => a.timestamp - b.timestamp)
 
+    const initialHpPool: HpPool | undefined =
+      !skipHpPipeline && baseReferenceMaxHPForAoe > 0
+        ? {
+            current: baseReferenceMaxHPForAoe,
+            max: baseReferenceMaxHPForAoe,
+            base: baseReferenceMaxHPForAoe,
+          }
+        : undefined
+
     let currentState: PartyState = {
       statuses: [...initialState.statuses],
       timestamp: initialState.timestamp,
+      hp: initialHpPool,
+      segment: { inSegment: false, segMax: 0, segCandidateMax: 0, segOriginalMax: 0 },
+    }
+    // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
+    currentState = recomputeAndTrack(currentState, currentState.timestamp)
+    if (!skipHpPipeline && currentState.hp) {
+      lastKnownHp = currentState.hp.current
+      lastKnownHpMax = currentState.hp.max
+      hpTimeline.push({
+        time: currentState.timestamp,
+        hp: lastKnownHp,
+        hpMax: lastKnownHpMax,
+        kind: 'init',
+      })
     }
     // 初始 state 的 open 区间（用户 seeded buff 等）：sourceCastEventId = ''（空字符串）
     captureTransition({ statuses: [], timestamp: 0 }, currentState, 0)
@@ -424,46 +734,53 @@ export class MitigationCalculator {
     let lastAdvanceTime = 0
     let castIdx = 0
 
-    for (const event of sortedDamage) {
-      const filterTime = event.snapshotTime ?? event.time
-      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp <= event.time) {
-        const castEvent = sortedCasts[castIdx]
-        const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
-        if (action) {
-          // 保留 DOT 快照兼容：推进到 cast 时间点和快照时间点的较早者，
-          // 避免在 cast 时刻已过期但快照时刻仍需保留的 DOT 状态被提前清理
-          const castAdvanceTarget = Math.min(castEvent.timestamp, filterTime)
-          const prevState = currentState
-          currentState = advanceToTime(currentState, lastAdvanceTime, castAdvanceTarget)
-          captureTransition(prevState, currentState, castAdvanceTarget)
-          lastAdvanceTime = castAdvanceTarget
+    // 抽出"处理一个 cast"的逻辑：damage 前 while、damage 后同时刻 while、末尾干推进三处复用。
+    // advanceTarget 一律传 cast.timestamp——主循环已统一以 event.time 推进，DOT 快照
+    // 由 historicalStatuses（advance 剔除的 buff）在 calculate Phase 1 找回，无需在
+    // advance 终点上 hack。
+    const processCast = (castEvent: CastEvent, advanceTarget: number) => {
+      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
+      if (!action) return
+      const prevState = currentState
+      currentState = advanceToTime(currentState, lastAdvanceTime, advanceTarget)
+      captureTransition(prevState, currentState, advanceTarget)
+      lastAdvanceTime = advanceTarget
 
-          if (action.executor) {
-            const before = currentState
-            const ctx: ActionExecutionContext = {
-              actionId: castEvent.actionId,
-              useTime: castEvent.timestamp,
-              partyState: currentState,
-              sourcePlayerId: castEvent.playerId,
-              statistics,
-            }
-            currentState = action.executor(ctx)
-            captureTransition(
-              before,
-              currentState,
-              castEvent.timestamp,
-              castEvent.id,
-              castEvent.playerId
-            )
-          }
-        }
+      if (!action.executor) return
+      const before = currentState
+      currentState = { ...currentState, timestamp: castEvent.timestamp }
+      const ctx: ActionExecutionContext = {
+        actionId: castEvent.actionId,
+        useTime: castEvent.timestamp,
+        partyState: currentState,
+        sourcePlayerId: castEvent.playerId,
+        statistics,
+        castEventId: castEvent.id,
+        recordHeal,
+      }
+      currentState = action.executor(ctx)
+      currentState = recomputeAndTrack(currentState, castEvent.timestamp)
+      captureTransition(before, currentState, castEvent.timestamp, castEvent.id, castEvent.playerId)
+    }
+
+    for (const event of sortedDamage) {
+      // 主循环的时间推进、状态收束、HP 演化全部以 event.time 为准。
+      // event.snapshotTime（DOT 快照时刻）只影响 calculate 内 Phase 1 % 减伤计算——
+      // mitigationTime = snapshotTime ?? event.time，用 historicalStatuses（advance 已剔除
+      // 的 buff）找回快照时刻 active 的过期 buff。其他所有处理（advance / captureTransition /
+      // Phase 4 onConsume / Phase 5 onAfterDamage 钩子）一律用 event.time，避免 DOT 语义
+      // 渗透到不该影响的链路（典型 bug：礼仪之铃 stack 在 onAfterDamage 里 removeStatus，
+      // 用 filterTime 收束 → 绿条在 snapshotTime 提前断）。
+      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp < event.time) {
+        const castEvent = sortedCasts[castIdx]
+        processCast(castEvent, castEvent.timestamp)
         castIdx++
       }
 
       const beforeAdvance = currentState
-      currentState = advanceToTime(currentState, lastAdvanceTime, filterTime)
-      captureTransition(beforeAdvance, currentState, filterTime)
-      lastAdvanceTime = filterTime
+      currentState = advanceToTime(currentState, lastAdvanceTime, event.time)
+      captureTransition(beforeAdvance, currentState, event.time)
+      lastAdvanceTime = event.time
 
       const includeTankOnly = event.type === 'tankbuster' || event.type === 'auto'
       const baseReferenceMaxHP = includeTankOnly
@@ -476,46 +793,91 @@ export class MitigationCalculator {
         baseReferenceMaxHP,
         tankPlayerIds: tankIds,
         statistics,
+        recordHeal,
+        // 仅 DOT 事件（snapshotTime 显式给出）需要找回过期 buff；普通事件不传，避免歧义。
+        historicalStatuses: event.snapshotTime !== undefined ? pastStatuses : undefined,
       })
-      damageResults.set(event.id, result)
       if (result.updatedPartyState) {
+        // calculate 内 phase 2 onBeforeShield / phase 4 onConsume 钩子允许改 hp.current
+        // （如反应式治疗 buff），主循环信任并接受 calculate 输出的 hp 状态。
         currentState = result.updatedPartyState
-        captureTransition(beforeCalc, currentState, filterTime)
+        currentState = recomputeAndTrack(currentState, event.time)
+        captureTransition(beforeCalc, currentState, event.time)
+      }
+
+      // calculate 之后扣 HP 池；hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
+      const { nextState: stateAfterHp, snapshot: hpSnap } = this.applyDamageToHp(
+        currentState,
+        event,
+        result.finalDamage,
+        result.candidateDamage ?? result.finalDamage
+      )
+      damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
+      if (!skipHpPipeline && stateAfterHp.hp) {
+        lastKnownHp = stateAfterHp.hp.current
+        lastKnownHpMax = stateAfterHp.hp.max
+        hpTimeline.push({
+          time: event.time,
+          hp: lastKnownHp,
+          hpMax: lastKnownHpMax,
+          kind: 'damage',
+          refEventId: event.id,
+        })
+      }
+      // 调试日志：仅 DEV 构建保留；生产期 import.meta.env.DEV 折叠成 false → 整段 DCE。
+      if (import.meta.env.DEV && !skipHpPipeline && hpSnap) {
+        const dealt = hpSnap.hpBefore - hpSnap.hpAfter
+        const overkillNote = hpSnap.overkill ? ` (overkill ${hpSnap.overkill})` : ''
+        console.log(
+          `[hp-sim damage] ${formatTimeWithDecimal(event.time)} [${event.type}] ${event.name}: ${hpSnap.hpBefore} → ${hpSnap.hpAfter} (-${dealt})${overkillNote}`
+        )
+      }
+      currentState = stateAfterHp
+
+      // Phase 5 onAfterDamage：在 applyDamageToHp 之后跑，让反应式治疗（如礼仪之铃）看到
+      // hp_after_damage 而非 hp_before。filter 复刻 calculate 单路径的 multiplierFilter
+      // 口径——aoe 排除坦专 buff，tankbuster 全包含。多坦下 phase 5 钩子目前只做 partywide
+      // 操作（礼仪之铃 stack 减 / nonTankDamageTotal 累计），按"最优分支后的共享 partyState"
+      // 跑一次即可，避免按 tank 分支重复触发让 stack 加倍消耗。
+      const beforePhase5 = currentState
+      let phase5State = currentState
+      for (const status of currentState.statuses) {
+        const meta = getStatusById(status.statusId)
+        if (!meta?.executor?.onAfterDamage) continue
+        if (meta.isTankOnly && !includeTankOnly) continue
+        if (event.time < status.startTime || event.time > status.endTime) continue
+        const phase5Result = meta.executor.onAfterDamage({
+          status,
+          event,
+          partyState: phase5State,
+          candidateDamage: result.candidateDamage ?? result.finalDamage,
+          finalDamage: result.finalDamage,
+          statistics,
+          recordHeal,
+        })
+        if (phase5Result) phase5State = phase5Result
+      }
+      if (phase5State !== currentState) {
+        currentState = recomputeAndTrack(phase5State, event.time)
+        captureTransition(beforePhase5, currentState, event.time)
+      }
+
+      // 同时刻 cast 推迟到 damage 之后处理：先扣再回，hp 曲线/日志顺序与计算流程一致。
+      // state 已经在 event.time，advanceTarget 传 cast.timestamp（=== event.time）即 no-op。
+      while (castIdx < sortedCasts.length && sortedCasts[castIdx].timestamp === event.time) {
+        const castEvent = sortedCasts[castIdx]
+        processCast(castEvent, castEvent.timestamp)
+        castIdx++
       }
     }
 
-    // 处理最后一个 damage event 之后的剩余 casts：damage event 的 for-of 内部 while 循环
-    // 只追到 timestamp <= event.time 的 cast。如果没有 damage event、或 damage 都在某个
-    // cast 之前，该 cast 永远不会被 executor 执行，statusTimelineByPlayer 就会漏掉它
-    // attach 的状态。这里补一轮"干推进"，把剩余 casts 按时序处理完。
+    // 处理最后一个 damage event 之后的剩余 casts：damage event 的 for-of 循环只追到
+    // timestamp <= event.time 的 cast。如果没有 damage event、或 damage 都在某个 cast
+    // 之前，该 cast 永远不会被 executor 执行，statusTimelineByPlayer 就会漏掉它 attach
+    // 的状态。这里补一轮"干推进"，把剩余 casts 按时序处理完。
     while (castIdx < sortedCasts.length) {
       const castEvent = sortedCasts[castIdx]
-      const action = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
-      if (action) {
-        const prevState = currentState
-        currentState = advanceToTime(currentState, lastAdvanceTime, castEvent.timestamp)
-        captureTransition(prevState, currentState, castEvent.timestamp)
-        lastAdvanceTime = castEvent.timestamp
-
-        if (action.executor) {
-          const before = currentState
-          const ctx: ActionExecutionContext = {
-            actionId: castEvent.actionId,
-            useTime: castEvent.timestamp,
-            partyState: currentState,
-            sourcePlayerId: castEvent.playerId,
-            statistics,
-          }
-          currentState = action.executor(ctx)
-          captureTransition(
-            before,
-            currentState,
-            castEvent.timestamp,
-            castEvent.id,
-            castEvent.playerId
-          )
-        }
-      }
+      processCast(castEvent, castEvent.timestamp)
       castIdx++
     }
 
@@ -530,7 +892,23 @@ export class MitigationCalculator {
       }
     }
 
-    return { damageResults, statusTimelineByPlayer, castEffectiveEndByCastEventId }
+    // 按 time 升序：cast / HoT tick 自然按主循环时序入列，但 calculate 内部钩子（onConsume /
+    // onAfterDamage）的 recordHeal 与同时刻 advanceToTime 先 fire 的 onTick 入列顺序依赖
+    // 主循环执行顺序，出口处显式排序避免下游消费者依赖隐式约定。
+    // skipHpPipeline 下两个数组都是空，跳排序。
+    if (!skipHpPipeline) {
+      healSnapshots.sort((a, b) => a.time - b.time)
+      // JS Array.sort 是稳定排序（ES2019+），同时刻 push 顺序（主循环内序）得以保留。
+      hpTimeline.sort((a, b) => a.time - b.time)
+    }
+
+    return {
+      damageResults,
+      statusTimelineByPlayer,
+      castEffectiveEndByCastEventId,
+      healSnapshots,
+      hpTimeline,
+    }
   }
 
   /**
@@ -543,10 +921,13 @@ export class MitigationCalculator {
     filter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
   ): number {
     if (base <= 0) return 0
-    const mitigationTime = event.snapshotTime ?? event.time
+    // referenceMaxHP 按 event.time 算（与 simulate 主循环维护的 hp.max 同步）。
+    // snapshotTime 只决定 Phase 1 % 减伤的 buff 选择，与 HP 上限无关——DOT 期间
+    // 已过期的 maxHP buff 不应继续把坦克"理论 HP 上限"撑大。
+    const time = event.time
     let m = 1
     for (const status of partyState.statuses) {
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      if (time < status.startTime || time > status.endTime) continue
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (!filter(meta, status)) continue
@@ -572,25 +953,35 @@ export class MitigationCalculator {
       shieldFilter: (meta: MitigationStatusMetadata, status: MitigationStatus) => boolean
       referenceMaxHP: number
       statistics?: TimelineStatData
+      recordHeal?: (snap: HealSnapshot) => void
+      historicalStatuses?: MitigationStatus[]
     }
   ): {
     finalDamage: number
     mitigationPercentage: number
     appliedStatuses: MitigationStatus[]
     updatedPartyState: PartyState
+    candidateDamage: number
   } {
     const originalDamage = event.damage
     const time = event.time
     const damageType: DamageType = event.damageType || 'physical'
     const snapshotTime = event.snapshotTime
     const mitigationTime = snapshotTime ?? time
-    const { multiplierFilter, shieldFilter, referenceMaxHP, statistics } = opts
+    const { multiplierFilter, shieldFilter, referenceMaxHP, statistics, recordHeal } = opts
 
     // Phase 1: % 减伤
+    // 同时遍历 partyState.statuses 与 historicalStatuses（已被主循环 advance 剔除但
+    // snapshotTime 仍落在区间内的 buff），让 DOT 快照能找回已"过期"但应快照的 buff。
+    // Phase 2-5 钩子继续只跑 partyState.statuses，避免对消失的 buff 重复触发副作用。
     let multiplier = 1.0
     const appliedStatuses: MitigationStatus[] = []
 
-    for (const status of partyState.statuses) {
+    const phase1Statuses = opts.historicalStatuses
+      ? [...partyState.statuses, ...opts.historicalStatuses]
+      : partyState.statuses
+
+    for (const status of phase1Statuses) {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (!multiplierFilter(meta, status)) continue
@@ -614,7 +1005,9 @@ export class MitigationCalculator {
       const meta = getStatusById(status.statusId)
       if (!meta?.executor?.onBeforeShield) continue
       if (!multiplierFilter(meta, status)) continue
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
+      // 用 event.time（不是 mitigationTime）：snapshotTime 只决定 Phase 1 % 减伤的 buff
+      // 选择，"buff 是否在伤害实际发生时 active"应按 event.time 判定。
+      if (time < status.startTime || time > status.endTime) continue
 
       const result = meta.executor.onBeforeShield({
         status,
@@ -623,6 +1016,7 @@ export class MitigationCalculator {
         candidateDamage,
         referenceMaxHP,
         statistics,
+        recordHeal,
       })
       if (result) workingState = result
     }
@@ -630,6 +1024,10 @@ export class MitigationCalculator {
     // Phase 3: 盾值吸收（基于 workingState，含 onBeforeShield 阶段的修改）
     // 判定依据是 **实例级** `remainingBarrier > 0`，不看 metadata 类型 ——
     // 这样 buff 类 executor（如死斗）通过 onBeforeShield 给自己挂 transient barrier 也能参与吸收。
+    //
+    // partial_aoe 走 read-only 路径：算 absorbed 给 finalDamage 显示，但不真正扣 remainingBarrier、
+    // 不收集 consumedShields。partial_final_aoe 在阶段 A 按自身 candidateDamage 走完整 mutation，
+    // 阶段 B 再按"段最坏一次"对剩余盾补刀。aoe / 坦专保持单次 mutation。
     const shieldStatuses: MitigationStatus[] = []
     for (const status of workingState.statuses) {
       const meta = getStatusById(status.statusId)
@@ -648,6 +1046,8 @@ export class MitigationCalculator {
     const consumedShields: Array<{ status: MitigationStatus; absorbed: number }> = []
     let playerDamage = candidateDamage
 
+    // 阶段 A：本事件自身的"显示口径"扣盾——所有事件类型都跑，决定 finalDamage / appliedStatuses。
+    // partial_aoe 在这里只 read，不写 statusUpdates / consumedShields；其它事件走完整 mutation。
     for (const status of shieldStatuses) {
       const absorbed = Math.min(playerDamage, status.remainingBarrier!)
       playerDamage -= absorbed
@@ -662,20 +1062,21 @@ export class MitigationCalculator {
         appliedStatuses.push(status)
       }
 
-      const newRemainingBarrier = status.remainingBarrier! - absorbed
-
-      if (newRemainingBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
-        statusUpdates.set(status.instanceId, {
-          remainingBarrier: status.initialBarrier,
-          stack: status.stack - 1,
-        })
-      } else {
-        statusUpdates.set(status.instanceId, {
-          remainingBarrier: newRemainingBarrier,
-        })
-        if (newRemainingBarrier <= 0) {
-          // 仅 stack <= 1 且被打穿的盾算"消耗殆尽"，会触发 onConsume
-          consumedShields.push({ status, absorbed })
+      if (event.type !== 'partial_aoe') {
+        const newRemainingBarrier = status.remainingBarrier! - absorbed
+        if (newRemainingBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
+          statusUpdates.set(status.instanceId, {
+            remainingBarrier: status.initialBarrier,
+            stack: status.stack - 1,
+          })
+        } else {
+          statusUpdates.set(status.instanceId, {
+            remainingBarrier: newRemainingBarrier,
+          })
+          if (newRemainingBarrier <= 0) {
+            // 仅 stack <= 1 且被打穿的盾算"消耗殆尽"，会触发 onConsume
+            consumedShields.push({ status, absorbed })
+          }
         }
       }
 
@@ -683,6 +1084,45 @@ export class MitigationCalculator {
     }
 
     const damage = playerDamage
+
+    // 阶段 B（仅 partial_final_aoe）：按 max(自身 cd, segCandidateMax) 给剩余盾补差额。
+    // 阶段 A 已按 candidateDamage 实扣过一遍，这里只补"effectiveDamage - candidateDamage"那部分。
+    // displayed finalDamage（即 `damage`）不受影响——event.damage 是用户输入的单一权威。
+    if (event.type === 'partial_final_aoe') {
+      const segCandidateMax = partyState.segment?.segCandidateMax ?? 0
+      const effectiveDamage = Math.max(candidateDamage, segCandidateMax)
+      let extra = effectiveDamage - candidateDamage
+      if (extra > 0) {
+        for (const status of shieldStatuses) {
+          const partial = statusUpdates.get(status.instanceId)
+          const currentBarrier = partial?.remainingBarrier ?? status.remainingBarrier!
+          if (currentBarrier <= 0) continue
+          const absorbed = Math.min(extra, currentBarrier)
+          extra -= absorbed
+          const newBarrier = currentBarrier - absorbed
+          if (newBarrier <= 0 && status.stack && status.stack > 1 && status.initialBarrier) {
+            // stack 衰减不算"消耗殆尽"——与阶段 A 语义对齐
+            statusUpdates.set(status.instanceId, {
+              remainingBarrier: status.initialBarrier,
+              stack: status.stack - 1,
+            })
+          } else {
+            statusUpdates.set(status.instanceId, { remainingBarrier: newBarrier })
+            if (newBarrier <= 0) {
+              const alreadyMarked = consumedShields.some(
+                c => c.status.instanceId === status.instanceId
+              )
+              if (!alreadyMarked) {
+                // 阶段 A 在该 status 上扣的量 = 原始 remainingBarrier - 阶段 A 后的值
+                const aAbsorb = status.remainingBarrier! - currentBarrier
+                consumedShields.push({ status, absorbed: aAbsorb + absorbed })
+              }
+            }
+          }
+          if (extra <= 0) break
+        }
+      }
+    }
 
     let updatedPartyState: PartyState = {
       ...workingState,
@@ -713,32 +1153,14 @@ export class MitigationCalculator {
         partyState: updatedPartyState,
         absorbedAmount: absorbed,
         statistics,
+        recordHeal,
       })
       if (result) updatedPartyState = result
     }
 
-    // Phase 5: onAfterDamage — 盾吸收后的通用收尾
-    // 遍历 partyState.statuses（原始活跃集合），不遍历 updatedPartyState：
-    //   ✓ 本事件 onBeforeShield/onConsume 新添的状态不会在同一事件立即触发自己的 onAfterDamage；
-    //   ✗ 代价：status 参数是原始实例快照，其 remainingBarrier / stack / data 等字段可能与
-    //     updatedPartyState 里同 instanceId 的最新值不一致。需要读自身最新状态的 executor 应从
-    //     ctx.partyState.statuses.find(s => s.instanceId === ctx.status.instanceId) 取。
-    for (const status of partyState.statuses) {
-      const meta = getStatusById(status.statusId)
-      if (!meta?.executor?.onAfterDamage) continue
-      if (!multiplierFilter(meta, status)) continue
-      if (mitigationTime < status.startTime || mitigationTime > status.endTime) continue
-
-      const result = meta.executor.onAfterDamage({
-        status,
-        event,
-        partyState: updatedPartyState,
-        candidateDamage,
-        finalDamage: Math.max(0, Math.round(damage)),
-        statistics,
-      })
-      if (result) updatedPartyState = result
-    }
+    // Phase 5 onAfterDamage 由 simulate 主循环在 applyDamageToHp 之后跑——让反应式
+    // 治疗（如礼仪之铃）看到 hp_after_damage 而非 hp_before，符合"先扣再回"语义。
+    // calculate 输出 candidateDamage 让 simulate 拿到 phase 5 钩子需要的中间值。
 
     const mitigationPercentage =
       originalDamage > 0 ? ((originalDamage - damage) / originalDamage) * 100 : 0
@@ -748,6 +1170,7 @@ export class MitigationCalculator {
       mitigationPercentage: Math.round(mitigationPercentage * 10) / 10,
       appliedStatuses,
       updatedPartyState,
+      candidateDamage,
     }
   }
 

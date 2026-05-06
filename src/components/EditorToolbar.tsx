@@ -96,6 +96,8 @@ export default function EditorToolbar({
     showOriginalDamage,
     toggleShowActualDamage,
     toggleShowOriginalDamage,
+    enableHpSimulation,
+    toggleEnableHpSimulation,
   } = useUIStore()
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [conflict, setConflict] = useState<ConflictError | null>(null)
@@ -317,6 +319,16 @@ export default function EditorToolbar({
                     </DropdownMenuCheckboxItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={enableHpSimulation}
+                  onCheckedChange={checked => {
+                    track('view-toggle-hp-simulation', { checked })
+                    toggleEnableHpSimulation()
+                  }}
+                >
+                  HP 模拟
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
 

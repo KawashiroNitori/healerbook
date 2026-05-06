@@ -11,10 +11,11 @@ import {
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useFilterStore } from '@/store/filterStore'
-import type { MitigationAction } from '@/types/mitigation'
+import type { MitigationAction, MitigationCategory } from '@/types/mitigation'
 import type { FilterPreset } from '@/types/filter'
-import type { DamageEvent, CastEvent, Timeline } from '@/types/timeline'
+import type { DamageEvent, DamageEventType, CastEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
+import { getJobRole, type JobRole } from '@/data/jobs'
 
 function makeAction(overrides: Partial<MitigationAction> = {}): MitigationAction {
   return {
@@ -29,17 +30,29 @@ function makeAction(overrides: Partial<MitigationAction> = {}): MitigationAction
   }
 }
 
+// 测试 helper：保留旧的声明式参数风格，内部翻译成两个谓词函数。
 function builtin(
-  ruleOverrides: Partial<(FilterPreset & { kind: 'builtin' })['rule']> = {}
+  ruleOverrides: {
+    damageTypes?: DamageEventType[]
+    categories?: MitigationCategory[]
+    jobRoles?: JobRole[]
+  } = {}
 ): FilterPreset {
+  const damageTypes = ruleOverrides.damageTypes ?? ['aoe', 'tankbuster']
+  const categories = ruleOverrides.categories ?? ['shield', 'percentage']
+  const jobRoles = ruleOverrides.jobRoles
   return {
     kind: 'builtin',
     id: 'builtin:test',
     name: 'test',
     rule: {
-      damageTypes: ['aoe', 'tankbuster'],
-      categories: ['shield', 'percentage'],
-      ...ruleOverrides,
+      damage: e => damageTypes.includes(e.type),
+      action: (a, job) => {
+        if (categories.length > 0 && !categories.some(c => a.category.includes(c))) return false
+        if (!jobRoles || jobRoles.length === 0) return true
+        const role = getJobRole(job)
+        return role != null && jobRoles.includes(role)
+      },
     },
   }
 }

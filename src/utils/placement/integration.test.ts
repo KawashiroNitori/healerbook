@@ -10,24 +10,23 @@ const initialState: PartyState = { statuses: [], timestamp: 0 } as PartyState
 
 function makeEngine(castEvents: CastEvent[]) {
   const calc = createMitigationCalculator()
+  const damageEvents: DamageEvent[] = [
+    {
+      id: 'd-end',
+      name: 'd-end',
+      time: 600,
+      damage: 100000,
+      type: 'aoe',
+      damageType: 'physical',
+    } as DamageEvent,
+  ]
+  const full = calc.simulate({ castEvents, damageEvents, initialState })
   return createPlacementEngine({
     castEvents,
     actions,
-    simulate: evs =>
-      calc.simulate({
-        castEvents: evs,
-        damageEvents: [
-          {
-            id: 'd-end',
-            name: 'd-end',
-            time: 600,
-            damage: 100000,
-            type: 'aoe',
-            damageType: 'physical',
-          } as DamageEvent,
-        ],
-        initialState,
-      }),
+    statusTimelineByPlayer: full.statusTimelineByPlayer,
+    simulateOnRemove: evs =>
+      calc.simulate({ castEvents: evs, damageEvents, initialState, skipHpPipeline: true }),
   })
 }
 

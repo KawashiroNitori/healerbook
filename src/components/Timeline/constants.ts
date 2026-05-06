@@ -34,6 +34,11 @@ interface CanvasColors {
   minimapSeparator: string
   idleLine: string
 
+  // HP 曲线
+  hpCurveStroke: string
+  hpCurveFill: string
+  hpCurveBaseline: string
+
   // 交互
   crosshairStroke: string
   crosshairTrackHighlight: string
@@ -70,6 +75,10 @@ const lightColors: CanvasColors = {
   minimapSeparator: '#d4d4d8',
   idleLine: '#d1d5db',
 
+  hpCurveStroke: '#16a34a',
+  hpCurveFill: 'rgba(34, 197, 94, 0.12)',
+  hpCurveBaseline: '#cbd5e1',
+
   crosshairStroke: '#9ca3af',
   crosshairTrackHighlight: 'rgba(59, 130, 246, 0.08)',
   cooldownStripe: 'rgba(120, 120, 120, 0.22)',
@@ -103,6 +112,10 @@ const darkColors: CanvasColors = {
   minimapSeparator: '#52525b',
   idleLine: '#4b5563',
 
+  hpCurveStroke: '#22c55e',
+  hpCurveFill: 'rgba(34, 197, 94, 0.18)',
+  hpCurveBaseline: '#475569',
+
   crosshairStroke: '#6b7280',
   crosshairTrackHighlight: 'rgba(59, 130, 246, 0.15)',
   cooldownStripe: 'rgba(160, 160, 160, 0.25)',
@@ -130,3 +143,6 @@ export const DAMAGE_TIME_LINE_STYLE = {
   strokeWidth: 1,
   opacity: 0.2,
 }
+
+/** HP 曲线轨道高度（px） */
+export const HP_CURVE_HEIGHT = 60

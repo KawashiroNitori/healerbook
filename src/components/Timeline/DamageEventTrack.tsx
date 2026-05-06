@@ -21,6 +21,8 @@ interface DamageEventTrackProps {
   draggingEventPosition: { eventId: string; x: number } | null
   viewportWidth: number
   scrollLeft: number
+  /** 网格线 / 伤害事件竖线在轨道底部之外向下延伸的额外像素（用于贯穿 HP 轨道） */
+  bottomExtension?: number
   onSelectEvent: (id: string) => void
   onDragStart: (eventId: string, x: number) => void
   onDragMove: (eventId: string, x: number) => void
@@ -61,6 +63,7 @@ export default function DamageEventTrack({
   draggingEventPosition,
   viewportWidth,
   scrollLeft,
+  bottomExtension = 0,
   onSelectEvent,
   onDragStart,
   onDragMove,
@@ -97,7 +100,7 @@ export default function DamageEventTrack({
     gridLines.push(
       <Line
         key={`grid-${time}`}
-        points={[x, yOffset, x, yOffset + trackHeight]}
+        points={[x, yOffset, x, yOffset + trackHeight + bottomExtension]}
         stroke={time === 0 ? colors.zeroLine : colors.gridLine}
         strokeWidth={time === 0 ? 2 : 1}
       />
@@ -125,7 +128,7 @@ export default function DamageEventTrack({
       return (
         <Line
           key={`damage-line-${event.id}`}
-          points={[x, cardBottomY, x, yOffset + trackHeight]}
+          points={[x, cardBottomY, x, yOffset + trackHeight + bottomExtension]}
           {...DAMAGE_TIME_LINE_STYLE}
         />
       )

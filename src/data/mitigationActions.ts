@@ -1,14 +1,39 @@
-/**
- * FF14 减伤技能数据（新版本 - 使用 executor 模式）
- * 数据来源: CafeMaker API
- * 版本: 7.1
- * 最后更新: 2026-02-21
- */
-
+import { computeFinalHeal } from '@/executors/healMath'
 import type { MitigationAction } from '@/types/mitigation'
-import { createBuffExecutor, createShieldExecutor, removeStatus } from '@/executors'
+import {
+  applyDirectHeal,
+  createBuffExecutor,
+  createHealExecutor,
+  createRegenExecutor,
+  createShieldExecutor,
+  removeStatus,
+} from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
 import { whileStatus, not, anyOf } from '@/utils/placement/combinators'
+
+/**
+ * 治疗 action executor 接入进度
+ *
+ * HP 模拟基础设施已落地（HpPool / createHealExecutor / createRegenExecutor /
+ * regenStatusExecutor / simulate 主循环 hp 演化），但本期未给具体治疗 action 挂载。
+ *
+ * 待接入（按 spec §4.5 mapping 表，逐步铺开）：
+ *   - 单次治疗：选定 action 加 statDataEntries: [{ type: 'heal', key: <id> }]，
+ *     executor: createHealExecutor()。statistics 缺失时 healByAbility 取默认 10000
+ *     兜底（statDataUtils.DEFAULT_VALUE），用户可在数值设置面板调整。
+ *   - 纯 HoT：action.executor = createRegenExecutor(<HOT_STATUS_ID>, <DURATION>)；
+ *     在 statusExtras.ts 给 HoT status 挂 executor: regenStatusExecutor。
+ *   - 单次 + buff 组合：用 createHealExecutor + createBuffExecutor 串联（先 heal 后 buff），
+ *     避免自身 buff 加成自身治疗（snapshot-on-apply 语义）。
+ *   - heal/selfHeal 倍率：给对应 buff status 的 metadata.performance 加 heal/selfHeal 字段
+ *     （只对非坦专 buff 生效；isTankOnly buff 不参与 HP 池累乘）。
+ *
+ * 注意：现有 `category: ['heal']` 的 action 多数已挂 createBuffExecutor 或自定义 executor
+ * （延时治疗 / buff-trigger 模式），接入时需评估是否改为组合 executor，**不要直接覆盖**
+ * 既有 executor。
+ *
+ * 详见 design/superpowers/specs/2026-04-28-hp-simulate-design.md §4.5。
+ */
 
 const SERAPHISM_BUFF_ID = 3885 // 炽天附体
 
@@ -51,8 +76,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
-      executor: createShieldExecutor(1362, 30),
-      statDataEntries: [{ type: 'shield', key: 1362 }],
+      executor: ctx => {
+        const partyState = createShieldExecutor(1362, 30)(ctx)
+        return createHealExecutor()({ ...ctx, partyState })
+      },
+      statDataEntries: [
+        { type: 'shield', key: 1362 },
+        { type: 'heal', key: 3540 },
+      ],
     },
     {
       id: 7385,
@@ -144,8 +175,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
-      executor: createShieldExecutor(1457, 30),
-      statDataEntries: [{ type: 'shield', key: 1457 }],
+      executor: ctx => {
+        let partyState = createShieldExecutor(1457, 30)(ctx)
+        partyState = createRegenExecutor(2108, 15)({ ...ctx, partyState })
+        return createHealExecutor()({ ...ctx, partyState })
+      },
+      statDataEntries: [
+        { type: 'shield', key: 1457 },
+        { type: 'heal', key: 7388 },
+        { type: 'heal', key: 1002108, label: 'HoT' },
+      ],
     },
     {
       id: 40,
@@ -323,10 +362,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 25,
       cooldown: 120,
-      // executor: createBuffExecutor(1873, 25),
       executor: ctx => {
-        const partyState = createBuffExecutor(1873, 25)(ctx)
-        return createBuffExecutor(3881, 30)({ ...ctx, partyState })
+        const partyState = createBuffExecutor(1873, 25)(ctx) // 节制
+        return createBuffExecutor(3881, 30)({ ...ctx, partyState }) // 神爱抚预备
       },
     },
     {
@@ -339,7 +377,10 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 1,
       placement: whileStatus(3881),
       executor: createShieldExecutor(3903, 10, { uniqueGroup: [3881] }),
-      statDataEntries: [{ type: 'shield', key: 3903 }],
+      statDataEntries: [
+        { type: 'shield', key: 3903 },
+        { type: 'heal', key: 1003904, label: '神爱环' },
+      ],
     },
     {
       id: 7433,
@@ -350,6 +391,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 10,
       cooldown: 60,
       executor: createBuffExecutor(1219, 10),
+      statDataEntries: [{ type: 'heal', key: 1001219 }],
     },
     {
       id: 25862,
@@ -361,7 +403,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 180,
       placement: not(whileStatus(2709)),
       executor: createBuffExecutor(2709, 20, { stack: 5, uniqueGroup: [] }),
-      statDataEntries: [{ type: 'heal', key: 1002709 }],
+      statDataEntries: [{ type: 'heal', key: 25863 }],
     },
     // 手动收铃铛
     {
@@ -375,13 +417,136 @@ export const MITIGATION_DATA: MitigationDataSource = {
       trackGroup: 25862,
       placement: whileStatus(2709),
       executor: (ctx: ActionExecutionContext) => {
-        return removeStatus(
-          ctx.partyState,
-          ctx.partyState.statuses.find(
-            s => s.statusId === 2709 && s.sourcePlayerId === ctx.sourcePlayerId
-          )?.instanceId ?? ''
+        const bell = ctx.partyState.statuses.find(
+          s => s.statusId === 2709 && s.sourcePlayerId === ctx.sourcePlayerId
         )
+        if (!bell) return ctx.partyState
+
+        const remainingStacks = bell.stack ?? 1
+        const baseAmount = ((ctx.statistics?.healByAbility?.[25863] ?? 0) / 2) * remainingStacks
+        const stateAfterHeal = applyDirectHeal(
+          ctx.partyState,
+          baseAmount,
+          {
+            castEventId: ctx.castEventId ?? '',
+            actionId: 25863,
+            sourcePlayerId: ctx.sourcePlayerId,
+            time: ctx.useTime,
+          },
+          ctx.recordHeal
+        )
+        return removeStatus(stateAfterHeal, bell.instanceId)
       },
+    },
+    {
+      id: 124,
+      name: '医治',
+      icon: '/i/000000/000408.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
+        }
+        return partyState
+      },
+      statDataEntries: [{ type: 'heal', key: 124 }],
+    },
+    {
+      id: 37010,
+      name: '医养',
+      icon: '/i/002000/002127.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2,
+      executor: ctx => {
+        let partyState = createHealExecutor()(ctx)
+        partyState = createRegenExecutor(3880, 15)({ ...ctx, partyState })
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          partyState = createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
+        }
+        return partyState
+      },
+      statDataEntries: [
+        { type: 'heal', key: 37010 },
+        { type: 'heal', key: 1003880, label: 'HoT' },
+      ],
+    },
+    {
+      id: 131,
+      name: '愈疗',
+      icon: '/i/000000/000407.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
+        }
+        return partyState
+      },
+      statDataEntries: [{ type: 'heal', key: 131 }],
+    },
+    {
+      id: 3569,
+      name: '庇护所',
+      icon: '/i/002000/002632.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 24,
+      cooldown: 90,
+      executor: createRegenExecutor(1911, 24),
+      statDataEntries: [{ type: 'heal', key: 1001911, label: 'HoT' }],
+    },
+    {
+      id: 16534,
+      name: '狂喜之心',
+      icon: '/i/002000/002643.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
+        }
+        return partyState
+      },
+      statDataEntries: [{ type: 'heal', key: 16534 }],
+    },
+    {
+      id: 3571,
+      name: '法令',
+      icon: '/i/002000/002634.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 40,
+      executor: createHealExecutor(),
+      statDataEntries: [{ type: 'heal', key: 3571 }],
     },
 
     // 学者 (SCH)
@@ -398,14 +563,19 @@ export const MITIGATION_DATA: MitigationDataSource = {
         // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
-        const baseHeal = ctx.statistics?.healByAbility[185] ?? 10000
+        const baseHeal = computeFinalHeal(
+          ctx.statistics?.healByAbility[185] ?? 10000,
+          ctx.partyState,
+          ctx.sourcePlayerId,
+          ctx.useTime
+        )
         const barrier = Math.round(baseHeal * 1.8)
         return createShieldExecutor(baseShieldId, 30, {
           fixedBarrier: barrier,
           uniqueGroup: [baseShieldId, sageShieldId],
         })(ctx)
       },
-      statDataEntries: [{ type: 'heal', key: 185, label: '鼓舞激励之策' }],
+      statDataEntries: [{ type: 'heal', key: 185, label: '单盾' }],
     },
     {
       id: 16542,
@@ -428,31 +598,26 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
-        const seraphismId = 3885 // 炽天附体
         const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
 
-        const hasSeraphism = ctx.partyState.statuses.some(s => s.statusId === seraphismId)
-
         let baseHeal: number
-        if (hasSeraphism) {
-          // 炽天附体激活：等效降临之章，使用 37016 基础恢复力，秘策无效
-          baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
-        } else {
-          // 普通意气轩昂之策：检测秘策决定是否用暴击治疗量
-          const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
-          baseHeal = hasRecitation
-            ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
-            : (ctx.statistics?.healByAbility[37013] ?? 10000)
-        }
+        // 检测秘策决定是否用暴击治疗量
+        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
+        baseHeal = hasRecitation
+          ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
+          : (ctx.statistics?.healByAbility[37013] ?? 10000)
+        baseHeal = computeFinalHeal(baseHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
+        const partyState = createHealExecutor()(ctx)
 
         const barrier = Math.round(baseHeal * 1.8)
-        const uniqueGroup = hasSeraphism
-          ? [baseShieldId, sageShieldId]
-          : [recitationId, baseShieldId, sageShieldId]
+        const uniqueGroup = [recitationId, baseShieldId, sageShieldId]
 
-        return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })(ctx)
+        return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })({
+          ...ctx,
+          partyState,
+        })
       },
       placement: not(whileStatus(SERAPHISM_BUFF_ID)),
       statDataEntries: [
@@ -469,7 +634,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 30,
       cooldown: 180,
-      executor: createBuffExecutor(3885, 30),
+      placement: not(whileStatus(791)),
+      executor: createRegenExecutor(3885, 30),
+      statDataEntries: [{ type: 'heal', key: 1003885 }],
     },
 
     {
@@ -486,15 +653,23 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
         // 降临之章的鼓舞盾是 240 恢复力，而且秘策无效
-        const baseHeal = ctx.statistics?.healByAbility[37016] ?? 10000
+        const baseHeal = computeFinalHeal(
+          ctx.statistics?.healByAbility[37016] ?? 10000,
+          ctx.partyState,
+          ctx.sourcePlayerId,
+          ctx.useTime
+        )
         const barrier = Math.round(baseHeal * 1.8)
+        const partyState = createHealExecutor()(ctx)
         return createShieldExecutor(baseShieldId, 30, {
           fixedBarrier: barrier,
           uniqueGroup: [baseShieldId, sageShieldId],
-        })(ctx)
+        })({ ...ctx, partyState })
       },
       statDataEntries: [{ type: 'heal', key: 37016 }],
     },
+
+    // 豆子技能
 
     {
       id: 188,
@@ -504,18 +679,91 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 18,
       cooldown: 30,
-      executor: createBuffExecutor(299, 18),
+      executor: ctx => {
+        const partyState = createBuffExecutor(299, 18)(ctx)
+        return createRegenExecutor(1944, 15)({ ...ctx, partyState })
+      },
+      statDataEntries: [{ type: 'heal', key: 1001944 }],
+    },
+    {
+      id: 3583,
+      name: '不屈不挠之策',
+      icon: '/i/002000/002806.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 30,
+      executor: (ctx: ActionExecutionContext) => {
+        const recitationId = 1896 // 秘策
+        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
+        const baseAmount = hasRecitation
+          ? (ctx.statistics?.critHealByAbility[3583] ?? 10000)
+          : (ctx.statistics?.healByAbility[3583] ?? 10000)
+
+        return applyDirectHeal(
+          ctx.partyState,
+          baseAmount,
+          {
+            castEventId: ctx.castEventId ?? '',
+            actionId: 3583,
+            sourcePlayerId: ctx.sourcePlayerId,
+            time: ctx.useTime,
+          },
+          ctx.recordHeal
+        )
+      },
+      statDataEntries: [
+        { type: 'heal', key: 3583 },
+        { type: 'critHeal', key: 3583 },
+      ],
     },
 
+    // 小仙女技能
+
+    {
+      id: 3587,
+      name: '转化',
+      icon: '/i/002000/002810.png',
+      jobs: ['SCH'],
+      category: ['self'],
+      duration: 30,
+      cooldown: 180,
+      executor: createBuffExecutor(791, 30),
+    },
+    {
+      id: 16537,
+      name: '仙光的低语',
+      icon: '/i/002000/002852.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'heal'],
+      duration: 21,
+      cooldown: 60,
+      placement: not(whileStatus(791)),
+      executor: createRegenExecutor(315, 21),
+      statDataEntries: [{ type: 'heal', key: 1000315, label: 'HoT' }],
+    },
     {
       id: 16538,
       name: '异想的幻光',
-      icon: '/i/002000/002826.png',
+      icon: '/i/002000/002853.png',
       jobs: ['SCH'],
       category: ['partywide', 'percentage'],
       duration: 20,
       cooldown: 120,
+      placement: not(whileStatus(791)),
       executor: createBuffExecutor(317, 20),
+    },
+    {
+      id: 16543,
+      name: '异想的祥光',
+      icon: '/i/002000/002854.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 60,
+      placement: not(whileStatus(791)),
+      executor: createHealExecutor({ amountSourceId: 16544 }),
+      statDataEntries: [{ type: 'heal', key: 16544 }],
     },
 
     {
@@ -537,6 +785,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 22,
       cooldown: 120,
+      placement: not(whileStatus(791)),
       executor: createBuffExecutor(3095, 22), // 只造炽天真 buff；慰藉充能由 sch:consolation 自行 regen
     },
 
@@ -548,10 +797,17 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 30, // 真实单层回充时间；实际 gating 交给 sch:consolation + whileStatus(3095)
-      executor: createShieldExecutor(1917, 30),
+      // executor: createShieldExecutor(1917, 30),
+      executor: ctx => {
+        const partyState = createShieldExecutor(1917, 30)(ctx)
+        return createHealExecutor({ amountSourceId: 16547 })({ ...ctx, partyState })
+      },
       placement: whileStatus(3095), // 炽天真 buff 窗口
       resourceEffects: [{ resourceId: 'sch:consolation', delta: -1 }],
-      statDataEntries: [{ type: 'shield', key: 1917 }],
+      statDataEntries: [
+        { type: 'shield', key: 1917 },
+        { type: 'heal', key: 16547 },
+      ],
     },
 
     // 占星术士 (AST)
@@ -566,8 +822,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       placement: not(anyOf(whileStatus(1224), whileStatus(1248))),
       executor: createBuffExecutor(1224, 10),
       statDataEntries: [
-        { type: 'heal', key: 1224, label: '地星主宰' },
-        { type: 'heal', key: 1248, label: '巨星主宰' },
+        { type: 'heal', key: 7440, label: '星体破裂' },
+        { type: 'heal', key: 7441, label: '星体爆炸' },
       ],
     },
     {
@@ -587,13 +843,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const largeEarth = ctx.partyState.statuses.find(
           s => s.statusId === 1248 && s.sourcePlayerId === ctx.sourcePlayerId
         )
+        let partyState = ctx.partyState
         if (largeEarth) {
-          return removeStatus(ctx.partyState, largeEarth.instanceId)
+          partyState = removeStatus(ctx.partyState, largeEarth.instanceId)
+          partyState = createHealExecutor({ amountSourceId: 7441 })({ ...ctx, partyState })
         } else if (smallEarth) {
-          return removeStatus(ctx.partyState, smallEarth.instanceId)
+          partyState = removeStatus(ctx.partyState, smallEarth.instanceId)
+          partyState = createHealExecutor({ amountSourceId: 7440 })({ ...ctx, partyState })
         }
-        // TODO: 星体爆轰治疗
-        return ctx.partyState
+        return partyState
       },
     },
     {
@@ -604,7 +862,11 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 10,
       cooldown: 60,
-      executor: createBuffExecutor(849, 10),
+      executor: ctx => {
+        const partyState = createBuffExecutor(849, 10)(ctx)
+        return createRegenExecutor(956, 15)({ ...ctx, partyState })
+      },
+      statDataEntries: [{ type: 'heal', key: 1000956 }],
     },
 
     {
@@ -616,8 +878,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 20,
       cooldown: 120,
       executor: ctx => {
-        const partyState = createBuffExecutor(1892, 20)(ctx)
-        return createBuffExecutor(3895, 30)({ ...ctx, partyState })
+        const partyState = createBuffExecutor(1892, 20)(ctx) // 中间学派
+        return createBuffExecutor(3895, 30)({ ...ctx, partyState }) // 太阳星座预备
       },
     },
 
@@ -640,7 +902,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['AST'],
       category: ['partywide', 'shield'],
       duration: 30,
-      cooldown: 1,
+      cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
         const neutralSectId = 1892 // 中间学派
 
@@ -659,17 +921,61 @@ export const MITIGATION_DATA: MitigationDataSource = {
             ),
           }
         }
+        const baseHeal = ctx.statistics?.healByAbility[37030] ?? 10000
+        partyState = createHealExecutor()({ ...ctx, partyState })
+        partyState = createRegenExecutor(3894, 30)({ ...ctx, partyState })
 
         // 阶段 2：中间学派激活时附加群盾
         if (!partyState.statuses.some(s => s.statusId === neutralSectId)) {
           return partyState
         }
-        // 盾量 = 阳星合相治疗量 × 1.25（盾比例）× 1.2（中间学派加成）
-        const baseHeal = ctx.statistics?.healByAbility[37030] ?? 10000
-        const barrier = Math.round(baseHeal * 1.25 * 1.2)
+        // 盾量 = 阳星合相治疗量 × 1.25（盾比例）
+        const barrier = Math.round(baseHeal * 1.25)
         return createShieldExecutor(1921, 30, { fixedBarrier: barrier })({ ...ctx, partyState })
       },
-      statDataEntries: [{ type: 'heal', key: 37030 }],
+      statDataEntries: [
+        { type: 'heal', key: 37030 },
+        { type: 'heal', key: 1003894, label: 'HoT' },
+      ],
+    },
+    {
+      id: 3600,
+      name: '阳星',
+      icon: '/i/003000/003129.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2,
+      executor: createHealExecutor(),
+      statDataEntries: [{ type: 'heal', key: 3600 }],
+    },
+    {
+      id: 16553,
+      name: '天星冲日',
+      icon: '/i/003000/003142.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 15,
+      cooldown: 60,
+      executor: ctx => {
+        const partyState = createHealExecutor()(ctx)
+        return createRegenExecutor(1879, 15)({ ...ctx, partyState })
+      },
+      statDataEntries: [
+        { type: 'heal', key: 16553 },
+        { type: 'heal', key: 1001879, label: 'HoT' },
+      ],
+    },
+    {
+      id: 7445,
+      name: '王冠之贵妇',
+      icon: '/i/003000/003146.png',
+      jobs: ['AST'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 60,
+      executor: createHealExecutor(),
+      statDataEntries: [{ type: 'heal', key: 7445 }],
     },
     {
       id: 16557,
@@ -682,8 +988,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       placement: not(anyOf(whileStatus(1890), whileStatus(1891))),
       executor: createBuffExecutor(1890, 10),
       statDataEntries: [
-        { type: 'heal', key: 1890, label: '天宫图' },
-        { type: 'heal', key: 1891, label: '阳星天宫图' },
+        { type: 'heal', key: 1001890, label: '天宫图' },
+        { type: 'heal', key: 1001891, label: '阳星天宫图' },
       ],
     },
     // 手动收天宫图
@@ -704,13 +1010,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const horoscopeHelios = ctx.partyState.statuses.find(
           s => s.statusId === 1891 && s.sourcePlayerId === ctx.sourcePlayerId
         )
+        let partyState = ctx.partyState
         if (horoscopeHelios) {
-          return removeStatus(ctx.partyState, horoscopeHelios.instanceId)
+          partyState = removeStatus(ctx.partyState, horoscopeHelios.instanceId)
+          partyState = createHealExecutor({ amountSourceId: 1001891 })({ ...ctx, partyState })
         } else if (horoscope) {
-          return removeStatus(ctx.partyState, horoscope.instanceId)
+          partyState = removeStatus(ctx.partyState, horoscope.instanceId)
+          partyState = createHealExecutor({ amountSourceId: 1001890 })({ ...ctx, partyState })
         }
-        // TODO: 天宫图治疗
-        return ctx.partyState
+        return partyState
       },
     },
     {
@@ -738,11 +1046,12 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const universe = ctx.partyState.statuses.find(
           s => s.statusId === 2718 && s.sourcePlayerId === ctx.sourcePlayerId
         )
-        if (universe) {
-          return removeStatus(ctx.partyState, universe.instanceId)
-        }
-        // TODO: 小宇宙治疗
-        return ctx.partyState
+        if (!universe) return ctx.partyState
+        const partyState = removeStatus(ctx.partyState, universe.instanceId)
+        const accDamage = (universe.data?.nonTankDamageTotal as number | undefined) ?? 0
+        const healOfEarth = ctx.statistics?.healByAbility?.[7441] ?? 0
+        const baseAmount = Math.round(healOfEarth * (200 / 720)) + Math.round(accDamage * 0.5)
+        return createHealExecutor({ fixedAmount: baseAmount })({ ...ctx, partyState })
       },
     },
 
@@ -769,12 +1078,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 20,
       cooldown: 120,
       executor: (ctx: ActionExecutionContext) => {
-        const modifierExecutor = createBuffExecutor(3003, 20)
-        const shieldExecutor = createShieldExecutor(3365, 20)
-        const partyState = modifierExecutor(ctx)
-        return shieldExecutor({ ...ctx, partyState })
+        let partyState = ctx.partyState
+        partyState = createHealExecutor()({ ...ctx, partyState })
+        partyState = createBuffExecutor(3003, 20)({ ...ctx, partyState })
+        partyState = createShieldExecutor(3365, 20)({ ...ctx, partyState })
+        return partyState
       },
-      statDataEntries: [{ type: 'shield', key: 3365 }],
+      statDataEntries: [
+        { type: 'heal', key: 24310 },
+        { type: 'shield', key: 3365 },
+      ],
     },
 
     {
@@ -785,9 +1098,23 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 30,
-      executor: createBuffExecutor(2618, 15),
+      executor: ctx => {
+        const partyState = createBuffExecutor(2618, 15)(ctx)
+        return createRegenExecutor(2938, 15)({ ...ctx, partyState })
+      },
+      statDataEntries: [{ type: 'heal', key: 1002938, label: 'HoT' }],
     },
-
+    {
+      id: 24299,
+      name: '寄生清汁',
+      icon: '/i/003000/003667.png',
+      jobs: ['SGE'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 30,
+      executor: createHealExecutor(),
+      statDataEntries: [{ type: 'heal', key: 24299 }],
+    },
     {
       id: 24300,
       name: '活化',
@@ -798,7 +1125,38 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       executor: createShieldExecutor(2611, 30),
     },
-
+    {
+      id: 24302,
+      name: '自生II',
+      icon: '/i/003000/003670.png',
+      jobs: ['SGE'],
+      category: ['partywide', 'percentage'],
+      duration: 15,
+      cooldown: 60,
+      executor: createRegenExecutor(2620, 15),
+      statDataEntries: [{ type: 'heal', key: 1002620 }],
+    },
+    {
+      id: 24286,
+      name: '预后',
+      icon: '/i/003000/003654.png',
+      jobs: ['SGE'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 2,
+      executor: (ctx: ActionExecutionContext) => {
+        const zoeId = 2611 // 活化
+        const zoe = ctx.partyState.statuses.find(s => s.statusId === zoeId)
+        let partyState = ctx.partyState
+        let heal = ctx.statistics?.healByAbility[24286] ?? 10000
+        if (zoe) {
+          partyState = removeStatus(partyState, zoe.instanceId)
+          heal = Math.round(heal * 1.5)
+        }
+        return createHealExecutor({ fixedAmount: heal })({ ...ctx, partyState })
+      },
+      statDataEntries: [{ type: 'heal', key: 24286 }],
+    },
     {
       id: 37034,
       name: '均衡预后II',
@@ -812,15 +1170,54 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const baseShieldId = 2609 // 均衡预后
         const schShieldId = 297 // 鼓舞
         const hasZoe = ctx.partyState.statuses.some(s => s.statusId === zoeId)
+        let heal = ctx.statistics?.healByAbility[37034] ?? 10000
         let barrier = ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000
-        if (hasZoe) barrier = Math.round(barrier * 1.5)
+        if (hasZoe) {
+          barrier = Math.round(barrier * 1.5)
+          heal = Math.round(heal * 1.5)
+        }
 
-        return createShieldExecutor(baseShieldId, 30, {
+        let partyState = ctx.partyState
+        partyState = createHealExecutor({ fixedAmount: heal })({ ...ctx, partyState })
+        partyState = createShieldExecutor(baseShieldId, 30, {
           fixedBarrier: barrier,
           uniqueGroup: [zoeId, baseShieldId, schShieldId],
-        })(ctx)
+        })({ ...ctx, partyState })
+        return partyState
       },
       statDataEntries: [{ type: 'shield', key: 2609 }],
+    },
+    {
+      id: 24318,
+      name: '魂灵风息',
+      icon: '/i/003000/003686.png',
+      jobs: ['SGE'],
+      category: ['partywide', 'heal'],
+      duration: 0,
+      cooldown: 120,
+      executor: (ctx: ActionExecutionContext) => {
+        const zoeId = 2611 // 活化
+        const zoe = ctx.partyState.statuses.find(s => s.statusId === zoeId)
+        let partyState = ctx.partyState
+        let heal = ctx.statistics?.healByAbility[24318] ?? 10000
+        if (zoe) {
+          partyState = removeStatus(partyState, zoe.instanceId)
+          heal = Math.round(heal * 1.5)
+        }
+        return createHealExecutor({ fixedAmount: heal })({ ...ctx, partyState })
+      },
+      statDataEntries: [{ type: 'heal', key: 24318 }],
+    },
+    {
+      id: 37035,
+      name: '智慧之爱',
+      icon: '/i/003000/003690.png',
+      jobs: ['SGE'],
+      category: ['partywide', 'heal'],
+      duration: 20,
+      cooldown: 120,
+      executor: createRegenExecutor(3899, 20),
+      statDataEntries: [{ type: 'heal', key: 1003899, label: '幸福' }],
     },
 
     // ==================== 近战 DPS ====================

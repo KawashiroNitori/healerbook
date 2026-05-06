@@ -9,6 +9,7 @@ import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { useUIStore } from '@/store/uiStore'
 import { formatDamageValue } from '@/utils/formatters'
+import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useCanvasColors } from './constants'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
@@ -59,6 +60,7 @@ const DamageEventCard = memo(function DamageEventCard({
   const colors = useCanvasColors()
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const calculationResults = useDamageCalculationResults()
   const calculatedEvent = calculationResults.get(event.id)
   const isTankOnly = event.type === 'tankbuster' || event.type === 'auto'
@@ -78,11 +80,12 @@ const DamageEventCard = memo(function DamageEventCard({
       d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
     ) ?? false
 
-  // 编辑模式警示（referenceMaxHP 仅编辑模式存在）
-  const refHP = calculatedEvent?.referenceMaxHP
-  const isLethal = !hasOverkill && refHP != null && calculatedEvent!.finalDamage >= refHP
-  const isDangerous =
-    !hasOverkill && !isLethal && refHP != null && calculatedEvent!.finalDamage >= refHP * 0.9
+  const { isLethal, isDangerous } = deriveLethalDangerous(
+    enableHpSimulation ? calculatedEvent?.hpSimulation : undefined,
+    calculatedEvent?.finalDamage ?? 0,
+    calculatedEvent?.referenceMaxHP,
+    hasOverkill
+  )
 
   const getDamageText = (): string => {
     if (!showActualDamage && !showOriginalDamage) return ''
@@ -186,72 +189,68 @@ const DamageEventCard = memo(function DamageEventCard({
       />
 
       {/* 死亡图标（回放模式） */}
-      {hasOverkill && (
-        <Text
-          x={3}
-          y={-15}
-          width={18}
-          height={30}
-          text="💀"
-          fontSize={12}
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={3}
+        y={-15}
+        width={18}
+        height={30}
+        text="💀"
+        fontSize={12}
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={hasOverkill}
+      />
 
       {/* 致死警示（编辑模式） */}
-      {isLethal && (
-        <Text
-          x={3}
-          y={-15}
-          width={18}
-          height={30}
-          text="⚠"
-          fontSize={13}
-          fill="#dc2626"
-          fontStyle="bold"
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={3}
+        y={-15}
+        width={18}
+        height={30}
+        text="⚠"
+        fontSize={13}
+        fill="#dc2626"
+        fontStyle="bold"
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={isLethal}
+      />
 
       {/* 危险警示（编辑模式） */}
-      {isDangerous && (
-        <Text
-          x={3}
-          y={-15}
-          width={18}
-          height={30}
-          text="⚠"
-          fontSize={13}
-          fill="#f59e0b"
-          fontStyle="bold"
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={3}
+        y={-15}
+        width={18}
+        height={30}
+        text="⚠"
+        fontSize={13}
+        fill="#f59e0b"
+        fontStyle="bold"
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={isDangerous}
+      />
 
       {/* 最终伤害数值 */}
-      {damageText && (
-        <Text
-          x={150 - damageTextWidth}
-          y={-15}
-          width={damageTextWidth - 5}
-          height={30}
-          text={damageText}
-          fontSize={12}
-          fill={colors.textPrimary}
-          fontFamily="Arial, sans-serif"
-          wrap="none"
-          align="right"
-          verticalAlign="middle"
-          perfectDrawEnabled={false}
-          listening={false}
-        />
-      )}
+      <Text
+        x={150 - damageTextWidth}
+        y={-15}
+        width={damageTextWidth - 5}
+        height={30}
+        text={damageText}
+        fontSize={12}
+        fill={colors.textPrimary}
+        fontFamily="Arial, sans-serif"
+        wrap="none"
+        align="right"
+        verticalAlign="middle"
+        perfectDrawEnabled={false}
+        listening={false}
+        visible={!!damageText}
+      />
     </Group>
   )
 })

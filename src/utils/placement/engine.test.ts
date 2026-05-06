@@ -4,6 +4,7 @@ import { whileStatus, not } from './combinators'
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { StatusInterval } from '@/types/status'
+import type { StatusTimelineByPlayer } from './types'
 
 const INF = Number.POSITIVE_INFINITY
 const NEG_INF = Number.NEGATIVE_INFINITY
@@ -26,7 +27,7 @@ describe('createPlacementEngine — 基础查询', () => {
     const engine = createPlacementEngine({
       castEvents: [],
       actions: new Map([[1, action]]),
-      simulate: () => ({ statusTimelineByPlayer: new Map() }),
+      statusTimelineByPlayer: new Map(),
     })
     expect(engine.getValidIntervals(action, 10)).toEqual([{ from: NEG_INF, to: INF }])
   })
@@ -38,7 +39,7 @@ describe('createPlacementEngine — 基础查询', () => {
     const engine = createPlacementEngine({
       castEvents: [],
       actions: new Map([[1, action]]),
-      simulate: () => ({ statusTimelineByPlayer: new Map() }),
+      statusTimelineByPlayer: new Map(),
     })
     expect(engine.canPlaceCastEvent(action, 10, -10).ok).toBe(true)
     expect(engine.canPlaceCastEvent(action, 10, -25).ok).toBe(true)
@@ -52,7 +53,7 @@ describe('createPlacementEngine — 基础查询', () => {
     const engine = createPlacementEngine({
       castEvents,
       actions: new Map([[1, action]]),
-      simulate: () => ({ statusTimelineByPlayer: new Map() }),
+      statusTimelineByPlayer: new Map(),
     })
     // forbidden = [90-60, 90+60) = [30, 150)，valid = (-∞, 30) ∪ [150, INF)
     expect(engine.getValidIntervals(action, 10)).toEqual([
@@ -90,7 +91,7 @@ describe('createPlacementEngine — 基础查询', () => {
     const engine = createPlacementEngine({
       castEvents: [{ id: 'c1', actionId: 1, playerId: 10, timestamp: 100 } as unknown as CastEvent],
       actions: new Map([[1, action]]),
-      simulate: () => ({ statusTimelineByPlayer: timeline }),
+      statusTimelineByPlayer: timeline,
     })
     // placement = [20, 50)；CD forbidden = [100-60, 100+60) = [40, 160)，CD valid = [0, 40) ∪ [160, ∞)
     // 交集 = [20, 40)
@@ -143,7 +144,7 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
       [1, primary],
       [2, variant],
     ]),
-    simulate: () => ({ statusTimelineByPlayer: timeline }),
+    statusTimelineByPlayer: timeline,
   })
 
   it('computeTrackShadow: 两成员 union 的补集', () => {
@@ -176,7 +177,7 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
         [1, primary],
         [2, variant],
       ]),
-      simulate: () => ({ statusTimelineByPlayer: timeline }),
+      statusTimelineByPlayer: timeline,
     })
     const invalid = e.findInvalidCastEvents()
     const byId = new Map(invalid.map(r => [r.castEvent.id, r.reason]))
@@ -207,7 +208,7 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
         [1, primary],
         [2, variant],
       ]),
-      simulate: () => ({ statusTimelineByPlayer: timeline }),
+      statusTimelineByPlayer: timeline,
     })
     // variant cd=10；A 在 60、B 在 70 —— A 的 CD [60,70) 与 B 的 CD [70,80) 恰好紧贴。
     // 但 A 和 B 都位于 BUFF [20,50) 之外 → placement_lost。所以要单独排除 resource_exhausted：
@@ -241,69 +242,56 @@ describe('createPlacementEngine — shadow / unique / findInvalid', () => {
         [1, primary],
         [2, variant],
       ]),
-      simulate: () => ({ statusTimelineByPlayer: timeline }),
+      statusTimelineByPlayer: timeline,
     })
     expect(e.findInvalidCastEvents()).toEqual([])
   })
 })
 
-describe('createPlacementEngine — excludeCastEventId 重放', () => {
-  it('排除 consume 型 cast 后，状态 interval 应恢复到原时长', () => {
-    // 模拟：节制 16536 在 t=10 附加 status 1873（duration 25）→ [10, 35)
-    //       神爱抚 37011 在 t=20 consume 1873 → [10, 20)
-    // 排除神爱抚 cast 后应看到 [10, 35)
-    const simulate = (events: CastEvent[]) => {
-      const has16536 = events.some(e => e.actionId === 16536)
-      const has37011 = events.some(e => e.actionId === 37011)
-      if (has16536 && has37011) {
-        return {
-          statusTimelineByPlayer: new Map([
+describe('createPlacementEngine — findInvalidCastEvents 拖拽预览语义', () => {
+  it('removeCastEventId 给定时用 simulateOnRemove 重跑后的 timeline 评估剩余 cast', () => {
+    // 模拟：节制 16536 在 t=10 附加 status 1873（duration 25），→ default 时是 [10, 20)
+    //       因为神爱抚 37011 在 t=20 consume 1873。
+    //       简化为：simulateOnRemove 拿到 filtered（不含 37011）后返回 [10, 35)，
+    //       让 grace 的 placement 评估时看到延长后的 buff 仍在 t=20。
+    const defaultTimeline: StatusTimelineByPlayer = new Map([
+      [
+        10,
+        new Map([
+          [
+            1873,
             [
-              10,
-              new Map([
-                [
-                  1873,
-                  [
-                    {
-                      from: 10,
-                      to: 20,
-                      stacks: 1,
-                      sourcePlayerId: 10,
-                      sourceCastEventId: 'c16536',
-                    } as StatusInterval,
-                  ],
-                ],
-              ]),
+              {
+                from: 10,
+                to: 20,
+                stacks: 1,
+                sourcePlayerId: 10,
+                sourceCastEventId: 'c16536',
+              } as StatusInterval,
             ],
-          ]),
-        }
-      }
-      if (has16536) {
-        return {
-          statusTimelineByPlayer: new Map([
+          ],
+        ]),
+      ],
+    ])
+    const removalTimeline: StatusTimelineByPlayer = new Map([
+      [
+        10,
+        new Map([
+          [
+            1873,
             [
-              10,
-              new Map([
-                [
-                  1873,
-                  [
-                    {
-                      from: 10,
-                      to: 35,
-                      stacks: 1,
-                      sourcePlayerId: 10,
-                      sourceCastEventId: 'c16536',
-                    } as StatusInterval,
-                  ],
-                ],
-              ]),
+              {
+                from: 10,
+                to: 35,
+                stacks: 1,
+                sourcePlayerId: 10,
+                sourceCastEventId: 'c16536',
+              } as StatusInterval,
             ],
-          ]),
-        }
-      }
-      return { statusTimelineByPlayer: new Map() }
-    }
-
+          ],
+        ]),
+      ],
+    ])
     const temperance = makeAction({ id: 16536, cooldown: 120 })
     const grace = makeAction({
       id: 37011,
@@ -312,7 +300,9 @@ describe('createPlacementEngine — excludeCastEventId 重放', () => {
     })
     const castEvents: CastEvent[] = [
       { id: 'c16536', actionId: 16536, playerId: 10, timestamp: 10 } as unknown as CastEvent,
-      { id: 'c37011', actionId: 37011, playerId: 10, timestamp: 20 } as unknown as CastEvent,
+      // grace 在 t=25 — default 时该位置 placement 失效（buff 仅到 20），simulateOnRemove
+      // 把 buff 延到 35 后 placement 应合法。两条路径在 findInvalidCastEvents 的差异。
+      { id: 'cgrace', actionId: 37011, playerId: 10, timestamp: 25 } as unknown as CastEvent,
     ]
     const engine = createPlacementEngine({
       castEvents,
@@ -320,37 +310,104 @@ describe('createPlacementEngine — excludeCastEventId 重放', () => {
         [16536, temperance],
         [37011, grace],
       ]),
-      simulate,
+      statusTimelineByPlayer: defaultTimeline,
+      simulateOnRemove: () => ({ statusTimelineByPlayer: removalTimeline }),
     })
 
-    // 默认：grace 合法 = placement [10, 20) ∩ CD 可用。同 effectiveTrackGroup 只有 c37011 自己；
-    // 放置 grace (cd=1) 与已有 grace (cd=1 at 20) 冲突区间 = [20-1, 20+1) = [19, 21)
-    // CD valid = [0, 19) ∪ [21, INF)；∩ [10, 20) = [10, 19)
-    expect(engine.getValidIntervals(grace, 10)).toEqual([{ from: 10, to: 19 }])
-
-    // 排除 c37011 自身后，CD 无约束；placement 恢复为重放后的 [10, 35)
-    const withExclude = engine.getValidIntervals(grace, 10, 'c37011')
-    expect(withExclude).toEqual([{ from: 10, to: 35 }])
+    // 默认 findInvalidCastEvents：cgrace placement_lost（buff 仅到 20，t=25 越界）
+    expect(engine.findInvalidCastEvents().some(r => r.castEvent.id === 'cgrace')).toBe(true)
+    // removeCastEventId 给定（删 c16536 自己）：cgrace 不再被评估（c16536 已删除外层、cgrace 留下）；
+    // 给定 removeCastEventId='cgrace'：用 removalTimeline 评估剩余 [c16536]，placement 不涉及。
+    expect(engine.findInvalidCastEvents('cgrace')).toEqual([])
   })
 
-  it('同一 excludeId 多次查询只触发 1 次 simulate（缓存命中）', () => {
+  it('excludeId 过滤 placement timeline：自禁 placement 不会把自己判非法（AST 地星 / 自动重分类回归）', () => {
+    // 回归：AST 地星（7439） placement = `not(whileStatus(1224))`，executor 又会
+    // attach 1224。在 EditorPage 的"自动重分类" useEffect 里调
+    // `canPlaceCastEvent(7439, t=castTs, excludeId=ce.id)` 时，旧实现把该 cast 自身的
+    // 1224 也算进 placement timeline → 在 cast 自身 buff 起点恒为非法 → pickUniqueMember
+    // 切到同 trackGroup 的 8324（星体爆轰），下一帧再翻回 7439，触发 7439↔8324 死循环。
+    // 修复：excludeId 过滤 statusTimelineByPlayer，仅保留 sourceCastEventId !== excludeId。
+    const SELF_BUFF = 1224
+    const timeline: StatusTimelineByPlayer = new Map([
+      [
+        10,
+        new Map([
+          [
+            SELF_BUFF,
+            [
+              // 仅一条由 ce='self' 自身贡献的 buff 起点正好等于 excludeId 的 cast 时刻
+              {
+                from: 60,
+                to: 70,
+                stacks: 1,
+                sourcePlayerId: 10,
+                sourceCastEventId: 'self',
+              } as StatusInterval,
+            ],
+          ],
+        ]),
+      ],
+    ])
+    const earthStar = makeAction({
+      id: 7439,
+      cooldown: 60,
+      placement: not(whileStatus(SELF_BUFF)),
+    })
+    const detonation = makeAction({
+      id: 8324,
+      cooldown: 0,
+      trackGroup: 7439,
+      placement: whileStatus(SELF_BUFF),
+    })
+    const engine = createPlacementEngine({
+      castEvents: [
+        { id: 'self', actionId: 7439, playerId: 10, timestamp: 60 } as unknown as CastEvent,
+      ],
+      actions: new Map([
+        [7439, earthStar],
+        [8324, detonation],
+      ]),
+      statusTimelineByPlayer: timeline,
+    })
+    // canPlaceCastEvent(7439, t=60, 'self')：过滤掉 sourceCastEventId='self' 的 1224，
+    // placement timeline 没有任何 1224 → not(whileStatus) 全段合法 → t=60 应该 ok。
+    expect(engine.canPlaceCastEvent(earthStar, 10, 60, 'self').ok).toBe(true)
+    // pickUniqueMember 应当回到 7439（而不是 8324），自动重分类才不会反复翻 actionId。
+    expect(engine.pickUniqueMember(7439, 10, 60, 'self')?.id).toBe(7439)
+  })
+
+  it('excludeId 查询走 simulateOnRemove 派生 placement timeline，且按 excludeId 缓存', () => {
+    // 常规 excludeId 查询（getValidIntervals / canPlaceCastEvent / pickUniqueMember /
+    // computeTrackShadow）现在都靠 simulateOnRemove 重跑 placement timeline，等价于
+    // "假装该 cast 不存在"——简单 sourceCastEventId 过滤无法还原被消费型 cast（如 AST
+    // 星体爆轰）截断的下游 buff 自然时长，shadow 会少给出可拖区。缓存按 excludeId 分桶，
+    // 同 excludeId 的多次查询命中 cache 不重跑 simulate。
     let calls = 0
-    const simulate = () => {
-      calls++
-      return { statusTimelineByPlayer: new Map() }
-    }
     const action = makeAction({ id: 1 })
     const engine = createPlacementEngine({
       castEvents: [{ id: 'c1', actionId: 1, playerId: 10, timestamp: 0 } as unknown as CastEvent],
       actions: new Map([[1, action]]),
-      simulate,
+      statusTimelineByPlayer: new Map(),
+      simulateOnRemove: () => {
+        calls++
+        return { statusTimelineByPlayer: new Map() }
+      },
     })
-    // 构造时 1 次
+    // 不带 excludeId：直接共享 defaultTimeline，0 次 simulate
+    engine.getValidIntervals(action, 10)
+    engine.canPlaceCastEvent(action, 10, 0)
+    engine.findInvalidCastEvents()
+    expect(calls).toBe(0)
+    // 带 excludeId='c1'：触发一次 simulateOnRemove，后续同 excludeId 复用缓存
+    engine.getValidIntervals(action, 10, 'c1')
     expect(calls).toBe(1)
-    engine.getValidIntervals(action, 10, 'c1')
-    engine.getValidIntervals(action, 10, 'c1')
+    engine.canPlaceCastEvent(action, 10, 0, 'c1')
+    engine.computeTrackShadow(1, 10, 'c1')
+    expect(calls).toBe(1)
+    // findInvalidCastEvents(removeId) 走自己的重跑路径（不共享 timelineExcluding 缓存），
+    // 重跑一次。
     engine.findInvalidCastEvents('c1')
-    // excludeId 命中缓存，应只再增加 1
     expect(calls).toBe(2)
   })
 })

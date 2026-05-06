@@ -11,6 +11,8 @@
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { getIconUrl } from '@/utils/iconUtils'
 import { cellKey } from '@/utils/castWindow'
+import { deriveLethalDangerous } from '@/utils/lethalDanger'
+import { useUIStore } from '@/store/uiStore'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
@@ -114,11 +116,13 @@ export default function TableDataRow({
       d => (d.overkill ?? 0) > 0 && !d.statuses.some(s => s.statusId === 810)
     ) ?? false
 
-  // 编辑模式警示（仅在 calculationResult 有 referenceMaxHP 时才可用）
-  const refHP = calculationResult?.referenceMaxHP
-  const finalDamage = calculationResult?.finalDamage ?? 0
-  const isLethal = !hasOverkill && refHP != null && finalDamage >= refHP
-  const isDangerous = !hasOverkill && !isLethal && refHP != null && finalDamage >= refHP * 0.9
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
+  const { isLethal, isDangerous } = deriveLethalDangerous(
+    enableHpSimulation ? calculationResult?.hpSimulation : undefined,
+    calculationResult?.finalDamage ?? 0,
+    calculationResult?.referenceMaxHP,
+    hasOverkill
+  )
 
   // 计算粘性左偏移
   let leftOffset = 0

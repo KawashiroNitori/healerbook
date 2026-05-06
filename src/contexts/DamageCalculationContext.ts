@@ -6,7 +6,9 @@ const emptyContext: DamageCalculationResult = {
   results: new Map(),
   statusTimelineByPlayer: new Map(),
   castEffectiveEndByCastEventId: new Map(),
-  simulate: null,
+  healSnapshots: [],
+  hpTimeline: [],
+  simulateOnRemove: null,
 }
 
 export const DamageCalculationContext = createContext<DamageCalculationResult>(emptyContext)
@@ -23,6 +25,10 @@ export function useCastEffectiveEnd(): Map<string, number> {
   return useContext(DamageCalculationContext).castEffectiveEndByCastEventId
 }
 
-export function useDamageCalculationSimulate(): DamageCalculationResult['simulate'] {
-  return useContext(DamageCalculationContext).simulate
+export function useDamageCalculationSimulate(): DamageCalculationResult['simulateOnRemove'] {
+  return useContext(DamageCalculationContext).simulateOnRemove
+}
+
+export function useHpTimeline(): DamageCalculationResult['hpTimeline'] {
+  return useContext(DamageCalculationContext).hpTimeline
 }

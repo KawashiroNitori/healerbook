@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useFilterStore, BUILTIN_PRESETS } from './filterStore'
+import type { DamageEvent, DamageEventType } from '@/types/timeline'
+
+function damageEvent(type: DamageEventType): DamageEvent {
+  return { id: 'e', name: '', time: 0, damage: 0, type, damageType: 'magical' }
+}
 
 describe('filterStore', () => {
   beforeEach(() => {
@@ -23,20 +28,20 @@ describe('filterStore', () => {
       ])
     })
 
-    it('内置预设 raidwide 包含 partial_aoe / partial_final_aoe', () => {
+    it('内置预设 raidwide 命中 aoe / partial_aoe / partial_final_aoe', () => {
       const p = BUILTIN_PRESETS.find(x => x.id === 'builtin:raidwide')!
       if (p.kind !== 'builtin') throw new Error('not builtin')
-      expect(p.rule.damageTypes).toEqual(
-        expect.arrayContaining(['aoe', 'partial_aoe', 'partial_final_aoe'])
-      )
+      for (const t of ['aoe', 'partial_aoe', 'partial_final_aoe'] as const) {
+        expect(p.rule.damage(damageEvent(t))).toBe(true)
+      }
     })
 
-    it('内置预设 tank 包含全部 5 个攻击类型', () => {
+    it('内置预设 tank 命中全部 5 个攻击类型', () => {
       const p = BUILTIN_PRESETS.find(x => x.id === 'builtin:tank')!
       if (p.kind !== 'builtin') throw new Error('not builtin')
-      expect(p.rule.damageTypes).toEqual(
-        expect.arrayContaining(['aoe', 'partial_aoe', 'partial_final_aoe', 'tankbuster', 'auto'])
-      )
+      for (const t of ['aoe', 'partial_aoe', 'partial_final_aoe', 'tankbuster', 'auto'] as const) {
+        expect(p.rule.damage(damageEvent(t))).toBe(true)
+      }
     })
   })
 

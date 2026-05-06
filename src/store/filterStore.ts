@@ -6,21 +6,37 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
 import type { FilterPreset, CustomFilterRule } from '@/types/filter'
+import type { DamageEventType } from '@/types/timeline'
+import { getJobRole } from '@/data/jobs'
+
+const RAID_DAMAGE_TYPES: DamageEventType[] = ['aoe', 'partial_aoe', 'partial_final_aoe']
+const TANK_DAMAGE_TYPES: DamageEventType[] = [
+  'aoe',
+  'partial_aoe',
+  'partial_final_aoe',
+  'tankbuster',
+  'auto',
+]
 
 export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:all',
     name: '全部',
-    rule: {},
+    rule: {
+      damage: () => true,
+      action: () => true,
+    },
   },
   {
     kind: 'builtin',
     id: 'builtin:raidwide',
     name: '仅团减',
     rule: {
-      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'],
-      categories: ['partywide'],
+      damage: e => RAID_DAMAGE_TYPES.includes(e.type),
+      action: a =>
+        a.category.includes('partywide') &&
+        (a.category.includes('percentage') || a.category.includes('shield')),
     },
   },
   {
@@ -28,8 +44,11 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:dps',
     name: '仅 DPS',
     rule: {
-      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'],
-      jobRoles: ['melee', 'ranged', 'caster'],
+      damage: e => RAID_DAMAGE_TYPES.includes(e.type),
+      action: (_a, job) => {
+        const role = getJobRole(job)
+        return role === 'melee' || role === 'ranged' || role === 'caster'
+      },
     },
   },
   {
@@ -37,8 +56,8 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:tank',
     name: '仅坦克',
     rule: {
-      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe', 'tankbuster', 'auto'],
-      jobRoles: ['tank'],
+      damage: e => TANK_DAMAGE_TYPES.includes(e.type),
+      action: (_a, job) => getJobRole(job) === 'tank',
     },
   },
   {
@@ -46,8 +65,8 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
     id: 'builtin:healer',
     name: '仅治疗',
     rule: {
-      damageTypes: ['aoe', 'partial_aoe', 'partial_final_aoe'],
-      jobRoles: ['healer'],
+      damage: e => RAID_DAMAGE_TYPES.includes(e.type),
+      action: (_a, job) => getJobRole(job) === 'healer',
     },
   },
 ]

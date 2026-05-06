@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useUIStore } from '@/store/uiStore'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import { getStatusById } from '@/utils/statusRegistry'
@@ -31,6 +32,8 @@ import {
   type DamageEventType,
 } from '@/types/timeline'
 import type { MitigationStatus } from '@/types/status'
+import type { HpSimulationSnapshot } from '@/utils/mitigationCalculator'
+import { deriveLethalDangerous } from '@/utils/lethalDanger'
 
 interface BranchViewData {
   finalDamage: number
@@ -41,6 +44,7 @@ interface BranchViewData {
 
 export default function PropertyPanel() {
   const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent } = useTimelineStore()
+  const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const isReadOnly = useEditorReadOnly()
   const [helpOpen, setHelpOpen] = useState(false)
   // 多坦展示：选中的坦克（绑 eventId，事件切换自动失效 → fallback 到最优减伤分支）。
@@ -55,13 +59,35 @@ export default function PropertyPanel() {
   // 使用新的伤害计算 Hook（基于状态）
   const { results: eventResults } = useDamageCalculation(timeline)
 
+  // 显示伤害事件属性（event 可能不存在；hooks 必须在 early return 前声明）
+  const event = timeline?.damageEvents.find(e => e.id === selectedEventId)
+
+  // 文本框 draft：每次按键不触发 store 更新，失焦时再 commit，避免高频重算时间轴。
+  // 切换事件 / 外部 undo-redo 时按 React "Adjusting state when a prop changes" 模式
+  // 在 render 期把外部值同步回 draft（用 storedKey 三元组防止覆盖正在编辑的内容）。
+  const [nameDraft, setNameDraft] = useState(event?.name ?? '')
+  const [damageDraft, setDamageDraft] = useState(event ? String(event.damage) : '')
+  const [syncedKey, setSyncedKey] = useState({
+    id: event?.id,
+    name: event?.name,
+    damage: event?.damage,
+  })
+  if (
+    event &&
+    (event.id !== syncedKey.id ||
+      event.name !== syncedKey.name ||
+      event.damage !== syncedKey.damage)
+  ) {
+    setSyncedKey({ id: event.id, name: event.name, damage: event.damage })
+    setNameDraft(event.name)
+    setDamageDraft(String(event.damage))
+  }
+
   // 只有在选中伤害事件时才显示面板（不响应技能选中）
   if (!timeline || !selectedEventId) {
     return null
   }
 
-  // 显示伤害事件属性
-  const event = timeline.damageEvents.find(e => e.id === selectedEventId)
   if (!event) return null
 
   // 使用预先计算的结果（可能为空）
@@ -77,8 +103,12 @@ export default function PropertyPanel() {
     const remainHP = Math.max(0, maxHP - branch.finalDamage)
     const survivePct = Math.max(0, Math.min(100, (remainHP / maxHP) * 100))
     const damagePct = Math.max(0, Math.min(100, (branch.finalDamage / maxHP) * 100))
-    const isLethal = branch.finalDamage >= maxHP
-    const isDangerous = !isLethal && branch.finalDamage >= maxHP * 0.95
+    const { isLethal, isDangerous } = deriveLethalDangerous(
+      undefined,
+      branch.finalDamage,
+      maxHP,
+      false
+    )
 
     return (
       <div className="space-y-1.5">
@@ -136,22 +166,126 @@ export default function PropertyPanel() {
     )
   }
 
+  /** HP 条（累积视角，基于 HpSimulationSnapshot） */
+  function renderHpBarAccumulative(snap: HpSimulationSnapshot) {
+    const { hpBefore, hpAfter, hpMax, overkill } = snap
+    const dealt = hpBefore - hpAfter
+    const survivePct = (hpAfter / hpMax) * 100
+    const damagePct = (dealt / hpMax) * 100
+    const { isLethal, isDangerous } = deriveLethalDangerous(snap, 0, undefined, false)
+
+    return (
+      <div className="space-y-1.5">
+        {isLethal && (
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 px-3 py-2">
+            <Skull className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">致死</p>
+              <p className="text-xs text-red-600/80 dark:text-red-400/80">
+                伤害溢出 {(overkill ?? 0).toLocaleString()} HP，需要更多减伤 / 治疗
+              </p>
+            </div>
+          </div>
+        )}
+        {isDangerous && (
+          <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-3 py-2">
+            <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">危险</p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                伤害后仅剩 {hpAfter.toLocaleString()} HP（{survivePct.toFixed(1)}%）
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-between text-xs">
+          <span className="text-muted-foreground">HP</span>
+          <span className="tabular-nums">
+            <span className="text-foreground">{hpAfter.toLocaleString()}</span>
+            <span className="text-muted-foreground"> / {hpMax.toLocaleString()}</span>
+            <span className="text-red-500 ml-1">(-{dealt.toLocaleString()})</span>
+          </span>
+        </div>
+        <div className="h-2.5 bg-secondary rounded-full overflow-hidden flex">
+          <div
+            className="h-full rounded-l-full"
+            style={{
+              width: `${Math.max(0, Math.min(100, survivePct))}%`,
+              backgroundColor: 'rgb(34, 197, 94)',
+            }}
+          />
+          <div
+            className="h-full"
+            style={{
+              width: `${Math.max(0, Math.min(100, damagePct))}%`,
+              backgroundColor: 'rgb(239, 68, 68)',
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)',
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   /** 减伤构成条 */
-  function renderMitigationBar(branch: BranchViewData, originalDamage: number) {
-    const total = originalDamage
+  function renderMitigationBar(
+    branch: BranchViewData,
+    originalDamage: number,
+    hpSnap: HpSimulationSnapshot | undefined
+  ) {
+    // 函数声明在 `if (!event) return null` 之后，但 TS 不会把闭包外的窄化保留进 hoist
+    // 后的函数体——这里再窄化一次让后续 event.type 访问通过类型检查（运行期不可能进 if）。
+    if (!event) return null
+    const isPartialAoe = event.type === 'partial_aoe' || event.type === 'partial_final_aoe'
+    // partial AOE 段内增量视角（仅 isPartialAoe + hpSnap 启用，HP 模拟关时回落事件级原始
+    // 口径）：以"本事件应用伤害" = max(0, event.damage - 段进入本事件前的最大 event.damage)
+    // 作为 baseline。各分量走 simulator 段感知的 delta 链，与 HP 条扣血量严格一致：
+    //   raw 增量    = settlement                   (= event.damage - segOriginalMaxBefore)
+    //   cd 增量     = preShieldDealt              (= candidateDamage - segCandidateMaxBefore)
+    //   final 增量  = preClampDealt               (= finalDamage - segMaxBefore)
+    //   pctMit_settlement  = raw 增量 - cd 增量   （此事件多扣的 % 减伤部分）
+    //   shield_settlement  = cd 增量 - final 增量  （此事件多消耗的盾，盾被段内更大事件
+    //                                              占满时为 0 → 与 HP 条扣血对齐）
+    //   finalDamage_settlement = preClampDealt    （= HP 模拟实扣的段增量 pre-clamp）
+    //   effective + overkill = preClampDealt      （overkill 直接用 hpSnap.overkill）
+    // 段被压制（settlement = 0）→ 各段全 0 → denom <= 0 兜底隐藏整块。
+    const total =
+      isPartialAoe && hpSnap
+        ? Math.max(0, originalDamage - (hpSnap.segOriginalMax ?? 0))
+        : originalDamage
     const maxHP = branch.referenceMaxHP || 0
-    // 按实例级 remainingBarrier 判盾（与 calculator Phase 3 口径一致）
-    // 覆盖 meta.type='multiplier' 但被 onBeforeShield 注入 barrier 的场景（如死斗）
-    const shieldAbsorb = (branch.appliedStatuses || []).reduce(
+    // sum 实例级 remainingBarrier；与 calculator Phase 3 口径一致，覆盖
+    // meta.type='multiplier' 但被 onBeforeShield 注入 barrier 的场景（如死斗）
+    const shieldAvailable = (branch.appliedStatuses || []).reduce(
       (sum, s) => sum + (s.remainingBarrier ?? 0),
       0
     )
-    const pctMitigation = Math.max(0, total - branch.finalDamage - shieldAbsorb)
-    const overkill = maxHP > 0 ? Math.max(0, branch.finalDamage - maxHP) : 0
-    const effectiveDamage = branch.finalDamage - overkill
 
-    // 原始伤害为 0（如 FFLogs 完全被盾吸收的事件）时，用各段之和做分母回退，
-    // 避免除零；若各段也全为 0，整个块隐藏。
+    let finalDamageScaled: number
+    let shieldAbsorb: number
+    let pctMitigation: number
+    let overkill: number
+
+    if (isPartialAoe && hpSnap) {
+      // settlement view 的 delta 链
+      const preClampDealt = hpSnap.hpBefore - hpSnap.hpAfter + (hpSnap.overkill ?? 0)
+      const preShieldDealt = hpSnap.preShieldDealt ?? 0
+      pctMitigation = Math.max(0, total - preShieldDealt)
+      shieldAbsorb = Math.max(0, preShieldDealt - preClampDealt)
+      finalDamageScaled = preClampDealt
+      overkill = hpSnap.overkill ?? 0
+    } else {
+      // 事件级原始口径（与改造前一致）
+      finalDamageScaled = branch.finalDamage
+      shieldAbsorb = shieldAvailable
+      pctMitigation = Math.max(0, total - finalDamageScaled - shieldAbsorb)
+      overkill = hpSnap?.overkill ?? (maxHP > 0 ? Math.max(0, finalDamageScaled - maxHP) : 0)
+    }
+    const effectiveDamage = finalDamageScaled - overkill
+
+    // 原始伤害为 0（如 FFLogs 完全被盾吸收的事件）或 partial 段被压制（partialScale=0）时，
+    // 用各段之和做分母回退；若各段也全为 0，整个块隐藏。
     const denom = total > 0 ? total : effectiveDamage + overkill + shieldAbsorb + pctMitigation
     if (denom <= 0) return null
 
@@ -165,8 +299,10 @@ export default function PropertyPanel() {
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">减伤构成</span>
           <span className="tabular-nums">
-            <span className="font-medium text-red-500">{branch.finalDamage.toLocaleString()}</span>
-            <span className="text-muted-foreground"> / {total.toLocaleString()}</span>
+            <span className="font-medium text-red-500">
+              {Math.round(finalDamageScaled).toLocaleString()}
+            </span>
+            <span className="text-muted-foreground"> / {Math.round(total).toLocaleString()}</span>
             <span className="text-muted-foreground ml-1">
               ({branch.mitigationPercentage.toFixed(1)}%)
             </span>
@@ -178,22 +314,22 @@ export default function PropertyPanel() {
               {
                 pct: overkillPct,
                 color: 'rgb(55, 55, 55)',
-                label: `溢出伤害 ${overkill.toLocaleString()} (${overkillPct.toFixed(1)}%)`,
+                label: `溢出伤害 ${Math.round(overkill).toLocaleString()} (${overkillPct.toFixed(1)}%)`,
               },
               {
                 pct: effectivePct,
                 color: 'rgb(239, 68, 68)',
-                label: `有效伤害 ${effectiveDamage.toLocaleString()} (${effectivePct.toFixed(1)}%)`,
+                label: `有效伤害 ${Math.round(effectiveDamage).toLocaleString()} (${effectivePct.toFixed(1)}%)`,
               },
               {
                 pct: shieldPct,
                 color: 'rgb(234, 179, 8)',
-                label: `护盾减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
+                label: `护盾减免 ${Math.round(shieldAbsorb).toLocaleString()} (${shieldPct.toFixed(1)}%)`,
               },
               {
                 pct: multiplierPct,
                 color: 'rgb(59, 130, 246)',
-                label: `百分比减免 ${pctMitigation.toLocaleString()} (${multiplierPct.toFixed(1)}%)`,
+                label: `百分比减免 ${Math.round(pctMitigation).toLocaleString()} (${multiplierPct.toFixed(1)}%)`,
               },
             ]
               .filter(s => s.pct > 0)
@@ -330,10 +466,12 @@ export default function PropertyPanel() {
     damageType: DamageType,
     originalDamage: number
   ) {
+    // 非坦事件优先走累积视角；坦专 / 缺失 hpSimulation / HP 模拟开关关 时回退孤立视角
+    const hpSnap = enableHpSimulation ? result?.hpSimulation : undefined
     return (
       <>
-        {renderHpBar(branch)}
-        {renderMitigationBar(branch, originalDamage)}
+        {hpSnap ? renderHpBarAccumulative(hpSnap) : renderHpBar(branch)}
+        {renderMitigationBar(branch, originalDamage, hpSnap)}
         {renderAppliedStatuses(branch, damageType, originalDamage)}
       </>
     )
@@ -360,8 +498,13 @@ export default function PropertyPanel() {
           <label className="block text-xs text-muted-foreground mb-1">事件名称</label>
           <input
             type="text"
-            value={event.name}
-            onChange={e => updateDamageEvent(event.id, { name: e.target.value })}
+            value={nameDraft}
+            onChange={e => setNameDraft(e.target.value)}
+            onBlur={() => {
+              if (nameDraft !== event.name) {
+                updateDamageEvent(event.id, { name: nameDraft })
+              }
+            }}
             maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
             className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
             disabled={isReadOnly}
@@ -383,8 +526,17 @@ export default function PropertyPanel() {
             <label className="block text-xs text-muted-foreground mb-1">原始伤害</label>
             <input
               type="number"
-              value={event.damage}
-              onChange={e => updateDamageEvent(event.id, { damage: parseInt(e.target.value) || 0 })}
+              value={damageDraft}
+              onChange={e => setDamageDraft(e.target.value)}
+              onBlur={() => {
+                const parsed = parseInt(damageDraft) || 0
+                if (parsed !== event.damage) {
+                  updateDamageEvent(event.id, { damage: parsed })
+                } else if (damageDraft !== String(event.damage)) {
+                  // draft 是 "" 或 "0a" 等非法输入但 parsed 等于现值；规整显示
+                  setDamageDraft(String(event.damage))
+                }
+              }}
               className="w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
               disabled={isReadOnly}
             />
@@ -466,6 +618,49 @@ export default function PropertyPanel() {
             </>
           )}
         </div>
+
+        {/* 部分 AOE 伤害详情（仅编辑模式 + HP 模拟开 + partial AOE + 有段快照） */}
+        {!timeline.isReplayMode &&
+          result &&
+          enableHpSimulation &&
+          result.hpSimulation &&
+          (event.type === 'partial_aoe' || event.type === 'partial_final_aoe') &&
+          (() => {
+            // snapshot.segOriginalMax = 段进入本事件前的最大 event.damage（**不含自身**）；
+            // 段刚开时为 0。
+            // - 显示"最高区间伤害" = max(prior, own)，含自身，即整段（截至本事件）的真实最大
+            //   原始伤害；本事件就是段最高时不会显示 0
+            // - 显示"本事件应用伤害" = max(0, own - prior)，即"本事件应该处理的原始伤害"
+            //   （刷新段最高时 = own - prior 的增量；被段内更大事件压制 / 与最高持平时 = 0）
+            const segOriginalMaxBefore = result.hpSimulation.segOriginalMax ?? 0
+            const segOriginalMax = Math.max(segOriginalMaxBefore, event.damage)
+            const settlement = Math.max(0, event.damage - segOriginalMaxBefore)
+            return (
+              <div className="pt-3 border-t space-y-2">
+                <h3 className="text-sm font-semibold">部分 AOE 伤害详情</h3>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="space-y-0.5">
+                    <div className="text-muted-foreground">最高区间伤害</div>
+                    <div className="text-sm font-medium tabular-nums">
+                      {segOriginalMax.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-muted-foreground">本事件原始伤害</div>
+                    <div className="text-sm font-medium tabular-nums">
+                      {event.damage.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-muted-foreground">本事件应用伤害</div>
+                    <div className="text-sm font-medium tabular-nums">
+                      {settlement.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
         {/* Mitigation Result (仅编辑模式；死刑 / 普攻的血量以坦克中位血为基准) */}
         {!timeline.isReplayMode && result && (

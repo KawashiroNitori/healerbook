@@ -13,12 +13,19 @@ import type { PartyState } from './partyState'
 import type { TimelineStatData } from './statData'
 
 /**
- * 减伤表现：在 3rd party 的 physics/magic/darkness 基础上新增 heal / maxHP
+ * 减伤表现：在 3rd party 的 physics/magic/darkness 基础上新增 heal / selfHeal / maxHP
  * (1 = 无影响；< 1 减伤；此处复用同一套乘算口径)
  */
 export type PerformanceType = ExternalPerformanceType & {
-  /** 治疗增益倍率，缺省视为 1 */
+  /** 治疗增益倍率（全队作用域），缺省视为 1 */
   heal?: number
+  /**
+   * 自身治疗增益倍率，缺省视为 1
+   *
+   * 仅当 status.sourcePlayerId === healCast.sourcePlayerId 时参与累乘
+   * ——即"该 buff 的持有者亲自施法治疗"才生效。
+   */
+  selfHeal?: number
   /** 最大 HP 倍率（> 1 增益；例如 1.1 = +10% HP），缺省视为 1 */
   maxHP?: number
 }
@@ -142,6 +149,8 @@ export interface StatusBeforeShieldContext {
   referenceMaxHP: number
   /** 时间轴内部统计数据（healByAbility / shieldByAbility / referenceMaxHP 等），可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -156,6 +165,8 @@ export interface StatusConsumeContext {
   absorbedAmount: number
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -171,6 +182,8 @@ export interface StatusAfterDamageContext {
   finalDamage: number
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -188,6 +201,8 @@ export interface StatusExpireContext {
   partyState: PartyState
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器（钩子改 hp 时记录 HealSnapshot） */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
@@ -202,6 +217,8 @@ export interface StatusTickContext {
   partyState: PartyState
   /** 时间轴内部统计数据，可选 */
   statistics?: TimelineStatData
+  /** simulator 注入的治疗 snapshot 收集器；HoT 的 onTick 通过它记录每次 tick 的 HealSnapshot */
+  recordHeal?: (snap: import('./healSnapshot').HealSnapshot) => void
 }
 
 /**
