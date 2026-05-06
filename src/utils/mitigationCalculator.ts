@@ -503,20 +503,24 @@ export class MitigationCalculator {
           // 调试日志：每次治疗的时间 / 技能名 / prevHP / afterHP / 变化量。
           // actionId 形如 1e6+statusId（healByAbility 中 buff 类治疗的 key 形式，如全大赦
           // 给医治追加的附属治疗 amountSourceId=1001219）时反查 statusRegistry 拿 buff 名。
-          const actionName = (() => {
-            const action = MITIGATION_DATA.actions.find(a => a.id === snap.actionId)
-            if (action) return action.name
-            if (snap.actionId >= 1_000_000) {
-              const status = getStatusById(snap.actionId - 1_000_000)
-              if (status) return status.name
-            }
-            return `action#${snap.actionId}`
-          })()
-          const tag = snap.isHotTick ? 'HoT' : 'cast'
-          const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
-          console.log(
-            `[hp-sim heal] ${formatTimeWithDecimal(snap.time)} [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
-          )
+          // 仅 DEV 构建保留；生产期 import.meta.env.DEV 常量折叠成 false → 整段 DCE，
+          // 包含 actionName 反查（每条 snap 一次 MITIGATION_DATA.actions.find）的运行期开销。
+          if (import.meta.env.DEV) {
+            const actionName = (() => {
+              const action = MITIGATION_DATA.actions.find(a => a.id === snap.actionId)
+              if (action) return action.name
+              if (snap.actionId >= 1_000_000) {
+                const status = getStatusById(snap.actionId - 1_000_000)
+                if (status) return status.name
+              }
+              return `action#${snap.actionId}`
+            })()
+            const tag = snap.isHotTick ? 'HoT' : 'cast'
+            const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
+            console.log(
+              `[hp-sim heal] ${formatTimeWithDecimal(snap.time)} [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
+            )
+          }
         }
 
     interface OpenRecord {
@@ -820,7 +824,8 @@ export class MitigationCalculator {
           refEventId: event.id,
         })
       }
-      if (!skipHpPipeline && hpSnap) {
+      // 调试日志：仅 DEV 构建保留；生产期 import.meta.env.DEV 折叠成 false → 整段 DCE。
+      if (import.meta.env.DEV && !skipHpPipeline && hpSnap) {
         const dealt = hpSnap.hpBefore - hpSnap.hpAfter
         const overkillNote = hpSnap.overkill ? ` (overkill ${hpSnap.overkill})` : ''
         console.log(
