@@ -256,6 +256,9 @@ function extractHealData(events: FFLogsEvent[]): Record<number, number[]> {
 function extractDamageData(events: FFLogsEvent[]): Record<number, number[]> {
   const damageByAbility: Record<number, number[]> = {}
 
+  // 仅采集敌方造成的伤害：FFLogs 仅在被命中方（友方）记录 unmitigatedAmount，
+  // 玩家/宠物输出事件不会带这个字段。下面的 `event.unmitigatedAmount` 真值检查
+  // 借此天然过滤掉了非敌方来源的 damage 事件。
   for (const event of events) {
     if (event.type === 'damage' && event.abilityGameID && event.unmitigatedAmount) {
       if (!damageByAbility[event.abilityGameID]) {
@@ -727,15 +730,12 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
   const mergedDamage = mergeRecord(oldSamples.damageByAbility, extracted.damageByAbility)
   const mergedShield = mergeRecord(oldSamples.shieldByAbility, extracted.shieldByAbility)
   const mergedHeal = mergeRecord(oldSamples.healByAbility ?? {}, extracted.healByAbility)
-  const mergedMaxHP = mergeRecordStr(
-    oldSamples.maxHPByJob as unknown as Record<string, number[]>,
-    extracted.maxHPByJob as unknown as Record<string, number[]>
-  )
+  const mergedMaxHP = mergeRecord<Job>(oldSamples.maxHPByJob, extracted.maxHPByJob)
 
   const newSamples: EncounterSamples = {
     encounterId,
     damageByAbility: mergedDamage,
-    maxHPByJob: mergedMaxHP as unknown as Record<Job, number[]>,
+    maxHPByJob: mergedMaxHP,
     shieldByAbility: mergedShield,
     healByAbility: mergedHeal,
     updatedAt: new Date().toISOString(),
@@ -760,7 +760,7 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
     encounterId,
     encounterName,
     damageByAbility: calculatePercentiles(mergedDamage),
-    maxHPByJob: calculatePercentiles(mergedMaxHP as unknown as Record<Job, number[]>),
+    maxHPByJob: calculatePercentiles(mergedMaxHP),
     shieldByAbility: calculatePercentiles(mergedShield),
     healByAbility: calculatePercentiles(mergedHeal),
     critHealByAbility: calculatePercentiles(mergedHeal, 90),
@@ -797,27 +797,17 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
   return true
 }
 
-/** 工具：reservoir merge `Record<number, number[]>` */
-function mergeRecord(
-  base: Record<number, number[]>,
-  incoming: Record<number, number[]>
-): Record<number, number[]> {
-  const out: Record<number, number[]> = { ...base }
-  for (const [id, values] of Object.entries(incoming)) {
-    const key = Number(id)
+/** 工具：reservoir merge `Record<K, number[]>`（K 为 string 或 number——运行时都是字符串键） */
+function mergeRecord<K extends string | number>(
+  base: Record<K, number[]>,
+  incoming: Record<K, number[]>
+): Record<K, number[]> {
+  const out: Record<string, number[]> = { ...(base as unknown as Record<string, number[]>) }
+  const entries = Object.entries(incoming as unknown as Record<string, number[]>)
+  for (const [key, values] of entries) {
     out[key] = mergeWithReservoirSampling(out[key] ?? [], values)
   }
-  return out
-}
-function mergeRecordStr(
-  base: Record<string, number[]>,
-  incoming: Record<string, number[]>
-): Record<string, number[]> {
-  const out: Record<string, number[]> = { ...base }
-  for (const [key, values] of Object.entries(incoming)) {
-    out[key] = mergeWithReservoirSampling(out[key] ?? [], values)
-  }
-  return out
+  return out as unknown as Record<K, number[]>
 }
 
 /**
