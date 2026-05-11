@@ -6,6 +6,8 @@
  * 表 DDL 见 migrations/0003_create_samples_queue.sql。
  */
 
+import * as v from 'valibot'
+
 export interface SampleQueueRow {
   id: number
   encounter_id: number
@@ -25,6 +27,31 @@ export interface RankingEntryInput {
   reportCode: string
   fightID: number
   durationMs: number
+}
+
+/** 手动入队接口的单条 entry */
+const EnqueueSampleEntrySchema = v.object({
+  encounterId: v.pipe(v.number(), v.integer()),
+  reportCode: v.pipe(v.string(), v.minLength(1)),
+  fightID: v.pipe(v.number(), v.integer()),
+  durationMs: v.pipe(v.number(), v.minValue(0)),
+})
+
+export const ENQUEUE_SAMPLES_MAX_ENTRIES = 500
+
+/** POST /api/samples-queue/enqueue 请求体 schema */
+export const EnqueueSamplesRequestSchema = v.object({
+  entries: v.pipe(
+    v.array(EnqueueSampleEntrySchema),
+    v.minLength(1),
+    v.maxLength(ENQUEUE_SAMPLES_MAX_ENTRIES)
+  ),
+})
+
+export function validateEnqueueSamplesRequest(
+  input: unknown
+): v.SafeParseResult<typeof EnqueueSamplesRequestSchema> {
+  return v.safeParse(EnqueueSamplesRequestSchema, input)
 }
 
 /**

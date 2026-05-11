@@ -27,6 +27,11 @@ import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
 import { handleAuthCallback, handleAuthRefresh } from './auth'
 import { handleTimelines } from './timelines'
 import { handleFFLogsImport } from './fflogsImportHandler'
+import {
+  enqueueRankings,
+  validateEnqueueSamplesRequest,
+  type RankingEntryInput,
+} from './samplesQueue'
 
 export interface Env {
   // FFLogs v2 OAuth Client ID
@@ -104,6 +109,8 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
       return await handleTop100All(env)
     } else if (path === '/api/top100/sync' && request.method === 'POST') {
       return await handleManualSync(request, env)
+    } else if (path === '/api/samples-queue/enqueue' && request.method === 'POST') {
+      return await handleEnqueueSamples(request, env)
     } else if (path.startsWith('/api/top100/')) {
       return await handleTop100Encounter(request, env)
     } else if (path.startsWith('/api/statistics/')) {
@@ -296,6 +303,60 @@ async function handleManualSync(request: Request, env: Env): Promise<Response> {
     total: ALL_ENCOUNTERS.length,
     ...result,
   })
+}
+
+/**
+ * 手动批量上报 (encounterId, reportCode, fightID, durationMs) 到 samples_queue
+ * POST /api/samples-queue/enqueue
+ * 需要 Authorization: Bearer <token>
+ *
+ * 底层 INSERT OR IGNORE，重复 (reportCode, fightID) 自动跳过。
+ * 入队后由 sample-tick cron 的 processOneSample 异步消化。
+ */
+async function handleEnqueueSamples(request: Request, env: Env): Promise<Response> {
+  if (!verifyAuth(request, env)) {
+    return jsonResponse({ error: 'Unauthorized' }, 401)
+  }
+
+  let raw: unknown
+  try {
+    raw = await request.json()
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON body' }, 400)
+  }
+
+  const result = validateEnqueueSamplesRequest(raw)
+  if (!result.success) {
+    return jsonResponse({ error: 'Validation failed', details: formatIssues(result.issues) }, 400)
+  }
+
+  const grouped = new Map<number, RankingEntryInput[]>()
+  for (const { encounterId, reportCode, fightID, durationMs } of result.output.entries) {
+    const list = grouped.get(encounterId) ?? []
+    list.push({ reportCode, fightID, durationMs })
+    grouped.set(encounterId, list)
+  }
+
+  let inserted = 0
+  for (const [encounterId, batch] of grouped) {
+    const out = await enqueueRankings(env.healerbook_timelines, encounterId, batch)
+    inserted += out.inserted
+  }
+
+  const received = result.output.entries.length
+  return jsonResponse({ received, inserted, skipped: received - inserted })
+}
+
+function formatIssues(issues: readonly { path?: unknown; message: string }[]): string {
+  return issues
+    .slice(0, 5)
+    .map(issue => {
+      const path = Array.isArray(issue.path)
+        ? (issue.path as { key: unknown }[]).map(p => String(p.key)).join('.')
+        : ''
+      return path ? `${path}: ${issue.message}` : issue.message
+    })
+    .join('; ')
 }
 
 /**
