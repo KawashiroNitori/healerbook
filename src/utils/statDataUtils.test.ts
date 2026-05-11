@@ -21,6 +21,8 @@ const mockStatistics: EncounterStatistics = {
   healByAbility: { 185: 12000, 37013: 15000, 37016: 11000 },
   critHealByAbility: { 37013: 22000 },
   sampleSize: 100,
+  abilityFightCount: {},
+  totalFightsSampled: 0,
   updatedAt: '2026-01-01',
 }
 
