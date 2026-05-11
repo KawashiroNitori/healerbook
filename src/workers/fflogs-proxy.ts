@@ -27,11 +27,7 @@ import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
 import { handleAuthCallback, handleAuthRefresh } from './auth'
 import { handleTimelines } from './timelines'
 import { handleFFLogsImport } from './fflogsImportHandler'
-import {
-  enqueueRankings,
-  validateEnqueueSamplesRequest,
-  type RankingEntryInput,
-} from './samplesQueue'
+import { enqueueRankings, validateEnqueueSamplesRequest } from './samplesQueue'
 
 export interface Env {
   // FFLogs v2 OAuth Client ID
@@ -302,12 +298,18 @@ async function handleManualSync(request: Request, env: Env): Promise<Response> {
 }
 
 /**
- * 手动批量上报 (encounterId, reportCode, fightID, durationMs) 到 samples_queue
+ * 手动按 reportCode 批量入队 samples_queue
  * POST /api/samples-queue/enqueue
  * 需要 Authorization: Bearer <token>
  *
- * 底层 INSERT OR IGNORE，重复 (reportCode, fightID) 自动跳过。
- * 入队后由 sample-tick cron 的 processOneSample 异步消化。
+ * 请求体：{ encounterId, reportCodes: string[] }（reportCodes 最多 20 条）
+ *
+ * 处理流程：
+ * 1. 并行拉每个 report
+ * 2. 在 report.fights 中筛 boss === encounterId
+ * 3. 选 duration（end_time - start_time）最长的那场入队（INSERT OR IGNORE）
+ *
+ * 单个 report 拉取失败 / 无匹配 fight 不会影响其他 report，会在响应里分别列出。
  */
 async function handleEnqueueSamples(request: Request, env: Env): Promise<Response> {
   if (!verifyAuth(request, env)) {
@@ -326,21 +328,58 @@ async function handleEnqueueSamples(request: Request, env: Env): Promise<Respons
     return jsonResponse({ error: 'Validation failed', details: formatIssues(result.issues) }, 400)
   }
 
-  const grouped = new Map<number, RankingEntryInput[]>()
-  for (const { encounterId, reportCode, fightID, durationMs } of result.output.entries) {
-    const list = grouped.get(encounterId) ?? []
-    list.push({ reportCode, fightID, durationMs })
-    grouped.set(encounterId, list)
-  }
+  const { encounterId, reportCodes } = result.output
+  const client = createClient(env)
 
-  let inserted = 0
-  for (const [encounterId, batch] of grouped) {
-    const out = await enqueueRankings(env.healerbook_timelines, encounterId, batch)
-    inserted += out.inserted
-  }
+  type Pick =
+    | { reportCode: string; status: 'ok'; fightID: number; durationMs: number }
+    | { reportCode: string; status: 'no-match' }
+    | { reportCode: string; status: 'error'; message: string }
 
-  const received = result.output.entries.length
-  return jsonResponse({ received, inserted, skipped: received - inserted })
+  const picks: Pick[] = await Promise.all(
+    reportCodes.map(async (reportCode): Promise<Pick> => {
+      try {
+        const report = await client.getReport({ reportCode })
+        const matching = report.fights.filter(f => f.boss === encounterId)
+        if (matching.length === 0) {
+          return { reportCode, status: 'no-match' }
+        }
+        // 优先在 kill 里挑最长；没有 kill 时退回所有 wipe 里挑最长
+        const kills = matching.filter(f => f.kill)
+        const pool = kills.length > 0 ? kills : matching
+        const longest = pool.reduce((best, f) =>
+          f.end_time - f.start_time > best.end_time - best.start_time ? f : best
+        )
+        return {
+          reportCode,
+          status: 'ok',
+          fightID: longest.id,
+          durationMs: longest.end_time - longest.start_time,
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(`[Enqueue] getReport(${reportCode}) failed: ${message}`)
+        return { reportCode, status: 'error', message }
+      }
+    })
+  )
+
+  const entries = picks
+    .filter((p): p is Extract<Pick, { status: 'ok' }> => p.status === 'ok')
+    .map(p => ({ reportCode: p.reportCode, fightID: p.fightID, durationMs: p.durationMs }))
+
+  const { inserted } = await enqueueRankings(env.healerbook_timelines, encounterId, entries)
+
+  return jsonResponse({
+    received: reportCodes.length,
+    matched: entries.length,
+    inserted,
+    skippedDuplicates: entries.length - inserted,
+    noMatch: picks.filter(p => p.status === 'no-match').map(p => p.reportCode),
+    errors: picks
+      .filter((p): p is Extract<Pick, { status: 'error' }> => p.status === 'error')
+      .map(p => ({ reportCode: p.reportCode, message: p.message })),
+  })
 }
 
 function formatIssues(issues: readonly { path?: unknown; message: string }[]): string {

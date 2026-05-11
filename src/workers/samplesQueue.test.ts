@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { enqueueRankings, pickNextSample, type SampleQueueRow } from './samplesQueue'
+import {
+  enqueueRankings,
+  pickNextSample,
+  validateEnqueueSamplesRequest,
+  ENQUEUE_SAMPLES_MAX_REPORTS,
+  type SampleQueueRow,
+} from './samplesQueue'
 
 /**
  * 内存 D1 mock：模拟本模块用到的两条 SQL：
@@ -140,7 +146,44 @@ describe('pickNextSample', () => {
     const row = await pickNextSample(db)
     expect(row!.encounter_id).toBe(1002)
   })
+})
 
+describe('validateEnqueueSamplesRequest', () => {
+  it('合法 encounterId + reportCodes 通过', () => {
+    const r = validateEnqueueSamplesRequest({
+      encounterId: 101,
+      reportCodes: ['AAA', 'BBB'],
+    })
+    expect(r.success).toBe(true)
+    if (r.success) {
+      expect(r.output.encounterId).toBe(101)
+      expect(r.output.reportCodes).toEqual(['AAA', 'BBB'])
+    }
+  })
+
+  it('reportCodes 为空数组报错', () => {
+    const r = validateEnqueueSamplesRequest({ encounterId: 101, reportCodes: [] })
+    expect(r.success).toBe(false)
+  })
+
+  it(`reportCodes 超过 ${ENQUEUE_SAMPLES_MAX_REPORTS} 条报错`, () => {
+    const codes = Array.from({ length: ENQUEUE_SAMPLES_MAX_REPORTS + 1 }, (_, i) => `C${i}`)
+    const r = validateEnqueueSamplesRequest({ encounterId: 101, reportCodes: codes })
+    expect(r.success).toBe(false)
+  })
+
+  it('encounterId 非整数报错', () => {
+    const r = validateEnqueueSamplesRequest({ encounterId: 1.5, reportCodes: ['A'] })
+    expect(r.success).toBe(false)
+  })
+
+  it('缺失字段报错', () => {
+    expect(validateEnqueueSamplesRequest({ reportCodes: ['A'] }).success).toBe(false)
+    expect(validateEnqueueSamplesRequest({ encounterId: 101 }).success).toBe(false)
+  })
+})
+
+describe('pickNextSample - 多 encounter 排序', () => {
   it('两个 encounter 都已采样过时，MAX(sampled_at) 更旧的 encounter 优先', async () => {
     // 直接预置 4 行避开 wall-clock 依赖：encounter 1001 旧采样 + 1 未采样；encounter 1002 新采样 + 1 未采样
     const db = makeMockD1([

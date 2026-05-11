@@ -29,22 +29,20 @@ export interface RankingEntryInput {
   durationMs: number
 }
 
-/** 手动入队接口的单条 entry */
-const EnqueueSampleEntrySchema = v.object({
-  encounterId: v.pipe(v.number(), v.integer()),
-  reportCode: v.pipe(v.string(), v.minLength(1)),
-  fightID: v.pipe(v.number(), v.integer()),
-  durationMs: v.pipe(v.number(), v.minValue(0)),
-})
+export const ENQUEUE_SAMPLES_MAX_REPORTS = 20
 
-export const ENQUEUE_SAMPLES_MAX_ENTRIES = 500
-
-/** POST /api/samples-queue/enqueue 请求体 schema */
+/**
+ * POST /api/samples-queue/enqueue 请求体 schema
+ *
+ * 调用方只提供 encounterId + 一批 reportCode；Worker 自行去 FFLogs 拉每个 report，
+ * 从中挑 boss === encounterId 且 duration 最长的 fight 入队。
+ */
 export const EnqueueSamplesRequestSchema = v.object({
-  entries: v.pipe(
-    v.array(EnqueueSampleEntrySchema),
+  encounterId: v.pipe(v.number(), v.integer()),
+  reportCodes: v.pipe(
+    v.array(v.pipe(v.string(), v.minLength(1))),
     v.minLength(1),
-    v.maxLength(ENQUEUE_SAMPLES_MAX_ENTRIES)
+    v.maxLength(ENQUEUE_SAMPLES_MAX_REPORTS)
   ),
 })
 
