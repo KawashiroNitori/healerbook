@@ -14,10 +14,12 @@
 import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
 import {
   syncEncounter,
-  extractFightStatistics,
   getTop100KVKey,
   getStatisticsKVKey,
   handleGetEncounterTemplate,
+  processOneSample,
+  makeDefaultFetchExtracted,
+  defaultLookupEncounterName,
   type Top100Data,
 } from './top100Sync'
 import { ALL_ENCOUNTERS, DEFAULT_ENCOUNTER_ID } from '@/data/raidEncounters'
@@ -27,10 +29,8 @@ import { handleTimelines } from './timelines'
 import { handleFFLogsImport } from './fflogsImportHandler'
 
 interface QueueMessageBody {
-  type: string
-  encounterId?: number
-  reportCode?: string
-  fightID?: number
+  type: 'sync-encounter'
+  encounterId: number
 }
 
 export interface Env {
@@ -46,7 +46,6 @@ export interface Env {
   healerbook_timelines: D1Database
   // Queue 绑定
   TOP100_SYNC_QUEUE: Queue
-  STATISTICS_EXTRACT_QUEUE: Queue
   // FFLogs OAuth 回调地址（Authorization Code Flow）
   FFLOGS_OAUTH_REDIRECT_URI?: string
   // JWT 签名密钥
@@ -131,15 +130,33 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
 }
 
 /**
- * Cron 定时任务：将所有遭遇战推送到队列
+ * Cron 定时任务：根据 event.cron 分发
  * 触发频率见 wrangler.toml [triggers.crons]
  */
 export async function handleScheduled(
-  _event: ScheduledEvent,
+  event: ScheduledEvent,
   env: Env,
   ctx: ExecutionContext
 ): Promise<void> {
+  // event.cron 是 wrangler.toml [triggers.crons] 中触发本次的具体表达式
+  if (event.cron === '*/10 * * * *') {
+    ctx.waitUntil(runSampleTick(env))
+    return
+  }
+  // 默认（含 "0 */12 * * *"）：触发 TOP100 sync 任务
   ctx.waitUntil(enqueueAllEncounters(env))
+}
+
+async function runSampleTick(env: Env): Promise<void> {
+  console.log('[Sample-tick] 启动')
+  const client = createClient(env)
+  const ranOnce = await processOneSample({
+    db: env.healerbook_timelines,
+    kv: env.healerbook,
+    fetchExtracted: makeDefaultFetchExtracted(client),
+    lookupEncounterName: defaultLookupEncounterName,
+  })
+  console.log(`[Sample-tick] 结束 (ranOnce=${ranOnce})`)
 }
 
 /**
@@ -151,46 +168,20 @@ export async function handleQueue(batch: MessageBatch, env: Env): Promise<void> 
   for (const message of batch.messages) {
     try {
       const body = message.body as QueueMessageBody
-
-      switch (body.type) {
-        case 'sync-encounter': {
-          // TOP100 同步任务
-          const encounter = ALL_ENCOUNTERS.find(e => e.id === body.encounterId)
-          if (!encounter) {
-            console.error(`[Queue] 未找到遭遇战: ${body.encounterId}`)
-            message.ack()
-            continue
-          }
-          await syncEncounter(encounter, client, env.healerbook, env.healerbook_timelines)
-          break
-        }
-
-        case 'extract-statistics': {
-          // 统计数据提取任务
-          if (!body.encounterId || !body.reportCode || !body.fightID) {
-            console.error('[Queue] 缺少必需参数')
-            message.ack()
-            continue
-          }
-          await extractFightStatistics(
-            body.encounterId,
-            body.reportCode,
-            body.fightID,
-            client,
-            env.healerbook
-          )
-          break
-        }
-
-        default:
-          console.error(`[Queue] 未知的消息类型: ${body.type}`)
+      if (body.type === 'sync-encounter') {
+        const encounter = ALL_ENCOUNTERS.find(e => e.id === body.encounterId)
+        if (!encounter) {
+          console.error(`[Queue] 未找到遭遇战: ${body.encounterId}`)
           message.ack()
           continue
+        }
+        await syncEncounter(encounter, client, env.healerbook, env.healerbook_timelines)
+      } else {
+        console.error(`[Queue] 未知的消息类型: ${(body as { type: string }).type}`)
       }
-
       message.ack()
     } catch (err) {
-      console.error(`[Queue] 处理失败:`, err)
+      console.error('[Queue] 处理失败:', err)
       message.retry()
     }
   }

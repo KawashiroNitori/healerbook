@@ -56,7 +56,6 @@ const mockEnv: Env = {
   healerbook: {} as KVNamespace,
   healerbook_timelines: {} as D1Database,
   TOP100_SYNC_QUEUE: {} as Queue,
-  STATISTICS_EXTRACT_QUEUE: {} as Queue,
 }
 
 /** 构造一个最小的 V1 报告 */
