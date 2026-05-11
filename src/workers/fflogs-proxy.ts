@@ -22,7 +22,7 @@ import {
   defaultLookupEncounterName,
   type Top100Data,
 } from './top100Sync'
-import { ALL_ENCOUNTERS, DEFAULT_ENCOUNTER_ID } from '@/data/raidEncounters'
+import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
 import type { FFLogsV1Report, FFLogsEventsResponse } from '@/types/fflogs'
 import { handleAuthCallback, handleAuthRefresh } from './auth'
 import { handleTimelines } from './timelines'
@@ -230,11 +230,7 @@ async function handleStatistics(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: 'Invalid encounter ID' }, 400)
   }
 
-  let data = await env.healerbook.get(getStatisticsKVKey(encounterId), 'json')
-
-  if (!data && encounterId !== DEFAULT_ENCOUNTER_ID) {
-    data = await env.healerbook.get(getStatisticsKVKey(DEFAULT_ENCOUNTER_ID), 'json')
-  }
+  const data = await env.healerbook.get(getStatisticsKVKey(encounterId), 'json')
 
   if (!data) {
     return jsonResponse({ error: 'Statistics not available yet. Sync may be pending.' }, 404)

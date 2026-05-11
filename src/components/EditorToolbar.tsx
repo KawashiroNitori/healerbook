@@ -60,7 +60,7 @@ const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
 const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
 import { fetchSharedTimeline, type ConflictError } from '@/api/timelineShareApi'
 import { useAuthStore } from '@/store/authStore'
-import { getEncounterById } from '@/data/raidEncounters'
+import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { track } from '@/utils/analytics'
 
 interface EditorToolbarProps {
@@ -115,8 +115,10 @@ export default function EditorToolbar({
   const accessToken = useAuthStore(s => s.accessToken)
 
   const encounterId = timeline?.encounter?.id
+  const statisticsQuery = useEncounterStatistics(encounterId)
+  // /api/statistics 命中 404 时 getEncounterStatistics 返回 null；以此作为「副本暂未支持」的判定
   const isUnsupportedEncounter =
-    !!encounterId && encounterId !== 0 && !getEncounterById(encounterId)
+    !!encounterId && statisticsQuery.isSuccess && statisticsQuery.data === null
 
   const handleExitReplayMode = () => {
     exitReplayMode()
