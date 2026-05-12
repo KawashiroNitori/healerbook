@@ -1,23 +1,51 @@
 /// <reference types="@cloudflare/workers-types" />
 
-/**
- * Cloudflare Worker 入口文件
- *
- * 导出 Cloudflare Workers 需要的入口函数：
- * - fetch: HTTP 请求处理
- * - scheduled: Cron 定时任务（按 event.cron 分发，见 handleScheduled）
- */
-
-import { handleFetch, handleScheduled, type Env } from './fflogs-proxy'
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import type { AppEnv, Env } from './env'
+import { authRoutes } from './routes/auth'
+import { timelinesRoutes } from './routes/timelines'
+import { myRoutes } from './routes/my'
+import { fflogsRoutes } from './routes/fflogs'
+import { top100Routes } from './routes/top100'
+import { statisticsRoutes } from './routes/statistics'
+import { encounterTemplatesRoutes } from './routes/encounterTemplates'
+import { samplesQueueRoutes } from './routes/samplesQueue'
+import { handleScheduled } from './scheduled'
 
 export type { Env }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    return handleFetch(request, env)
-  },
+const app = new Hono<AppEnv>()
 
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    return handleScheduled(event, env, ctx)
-  },
+app.use(
+  '*',
+  cors({
+    origin: (_origin, c) => c.env.ALLOWED_ORIGIN ?? '*',
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
+  })
+)
+
+app.onError((err, c) => {
+  console.error('Worker error:', err)
+  return c.json({ error: err instanceof Error ? err.message : 'Internal Server Error' }, 500)
+})
+
+app.notFound(c => c.json({ error: 'Not Found' }, 404))
+
+app.route('/api/auth', authRoutes)
+app.route('/api/timelines', timelinesRoutes)
+app.route('/api/my', myRoutes)
+app.route('/api/fflogs', fflogsRoutes)
+app.route('/api/top100', top100Routes)
+app.route('/api/statistics', statisticsRoutes)
+app.route('/api/encounter-templates', encounterTemplatesRoutes)
+app.route('/api/samples-queue', samplesQueueRoutes)
+
+export { app }
+
+export default {
+  fetch: app.fetch,
+  scheduled: handleScheduled,
 }
