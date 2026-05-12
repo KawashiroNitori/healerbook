@@ -17,10 +17,15 @@ export type { Env }
 
 const app = new Hono<AppEnv>()
 
+const PROD_ALLOWED_ORIGINS = ['https://xivhealer.com']
+
 app.use(
   '*',
   cors({
-    origin: (_origin, c) => c.env.ALLOWED_ORIGIN ?? '*',
+    origin: (origin, c) => {
+      if (c.env.ENVIRONMENT !== 'production') return '*'
+      return PROD_ALLOWED_ORIGINS.includes(origin) ? origin : null
+    },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
     maxAge: 86400,

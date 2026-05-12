@@ -10,7 +10,8 @@ export interface Env {
   healerbook_timelines: D1Database
   FFLOGS_OAUTH_REDIRECT_URI?: string
   JWT_SECRET?: string
-  ALLOWED_ORIGIN?: string
+  /** 来自 wrangler.toml [env.*.vars]，"production" 触发严格 CORS allowlist；其余值走 *  */
+  ENVIRONMENT?: string
   SENSITIVE_WORDS_HMAC_KEY?: string
 }
 

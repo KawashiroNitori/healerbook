@@ -120,7 +120,6 @@ function makeMockEnv(db: D1Database, jwtSecret = 'test-secret'): Env {
   return {
     healerbook_timelines: db,
     JWT_SECRET: jwtSecret,
-    ALLOWED_ORIGIN: 'http://localhost:5173',
   } as unknown as Env
 }
 
