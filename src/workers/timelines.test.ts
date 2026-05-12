@@ -2,9 +2,9 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import * as v from 'valibot'
-import { handleTimelines } from './timelines'
+import { app } from './index'
 import { V2TimelineSchema } from './timelineSchema'
-import type { Env } from './fflogs-proxy'
+import type { Env } from './env'
 
 // D1 行结构（对应 timelines 表）
 interface DbRow {
@@ -164,7 +164,7 @@ describe('POST /api/timelines', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
-    const res = await handleTimelines(req, makeMockEnv(makeMockD1()))
+    const res = await app.fetch(req, makeMockEnv(makeMockD1()))
     expect(res.status).toBe(401)
   })
 
@@ -179,7 +179,7 @@ describe('POST /api/timelines', () => {
       body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(201)
 
     const body = (await res.json()) as { id: string; publishedAt: number; version: number }
@@ -209,7 +209,7 @@ describe('POST /api/timelines', () => {
       }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(400)
   })
 
@@ -229,7 +229,7 @@ describe('POST /api/timelines', () => {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(201)
     expect(spy).toHaveBeenCalledTimes(4)
 
@@ -248,7 +248,7 @@ describe('POST /api/timelines', () => {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(500)
     const body = (await res.json()) as { error: string }
     expect(body.error).toBe('id_generation_failed')
@@ -269,7 +269,7 @@ describe('POST /api/timelines', () => {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(201)
     const body = (await res.json()) as { id: string }
     expect(body.id).toMatch(/^[0-9A-Za-z]{21}$/)
@@ -296,7 +296,7 @@ describe('POST /api/timelines', () => {
       }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(400)
   })
 })
@@ -312,7 +312,7 @@ describe('PUT /api/timelines/:id', () => {
       body: JSON.stringify({ timeline: MINIMAL_TIMELINE }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(404)
   })
 
@@ -330,7 +330,7 @@ describe('PUT /api/timelines/:id', () => {
       }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(403)
   })
 
@@ -348,7 +348,7 @@ describe('PUT /api/timelines/:id', () => {
       }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(409)
 
     const body = (await res.json()) as {
@@ -374,7 +374,7 @@ describe('PUT /api/timelines/:id', () => {
       }),
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as { id: string; updatedAt: number; version: number }
@@ -385,7 +385,7 @@ describe('PUT /api/timelines/:id', () => {
 describe('GET /api/timelines/:id', () => {
   it('不存在的 ID 返回 404', async () => {
     const req = new Request('https://example.com/api/timelines/notexist', { method: 'GET' })
-    const res = await handleTimelines(req, makeMockEnv(makeMockD1()))
+    const res = await app.fetch(req, makeMockEnv(makeMockD1()))
     expect(res.status).toBe(404)
   })
 
@@ -395,7 +395,7 @@ describe('GET /api/timelines/:id', () => {
 
     const req = new Request('https://example.com/api/timelines/server123', { method: 'GET' })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Record<string, unknown>
@@ -416,7 +416,7 @@ describe('GET /api/timelines/:id', () => {
       headers: { Authorization: `Bearer ${token}` },
     })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Record<string, unknown>
@@ -429,7 +429,7 @@ describe('GET /api/timelines/:id', () => {
 
     const req = new Request('https://example.com/api/timelines/server123', { method: 'GET' })
 
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as {
@@ -454,7 +454,7 @@ describe('GET /api/timelines（列表）', () => {
     const env = makeMockEnv(db)
 
     const req = new Request('https://example.com/api/my/timelines', { method: 'GET' })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(401)
   })
 
@@ -467,7 +467,7 @@ describe('GET /api/timelines（列表）', () => {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(200)
     const body = (await res.json()) as unknown[]
     expect(body).toEqual([])
@@ -491,7 +491,7 @@ describe('GET /api/timelines（列表）', () => {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Array<{
@@ -529,7 +529,7 @@ describe('POST /api/timelines 数据校验', () => {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ timeline }),
     })
-    return handleTimelines(req, env)
+    return app.fetch(req, env)
   }
 
   it('剥离不在 schema 中的多余字段', async () => {
@@ -544,11 +544,13 @@ describe('POST /api/timelines 数据校验', () => {
     expect(res.status).toBe(201)
   })
 
-  it('n 类型错误时返回 400', async () => {
+  it('n 类型错误时返回 400 valibot shape', async () => {
     const res = await postTimeline({ ...MINIMAL_TIMELINE, n: 12345 })
     expect(res.status).toBe(400)
-    const body = (await res.json()) as { error: string; details: string }
-    expect(body.error).toBe('Validation failed')
+    const body = (await res.json()) as { success: boolean; issues: unknown[] }
+    expect(body.success).toBe(false)
+    expect(Array.isArray(body.issues)).toBe(true)
+    expect(body.issues.length).toBeGreaterThan(0)
   })
 
   it('e 类型不是 number 时返回 400', async () => {
@@ -607,8 +609,9 @@ describe('POST /api/timelines 数据校验', () => {
       an: [{ x: 'a'.repeat(201), t: 30, k: 0 }],
     })
     expect(res.status).toBe(400)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toBe('Validation failed')
+    const body = (await res.json()) as { success: boolean; issues: unknown[] }
+    expect(body.success).toBe(false)
+    expect(body.issues.length).toBeGreaterThan(0)
   })
 })
 
@@ -625,7 +628,7 @@ describe('PUT /api/timelines/:id 数据校验', () => {
         ...(expectedVersion !== undefined ? { expectedVersion } : {}),
       }),
     })
-    return handleTimelines(req, env)
+    return app.fetch(req, env)
   }
 
   it('剥离多余字段后正常更新', async () => {
@@ -687,7 +690,7 @@ describe('DELETE /api/timelines/:id', () => {
     const env = makeMockEnv(db)
 
     const req = new Request('https://example.com/api/timelines/server123', { method: 'DELETE' })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(401)
   })
 
@@ -700,7 +703,7 @@ describe('DELETE /api/timelines/:id', () => {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(404)
   })
 
@@ -713,7 +716,7 @@ describe('DELETE /api/timelines/:id', () => {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
-    const res = await handleTimelines(req, env)
+    const res = await app.fetch(req, env)
     expect(res.status).toBe(204)
   })
 })
