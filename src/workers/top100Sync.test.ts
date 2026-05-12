@@ -594,9 +594,16 @@ describe('processOneSample', () => {
   })
 })
 
+/**
+ * pickNextSample 拆成三条 SQL：
+ *   1. prepare(SELECT DISTINCT encounter_id ...).first()      ← 无 bind
+ *   2. prepare(SELECT id ...).bind(encounterId).first()
+ *   3. prepare(UPDATE ... RETURNING).bind(now, now, id).first()
+ */
 function makeMockD1Empty(): D1Database {
   return {
     prepare: () => ({
+      first: async () => null,
       bind: () => ({ first: async () => null }),
     }),
   } as unknown as D1Database
@@ -604,12 +611,20 @@ function makeMockD1Empty(): D1Database {
 function makeMockD1WithRow(row: SampleQueueRow): D1Database {
   let consumed = false
   return {
-    prepare: () => ({
+    prepare: (sql: string) => ({
+      first: async () => {
+        if (consumed) return null
+        return { encounter_id: row.encounter_id }
+      },
       bind: () => ({
         first: async () => {
           if (consumed) return null
-          consumed = true
-          return row
+          if (sql.includes('UPDATE')) {
+            consumed = true
+            const now = Math.floor(Date.now() / 1000)
+            return { ...row, sampled: 1, sampled_at: now, updated_at: now }
+          }
+          return { id: row.id }
         },
       }),
     }),
