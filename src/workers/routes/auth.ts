@@ -1,0 +1,127 @@
+/// <reference types="@cloudflare/workers-types" />
+
+import { Hono } from 'hono'
+import { vValidator } from '@hono/valibot-validator'
+import * as v from 'valibot'
+import type { AppEnv } from '../env'
+import type { Env } from '../env'
+import { signAccessToken, signRefreshToken, verifyToken } from '../jwt'
+
+interface FFLogsTokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+}
+
+interface FFLogsUserResponse {
+  data?: {
+    userData?: {
+      currentUser?: {
+        id: number
+        name: string
+      }
+    }
+  }
+}
+
+async function exchangeCodeForToken(code: string, env: Env): Promise<FFLogsTokenResponse> {
+  const params = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: env.FFLOGS_CLIENT_ID!,
+    client_secret: env.FFLOGS_CLIENT_SECRET!,
+    redirect_uri: env.FFLOGS_OAUTH_REDIRECT_URI!,
+    code,
+  })
+
+  const response = await fetch('https://www.fflogs.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`FFLogs token exchange failed: ${response.status}`)
+  }
+  return response.json() as Promise<FFLogsTokenResponse>
+}
+
+async function fetchFFLogsUser(accessToken: string): Promise<{ id: number; name: string }> {
+  const response = await fetch('https://www.fflogs.com/api/v2/user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ query: '{ userData { currentUser { id name } } }' }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`FFLogs user info failed: ${response.status}`)
+  }
+
+  const data = (await response.json()) as FFLogsUserResponse
+  const user = data.data?.userData?.currentUser
+  if (!user) throw new Error('Failed to get user info from FFLogs')
+  return user
+}
+
+const CallbackSchema = v.object({ code: v.string() })
+const RefreshSchema = v.object({ refresh_token: v.string() })
+
+const app = new Hono<AppEnv>()
+
+app.post('/callback', vValidator('json', CallbackSchema), async c => {
+  if (
+    !c.env.JWT_SECRET ||
+    !c.env.FFLOGS_CLIENT_ID ||
+    !c.env.FFLOGS_CLIENT_SECRET ||
+    !c.env.FFLOGS_OAUTH_REDIRECT_URI
+  ) {
+    return c.json({ error: 'Server configuration error' }, 500)
+  }
+  const { code } = c.req.valid('json')
+  try {
+    const tokenResponse = await exchangeCodeForToken(code, c.env)
+    const user = await fetchFFLogsUser(tokenResponse.access_token)
+    const userId = String(user.id)
+    const [accessToken, refreshToken] = await Promise.all([
+      signAccessToken(userId, user.name, c.env.JWT_SECRET),
+      signRefreshToken(userId, user.name, c.env.JWT_SECRET),
+    ])
+    return c.json({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      name: user.name,
+      user_id: userId,
+    })
+  } catch (error) {
+    console.error('[Auth] callback error:', error)
+    return c.json({ error: 'OAuth callback failed' }, 400)
+  }
+})
+
+app.post('/refresh', vValidator('json', RefreshSchema), async c => {
+  if (!c.env.JWT_SECRET) {
+    return c.json({ error: 'Server configuration error' }, 500)
+  }
+  const { refresh_token } = c.req.valid('json')
+
+  const result = await verifyToken(refresh_token, c.env.JWT_SECRET)
+  if (!result.ok || !result.payload.sub) {
+    return c.json({ error: 'Invalid or expired refresh token' }, 401)
+  }
+  if (result.payload['type'] !== 'refresh') {
+    return c.json({ error: 'Invalid token type' }, 401)
+  }
+
+  try {
+    const username = (result.payload as { name?: string }).name ?? ''
+    const accessToken = await signAccessToken(result.payload.sub, username, c.env.JWT_SECRET)
+    return c.json({ access_token: accessToken })
+  } catch (error) {
+    console.error('[Auth] refresh error:', error)
+    return c.json({ error: 'Failed to issue new access token' }, 500)
+  }
+})
+
+export { app as authRoutes }
