@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { handleFFLogsImport } from './fflogsImportHandler'
-import type { Env } from './fflogs-proxy'
+import { app } from './index'
+import type { Env } from './env'
 import type { FFLogsV1Report } from '../types/fflogs'
 
 interface JsonBody {
@@ -34,8 +34,8 @@ interface JsonBody {
 const mockGetReport = vi.fn()
 const mockGetEvents = vi.fn()
 
-vi.mock('./fflogs-proxy', async () => {
-  const actual = await vi.importActual('./fflogs-proxy')
+vi.mock('./env', async () => {
+  const actual = await vi.importActual<typeof import('./env')>('./env')
   return {
     ...actual,
     createClient: vi.fn(() => ({
@@ -111,7 +111,7 @@ describe('handleFFLogsImport', () => {
   describe('参数校验', () => {
     it('缺少 reportCode 应返回 400', async () => {
       const request = new Request('https://example.com/api/fflogs/import')
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(400)
       const body = (await response.json()) as JsonBody
@@ -124,7 +124,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=abc'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(400)
       const body = (await response.json()) as JsonBody
@@ -139,7 +139,7 @@ describe('handleFFLogsImport', () => {
       mockGetReport.mockResolvedValue(makeV1Report([]))
 
       const request = new Request('https://example.com/api/fflogs/import?reportCode=ABC123')
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(404)
       const body = (await response.json()) as JsonBody
@@ -152,7 +152,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=99'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(404)
       const body = (await response.json()) as JsonBody
@@ -170,7 +170,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
@@ -200,7 +200,7 @@ describe('handleFFLogsImport', () => {
       mockGetEvents.mockResolvedValue({ events: [] })
 
       const request = new Request('https://example.com/api/fflogs/import?reportCode=ABC123')
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
@@ -225,7 +225,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
@@ -248,7 +248,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=a:ABC123&fightId=1'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(200)
       expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'a:ABC123' })
@@ -264,7 +264,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(502)
       const body = (await response.json()) as JsonBody
@@ -278,7 +278,7 @@ describe('handleFFLogsImport', () => {
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
       )
-      const response = await handleFFLogsImport(request, mockEnv)
+      const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(502)
       const body = (await response.json()) as JsonBody
