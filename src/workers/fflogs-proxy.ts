@@ -11,7 +11,7 @@
  * 5. Cron 定时同步 TOP100 数据到 KV
  */
 
-import { FFLogsClientV2, type GetReportParams, type GetEventsParams } from './fflogsClientV2'
+import { type GetReportParams, type GetEventsParams } from './fflogsClientV2'
 import {
   syncAllTop100,
   getTop100KVKey,
@@ -29,26 +29,8 @@ import { handleTimelines } from './timelines'
 import { handleFFLogsImport } from './fflogsImportHandler'
 import { enqueueRankings, validateEnqueueSamplesRequest } from './samplesQueue'
 
-export interface Env {
-  // FFLogs v2 OAuth Client ID
-  FFLOGS_CLIENT_ID?: string
-  // FFLogs v2 OAuth Client Secret
-  FFLOGS_CLIENT_SECRET?: string
-  // 手动同步接口的鉴权密钥
-  SYNC_AUTH_TOKEN?: string
-  // KV 命名空间（对应 wrangler.toml 中 binding = "healerbook"）
-  healerbook: KVNamespace
-  // D1 数据库（共享时间轴存储 + samples_queue）
-  healerbook_timelines: D1Database
-  // FFLogs OAuth 回调地址（Authorization Code Flow）
-  FFLOGS_OAUTH_REDIRECT_URI?: string
-  // JWT 签名密钥
-  JWT_SECRET?: string
-  // 允许的前端域名（用于认证端点的 CORS，如 https://healerbook.pages.dev）
-  ALLOWED_ORIGIN?: string
-  // 敏感词过滤 HMAC 密钥（与构建期生成 sensitiveWordHashes.generated.ts 时所用同值）
-  SENSITIVE_WORDS_HMAC_KEY?: string
-}
+import { type Env, createClient } from './env'
+export { type Env, createClient }
 
 /**
  * 统一的 FFLogs 客户端接口
@@ -56,20 +38,6 @@ export interface Env {
 export interface IFFLogsClient {
   getReport(params: GetReportParams): Promise<FFLogsV1Report>
   getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse>
-}
-
-/**
- * 创建 FFLogs V2 客户端
- */
-export function createClient(env: Env): FFLogsClientV2 {
-  if (!env.FFLOGS_CLIENT_ID || !env.FFLOGS_CLIENT_SECRET) {
-    throw new Error('FFLogs v2 credentials not configured')
-  }
-  return new FFLogsClientV2({
-    clientId: env.FFLOGS_CLIENT_ID,
-    clientSecret: env.FFLOGS_CLIENT_SECRET,
-    kv: env.healerbook,
-  })
 }
 
 /**
