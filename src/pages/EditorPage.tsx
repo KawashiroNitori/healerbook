@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { House, Loader2 } from 'lucide-react'
+import { House } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -31,6 +31,7 @@ import TimelineTableView from '@/components/TimelineTable'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import EditableTitle from '@/components/EditableTitle'
 import EditableDescription from '@/components/EditableDescription'
+import FullScreenLoader from '@/components/FullScreenLoader'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -290,11 +291,7 @@ export default function EditorPage() {
 
   // ── 加载 / 错误屏 ─────────────────────────────────────────────────────────
   if (mode === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <FullScreenLoader />
   }
 
   if (mode === 'not_found') {

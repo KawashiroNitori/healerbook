@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import TooltipOverlay from '@/components/TooltipOverlay'
+import FullScreenLoader from '@/components/FullScreenLoader'
 import { AuthProvider } from './components/AuthProvider'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -19,7 +20,7 @@ function App() {
       <TooltipProvider>
         <BrowserRouter>
           <AuthProvider>
-            <Suspense fallback={null}>
+            <Suspense fallback={<FullScreenLoader />}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/timeline/:id" element={<EditorPage />} />

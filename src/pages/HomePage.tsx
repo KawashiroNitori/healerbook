@@ -31,6 +31,7 @@ const AboutDialog = lazy(() => import('@/components/AboutDialog'))
 export default function HomePage() {
   useChangelogToast()
   const navigate = useNavigate()
+
   const { isLoggedIn } = useAuth()
   const queryClient = useQueryClient()
   const [showImportDialog, setShowImportDialog] = useState(false)
