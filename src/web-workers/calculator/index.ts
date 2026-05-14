@@ -27,7 +27,7 @@ const cache: {
 self.onmessage = (e: MessageEvent<SimulateRequest>) => {
   const { requestId, version, input, extraExcludeIds } = e.data
 
-  if (version !== lastVersion) {
+  if (version > lastVersion) {
     cache.main = null
     cache.byExcludeId.clear()
     lastVersion = version
@@ -61,11 +61,12 @@ self.onmessage = (e: MessageEvent<SimulateRequest>) => {
     const resp: SimulateResponse = { requestId, ok: true, bundle }
     self.postMessage(resp)
   } catch (err) {
-    const error = err as Error
+    const message = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error ? err.stack : undefined
     const resp: SimulateResponse = {
       requestId,
       ok: false,
-      error: { message: error.message, stack: error.stack },
+      error: { message, stack },
     }
     self.postMessage(resp)
   }
