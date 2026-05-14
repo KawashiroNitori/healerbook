@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { CalculatorWorkerClient } from './client'
 import type { SimulateRequest, SimulateResponse } from './types'
 
-// Node test 环境（environment: 'node'）默认没有 ErrorEvent；下面 FakeWorker.emitError 需要它。
-// 提供最小 polyfill —— 仅在缺失时注册，不影响实现代码（实现里只读 e.message）。
+// Worker Client 是纯逻辑（无 DOM 依赖），保持 node 环境跑得更快。
+// 不用 `// @vitest-environment jsdom`（项目其他 DOM 测试的惯用做法）是为了避免引入整套
+// 浏览器 globals——本文件只需要 ErrorEvent 这一个构造函数给 FakeWorker.emitError 用。
+// 最小 polyfill 仅在缺失时注册；实现代码只读 e.message。
 if (typeof globalThis.ErrorEvent === 'undefined') {
   class ErrorEventPolyfill extends Event {
     message: string

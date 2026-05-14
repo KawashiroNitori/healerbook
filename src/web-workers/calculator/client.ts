@@ -54,10 +54,13 @@ export class CalculatorWorkerClient {
   }
 
   private onMessage = (e: MessageEvent<SimulateResponse>) => {
+    // Spec: 过期响应（requestId 不是最新一次 simulate）silent drop——不 resolve / 不 reject，
+    // 调用方 hook 用 cancelled flag 防御 stale state。pending 里的 stale entry 不立即清理，
+    // 留待 onError 崩溃路径或自然 GC（调用方释放 Promise 时整条链一起回收）。
+    if (e.data.requestId !== this.currentRequestId) return
     const entry = this.pending.get(e.data.requestId)
     if (!entry) return
     this.pending.delete(e.data.requestId)
-    if (e.data.requestId !== this.currentRequestId) return
     if (e.data.ok) {
       entry.resolve(e.data.bundle)
     } else {
