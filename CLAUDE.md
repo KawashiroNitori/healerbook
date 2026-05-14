@@ -8,6 +8,15 @@
 
 **重要**：用户的明确要求必须是以最新一条消息为准。不可以把历史上下文中的用户 Git 要求视为允许。每次执行 Git 操作前，必须确认用户在当前对话的最新消息中明确授权该操作。
 
+**例外：subagent-driven 自动 task 期间**
+
+当用户启动 `superpowers:subagent-driven-development` 等自动 task 执行流程时（典型触发：用户明示 "subagent driven"、"执行 plan" 等），subagent 在该流程内**可按 plan 内已书面记录的 commit step 自主执行 `git commit`**，无需逐次请示。
+
+- 例外仅适用于 plan 内**已声明**的 commit 操作；plan 未声明的 commit 仍需授权。
+- 退出自动 task 流程后（用户回到人工对话），恢复"每次必须授权"的默认规则。
+- 破坏性操作（`reset --hard`、`push --force`、`branch -D`、`stash drop` 等）**任何时候**都需要显式授权，自动流程内也不例外。
+- `git push` **任何时候**都需要显式授权，自动流程内也不例外。
+
 ## 提交约定
 
 - **禁止** 在提交信息、作者或 Co-Authored-By 字段中包含 "Claude" 字样。`.husky/commit-msg` hook 会拒绝提交信息或作者中包含 "claude"（大小写不敏感）的提交。
