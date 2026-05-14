@@ -104,6 +104,19 @@ describe('CalculatorWorkerClient', () => {
     expect(p1Settled).toBe(false)
   })
 
+  it('cleans up pending Map on stale response (no Map growth)', async () => {
+    const { fake, client } = makeClient()
+    client.simulate(MINIMAL_INPUT, [])
+    const id1 = fake.postedMessages[0].requestId
+    client.simulate(MINIMAL_INPUT, [])
+    const id2 = fake.postedMessages[1].requestId
+    expect(client.pendingCount).toBe(2)
+    fake.emit({ requestId: id1, ok: true, bundle: MINIMAL_BUNDLE }) // stale
+    expect(client.pendingCount).toBe(1) // stale entry removed
+    fake.emit({ requestId: id2, ok: true, bundle: MINIMAL_BUNDLE }) // current
+    expect(client.pendingCount).toBe(0)
+  })
+
   it('rejects on error response', async () => {
     const { fake, client } = makeClient()
     const p = client.simulate(MINIMAL_INPUT, [])

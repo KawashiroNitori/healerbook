@@ -65,11 +65,9 @@ export function useDamageCalculation(
   const statistics = useTimelineStore(state => state.statistics)
   const { extraExcludeIds = [] } = options
 
-  // 字符串化作 deps key；数组身份每次 render 都新，内容才是真依赖
-  const extraExcludeIdsKey = useMemo(
-    () => Array.from(new Set(extraExcludeIds)).sort().join(','),
-    [extraExcludeIds]
-  )
+  // 字符串化作 effect dep key——内容是真依赖；数组身份每帧都新，依赖字符串比较自然稳定。
+  // useMemo 在此为冗余（每帧重算），直接同步计算更简洁。
+  const extraExcludeIdsKey = [...new Set(extraExcludeIds)].sort().join(',')
 
   // 是否走 worker 异步路径：回放 / 无 timeline / 无 partyState 都是同步派生路径
   const useWorker = !!timeline && !timeline.isReplayMode && !!partyState
