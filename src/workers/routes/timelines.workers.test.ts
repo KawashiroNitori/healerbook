@@ -21,13 +21,9 @@ async function publishOne(id: string, name: string): Promise<string> {
   return id
 }
 
-/** 作者 JWT（懒初始化）*/
-let _authorJwt: string | undefined
+/** 作者 JWT */
 async function authorJwt(): Promise<string> {
-  if (!_authorJwt) {
-    _authorJwt = await signAccessToken(AUTHOR_USER_ID, AUTHOR_USERNAME, JWT_SECRET)
-  }
-  return _authorJwt
+  return signAccessToken(AUTHOR_USER_ID, AUTHOR_USERNAME, JWT_SECRET)
 }
 
 describe('timelines 路由', () => {
@@ -72,7 +68,7 @@ describe('GET /api/timelines/:id role', () => {
     const body = (await res.json()) as { role: string; authorName: string; snapshot: unknown }
     expect(body.role).toBe('viewer')
     expect(body).toHaveProperty('authorName')
-    expect(body).toHaveProperty('snapshot')
+    expect(body.snapshot).toEqual(snapshotData)
   })
 
   it('returns editor role without snapshot for whitelisted user', async () => {

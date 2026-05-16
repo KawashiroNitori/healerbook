@@ -76,7 +76,9 @@ app.get('/:id', async c => {
   }
 
   if (role === 'editor') {
-    return c.json({ role, authorName: row.author_name })
+    return c.json({ role, authorName: row.author_name }, 200, {
+      'Cache-Control': 'private, no-cache',
+    })
   }
 
   // viewer:需要 snapshot

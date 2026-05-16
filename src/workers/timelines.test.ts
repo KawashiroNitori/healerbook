@@ -65,7 +65,7 @@ function makeMockD1(initialRows: DbRow[] = []): D1Database {
               },
             }
           }
-          // SELECT 1 or SELECT id FROM timelines WHERE id = ?
+          // SELECT 1 or SELECT author_name FROM timelines WHERE id = ?
           return {
             first: async <T>(): Promise<T | null> => {
               const id = args[0] as string
