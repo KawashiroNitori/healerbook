@@ -9,7 +9,7 @@
  * 因此子节点使用画布原始坐标（时间 × zoomLevel，不需要减去滚动量）。
  */
 
-import { Fragment } from 'react'
+import { Fragment, useMemo } from 'react'
 import { Line, Rect, Text } from 'react-konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
@@ -45,13 +45,16 @@ export function PeerOverlayFixed({
 }: PeerOverlayFixedProps) {
   const peers = useTimelineStore(s => s.peers)
 
-  if (peers.length === 0) return null
-
   // 构建 eventId → DamageEvent 快速查找
-  const damageEventById = new Map<string, DamageEvent>()
-  for (const ev of damageEvents) {
-    damageEventById.set(ev.id, ev)
-  }
+  const damageEventById = useMemo(() => {
+    const map = new Map<string, DamageEvent>()
+    for (const ev of damageEvents) {
+      map.set(ev.id, ev)
+    }
+    return map
+  }, [damageEvents])
+
+  if (peers.length === 0) return null
 
   // 同一个 damage event 可能被多个 peer 选中 → 记录每个 event 已渲染的 label 数量
   const labelCountByEventId = new Map<string, number>()
@@ -140,6 +143,7 @@ export function PeerOverlayFixed({
 
 interface PeerOverlayMainProps {
   zoomLevel: number
+  /** 全量 castEvents,与 SkillTracksCanvas 渲染保持一致(勿传 filtered 子集) */
   castEvents: CastEvent[]
   skillTracks: SkillTrack[]
   /** 用于 castEvent.actionId → trackGroup 查找 */
@@ -160,27 +164,31 @@ export function PeerOverlayMain({
 }: PeerOverlayMainProps) {
   const peers = useTimelineStore(s => s.peers)
 
-  if (peers.length === 0) return null
-
   // castEventId → CastEvent 快速查找
-  const castEventById = new Map<string, CastEvent>()
-  for (const ce of castEvents) {
-    castEventById.set(ce.id, ce)
-  }
+  const castEventById = useMemo(() => {
+    const map = new Map<string, CastEvent>()
+    for (const ce of castEvents) {
+      map.set(ce.id, ce)
+    }
+    return map
+  }, [castEvents])
 
   // castEventId → trackIndex：通过 playerId + effectiveTrackGroup 匹配
-  const castEventTrackIndex = new Map<string, number>()
-  for (const ce of castEvents) {
-    const action = actionMap.get(ce.actionId)
-    if (!action) continue
-    const groupId = effectiveTrackGroup(action)
-    const idx = skillTracks.findIndex(
-      t => t.playerId === ce.playerId && effectiveTrackGroup(actionMap.get(t.actionId)!) === groupId
-    )
-    if (idx !== -1) {
-      castEventTrackIndex.set(ce.id, idx)
+  const castEventTrackIndex = useMemo(() => {
+    const trackIndex = new Map<string, number>()
+    for (const ce of castEvents) {
+      const action = actionMap.get(ce.actionId)
+      if (!action) continue
+      const groupId = effectiveTrackGroup(action)
+      const idx = skillTracks.findIndex(t => t.playerId === ce.playerId && t.actionId === groupId)
+      if (idx !== -1) {
+        trackIndex.set(ce.id, idx)
+      }
     }
-  }
+    return trackIndex
+  }, [castEvents, actionMap, skillTracks])
+
+  if (peers.length === 0) return null
 
   // 同一 cast 被多个 peer 选中时错开 label
   const labelCountByCastId = new Map<string, number>()
