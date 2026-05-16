@@ -141,11 +141,14 @@ export class IndexedDBDocStore {
   /**
    * 把一条时间轴的全部本地数据从 oldId 改键到 newId。
    * 发布时 id 被服务端清洗变更后使用。
+   *
+   * 先写 newId、最后删 oldId:若中途崩溃,newId 数据已落盘,oldId 残留
+   * 是无害孤儿(可后续清理),不会丢数据。
    */
   async rekey(oldId: string, newId: string): Promise<void> {
+    if (oldId === newId) return
     const merged = await this.loadDoc(oldId)
     const meta = await this.getMeta(oldId)
-    await this.deleteDoc(oldId)
     if (merged) {
       const tx = this.tx([IDB_STORE_SNAPSHOTS], 'readwrite')
       await reqToPromise(
@@ -153,9 +156,10 @@ export class IndexedDBDocStore {
           docId: newId,
           bin: merged,
           updatedAt: Date.now(),
-        })
+        } as SnapshotRow)
       )
     }
     if (meta) await this.putMeta({ ...meta, docId: newId })
+    await this.deleteDoc(oldId)
   }
 }

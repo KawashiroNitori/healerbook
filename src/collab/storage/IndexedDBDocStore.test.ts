@@ -149,6 +149,25 @@ describe('meta store', () => {
     expect(await store.getMeta('x')).toBeNull()
   })
 
+  it('rekey with same oldId and newId is a no-op that preserves data', async () => {
+    const store = new IndexedDBDocStore()
+    await store.open()
+    await store.appendUpdate('same', new Uint8Array([9]))
+    await store.putMeta({
+      docId: 'same',
+      name: 'S',
+      encounterId: 3,
+      createdAt: 1,
+      updatedAt: 1,
+      composition: null,
+      published: false,
+    })
+    await store.rekey('same', 'same')
+    expect(await store.loadDoc('same')).not.toBeNull()
+    expect((await store.getMeta('same'))?.docId).toBe('same')
+    expect((await store.getMeta('same'))?.encounterId).toBe(3)
+  })
+
   it('rekey moves snapshot, updates and meta to a new docId', async () => {
     const store = new IndexedDBDocStore()
     await store.open()
