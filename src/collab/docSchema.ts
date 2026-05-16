@@ -69,12 +69,42 @@ function ymapToObject<T>(ymap: Y.Map<unknown>): T {
   return Object.fromEntries(ymap.entries()) as T
 }
 
+function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const ak = Object.keys(a)
+  const bk = Object.keys(b)
+  if (ak.length !== bk.length) return false
+  return ak.every(k => Object.is(a[k], b[k]))
+}
+
+function indexById<T extends { id: string }>(arr: T[] | undefined): Map<string, T> | undefined {
+  if (!arr) return undefined
+  return new Map(arr.map(x => [x.id, x]))
+}
+
+/** 对单个集合做引用保持投影:内容相等的 entry 复用 prev 的对象 */
+function projectCollection<T extends { id: string }>(
+  ymaps: Iterable<Y.Map<unknown>>,
+  prevById: Map<string, T> | undefined
+): T[] {
+  const out: T[] = []
+  for (const ymap of ymaps) {
+    const fresh = ymapToObject<T>(ymap)
+    const prev = prevById?.get(fresh.id)
+    out.push(
+      prev && shallowEqual(prev as Record<string, unknown>, fresh as Record<string, unknown>)
+        ? prev
+        : fresh
+    )
+  }
+  return out
+}
+
 /**
  * Y.Doc → Timeline 形状的普通对象。
  * 读路径强制跨集合不变量(sanitizer):丢弃引用了不存在玩家的 castEvent /
  * skillTrack 注释。见设计文档 §5.2。
  */
-export function projectTimeline(doc: Y.Doc): Timeline {
+export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
   const meta = doc.getMap(Y_MAP.meta)
 
   const composition: Composition = {
@@ -87,21 +117,25 @@ export function projectTimeline(doc: Y.Doc): Timeline {
   }
   const playerIds = new Set(composition.players.map(p => p.id))
 
-  const damageEvents = [...doc.getMap<Y.Map<unknown>>(Y_MAP.damageEvents).values()]
-    .map(ymap => ymapToObject<DamageEvent>(ymap))
-    .sort((a, b) => a.time - b.time)
+  const damageEvents = projectCollection<DamageEvent>(
+    doc.getMap<Y.Map<unknown>>(Y_MAP.damageEvents).values(),
+    indexById(prev?.damageEvents)
+  ).sort((a, b) => a.time - b.time)
 
-  const castEvents = [...doc.getMap<Y.Map<unknown>>(Y_MAP.castEvents).values()]
-    .map(ymap => ymapToObject<CastEvent>(ymap))
+  const castEvents = projectCollection<CastEvent>(
+    doc.getMap<Y.Map<unknown>>(Y_MAP.castEvents).values(),
+    indexById(prev?.castEvents)
+  )
     .filter(c => playerIds.has(c.playerId)) // sanitizer:丢孤儿 cast
     .sort((a, b) => a.timestamp - b.timestamp)
 
-  const annotations = [...doc.getMap<Y.Map<unknown>>(Y_MAP.annotations).values()]
-    .map(ymap => ymapToObject<Annotation>(ymap))
-    .filter(
-      a =>
-        a.anchor.type !== 'skillTrack' || playerIds.has((a.anchor as { playerId: number }).playerId)
-    ) // sanitizer
+  const annotations = projectCollection<Annotation>(
+    doc.getMap<Y.Map<unknown>>(Y_MAP.annotations).values(),
+    indexById(prev?.annotations)
+  ).filter(
+    a =>
+      a.anchor.type !== 'skillTrack' || playerIds.has((a.anchor as { playerId: number }).playerId)
+  ) // sanitizer
 
   const statData =
     doc.getMap(Y_MAP.statData).size > 0

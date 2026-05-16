@@ -82,3 +82,25 @@ describe('projectTimeline', () => {
     expect(out.annotations.find(a => a.id === 'a-orphan')).toBeUndefined()
   })
 })
+
+describe('projectTimeline 引用保持', () => {
+  it('未变动的 damageEvent 在两次投影间保持同一对象引用', () => {
+    const doc = buildYDoc({
+      ...sample,
+      damageEvents: [
+        { id: 'd1', name: 'A', time: 10, damage: 1, type: 'aoe', damageType: 'magical' },
+        { id: 'd2', name: 'B', time: 20, damage: 2, type: 'aoe', damageType: 'magical' },
+      ],
+    })
+    const first = projectTimeline(doc)
+    // 只改 d2
+    ;(doc.getMap<Y.Map<unknown>>(Y_MAP.damageEvents).get('d2') as Y.Map<unknown>).set('damage', 999)
+    const second = projectTimeline(doc, first)
+    const d1a = first.damageEvents.find(e => e.id === 'd1')
+    const d1b = second.damageEvents.find(e => e.id === 'd1')
+    expect(d1b).toBe(d1a) // d1 引用未变
+    const d2b = second.damageEvents.find(e => e.id === 'd2')
+    expect(d2b).not.toBe(first.damageEvents.find(e => e.id === 'd2')) // d2 是新对象
+    expect(d2b?.damage).toBe(999)
+  })
+})
