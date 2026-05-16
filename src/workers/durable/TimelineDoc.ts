@@ -13,6 +13,8 @@ import type { Timeline } from '@/types/timeline'
 interface SocketAttachment {
   authed: boolean
   userId?: string
+  /** 该连接最近一帧 awareness payload(不透明字节,存为普通数组以可序列化) */
+  lastAwareness?: number[]
 }
 
 export class TimelineDoc extends DurableObject<Env> {
@@ -107,6 +109,8 @@ export class TimelineDoc extends DurableObject<Env> {
       return
     }
     if (type === MSG.AWARENESS) {
+      const awarenessAtt = ws.deserializeAttachment() as SocketAttachment
+      ws.serializeAttachment({ ...awarenessAtt, lastAwareness: Array.from(payload) })
       this.broadcast(ws, encodeMessage(MSG.AWARENESS, payload)) // 仅转发
       return
     }
@@ -135,6 +139,14 @@ export class TimelineDoc extends DurableObject<Env> {
     }
     ws.serializeAttachment({ authed: true, userId } satisfies SocketAttachment)
     ws.send(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    // 把已在线连接的最近 awareness 补发给新连接,使其立刻看到全员
+    for (const peer of this.ctx.getWebSockets()) {
+      if (peer === ws) continue
+      const peerAtt = peer.deserializeAttachment() as SocketAttachment | null
+      if (peerAtt?.authed && peerAtt.lastAwareness && peerAtt.lastAwareness.length > 0) {
+        ws.send(encodeMessage(MSG.AWARENESS, new Uint8Array(peerAtt.lastAwareness)))
+      }
+    }
   }
 
   /** 把 frame 发给除 sender 外的所有已鉴权连接 */

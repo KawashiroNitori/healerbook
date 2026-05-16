@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
 import * as Y from 'yjs'
 import { signAccessToken } from '@/workers/jwt'
@@ -144,6 +144,60 @@ describe('TimelineDoc WebSocket 接入', () => {
     await runInDurableObject(stub, async (_instance, state) => {
       const stored = await state.storage.get<string>('docId')
       expect(stored).toBe(docName)
+    })
+  })
+
+  describe('awareness snapshot on join', () => {
+    it('新连接鉴权后立刻收到已在线连接的 awareness 快照', async () => {
+      const docName = 't-awareness-snapshot'
+
+      // 连接 A 鉴权
+      const wsA = await authConnect(docName, 'ua-snap')
+
+      // A 发送一帧 awareness
+      const awarePayload = new Uint8Array([1, 2, 3, 4])
+      wsA.send(encodeMessage(MSG.AWARENESS, awarePayload))
+
+      // 等待 DO 处理完 A 的 awareness 帧
+      await new Promise(r => setTimeout(r, 50))
+
+      // 连接 B 鉴权;收集鉴权后到来的所有消息
+      const stub = env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(docName))
+      await env.healerbook_timelines
+        .prepare(
+          'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, created_at) VALUES (?,?,?)'
+        )
+        .bind(docName, 'ub-snap', Date.now())
+        .run()
+      const jwtB = await signAccessToken('ub-snap', 'ub-snap', 'test-secret')
+      const resB = await stub.fetch('https://do/connect', {
+        headers: { Upgrade: 'websocket', 'X-Timeline-Id': docName },
+      })
+      const wsB = resB.webSocket!
+      wsB.accept()
+
+      const frames: Uint8Array[] = []
+      wsB.addEventListener('message', e => {
+        frames.push(new Uint8Array((e as MessageEvent).data as ArrayBuffer))
+      })
+
+      // 发送鉴权
+      wsB.send(encodeMessage(MSG.AUTH, new TextEncoder().encode(jwtB)))
+
+      // 等待收到 AUTH_OK 和快照帧
+      await vi.waitFor(
+        () => {
+          const hasAuthOk = frames.some(f => f[0] === MSG.AUTH_OK)
+          const hasAwareness = frames.some(f => f[0] === MSG.AWARENESS)
+          if (!hasAuthOk || !hasAwareness) throw new Error('waiting for frames')
+        },
+        { timeout: 2000 }
+      )
+
+      const awarenessFrames = frames.filter(f => f[0] === MSG.AWARENESS)
+      expect(awarenessFrames.length).toBeGreaterThanOrEqual(1)
+      const decoded = decodeMessage(awarenessFrames[0])
+      expect(decoded.payload).toEqual(awarePayload)
     })
   })
 
