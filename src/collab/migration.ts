@@ -45,11 +45,11 @@ export async function runClientMigration(): Promise<void> {
   const legacyIds: string[] = []
 
   for (const meta of getAllTimelineMetadata()) {
-    legacyIds.push(meta.id)
     try {
       const timeline = getTimeline(meta.id)
       if (!timeline) continue
       const now = Math.floor(Date.now() / 1000)
+      // 故意用 isShared（当前状态）而非 everPublished：曾发布后取消共享的轴应作为纯本地轴迁移，会生成本地 Y.Doc
       const published = !!timeline.isShared
       const docMeta: LocalDocMeta = {
         docId: meta.id,
@@ -67,6 +67,7 @@ export async function runClientMigration(): Promise<void> {
         const doc = buildYDoc(toContent(timeline))
         await store.appendUpdate(meta.id, encodeStateAsUpdate(doc))
       }
+      legacyIds.push(meta.id) // 仅在该条目完全迁移成功后才标记可清理
     } catch (err) {
       console.error('[collab-migration] 跳过损坏条目', meta.id, err)
     }
