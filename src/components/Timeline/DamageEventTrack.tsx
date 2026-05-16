@@ -47,7 +47,10 @@ interface DamageEventTrackProps {
     time: number
   ) => void
   onAnnotationDragStart: () => void
+  onAnnotationDragMove?: (annotationId: string, newX: number) => void
   onAnnotationDragEnd: (annotationId: string, newX: number) => void
+  /** 他人正在拖动的对象 id 集合，在此集合内的 damage event / annotation 隐藏原始渲染 */
+  peerDraggingIds?: Set<string>
 }
 
 export default function DamageEventTrack({
@@ -78,7 +81,9 @@ export default function DamageEventTrack({
   onAnnotationClick,
   onAnnotationContextMenu,
   onAnnotationDragStart,
+  onAnnotationDragMove,
   onAnnotationDragEnd,
+  peerDraggingIds,
 }: DamageEventTrackProps) {
   const colors = useCanvasColors()
 
@@ -172,9 +177,10 @@ export default function DamageEventTrack({
       {/* 伤害时间指示虚线 */}
       {damageTimeLines}
 
-      {/* 伤害事件（视口裁剪，卡片宽度约 150px） */}
+      {/* 伤害事件（视口裁剪，卡片宽度约 150px；他人拖动中的事件隐藏） */}
       {[...events]
         .filter(event => {
+          if (peerDraggingIds?.has(event.id)) return false
           const x = event.time * zoomLevel
           const CARD_WIDTH = 150
           return x + CARD_WIDTH >= visibleMinX && x <= visibleMaxX
@@ -214,9 +220,10 @@ export default function DamageEventTrack({
             />
           )
         })}
-      {/* 注释图标（视口裁剪） */}
+      {/* 注释图标（视口裁剪；他人拖动中的注释隐藏） */}
       {annotations
         .filter(annotation => {
+          if (peerDraggingIds?.has(annotation.id)) return false
           const x = annotation.time * zoomLevel
           return x >= visibleMinX && x <= visibleMaxX
         })
@@ -232,6 +239,7 @@ export default function DamageEventTrack({
               isPinned={pinnedAnnotationId === annotation.id}
               draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
               onDragStart={onAnnotationDragStart}
+              onDragMove={newX => onAnnotationDragMove?.(annotation.id, newX)}
               onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
               onMouseEnter={e => {
                 const stage = e.target.getStage()

@@ -73,6 +73,14 @@ interface SkillTracksCanvasProps {
   ) => void
   onAnnotationDragStart: () => void
   onAnnotationDragEnd: (annotationId: string, newX: number) => void
+  /** 他人正在拖动的对象 id 集合，在此集合内的 cast event / annotation 隐藏原始渲染 */
+  peerDraggingIds?: Set<string>
+  /** cast 拖动开始回调（供 index.tsx 立即上报 awareness） */
+  onCastDragStart?: (castEventId: string) => void
+  /** cast 拖动中回调（供 index.tsx 节流上报 awareness） */
+  onCastDragMove?: (castEventId: string, x: number) => void
+  /** annotation 拖动中回调（供 index.tsx 节流上报 awareness） */
+  onAnnotationDragMove?: (annotationId: string, newX: number) => void
 }
 
 export default function SkillTracksCanvas({
@@ -114,6 +122,10 @@ export default function SkillTracksCanvas({
   onAnnotationContextMenu,
   onAnnotationDragStart,
   onAnnotationDragEnd,
+  peerDraggingIds,
+  onCastDragStart,
+  onCastDragMove,
+  onAnnotationDragMove,
 }: SkillTracksCanvasProps) {
   const draggingId = useUIStore(s => s.draggingId)
   const setDraggingId = useUIStore(s => s.setDraggingId)
@@ -523,6 +535,9 @@ export default function SkillTracksCanvas({
         })}
 
         {timeline.castEvents.map(castEvent => {
+          // 他人正在拖动时隐藏原始渲染（ghost 由 PeerOverlay 提供）
+          if (peerDraggingIds?.has(castEvent.id)) return null
+
           // 同 trackGroup 的变体（37016 trackGroup=37013）应渲染到 parent 轨道上。
           const castAction = actionMap?.get(castEvent.actionId)
           const castGroupId = castAction?.trackGroup ?? castEvent.actionId
@@ -606,7 +621,11 @@ export default function SkillTracksCanvas({
               scrollLeft={scrollLeft}
               scrollTop={scrollTop}
               onSelect={() => onSelectCastEvent(castEvent.id)}
-              onDragStart={() => setDraggingId(castEvent.id)}
+              onDragStart={() => {
+                setDraggingId(castEvent.id)
+                onCastDragStart?.(castEvent.id)
+              }}
+              onDragMove={x => onCastDragMove?.(castEvent.id, x)}
               onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
               onContextMenu={e => {
                 e.evt.preventDefault()
@@ -631,10 +650,11 @@ export default function SkillTracksCanvas({
           )
         })}
 
-        {/* 注释图标（视口裁剪） */}
+        {/* 注释图标（视口裁剪；他人拖动中的注释隐藏） */}
         {annotations
           .filter(a => {
             if (a.anchor.type !== 'skillTrack') return false
+            if (peerDraggingIds?.has(a.id)) return false
             const x = a.time * zoomLevel
             return x >= visibleMinX && x <= visibleMaxX
           })
@@ -659,6 +679,7 @@ export default function SkillTracksCanvas({
                 isPinned={pinnedAnnotationId === annotation.id}
                 draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
                 onDragStart={onAnnotationDragStart}
+                onDragMove={newX => onAnnotationDragMove?.(annotation.id, newX)}
                 onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
                 y={y}
                 onMouseEnter={(e: KonvaEventObject<MouseEvent>) => {

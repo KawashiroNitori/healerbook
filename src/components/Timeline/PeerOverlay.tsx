@@ -105,6 +105,46 @@ export function PeerOverlayFixed({
       }
     }
 
+    // ── 伤害事件拖动 ghost ──
+    if (peer.dragging?.kind === 'damage') {
+      const { id: dragId, time: dragTime } = peer.dragging
+      const ev = damageEventById.get(dragId)
+      const row = damageEventRowMap.get(dragId)
+      if (ev != null && row != null) {
+        const CARD_W = 150
+        const CARD_H = 30
+        const ghostX = dragTime * zoomLevel
+        const ghostY = yOffset + row * rowHeight + (rowHeight - CARD_H) / 2
+        nodes.push(
+          <Fragment key={`peer-ghost-dmg-${peer.clientId}`}>
+            <Rect
+              x={ghostX}
+              y={ghostY}
+              width={CARD_W}
+              height={CARD_H}
+              fill={peer.user.color}
+              opacity={0.55}
+              stroke={peer.user.color}
+              strokeWidth={1}
+              cornerRadius={4}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+            <Text
+              x={ghostX + 4}
+              y={ghostY + CARD_H - 14}
+              text={peer.user.name}
+              fontSize={10}
+              fill="#ffffff"
+              fontFamily="Arial, sans-serif"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          </Fragment>
+        )
+      }
+    }
+
     // ── 悬停光标线 ──
     if (peer.cursorTime != null) {
       const cx = peer.cursorTime * zoomLevel
@@ -229,6 +269,53 @@ export function PeerOverlayMain({
             <Text
               x={iconX + 2}
               y={iconY - 12 - labelIdx * 12}
+              text={peer.user.name}
+              fontSize={10}
+              fill={peer.user.color}
+              fontFamily="Arial, sans-serif"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          </Fragment>
+        )
+      }
+    }
+
+    // ── cast 事件拖动 ghost ──
+    if (peer.dragging?.kind === 'cast') {
+      const { id: dragId, time: dragTime, playerId } = peer.dragging
+      // 通过 playerId 找轨道索引：任意匹配该 playerId 的轨道均可用作目标行
+      // 优先用原 castEvent 的轨道（保持垂直位置锁定语义）
+      const ce = castEventById.get(dragId)
+      const origTrackIdx = ce != null ? castEventTrackIndex.get(dragId) : undefined
+      // 若原 cast 不在映射中（可能已切换变体），fallback 到 playerId 首个轨道
+      const fallbackTrackIdx =
+        playerId != null ? skillTracks.findIndex(t => t.playerId === playerId) : undefined
+      const trackIdx = origTrackIdx ?? fallbackTrackIdx
+      if (trackIdx != null && trackIdx !== -1) {
+        const ICON_SIZE = 30
+        const ghostCenterX = dragTime * zoomLevel
+        const ghostCenterY = trackIdx * trackHeight + trackHeight / 2
+        const ghostX = ghostCenterX - ICON_SIZE / 2
+        const ghostY = ghostCenterY - ICON_SIZE / 2
+        nodes.push(
+          <Fragment key={`peer-ghost-cast-${peer.clientId}`}>
+            <Rect
+              x={ghostX}
+              y={ghostY}
+              width={ICON_SIZE}
+              height={ICON_SIZE}
+              fill={peer.user.color}
+              opacity={0.55}
+              stroke={peer.user.color}
+              strokeWidth={1}
+              cornerRadius={4}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+            <Text
+              x={ghostX + 2}
+              y={ghostY + ICON_SIZE + 2}
               text={peer.user.name}
               fontSize={10}
               fill={peer.user.color}

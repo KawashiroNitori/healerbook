@@ -17,6 +17,7 @@ interface AnnotationIconProps {
   onClick: (e: KonvaEventObject<MouseEvent>) => void
   onContextMenu: (e: KonvaEventObject<PointerEvent>) => void
   onDragStart?: () => void
+  onDragMove?: (newX: number) => void
   onDragEnd?: (newX: number) => void
 }
 
@@ -34,6 +35,7 @@ export default function AnnotationIcon({
   onClick,
   onContextMenu,
   onDragStart,
+  onDragMove,
   onDragEnd,
 }: AnnotationIconProps) {
   // 记录拖动开始时的绝对 Y 坐标，用于锁定垂直位置
@@ -51,6 +53,11 @@ export default function AnnotationIcon({
       onDragStart={e => {
         dragStartAbsYRef.current = e.target.getAbsolutePosition().y
         onDragStart?.()
+      }}
+      onDragMove={e => {
+        if (!onDragMove) return
+        const newCenterX = e.target.x() + ICON_SIZE / 2
+        onDragMove(newCenterX)
       }}
       onDragEnd={e => {
         if (!onDragEnd) return

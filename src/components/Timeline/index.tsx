@@ -3,6 +3,7 @@
  */
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -151,6 +152,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const fixedOverlayLayerRef = useRef<Konva.Layer | null>(null)
   // 本地悬停光标节流（~50ms，避免每帧都写 awareness）
   const lastCursorSendRef = useRef(0)
+  // 本地拖动 ghost 节流（~50ms，与光标节流独立）
+  const lastDragSendRef = useRef(0)
   const minimapRef = useRef<TimelineMinimapHandle | null>(null)
   const scrollbarRef = useRef<VerticalScrollbarHandle | null>(null)
 
@@ -196,6 +199,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   const draggingId = useUIStore(s => s.draggingId)
   const setDraggingId = useUIStore(s => s.setDraggingId)
+
+  // 他人正在拖动的对象 id 集合（只在 drag start/end 时变化，不受 cursor move 影响）
+  const peerDraggingIdList = useTimelineStore(
+    useShallow(s => s.peers.filter(p => p.dragging).map(p => p.dragging!.id))
+  )
+  const peerDraggingIds = useMemo(() => new Set(peerDraggingIdList), [peerDraggingIdList])
 
   // drop 落点提交后 castEvents 变新引用 → 自动清空 draggingId。
   // 放在 useEffect 而不是 onDragEnd 里，是为了避开 Konva 释放瞬间的状态收束：
@@ -821,10 +830,75 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const handleEventDragEnd = (eventId: string, x: number) => {
     if (isReadOnly) return
     const newTime = Math.max(TIMELINE_START_TIME, Math.round((x / zoomLevel) * 10) / 10)
-    const { updateDamageEvent } = useTimelineStore.getState()
+    const { updateDamageEvent, setLocalDragging } = useTimelineStore.getState()
     updateDamageEvent(eventId, { time: newTime })
+    setLocalDragging(null)
     setDraggingEventPosition(null)
   }
+
+  // 上报伤害事件拖动 ghost（start 立即, move 节流 ~50ms）
+  const reportDamageDrag = useCallback(
+    (eventId: string, x: number, immediate = false) => {
+      const now = Date.now()
+      if (!immediate && now - lastDragSendRef.current < 50) return
+      lastDragSendRef.current = now
+      useTimelineStore.getState().setLocalDragging({
+        id: eventId,
+        kind: 'damage',
+        time: x / zoomLevel,
+        playerId: null,
+      })
+    },
+    [zoomLevel]
+  )
+
+  // 立即上报 cast 拖动开始（不节流）
+  const reportCastDragStart = useCallback(
+    (castEventId: string) => {
+      const ce = timeline?.castEvents.find(c => c.id === castEventId)
+      lastDragSendRef.current = Date.now()
+      useTimelineStore.getState().setLocalDragging({
+        id: castEventId,
+        kind: 'cast',
+        time: ce?.timestamp ?? 0,
+        playerId: ce?.playerId ?? null,
+      })
+    },
+    [timeline?.castEvents]
+  )
+
+  // 节流上报 cast 拖动 ghost（供协作者感知）
+  const reportCastDrag = useCallback(
+    (castEventId: string, x: number) => {
+      const now = Date.now()
+      if (now - lastDragSendRef.current < 50) return
+      lastDragSendRef.current = now
+      const ce = timeline?.castEvents.find(c => c.id === castEventId)
+      useTimelineStore.getState().setLocalDragging({
+        id: castEventId,
+        kind: 'cast',
+        time: x / zoomLevel,
+        playerId: ce?.playerId ?? null,
+      })
+    },
+    [zoomLevel, timeline?.castEvents]
+  )
+
+  // 节流上报 annotation 拖动 ghost（供协作者感知）
+  const reportAnnotationDrag = useCallback(
+    (annotationId: string, newX: number) => {
+      const now = Date.now()
+      if (now - lastDragSendRef.current < 50) return
+      lastDragSendRef.current = now
+      useTimelineStore.getState().setLocalDragging({
+        id: annotationId,
+        kind: 'annotation',
+        time: newX / zoomLevel,
+        playerId: null,
+      })
+    },
+    [zoomLevel]
+  )
 
   // 处理技能使用事件拖动
   const handleCastEventDragEnd = (castEventId: string, x: number) => {
@@ -856,6 +930,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     }
     updateCastEvent(castEventId, { timestamp: newTime, actionId: nextActionId })
+    useTimelineStore.getState().setLocalDragging(null)
   }
 
   // 平移刚结束的同帧内阻止意外选中（panJustEndedRef 由 rAF 自动清除）
@@ -1102,6 +1177,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       annotationClickedRef.current = true
       const newTime = Math.max(TIMELINE_START_TIME, Math.round((newX / zoomLevel) * 10) / 10)
       updateAnnotation(annotationId, { time: newTime })
+      useTimelineStore.getState().setLocalDragging(null)
     },
     [zoomLevel, updateAnnotation]
   )
@@ -1293,11 +1369,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 scrollLeft={clampedScrollLeft}
                 bottomExtension={hpTrackHeight}
                 onSelectEvent={handleSelectEvent}
-                onDragStart={(eventId, x) => setDraggingEventPosition({ eventId, x })}
+                onDragStart={(eventId, x) => {
+                  setDraggingEventPosition({ eventId, x })
+                  reportDamageDrag(eventId, x, true)
+                }}
                 onDragMove={(eventId, x) => {
                   setDraggingEventPosition({ eventId, x })
+                  reportDamageDrag(eventId, x)
                 }}
                 onDragEnd={handleEventDragEnd}
+                onAnnotationDragMove={reportAnnotationDrag}
+                peerDraggingIds={peerDraggingIds}
                 onDblClick={time => setAddEventAt(time)}
                 onContextMenu={handleContextMenu}
                 isReadOnly={isReadOnly}
@@ -1464,6 +1546,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onAnnotationContextMenu={handleAnnotationContextMenu}
                 onAnnotationDragStart={handleAnnotationDragStart}
                 onAnnotationDragEnd={handleAnnotationDragEnd}
+                peerDraggingIds={peerDraggingIds}
+                onCastDragStart={reportCastDragStart}
+                onCastDragMove={reportCastDrag}
+                onAnnotationDragMove={reportAnnotationDrag}
               />
             </Stage>
           </div>

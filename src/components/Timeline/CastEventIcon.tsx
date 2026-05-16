@@ -34,6 +34,7 @@ interface CastEventIconProps {
   scrollTop: number
   onSelect: () => void
   onDragStart?: () => void
+  onDragMove?: (x: number) => void
   onDragEnd: (x: number) => void
   onContextMenu: (e: KonvaContextMenuEvent) => void
   onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
@@ -61,6 +62,7 @@ const CastEventIcon = memo(function CastEventIcon({
   scrollTop,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragEnd,
   onContextMenu,
   onHover,
@@ -124,6 +126,9 @@ const CastEventIcon = memo(function CastEventIcon({
       }}
       onClick={onSelect}
       onTap={onSelect}
+      onDragMove={e => {
+        onDragMove?.(e.target.x())
+      }}
       onDragEnd={e => {
         dragStartAbsYRef.current = null
         onDragEnd(e.target.x())
