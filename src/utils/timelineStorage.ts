@@ -7,6 +7,7 @@ import type { LocalDocMeta } from '@/collab/types'
 import { generateId } from '@/utils/id'
 import { getEncounterById } from '@/data/raidEncounters'
 import { parseFromAny } from '@/utils/timelineFormat'
+import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
 
 const STORAGE_KEY = 'healerbook_timelines'
 
@@ -50,7 +51,7 @@ export function getTimeline(id: string): Timeline | null {
       hasLocalChanges: raw.hasLocalChanges,
       everPublished: raw.everPublished,
     }
-    // V1 LocalStored 兼容：旧数据 statData 在顶层而非 sd
+    // 向后兼容：v2 以前写入 localStorage 的记录 statData 存于顶层而非 sd
     if (raw.statData !== undefined) overrides.statData = raw.statData
     return parseFromAny(raw, overrides)
   } catch (error) {
@@ -66,7 +67,6 @@ export function getTimeline(id: string): Timeline | null {
  * 相同 key 多条时保留 updatedAt 最大者。
  */
 export async function buildFFLogsSourceIndex(): Promise<Map<string, LocalDocMeta>> {
-  const { IndexedDBDocStore } = await import('@/collab/storage/IndexedDBDocStore')
   const store = new IndexedDBDocStore()
   await store.open()
   const index = new Map<string, LocalDocMeta>()
