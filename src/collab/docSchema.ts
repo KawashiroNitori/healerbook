@@ -235,7 +235,7 @@ export function yReplaceStatData(doc: Y.Doc, statData: Record<string, unknown>):
  * FFLogs 原始伤害明细(`playerDamageDetails`)——编辑模式不再需要这些数据。
  *
  * 该操作**不可撤销**:事务用 `EXIT_REPLAY_ORIGIN` 而非 `LOCAL_ORIGIN`,
- * 故 `LocalSyncEngine` 的 `UndoManager`(只跟踪 `LOCAL_ORIGIN`)不会记录它。
+ * 故 `SyncEngine` 的 `UndoManager`(只跟踪 `LOCAL_ORIGIN`)不会记录它。
  */
 export function yExitReplayMode(doc: Y.Doc): void {
   doc.transact(() => {
@@ -293,7 +293,7 @@ export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
       : undefined
 
   return {
-    id: '', // 由调用方(LocalSyncEngine)用本地元数据填
+    id: '', // 由调用方(SyncEngine)用本地元数据填
     name: (meta.get('name') as string) ?? '',
     description: meta.get('description') as string | undefined,
     encounter: meta.get('encounter') as Timeline['encounter'],

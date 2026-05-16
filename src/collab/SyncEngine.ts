@@ -1,16 +1,25 @@
 import * as Y from 'yjs'
 import { IndexedDBDocStore } from './storage/IndexedDBDocStore'
+import { RemoteConnection, type ConnectionStatus } from './RemoteConnection'
 import { Y_MAP, LOCAL_ORIGIN } from './constants'
+import type { LocalDocMeta } from './types'
+
+/** 构造连到该文档 DO 的 WebSocket URL */
+function buildWsUrl(docId: string): string {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${window.location.host}/api/timelines/${docId}/connect`
+}
 
 /**
- * 本地同步引擎(阶段 1:无 remote)。
- * 持有 Y.Doc、本地持久化、UndoManager;把本地 update 落 IndexedDB。
+ * 同步引擎。持有 Y.Doc、本地 IndexedDB 持久化、UndoManager;
+ * 已发布时间轴额外挂一个 RemoteConnection 作为 remote peer。
  */
-export class LocalSyncEngine {
+export class SyncEngine {
   readonly docId: string
   readonly doc: Y.Doc
   readonly undoManager: Y.UndoManager
   private readonly store: IndexedDBDocStore
+  private remote: RemoteConnection | null = null
   private pending: Promise<void> = Promise.resolve()
   private lastPersistError: unknown = null
 
@@ -34,9 +43,9 @@ export class LocalSyncEngine {
 
   /**
    * 打开一条时间轴。
-   * @param seed 仅在新建时间轴时传入(本地无持久化数据时用作初始 Y.Doc)
+   * @param seed 仅新建时传入(本地无持久化数据时用作初始 Y.Doc)
    */
-  static async create(docId: string, seed?: Y.Doc): Promise<LocalSyncEngine> {
+  static async create(docId: string, seed?: Y.Doc): Promise<SyncEngine> {
     const store = new IndexedDBDocStore()
     await store.open()
     const persisted = await store.loadDoc(docId)
@@ -46,10 +55,21 @@ export class LocalSyncEngine {
     } else if (seed) {
       const seedUpdate = Y.encodeStateAsUpdate(seed)
       Y.applyUpdate(doc, seedUpdate, 'persisted')
-      // 新建文档:把初始状态落盘,后续 delta 才能完整回放
       await store.appendUpdate(docId, seedUpdate)
     }
-    return new LocalSyncEngine(docId, doc, store)
+    return new SyncEngine(docId, doc, store)
+  }
+
+  /** 挂上远端连接(发布 / editor 模式)。幂等。 */
+  connectRemote(getJwt: () => string | null, onStatus: (status: ConnectionStatus) => void): void {
+    if (this.remote) return
+    this.remote = new RemoteConnection(buildWsUrl(this.docId), this.doc, getJwt, onStatus)
+    this.remote.connect()
+  }
+
+  /** 是否已挂 remote */
+  get hasRemote(): boolean {
+    return this.remote !== null
   }
 
   private onUpdate = (update: Uint8Array, origin: unknown) => {
@@ -62,7 +82,7 @@ export class LocalSyncEngine {
       })
   }
 
-  /** 等所有待持久化的 update 落盘;若期间有失败则抛出最近一次错误。 */
+  /** 等所有待持久化 update 落盘;期间有失败则抛最近一次错误。 */
   flush(): Promise<void> {
     return this.pending.then(() => {
       if (this.lastPersistError !== null) {
@@ -73,7 +93,19 @@ export class LocalSyncEngine {
     })
   }
 
+  /** 写入本地元数据行 */
+  saveMeta(meta: LocalDocMeta): Promise<void> {
+    return this.store.putMeta(meta)
+  }
+
+  /** 读本地元数据行 */
+  loadMeta(): Promise<LocalDocMeta | null> {
+    return this.store.getMeta(this.docId)
+  }
+
   destroy(): void {
+    this.remote?.destroy()
+    this.remote = null
     this.doc.off('update', this.onUpdate)
     this.undoManager.destroy()
   }

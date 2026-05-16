@@ -1,7 +1,7 @@
 /**
  * 时间轴状态管理测试
  *
- * 真相源是 LocalSyncEngine 的 Y.Doc;`timeline` 是其投影。
+ * 真相源是 SyncEngine 的 Y.Doc;`timeline` 是其投影。
  * 测试用 fake-indexeddb 提供 IndexedDB,每个用例独立 DB。
  */
 

@@ -1,7 +1,7 @@
 /**
  * 时间轴状态管理
  *
- * 真相源是 `LocalSyncEngine` 持有的 `Y.Doc`;本 store 的 `timeline` 字段是它的
+ * 真相源是 `SyncEngine` 持有的 `Y.Doc`;本 store 的 `timeline` 字段是它的
  * **只读投影**。内容类 mutation(增删改伤害事件 / cast / 注释 / 阵容 / 数值设置)
  * 不再做不可变 `set`,而是调用 `docSchema` 的 granular mutator 改 `Y.Doc`,改动
  * 经 `Y.Doc` 的 `update` 事件 → `reproject` → `set({ timeline })` 流回。
@@ -9,7 +9,7 @@
  * UI 态字段(选中 / 当前时间 / 缩放 / 滚动)与运行时派生态(`partyState` /
  * `statistics`)仍是普通 Zustand 状态,沿用 `set` 写法。
  *
- * 撤销 / 重做走 `LocalSyncEngine` 的 `Y.UndoManager`。
+ * 撤销 / 重做走 `SyncEngine` 的 `Y.UndoManager`。
  */
 
 import { create } from 'zustand'
@@ -20,7 +20,7 @@ import type { SharedTimelineResponse } from '@/api/timelineShareApi'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { createEmptyStatData, cleanupStatData } from '@/utils/statDataUtils'
 import type { TimelineStatData } from '@/types/statData'
-import { LocalSyncEngine } from '@/collab/LocalSyncEngine'
+import { SyncEngine } from '@/collab/SyncEngine'
 import type { Doc as YDoc } from 'yjs'
 import {
   buildYDoc,
@@ -65,8 +65,8 @@ function toContent(t: Timeline): TimelineContent {
 }
 
 interface TimelineState {
-  /** 本地同步引擎(持有 Y.Doc 真相源);未打开时间轴时为 null */
-  engine: LocalSyncEngine | null
+  /** 同步引擎(持有 Y.Doc 真相源);未打开时间轴时为 null */
+  engine: SyncEngine | null
   /** 当前时间轴 —— Y.Doc 的只读投影 */
   timeline: Timeline | null
   /** 撤销栈是否非空(响应式,供工具栏按钮禁用判定) */
@@ -95,7 +95,7 @@ interface TimelineState {
   currentViewportWidth: number
 
   // Actions
-  /** 打开一条时间轴:创建 LocalSyncEngine,首帧投影 */
+  /** 打开一条时间轴:创建 SyncEngine,首帧投影 */
   openTimeline: (docId: string, seedContent?: TimelineContent) => Promise<void>
   /**
    * 设置时间轴(兼容旧消费方的同步接口)。
@@ -241,7 +241,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
             )
           : undefined
 
-      const engine = await LocalSyncEngine.create(docId, seedDoc)
+      const engine = await SyncEngine.create(docId, seedDoc)
 
       // Fix 1: 检测是否已被并发的新调用抢占;若是,销毁刚创建的引擎并中止
       if (myGeneration !== openGeneration) {
