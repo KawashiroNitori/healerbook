@@ -2,6 +2,25 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import * as Y from 'yjs'
 import { IndexedDBDocStore } from './IndexedDBDocStore'
+import { IDB_NAME, IDB_STORE_UPDATES } from '../constants'
+
+function countUpdates(docId: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME)
+    req.onsuccess = () => {
+      const db = req.result
+      const tx = db.transaction(IDB_STORE_UPDATES, 'readonly')
+      const idx = tx.objectStore(IDB_STORE_UPDATES).index('docId')
+      const cReq = idx.count(docId)
+      cReq.onsuccess = () => {
+        resolve(cReq.result)
+        db.close()
+      }
+      cReq.onerror = () => reject(cReq.error)
+    }
+    req.onerror = () => reject(req.error)
+  })
+}
 
 function freshDoc(name: string): Uint8Array {
   const d = new Y.Doc()
@@ -49,7 +68,9 @@ describe('IndexedDBDocStore', () => {
       d.getMap('meta').set('k' + i, i)
       await store.appendUpdate('t1', Y.encodeStateAsUpdate(d))
     }
+    expect(await countUpdates('t1')).toBeGreaterThan(0)
     await store.squash('t1')
+    expect(await countUpdates('t1')).toBe(0)
     const out = new Y.Doc()
     Y.applyUpdate(out, (await store.loadDoc('t1'))!)
     expect(out.getMap('meta').get('k4')).toBe(4)
