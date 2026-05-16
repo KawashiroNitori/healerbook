@@ -18,7 +18,6 @@ import {
   Copy,
   Download,
 } from 'lucide-react'
-import { useStore } from 'zustand'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -86,9 +85,10 @@ export default function EditorToolbar({
     applyPublishResult,
     applyUpdateResult,
     applyServerTimeline,
-    triggerAutoSave,
     selectEvent,
     selectCastEvent,
+    undo,
+    redo,
   } = useTimelineStore()
   const {
     toggleReadOnly,
@@ -107,8 +107,8 @@ export default function EditorToolbar({
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
-  const canUndo = useStore(useTimelineStore.temporal, s => s.pastStates.length > 0)
-  const canRedo = useStore(useTimelineStore.temporal, s => s.futureStates.length > 0)
+  const canUndo = useTimelineStore(s => s.canUndo)
+  const canRedo = useTimelineStore(s => s.canRedo)
 
   const isReplayMode = timeline?.isReplayMode || false
   const isReadOnly = useEditorReadOnly()
@@ -126,17 +126,15 @@ export default function EditorToolbar({
   }
 
   const handleUndo = () => {
-    useTimelineStore.temporal.getState().undo()
+    undo()
     selectEvent(null)
     selectCastEvent(null)
-    triggerAutoSave()
   }
 
   const handleRedo = () => {
-    useTimelineStore.temporal.getState().redo()
+    redo()
     selectEvent(null)
     selectCastEvent(null)
-    triggerAutoSave()
   }
 
   const handleZoomChange = (values: number[]) => {

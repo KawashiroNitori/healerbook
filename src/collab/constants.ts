@@ -11,6 +11,12 @@ export const Y_MAP = {
 /** 本地 Y.Doc 事务 origin 标记 */
 export const LOCAL_ORIGIN = 'local'
 
+/**
+ * 解除回放模式专用事务 origin。
+ * 与 `LOCAL_ORIGIN` 区分,使 `UndoManager` 不跟踪——解除回放不可撤销。
+ */
+export const EXIT_REPLAY_ORIGIN = 'exit-replay'
+
 /** IndexedDB 数据库名与对象仓库名 */
 export const IDB_NAME = 'healerbook_collab'
 export const IDB_STORE_SNAPSHOTS = 'snapshots'

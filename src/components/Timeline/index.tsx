@@ -165,7 +165,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setZoomLevel,
     setPendingScrollProgress,
     updateScrollState,
-    triggerAutoSave,
+    undo,
+    redo,
     addAnnotation,
     updateAnnotation,
     removeAnnotation,
@@ -661,10 +662,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   // 撤销 / 重做
   const runUndoRedo = (op: 'undo' | 'redo') => {
-    useTimelineStore.temporal.getState()[op]()
+    if (op === 'undo') undo()
+    else redo()
     selectEvent(null)
     selectCastEvent(null)
-    triggerAutoSave()
   }
   useHotkeys('mod+z', () => runUndoRedo('undo'), {
     enabled: !isReadOnly,

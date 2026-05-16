@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import { Y_MAP, LOCAL_ORIGIN } from './constants'
+import { Y_MAP, LOCAL_ORIGIN, EXIT_REPLAY_ORIGIN } from './constants'
 import type { TimelineContent } from './types'
 import type { DamageEvent, CastEvent, Annotation, Timeline, Composition } from '@/types/timeline'
 
@@ -228,6 +228,23 @@ export function yReplaceStatData(doc: Y.Doc, statData: Record<string, unknown>):
       if (v !== undefined) sd.set(k, v)
     }
   }, LOCAL_ORIGIN)
+}
+
+/**
+ * 解除回放模式:把 meta.isReplayMode 置 false,并剥离每条伤害事件的
+ * FFLogs 原始伤害明细(`playerDamageDetails`)——编辑模式不再需要这些数据。
+ *
+ * 该操作**不可撤销**:事务用 `EXIT_REPLAY_ORIGIN` 而非 `LOCAL_ORIGIN`,
+ * 故 `LocalSyncEngine` 的 `UndoManager`(只跟踪 `LOCAL_ORIGIN`)不会记录它。
+ */
+export function yExitReplayMode(doc: Y.Doc): void {
+  doc.transact(() => {
+    doc.getMap(Y_MAP.meta).set('isReplayMode', false)
+    const de = mapOf(doc, Y_MAP.damageEvents)
+    for (const ymap of de.values()) {
+      if (ymap.has('playerDamageDetails')) ymap.delete('playerDamageDetails')
+    }
+  }, EXIT_REPLAY_ORIGIN)
 }
 
 // ─── projection ──────────────────────────────────────────────────────────────
