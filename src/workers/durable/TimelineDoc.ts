@@ -109,8 +109,7 @@ export class TimelineDoc extends DurableObject<Env> {
       return
     }
     if (type === MSG.AWARENESS) {
-      const awarenessAtt = ws.deserializeAttachment() as SocketAttachment
-      ws.serializeAttachment({ ...awarenessAtt, lastAwareness: Array.from(payload) })
+      ws.serializeAttachment({ ...att, lastAwareness: Array.from(payload) })
       this.broadcast(ws, encodeMessage(MSG.AWARENESS, payload)) // 仅转发
       return
     }
