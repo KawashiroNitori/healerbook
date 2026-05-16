@@ -1,4 +1,5 @@
 import * as Y from 'yjs'
+import { Awareness } from 'y-protocols/awareness'
 import { IndexedDBDocStore } from './storage/IndexedDBDocStore'
 import { RemoteConnection, type ConnectionStatus } from './RemoteConnection'
 import { Y_MAP, LOCAL_ORIGIN } from './constants'
@@ -17,6 +18,7 @@ function buildWsUrl(docId: string): string {
 export class SyncEngine {
   readonly docId: string
   readonly doc: Y.Doc
+  readonly awareness: Awareness
   readonly undoManager: Y.UndoManager
   private readonly store: IndexedDBDocStore
   private remote: RemoteConnection | null = null
@@ -26,6 +28,7 @@ export class SyncEngine {
   private constructor(docId: string, doc: Y.Doc, store: IndexedDBDocStore) {
     this.docId = docId
     this.doc = doc
+    this.awareness = new Awareness(this.doc)
     this.store = store
     this.undoManager = new Y.UndoManager(
       [
@@ -63,7 +66,13 @@ export class SyncEngine {
   /** 挂上远端连接(发布 / editor 模式)。幂等。 */
   connectRemote(getJwt: () => string | null, onStatus: (status: ConnectionStatus) => void): void {
     if (this.remote) return
-    this.remote = new RemoteConnection(buildWsUrl(this.docId), this.doc, getJwt, onStatus)
+    this.remote = new RemoteConnection(
+      buildWsUrl(this.docId),
+      this.doc,
+      this.awareness,
+      getJwt,
+      onStatus
+    )
     this.remote.connect()
   }
 
@@ -108,5 +117,6 @@ export class SyncEngine {
     this.remote = null
     this.doc.off('update', this.onUpdate)
     this.undoManager.destroy()
+    this.awareness.destroy()
   }
 }

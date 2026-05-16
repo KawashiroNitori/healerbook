@@ -1,4 +1,5 @@
 import * as Y from 'yjs'
+import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness'
 import { MSG, encodeMessage, decodeMessage, decodeLoadReply } from './syncProtocol'
 import { REMOTE_ORIGIN } from './constants'
 
@@ -14,6 +15,7 @@ const MAX_BACKOFF_MS = 30_000
 export class RemoteConnection {
   private readonly url: string
   private readonly doc: Y.Doc
+  private readonly awareness: Awareness
   private readonly getJwt: () => string | null
   private readonly onStatus: (status: ConnectionStatus) => void
 
@@ -24,14 +26,27 @@ export class RemoteConnection {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private updateListenerActive = false
 
+  private readonly onAwarenessUpdate = (
+    { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
+    origin: unknown
+  ): void => {
+    if (origin === REMOTE_ORIGIN) return // 远端来的,不回推
+    if (this.status !== 'connected' || !this.ws) return
+    const changed = [...added, ...updated, ...removed]
+    if (changed.length === 0) return
+    this.ws.send(encodeMessage(MSG.AWARENESS, encodeAwarenessUpdate(this.awareness, changed)))
+  }
+
   constructor(
     url: string,
     doc: Y.Doc,
+    awareness: Awareness,
     getJwt: () => string | null,
     onStatus: (status: ConnectionStatus) => void
   ) {
     this.url = url
     this.doc = doc
+    this.awareness = awareness
     this.getJwt = getJwt
     this.onStatus = onStatus
   }
@@ -49,6 +64,7 @@ export class RemoteConnection {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = null
     this.detachUpdateListener()
+    this.awareness.off('update', this.onAwarenessUpdate)
     const ws = this.ws
     this.ws = null
     ws?.close()
@@ -93,6 +109,14 @@ export class RemoteConnection {
       this.setStatus('connected')
       this.attachUpdateListener()
       this.ws?.send(encodeMessage(MSG.LOAD, Y.encodeStateVector(this.doc)))
+      this.awareness.on('update', this.onAwarenessUpdate)
+      // 首播本地 awareness,使已在线者立刻看到自己
+      this.ws?.send(
+        encodeMessage(
+          MSG.AWARENESS,
+          encodeAwarenessUpdate(this.awareness, [this.awareness.clientID])
+        )
+      )
       return
     }
     if (msg.type === MSG.LOAD_REPLY) {
@@ -106,11 +130,15 @@ export class RemoteConnection {
       Y.applyUpdate(this.doc, msg.payload, REMOTE_ORIGIN)
       return
     }
-    // MSG.AWARENESS —— 计划 C 处理
+    if (msg.type === MSG.AWARENESS) {
+      applyAwarenessUpdate(this.awareness, msg.payload, REMOTE_ORIGIN)
+      return
+    }
   }
 
   private onClose(): void {
     this.detachUpdateListener()
+    this.awareness.off('update', this.onAwarenessUpdate)
     this.ws = null
     if (this.closed) {
       this.setStatus('disconnected')

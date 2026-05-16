@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import * as Y from 'yjs'
+import { Awareness, encodeAwarenessUpdate } from 'y-protocols/awareness'
 import { RemoteConnection } from './RemoteConnection'
 import { MSG, encodeMessage, decodeMessage, encodeLoadReply } from './syncProtocol'
 
@@ -51,6 +52,7 @@ describe('RemoteConnection', () => {
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
+      new Awareness(doc),
       () => 'jwt-abc',
       () => {}
     )
@@ -68,6 +70,7 @@ describe('RemoteConnection', () => {
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
+      new Awareness(doc),
       () => 'j',
       s => statuses.push(s)
     )
@@ -89,6 +92,7 @@ describe('RemoteConnection', () => {
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
+      new Awareness(doc),
       () => 'j',
       () => {}
     )
@@ -108,6 +112,7 @@ describe('RemoteConnection', () => {
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
+      new Awareness(doc),
       () => 'j',
       () => {}
     )
@@ -129,6 +134,7 @@ describe('RemoteConnection', () => {
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
+      new Awareness(doc),
       () => 'j',
       () => {}
     )
@@ -147,6 +153,94 @@ describe('RemoteConnection', () => {
     expect(doc.getMap('meta').get('fromPeer')).toBe(1)
     const after = lastSocket().sent.slice(before).map(decodeMessage)
     expect(after.some(m => m.type === MSG.PUSH)).toBe(false)
+    conn.destroy()
+  })
+})
+
+describe('RemoteConnection awareness', () => {
+  it('broadcasts local awareness after AUTH_OK', () => {
+    const doc = new Y.Doc()
+    const awareness = new Awareness(doc)
+    awareness.setLocalStateField('user', { id: 'u1', name: 'A', color: '#a855f7' })
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      awareness,
+      () => 'j',
+      () => {}
+    )
+    conn.connect()
+    lastSocket().fireOpen()
+    lastSocket().fireMessage(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    const awarenessFrame = lastSocket().sent.find(f => decodeMessage(f).type === MSG.AWARENESS)
+    expect(awarenessFrame).toBeDefined()
+    conn.destroy()
+  })
+
+  it('sends MSG.AWARENESS when local awareness changes', () => {
+    const doc = new Y.Doc()
+    const awareness = new Awareness(doc)
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      awareness,
+      () => 'j',
+      () => {}
+    )
+    conn.connect()
+    lastSocket().fireOpen()
+    lastSocket().fireMessage(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    const before = lastSocket().sent.length
+    awareness.setLocalStateField('cursorTime', 42)
+    const after = lastSocket().sent.slice(before).map(decodeMessage)
+    expect(after.some(m => m.type === MSG.AWARENESS)).toBe(true)
+    conn.destroy()
+  })
+
+  it('applies a remote MSG.AWARENESS frame into the local Awareness', () => {
+    const doc = new Y.Doc()
+    const awareness = new Awareness(doc)
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      awareness,
+      () => 'j',
+      () => {}
+    )
+    conn.connect()
+    lastSocket().fireOpen()
+    lastSocket().fireMessage(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    const peerDoc = new Y.Doc()
+    const peerAwareness = new Awareness(peerDoc)
+    peerAwareness.setLocalStateField('user', { id: 'u2', name: 'B', color: '#06b6d4' })
+    const peerFrame = encodeAwarenessUpdate(peerAwareness, [peerAwareness.clientID])
+    lastSocket().fireMessage(encodeMessage(MSG.AWARENESS, peerFrame))
+    expect(awareness.getStates().get(peerAwareness.clientID)?.user?.name).toBe('B')
+    conn.destroy()
+  })
+
+  it('does not echo a remote awareness update back out', () => {
+    const doc = new Y.Doc()
+    const awareness = new Awareness(doc)
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      awareness,
+      () => 'j',
+      () => {}
+    )
+    conn.connect()
+    lastSocket().fireOpen()
+    lastSocket().fireMessage(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    const before = lastSocket().sent.length
+    const peerDoc = new Y.Doc()
+    const peerAwareness = new Awareness(peerDoc)
+    peerAwareness.setLocalStateField('user', { id: 'u3', name: 'C', color: '#f97316' })
+    lastSocket().fireMessage(
+      encodeMessage(MSG.AWARENESS, encodeAwarenessUpdate(peerAwareness, [peerAwareness.clientID]))
+    )
+    const after = lastSocket().sent.slice(before).map(decodeMessage)
+    expect(after.some(m => m.type === MSG.AWARENESS)).toBe(false)
     conn.destroy()
   })
 })
