@@ -12,7 +12,7 @@
 import { Fragment, useMemo } from 'react'
 import { Line, Rect, Text } from 'react-konva'
 import { useTimelineStore } from '@/store/timelineStore'
-import type { DamageEvent, CastEvent } from '@/types/timeline'
+import type { Annotation, DamageEvent, CastEvent } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { MitigationAction } from '@/types/mitigation'
 import { effectiveTrackGroup } from '@/types/mitigation'
@@ -33,6 +33,10 @@ interface PeerOverlayFixedProps {
   rowHeight: number
   /** 固定区域总高度（用于光标线纵向跨度） */
   fixedAreaHeight: number
+  /** DamageEventTrack 渲染的伤害轨道高度（trackHeight），用于 annotation ghost y 计算 */
+  damageTrackHeight: number
+  /** 伤害轨道 annotations，用于 annotation ghost 查找 */
+  annotations: Annotation[]
 }
 
 export function PeerOverlayFixed({
@@ -42,6 +46,8 @@ export function PeerOverlayFixed({
   yOffset,
   rowHeight,
   fixedAreaHeight,
+  damageTrackHeight,
+  annotations,
 }: PeerOverlayFixedProps) {
   const peers = useTimelineStore(s => s.peers)
 
@@ -53,6 +59,15 @@ export function PeerOverlayFixed({
     }
     return map
   }, [damageEvents])
+
+  // 构建 annotationId → Annotation 快速查找（仅伤害轨道注释）
+  const annotationById = useMemo(() => {
+    const map = new Map<string, Annotation>()
+    for (const a of annotations) {
+      map.set(a.id, a)
+    }
+    return map
+  }, [annotations])
 
   if (peers.length === 0) return null
 
@@ -145,6 +160,45 @@ export function PeerOverlayFixed({
       }
     }
 
+    // ── 注释拖动 ghost（伤害轨道） ──
+    if (peer.dragging?.kind === 'annotation') {
+      const { id: dragId, time: dragTime } = peer.dragging
+      const annotation = annotationById.get(dragId)
+      // 只处理 damageTrack 锚定的注释（skillTrack 注释由 PeerOverlayMain 负责）
+      if (annotation?.anchor.type === 'damageTrack') {
+        const ICON_SIZE = 22
+        const ghostX = dragTime * zoomLevel - ICON_SIZE / 2
+        const ghostY = yOffset + damageTrackHeight - 20 - ICON_SIZE / 2
+        nodes.push(
+          <Fragment key={`peer-ghost-annotation-fixed-${peer.clientId}`}>
+            <Rect
+              x={ghostX}
+              y={ghostY}
+              width={ICON_SIZE}
+              height={ICON_SIZE}
+              fill={peer.user.color}
+              opacity={0.55}
+              stroke={peer.user.color}
+              strokeWidth={1}
+              cornerRadius={3}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+            <Text
+              x={ghostX + 2}
+              y={ghostY + ICON_SIZE + 2}
+              text={peer.user.name}
+              fontSize={10}
+              fill={peer.user.color}
+              fontFamily="Arial, sans-serif"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          </Fragment>
+        )
+      }
+    }
+
     // ── 悬停光标线 ──
     if (peer.cursorTime != null) {
       const cx = peer.cursorTime * zoomLevel
@@ -192,6 +246,8 @@ interface PeerOverlayMainProps {
   trackHeight: number
   /** 主区域内容总高度（光标线纵向跨度） */
   skillTracksHeight: number
+  /** 技能轨道 annotations，用于 annotation ghost 查找 */
+  annotations: Annotation[]
 }
 
 export function PeerOverlayMain({
@@ -201,6 +257,7 @@ export function PeerOverlayMain({
   actionMap,
   trackHeight,
   skillTracksHeight,
+  annotations,
 }: PeerOverlayMainProps) {
   const peers = useTimelineStore(s => s.peers)
 
@@ -212,6 +269,15 @@ export function PeerOverlayMain({
     }
     return map
   }, [castEvents])
+
+  // 构建 annotationId → Annotation 快速查找（仅技能轨道注释）
+  const annotationById = useMemo(() => {
+    const map = new Map<string, Annotation>()
+    for (const a of annotations) {
+      map.set(a.id, a)
+    }
+    return map
+  }, [annotations])
 
   // castEventId → trackIndex：通过 playerId + effectiveTrackGroup 匹配
   const castEventTrackIndex = useMemo(() => {
@@ -325,6 +391,56 @@ export function PeerOverlayMain({
             />
           </Fragment>
         )
+      }
+    }
+
+    // ── 注释拖动 ghost（技能轨道） ──
+    if (peer.dragging?.kind === 'annotation') {
+      const { id: dragId, time: dragTime } = peer.dragging
+      const annotation = annotationById.get(dragId)
+      // 只处理 skillTrack 锚定的注释（damageTrack 注释由 PeerOverlayFixed 负责）
+      if (annotation?.anchor.type === 'skillTrack') {
+        const anchor = annotation.anchor as {
+          type: 'skillTrack'
+          playerId: number
+          actionId: number
+        }
+        const trackIndex = skillTracks.findIndex(
+          t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
+        )
+        if (trackIndex !== -1) {
+          const ICON_SIZE = 22
+          const ghostCenterY = trackIndex * trackHeight + trackHeight / 2
+          const ghostX = dragTime * zoomLevel - ICON_SIZE / 2
+          const ghostY = ghostCenterY - ICON_SIZE / 2
+          nodes.push(
+            <Fragment key={`peer-ghost-annotation-main-${peer.clientId}`}>
+              <Rect
+                x={ghostX}
+                y={ghostY}
+                width={ICON_SIZE}
+                height={ICON_SIZE}
+                fill={peer.user.color}
+                opacity={0.55}
+                stroke={peer.user.color}
+                strokeWidth={1}
+                cornerRadius={3}
+                listening={false}
+                perfectDrawEnabled={false}
+              />
+              <Text
+                x={ghostX + 2}
+                y={ghostY + ICON_SIZE + 2}
+                text={peer.user.name}
+                fontSize={10}
+                fill={peer.user.color}
+                fontFamily="Arial, sans-serif"
+                listening={false}
+                perfectDrawEnabled={false}
+              />
+            </Fragment>
+          )
+        }
       }
     }
 

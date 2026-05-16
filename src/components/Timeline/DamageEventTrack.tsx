@@ -46,7 +46,7 @@ interface DamageEventTrackProps {
     clientY: number,
     time: number
   ) => void
-  onAnnotationDragStart: () => void
+  onAnnotationDragStart: (annotationId: string) => void
   onAnnotationDragMove?: (annotationId: string, newX: number) => void
   onAnnotationDragEnd: (annotationId: string, newX: number) => void
   /** 他人正在拖动的对象 id 集合，在此集合内的 damage event / annotation 隐藏原始渲染 */
@@ -238,7 +238,7 @@ export default function DamageEventTrack({
               y={annotationY}
               isPinned={pinnedAnnotationId === annotation.id}
               draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
-              onDragStart={onAnnotationDragStart}
+              onDragStart={() => onAnnotationDragStart(annotation.id)}
               onDragMove={newX => onAnnotationDragMove?.(annotation.id, newX)}
               onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
               onMouseEnter={e => {

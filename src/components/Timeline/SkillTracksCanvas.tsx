@@ -71,7 +71,7 @@ interface SkillTracksCanvasProps {
     clientY: number,
     time: number
   ) => void
-  onAnnotationDragStart: () => void
+  onAnnotationDragStart: (annotationId: string) => void
   onAnnotationDragEnd: (annotationId: string, newX: number) => void
   /** 他人正在拖动的对象 id 集合，在此集合内的 cast event / annotation 隐藏原始渲染 */
   peerDraggingIds?: Set<string>
@@ -678,7 +678,7 @@ export default function SkillTracksCanvas({
                 x={x}
                 isPinned={pinnedAnnotationId === annotation.id}
                 draggable={!isReadOnly && pinnedAnnotationId === annotation.id}
-                onDragStart={onAnnotationDragStart}
+                onDragStart={() => onAnnotationDragStart(annotation.id)}
                 onDragMove={newX => onAnnotationDragMove?.(annotation.id, newX)}
                 onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
                 y={y}

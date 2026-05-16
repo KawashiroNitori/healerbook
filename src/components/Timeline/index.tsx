@@ -1167,9 +1167,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [timeline, contextMenu]
   )
 
-  const handleAnnotationDragStart = useCallback(() => {
-    setIsDraggingAnnotation(true)
-  }, [])
+  const handleAnnotationDragStart = useCallback(
+    (annotationId: string) => {
+      setIsDraggingAnnotation(true)
+      const annotation = timeline?.annotations?.find(a => a.id === annotationId)
+      lastDragSendRef.current = Date.now()
+      useTimelineStore.getState().setLocalDragging({
+        id: annotationId,
+        kind: 'annotation',
+        time: annotation?.time ?? 0,
+        playerId: null,
+      })
+    },
+    [timeline?.annotations]
+  )
 
   const handleAnnotationDragEnd = useCallback(
     (annotationId: string, newX: number) => {
@@ -1434,6 +1445,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 yOffset={timeRulerHeight}
                 rowHeight={LANE_ROW_HEIGHT}
                 fixedAreaHeight={fixedAreaHeight}
+                damageTrackHeight={eventTrackHeight}
+                annotations={damageTrackAnnotations}
               />
             </Layer>
           </Stage>
@@ -1528,6 +1541,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                     actionMap={actionMap}
                     trackHeight={skillTrackHeight}
                     skillTracksHeight={skillTracksHeight}
+                    annotations={skillTrackAnnotations}
                   />
                 }
                 onSelectCastEvent={handleSelectCastEvent}
