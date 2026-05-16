@@ -12,8 +12,10 @@ import { statisticsRoutes } from './routes/statistics'
 import { encounterTemplatesRoutes } from './routes/encounterTemplates'
 import { samplesQueueRoutes } from './routes/samplesQueue'
 import { handleScheduled } from './scheduled'
+import { TimelineDoc } from './durable/TimelineDoc'
 
 export type { Env }
+export { TimelineDoc }
 
 const app = new Hono<AppEnv>()
 
