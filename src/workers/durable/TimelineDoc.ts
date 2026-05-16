@@ -23,6 +23,12 @@ export class TimelineDoc extends DurableObject<Env> {
     super(ctx, env)
     this.store = new DoSqlStore(ctx.storage.sql)
     this.store.init()
+    // Restore cachedDocId from durable storage so it survives hibernation eviction.
+    // blockConcurrencyWhile defers all incoming handlers until the promise resolves.
+    this.ctx.blockConcurrencyWhile(async () => {
+      const stored = await this.ctx.storage.get<string>('docId')
+      if (stored) this.cachedDocId = stored
+    })
   }
 
   /** 仅处理 /connect 的 WebSocket 升级 */
@@ -39,6 +45,7 @@ export class TimelineDoc extends DurableObject<Env> {
       return new Response('missing timeline id', { status: 400 })
     }
     this.cachedDocId = timelineId
+    await this.ctx.storage.put('docId', timelineId)
     const pair = new WebSocketPair()
     const client = pair[0]
     const server = pair[1]

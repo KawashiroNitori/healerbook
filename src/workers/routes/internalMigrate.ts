@@ -6,6 +6,7 @@ import { parseFromAny } from '@/utils/timelineFormat'
 import type { TimelineContent } from '@/collab/types'
 import type { TimelineDoc } from '../durable/TimelineDoc'
 import { encodeStateAsUpdate } from 'yjs'
+import { requireSyncToken } from '../middleware/requireSyncToken'
 
 const app = new Hono<AppEnv>()
 
@@ -38,12 +39,7 @@ function toContent(timeline: ReturnType<typeof parseFromAny>): TimelineContent {
 }
 
 /** 把旧 D1 timelines.content → Y.Doc → 灌入对应 DO。幂等（DO.seed 幂等）。 */
-app.post('/migrate', async c => {
-  const token = c.req.header('Authorization')?.replace(/^Bearer /, '')
-  if (!c.env.SYNC_AUTH_TOKEN || token !== c.env.SYNC_AUTH_TOKEN) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-
+app.post('/migrate', requireSyncToken, async c => {
   const rows = await c.env.healerbook_timelines
     .prepare('SELECT id, author_id, content FROM timelines')
     .all<TimelineRow>()

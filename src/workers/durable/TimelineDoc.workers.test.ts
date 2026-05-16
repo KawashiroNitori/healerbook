@@ -135,6 +135,18 @@ describe('TimelineDoc WebSocket 接入', () => {
     expect(json!.name).toBe('First')
   })
 
+  it('fetch /connect 把 timelineId 持久化到 storage["docId"]', async () => {
+    const docName = 't-persist-docid'
+    const stub = env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(docName))
+    await stub.fetch('https://do/connect', {
+      headers: { Upgrade: 'websocket', 'X-Timeline-Id': docName },
+    })
+    await runInDurableObject(stub, async (_instance, state) => {
+      const stored = await state.storage.get<string>('docId')
+      expect(stored).toBe(docName)
+    })
+  })
+
   it('LOAD 返回 LOAD_REPLY;PUSH 广播给其他连接', async () => {
     const docName = 't-sync-1'
     const wsA = await authConnect(docName, 'ua')
