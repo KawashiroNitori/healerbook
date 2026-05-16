@@ -99,6 +99,139 @@ function projectCollection<T extends { id: string }>(
   return out
 }
 
+// ─── granular mutators ───────────────────────────────────────────────────────
+
+function mapOf(doc: Y.Doc, name: string) {
+  return doc.getMap<Y.Map<unknown>>(name)
+}
+
+// DamageEvent mutators
+
+export function yAddDamageEvent(doc: Y.Doc, ev: DamageEvent): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.damageEvents).set(ev.id, entryToYMap(ev as unknown as Record<string, unknown>))
+  }, LOCAL_ORIGIN)
+}
+
+export function yUpdateDamageEvent(doc: Y.Doc, id: string, patch: Partial<DamageEvent>): void {
+  doc.transact(() => {
+    const ymap = mapOf(doc, Y_MAP.damageEvents).get(id)
+    if (!ymap) return
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) ymap.set(k, v)
+    }
+  }, LOCAL_ORIGIN)
+}
+
+export function yRemoveDamageEvent(doc: Y.Doc, id: string): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.damageEvents).delete(id)
+  }, LOCAL_ORIGIN)
+}
+
+// CastEvent mutators
+
+export function yAddCastEvent(doc: Y.Doc, ev: CastEvent): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.castEvents).set(ev.id, entryToYMap(ev as unknown as Record<string, unknown>))
+  }, LOCAL_ORIGIN)
+}
+
+export function yUpdateCastEvent(doc: Y.Doc, id: string, patch: Partial<CastEvent>): void {
+  doc.transact(() => {
+    const ymap = mapOf(doc, Y_MAP.castEvents).get(id)
+    if (!ymap) return
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) ymap.set(k, v)
+    }
+  }, LOCAL_ORIGIN)
+}
+
+export function yRemoveCastEvent(doc: Y.Doc, id: string): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.castEvents).delete(id)
+  }, LOCAL_ORIGIN)
+}
+
+// Annotation mutators
+
+export function yAddAnnotation(doc: Y.Doc, ev: Annotation): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.annotations).set(ev.id, entryToYMap(ev as unknown as Record<string, unknown>))
+  }, LOCAL_ORIGIN)
+}
+
+export function yUpdateAnnotation(doc: Y.Doc, id: string, patch: Partial<Annotation>): void {
+  doc.transact(() => {
+    const ymap = mapOf(doc, Y_MAP.annotations).get(id)
+    if (!ymap) return
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) ymap.set(k, v)
+    }
+  }, LOCAL_ORIGIN)
+}
+
+export function yRemoveAnnotation(doc: Y.Doc, id: string): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.annotations).delete(id)
+  }, LOCAL_ORIGIN)
+}
+
+// Meta / composition / statData mutators
+
+/** 改 meta 标量字段(name/description/isReplayMode 等) */
+export function ySetMeta(doc: Y.Doc, patch: Record<string, unknown>): void {
+  doc.transact(() => {
+    const meta = doc.getMap(Y_MAP.meta)
+    for (const [k, v] of Object.entries(patch)) meta.set(k, v)
+  }, LOCAL_ORIGIN)
+}
+
+/**
+ * 替换阵容,并级联清理:删掉不在新阵容的玩家的 castEvent / skillTrack 注释。
+ * statData 的清理交由调用方在同事务内补充(本阶段先做引用清理)。
+ */
+export function yReplaceComposition(doc: Y.Doc, players: { id: number; job: string }[]): void {
+  doc.transact(() => {
+    const comp = mapOf(doc, Y_MAP.composition)
+    const keep = new Set(players.map(p => String(p.id)))
+    for (const key of [...comp.keys()]) {
+      if (!keep.has(key)) comp.delete(key)
+    }
+    for (const p of players) {
+      let pm = comp.get(String(p.id))
+      if (!pm) {
+        pm = new Y.Map<unknown>()
+        comp.set(String(p.id), pm)
+      }
+      pm.set('job', p.job)
+    }
+    const keepIds = new Set(players.map(p => p.id))
+    const ce = mapOf(doc, Y_MAP.castEvents)
+    for (const [id, cm] of [...ce.entries()]) {
+      if (!keepIds.has(cm.get('playerId') as number)) ce.delete(id)
+    }
+    const an = mapOf(doc, Y_MAP.annotations)
+    for (const [id, am] of [...an.entries()]) {
+      const anchor = am.get('anchor') as { type: string; playerId?: number }
+      if (anchor?.type === 'skillTrack' && !keepIds.has(anchor.playerId!)) an.delete(id)
+    }
+  }, LOCAL_ORIGIN)
+}
+
+/** 整体替换 statData */
+export function yReplaceStatData(doc: Y.Doc, statData: Record<string, unknown>): void {
+  doc.transact(() => {
+    const sd = doc.getMap(Y_MAP.statData)
+    for (const key of [...sd.keys()]) sd.delete(key)
+    for (const [k, v] of Object.entries(statData)) {
+      if (v !== undefined) sd.set(k, v)
+    }
+  }, LOCAL_ORIGIN)
+}
+
+// ─── projection ──────────────────────────────────────────────────────────────
+
 /**
  * Y.Doc → Timeline 形状的普通对象。
  * 读路径强制跨集合不变量(sanitizer):丢弃引用了不存在玩家的 castEvent /

@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import * as Y from 'yjs'
-import { buildYDoc, projectTimeline } from './docSchema'
+import {
+  buildYDoc,
+  projectTimeline,
+  yAddDamageEvent,
+  yUpdateDamageEvent,
+  yRemoveDamageEvent,
+} from './docSchema'
 import { Y_MAP } from './constants'
 import type { TimelineContent } from './types'
 
@@ -80,6 +86,35 @@ describe('projectTimeline', () => {
     doc.getMap<Y.Map<unknown>>(Y_MAP.annotations).set('a-orphan', orphan)
     const out = projectTimeline(doc)
     expect(out.annotations.find(a => a.id === 'a-orphan')).toBeUndefined()
+  })
+})
+
+describe('granular mutators', () => {
+  it('yAddDamageEvent 往集合加一条', () => {
+    const doc = buildYDoc(sample)
+    yAddDamageEvent(doc, {
+      id: 'd9',
+      name: 'N',
+      time: 50,
+      damage: 5,
+      type: 'aoe',
+      damageType: 'magical',
+    })
+    expect(projectTimeline(doc).damageEvents.map(e => e.id)).toContain('d9')
+  })
+
+  it('yUpdateDamageEvent 只改给定字段、保留其余', () => {
+    const doc = buildYDoc(sample)
+    yUpdateDamageEvent(doc, 'd1', { time: 99 })
+    const d1 = projectTimeline(doc).damageEvents.find(e => e.id === 'd1')!
+    expect(d1.time).toBe(99)
+    expect(d1.damage).toBe(1000) // 未动
+  })
+
+  it('yRemoveDamageEvent 删除一条', () => {
+    const doc = buildYDoc(sample)
+    yRemoveDamageEvent(doc, 'd1')
+    expect(projectTimeline(doc).damageEvents).toHaveLength(0)
   })
 })
 
