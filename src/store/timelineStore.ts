@@ -251,6 +251,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
 
   /** 给指定引擎挂 remote;连接状态回流到 store */
   const wireRemote = (engine: SyncEngine) => {
+    peersUnsub?.()
+    peersUnsub = null
     engine.connectRemote(
       () => useAuthStore.getState().accessToken,
       status => set({ connectionStatus: status })

@@ -16,7 +16,7 @@ export default function PresenceAvatars() {
   // 仅已发布(editor 模式)才可能有协作者;非发布态直接不渲染
   if (!isPublished) return null
   const people = dedupeByUser(peers)
-  if (people.length === 0 && connectionStatus === 'connected') return null
+  if (people.length === 0) return null
 
   const reconnecting = connectionStatus !== 'connected'
 
