@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
+    "test:workers": "vitest run --config vitest.workers.config.ts",
     "workers:deploy": "wrangler deploy --config wrangler.toml --env production",
     "gen:sensitive-words": "tsx scripts/build-sensitive-words.ts",
     "submodules:update": "node scripts/update-submodules.mjs",
@@ -77,6 +78,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.25.2",
+    "@cloudflare/vitest-pool-workers": "^0.16.6",
     "@cloudflare/workers-types": "^4.20260305.0",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.58.2",

@@ -8,6 +8,8 @@ export interface Env {
   SYNC_AUTH_TOKEN?: string
   healerbook: KVNamespace
   healerbook_timelines: D1Database
+  TIMELINE_DOC: DurableObjectNamespace
+  healerbook_snapshots: KVNamespace
   FFLOGS_OAUTH_REDIRECT_URI?: string
   JWT_SECRET?: string
   /** 来自 wrangler.toml [env.*.vars]，"production" 触发严格 CORS allowlist；其余值走 *  */

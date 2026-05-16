@@ -21,6 +21,18 @@ binding = "healerbook_timelines"
 database_name = "healerbook_timelines"
 database_id = "d5c7c316-c36a-42c7-a00e-aa43ceaba3c8"
 
+[[durable_objects.bindings]]
+name = "TIMELINE_DOC"
+class_name = "TimelineDoc"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TimelineDoc"]
+
+[[kv_namespaces]]
+binding = "healerbook_snapshots"
+id = "PLACEHOLDER_DEV_KV_ID"
+
 # 开发环境
 [env.development]
 [env.development.vars]
@@ -31,6 +43,14 @@ FFLOGS_OAUTH_REDIRECT_URI = "http://localhost:5173/callback"
 [[env.development.kv_namespaces]]
 binding = "healerbook"
 id = "b2d47d0e3be342248906a82ea3a540d5"
+
+[[env.development.kv_namespaces]]
+binding = "healerbook_snapshots"
+id = "PLACEHOLDER_DEV_KV_ID"
+
+[[env.development.durable_objects.bindings]]
+name = "TIMELINE_DOC"
+class_name = "TimelineDoc"
 
 [[env.development.d1_databases]]
 binding = "healerbook_timelines"
@@ -50,6 +70,14 @@ FFLOGS_OAUTH_REDIRECT_URI = "https://xivhealer.com/callback"
 [[env.production.kv_namespaces]]
 binding = "healerbook"
 id = "4d48c91437374775b166165a05d56839"
+
+[[env.production.kv_namespaces]]
+binding = "healerbook_snapshots"
+id = "PLACEHOLDER_DEV_KV_ID"
+
+[[env.production.durable_objects.bindings]]
+name = "TIMELINE_DOC"
+class_name = "TimelineDoc"
 
 [[env.production.d1_databases]]
 binding = "healerbook_timelines"

@@ -21,10 +21,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/ff14-overlay-vue/**',
-    ],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/ff14-overlay-vue/**', '**/*.workers.test.ts'],
   },
 })
