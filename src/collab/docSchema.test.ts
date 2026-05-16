@@ -6,8 +6,9 @@ import {
   yAddDamageEvent,
   yUpdateDamageEvent,
   yRemoveDamageEvent,
+  yExitReplayMode,
 } from './docSchema'
-import { Y_MAP } from './constants'
+import { Y_MAP, LOCAL_ORIGIN } from './constants'
 import type { TimelineContent } from './types'
 
 const sample: TimelineContent = {
@@ -137,5 +138,60 @@ describe('projectTimeline 引用保持', () => {
     const d2b = second.damageEvents.find(e => e.id === 'd2')
     expect(d2b).not.toBe(first.damageEvents.find(e => e.id === 'd2')) // d2 是新对象
     expect(d2b?.damage).toBe(999)
+  })
+})
+
+describe('yExitReplayMode', () => {
+  /** 含 isReplayMode:true 和带 playerDamageDetails 的伤害事件的样本 */
+  const replaySample: TimelineContent = {
+    ...sample,
+    isReplayMode: true,
+    damageEvents: [
+      {
+        id: 'dr1',
+        name: 'AOE',
+        time: 10,
+        damage: 2000,
+        type: 'aoe',
+        damageType: 'magical',
+        playerDamageDetails: [{ playerId: 1, damage: 2000 }],
+      } as unknown as TimelineContent['damageEvents'][number],
+    ],
+  }
+
+  it('将 meta.isReplayMode 置 false 并剥离 playerDamageDetails', () => {
+    const doc = buildYDoc(replaySample)
+    // 前置断言:进入状态正确
+    expect(projectTimeline(doc).isReplayMode).toBe(true)
+    expect(
+      (doc.getMap<Y.Map<unknown>>(Y_MAP.damageEvents).get('dr1') as Y.Map<unknown>).has(
+        'playerDamageDetails'
+      )
+    ).toBe(true)
+
+    yExitReplayMode(doc)
+
+    const out = projectTimeline(doc)
+    expect(out.isReplayMode).toBeFalsy()
+    expect(
+      (doc.getMap<Y.Map<unknown>>(Y_MAP.damageEvents).get('dr1') as Y.Map<unknown>).has(
+        'playerDamageDetails'
+      )
+    ).toBe(false)
+  })
+
+  it('操作不可撤销:UndoManager(只跟踪 LOCAL_ORIGIN)undo 后 isReplayMode 仍为 false', () => {
+    const doc = buildYDoc(replaySample)
+    const undoManager = new Y.UndoManager(
+      [doc.getMap(Y_MAP.meta), doc.getMap(Y_MAP.damageEvents)],
+      { trackedOrigins: new Set([LOCAL_ORIGIN]) }
+    )
+
+    yExitReplayMode(doc)
+    expect(projectTimeline(doc).isReplayMode).toBeFalsy()
+
+    undoManager.undo()
+    // EXIT_REPLAY_ORIGIN 不被跟踪,undo 不应回退此变更
+    expect(projectTimeline(doc).isReplayMode).toBeFalsy()
   })
 })

@@ -40,6 +40,7 @@ import {
   yExitReplayMode,
 } from '@/collab/docSchema'
 import type { TimelineContent } from '@/collab/types'
+import { LOCAL_ORIGIN } from '@/collab/constants'
 
 /** `yReplaceStatData` 接受宽泛 `Record`,此处收敛到 `TimelineStatData` 入参 */
 function replaceStatData(doc: YDoc, statData: TimelineStatData): void {
@@ -183,6 +184,9 @@ const initialUiState = {
 }
 
 export const useTimelineStore = create<TimelineState>()((set, get) => {
+  /** 每次 openTimeline 调用时递增;用于检测并发调用下的过期引擎 */
+  let openGeneration = 0
+
   /** observer:Y.Doc 变更 → 重投影(引用保持) */
   const reproject = () => {
     const engine = get().engine
@@ -208,7 +212,15 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     ...initialUiState,
 
     openTimeline: async (docId, seedContent) => {
-      get().engine?.destroy()
+      // Fix 1: 递增 generation,捕获当前值;await 后检测是否已被新调用抢占
+      const myGeneration = ++openGeneration
+
+      // Fix 2: 先从旧 engine 的 doc 移除 reproject 监听,再销毁引擎
+      const prevEngine = get().engine
+      if (prevEngine) {
+        prevEngine.doc.off('update', reproject)
+        prevEngine.destroy()
+      }
       // 切换时间轴:先清空旧投影与选择态,避免渲染到旧数据
       set({
         engine: null,
@@ -230,6 +242,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
           : undefined
 
       const engine = await LocalSyncEngine.create(docId, seedDoc)
+
+      // Fix 1: 检测是否已被并发的新调用抢占;若是,销毁刚创建的引擎并中止
+      if (myGeneration !== openGeneration) {
+        engine.destroy()
+        return
+      }
+
       engine.doc.on('update', reproject)
       engine.undoManager.on('stack-item-added', syncUndoState)
       engine.undoManager.on('stack-item-popped', syncUndoState)
@@ -389,14 +408,17 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     updateComposition: composition => {
       const engine = get().engine
       if (!engine) return
-      yReplaceComposition(engine.doc, composition.players)
-      // yReplaceComposition 已级联清理 castEvent / skillTrack 注释;
-      // statData 的阵容内清理在此补充(mutator 不碰 statData)
+      // Fix 3: 将两次 doc.transact 包进同一个外层事务,只触发一次 update 事件
       const statData = get().timeline?.statData
-      if (statData) {
-        replaceStatData(engine.doc, cleanupStatData(statData, composition))
-      }
-      // 重新初始化小队状态
+      engine.doc.transact(() => {
+        yReplaceComposition(engine.doc, composition.players)
+        // yReplaceComposition 已级联清理 castEvent / skillTrack 注释;
+        // statData 的阵容内清理在此补充(mutator 不碰 statData)
+        if (statData) {
+          replaceStatData(engine.doc, cleanupStatData(statData, composition))
+        }
+      }, LOCAL_ORIGIN)
+      // 重新初始化小队状态(需要 reproject 后的 timeline,保持在事务外)
       get().initializePartyState(composition)
     },
 
@@ -513,7 +535,12 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     },
 
     reset: () => {
-      get().engine?.destroy()
+      // Fix 2: 先移除 reproject 监听,再销毁引擎
+      const engine = get().engine
+      if (engine) {
+        engine.doc.off('update', reproject)
+        engine.destroy()
+      }
       set({ engine: null, timeline: null, canUndo: false, canRedo: false, ...initialUiState })
     },
   }
