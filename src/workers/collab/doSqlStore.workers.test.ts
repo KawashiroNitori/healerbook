@@ -39,4 +39,31 @@ describe('DoSqlStore', () => {
       expect(d.getMap('m').get('k3')).toBe(3)
     })
   })
+
+  it('isEmpty 在 init 后为 true、appendUpdate 后为 false', async () => {
+    const id = env.TIMELINE_DOC.idFromName('t-sqlstore-3')
+    const stub = env.TIMELINE_DOC.get(id)
+    await runInDurableObject(stub, async (_instance, state) => {
+      const store = new DoSqlStore(state.storage.sql)
+      store.init()
+      expect(store.isEmpty()).toBe(true)
+      store.appendUpdate(freshUpdate('x', 42))
+      expect(store.isEmpty()).toBe(false)
+    })
+  })
+
+  it('seedSnapshot 幂等：第二次 seed 不覆盖第一次', async () => {
+    const id = env.TIMELINE_DOC.idFromName('t-sqlstore-4')
+    const stub = env.TIMELINE_DOC.get(id)
+    await runInDurableObject(stub, async (_instance, state) => {
+      const store = new DoSqlStore(state.storage.sql)
+      store.init()
+      store.seedSnapshot(freshUpdate('a', 1))
+      store.seedSnapshot(freshUpdate('a', 999))
+      const merged = store.getMergedDoc()
+      const d = new Y.Doc()
+      Y.applyUpdate(d, merged)
+      expect(d.getMap('m').get('a')).toBe(1)
+    })
+  })
 })

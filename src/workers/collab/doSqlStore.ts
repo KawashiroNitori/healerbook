@@ -47,10 +47,12 @@ export class DoSqlStore {
     return mergeUpdates(parts)
   }
 
-  /** 是否已有任何数据（snapshot 或 updates） */
+  /** 是否已有任何数据(snapshot 或 updates) */
   isEmpty(): boolean {
-    const snap = this.sql.exec('SELECT COUNT(*) AS n FROM snapshot').one()
-    return Number(snap.n) === 0 && this.countUpdates() === 0
+    const row = this.sql
+      .exec('SELECT (SELECT COUNT(*) FROM snapshot) + (SELECT COUNT(*) FROM updates) AS n')
+      .one()
+    return Number(row.n) === 0
   }
 
   /** 合并出新 snapshot、清空 updates */
