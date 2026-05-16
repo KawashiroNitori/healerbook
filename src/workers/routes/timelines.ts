@@ -12,7 +12,11 @@ const PublishTimelineRequestSchema = v.object({
   name: v.pipe(v.string(), v.maxLength(200)),
 })
 
-/** 取该 timeline 的 DO stub */
+/**
+ * 取该 timeline 的 DO stub。
+ * DurableObjectNamespace binding 在 env.ts 中无具体类型，故 cast 为 TimelineDoc
+ * 以调用其 RPC 方法（getSnapshotJson）及 fetch。
+ */
 function docStub(env: AppEnv['Bindings'], id: string): TimelineDoc {
   return env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(id)) as unknown as TimelineDoc
 }
@@ -29,35 +33,28 @@ app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), asy
   }
 
   const now = Math.floor(Date.now() / 1000)
-  const existing = await c.env.healerbook_timelines
-    .prepare('SELECT 1 FROM timelines WHERE id = ?')
-    .bind(id)
-    .first()
-  if (existing) return c.json({ error: 'id_taken' }, 409)
+  const inserted = await c.env.healerbook_timelines
+    .prepare(
+      'INSERT OR IGNORE INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?,?,?,?,?,?,?,?)'
+    )
+    .bind(id, name, auth.userId, auth.username, now, now, 1, '{}')
+    .run()
+  if (inserted.meta.changes === 0) {
+    return c.json({ error: 'id_taken' }, 409)
+  }
 
-  await c.env.healerbook_timelines.batch([
-    c.env.healerbook_timelines
-      .prepare(
-        'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?,?,?,?,?,?,?,?)'
-      )
-      .bind(id, name, auth.userId, auth.username, now, now, 1, '{}'),
-    c.env.healerbook_timelines
-      .prepare(
-        'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, created_at) VALUES (?,?,?)'
-      )
-      .bind(id, auth.userId, Date.now()),
-  ])
+  await c.env.healerbook_timelines
+    .prepare(
+      'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, created_at) VALUES (?,?,?)'
+    )
+    .bind(id, auth.userId, Date.now())
+    .run()
   return c.json({ id, publishedAt: now }, 201)
 })
 
 // 公开读:先 KV,未命中经 DO RPC
 app.get('/:id', async c => {
   const id = c.req.param('id')
-
-  // skip /connect path — handled by the next route
-  if (id === 'connect') {
-    return c.json({ error: 'Not found' }, 404)
-  }
 
   const cached = await c.env.healerbook_snapshots.get(`tl-snapshot:${id}`)
   if (cached) {

@@ -79,6 +79,8 @@ function makeMockD1(initialRows: DbRow[] = []): D1Database {
             run: async () => {
               const [id, name, author_id, author_name, published_at, updated_at, version, content] =
                 args
+              // INSERT OR IGNORE: skip if id already exists
+              if (store.has(id as string)) return { meta: { changes: 0 } }
               store.set(id as string, {
                 id: id as string,
                 name: name as string,
