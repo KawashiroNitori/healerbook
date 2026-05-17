@@ -52,6 +52,22 @@ describe('DoSqlStore', () => {
     })
   })
 
+  it('clear 清空 snapshot 与 updates,isEmpty 回到 true', async () => {
+    const id = env.TIMELINE_DOC.idFromName('t-sqlstore-clear')
+    const stub = env.TIMELINE_DOC.get(id)
+    await runInDurableObject(stub, async (_instance, state) => {
+      const store = new DoSqlStore(state.storage.sql)
+      store.init()
+      store.appendUpdate(freshUpdate('a', 1))
+      store.squash() // 写入 snapshot
+      store.appendUpdate(freshUpdate('b', 2)) // 再留一条 update
+      expect(store.isEmpty()).toBe(false)
+      store.clear()
+      expect(store.isEmpty()).toBe(true)
+      expect(store.countUpdates()).toBe(0)
+    })
+  })
+
   it('seedSnapshot 幂等：第二次 seed 不覆盖第一次', async () => {
     const id = env.TIMELINE_DOC.idFromName('t-sqlstore-4')
     const stub = env.TIMELINE_DOC.get(id)

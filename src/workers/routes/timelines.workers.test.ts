@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { env, SELF } from 'cloudflare:test'
+import * as Y from 'yjs'
 import { signAccessToken } from '@/workers/jwt'
 
 // 作者固定 userId，与发布时一致（发布后自动入 timeline_editors）
@@ -86,5 +87,52 @@ describe('GET /api/timelines/:id role', () => {
   it('404 for unknown id', async () => {
     const res = await SELF.fetch('https://app/api/timelines/does-not-exist-00000001')
     expect(res.status).toBe(404)
+  })
+})
+
+describe('DELETE /api/timelines/:id 取消发布', () => {
+  it('删除 D1 行 + 编辑者名单,并清空 DO 存储', async () => {
+    const id = await publishOne('del-purge-000000000001', '待取消')
+    // 给 DO 灌入内容,模拟已积累的协同数据
+    const stub = env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(id))
+    const doc = new Y.Doc()
+    doc.getMap('meta').set('name', '待取消')
+    await stub.seed(Y.encodeStateAsUpdate(doc))
+    expect(await stub.getSnapshotJson()).not.toBeNull()
+
+    const res = await SELF.fetch(`https://app/api/timelines/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${await authorJwt()}` },
+    })
+    expect(res.status).toBe(204)
+
+    const row = await env.healerbook_timelines
+      .prepare('SELECT 1 FROM timelines WHERE id = ?')
+      .bind(id)
+      .first()
+    expect(row).toBeNull()
+    const editor = await env.healerbook_timelines
+      .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ?')
+      .bind(id)
+      .first()
+    expect(editor).toBeNull()
+
+    // DO 存储已清空 —— 同 id 重新发布不会复活旧内容
+    expect(await stub.getSnapshotJson()).toBeNull()
+  })
+
+  it('非作者删除返回 404,不影响时间轴', async () => {
+    const id = await publishOne('del-forbidden-00000001', 'T')
+    const otherJwt = await signAccessToken('other-user', 'Other', JWT_SECRET)
+    const res = await SELF.fetch(`https://app/api/timelines/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${otherJwt}` },
+    })
+    expect(res.status).toBe(404)
+    const row = await env.healerbook_timelines
+      .prepare('SELECT 1 FROM timelines WHERE id = ?')
+      .bind(id)
+      .first()
+    expect(row).not.toBeNull()
   })
 })

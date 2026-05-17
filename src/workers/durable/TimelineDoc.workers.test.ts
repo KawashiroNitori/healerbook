@@ -176,6 +176,18 @@ describe('TimelineDoc WebSocket 接入', () => {
     expect(json!.name).toBe('First')
   })
 
+  it('purge 清空文档存储,getSnapshotJson 回到 null', async () => {
+    const docName = 't-purge-1'
+    const stub = env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(docName))
+    const seedDoc = new Y.Doc()
+    seedDoc.getMap('meta').set('name', 'ToPurge')
+    await stub.seed(Y.encodeStateAsUpdate(seedDoc))
+    expect(await stub.getSnapshotJson()).not.toBeNull()
+
+    await stub.purge()
+    expect(await stub.getSnapshotJson()).toBeNull()
+  })
+
   it('fetch /connect 把 timelineId 持久化到 storage["docId"]', async () => {
     const docName = 't-persist-docid'
     const stub = env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(docName))

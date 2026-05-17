@@ -166,10 +166,19 @@ function makeMockKV(): KVNamespace {
   } as unknown as KVNamespace
 }
 
+/** DELETE 路由会调 docStub(env, id).purge();此处给出一个最小可用的 stub */
+function makeMockDurableObjectNamespace(): DurableObjectNamespace {
+  return {
+    idFromName: (name: string) => ({ name }),
+    get: () => ({ purge: async () => {} }),
+  } as unknown as DurableObjectNamespace
+}
+
 function makeMockEnv(db: D1Database, jwtSecret = 'test-secret'): Env {
   return {
     healerbook_timelines: db,
     healerbook_snapshots: makeMockKV(),
+    TIMELINE_DOC: makeMockDurableObjectNamespace(),
     JWT_SECRET: jwtSecret,
   } as unknown as Env
 }

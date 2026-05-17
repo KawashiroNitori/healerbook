@@ -124,6 +124,9 @@ app.delete('/:id', requireAuth, async c => {
     .prepare('DELETE FROM timeline_editors WHERE timeline_id = ?')
     .bind(id)
     .run()
+  // 清空 Durable Object 存储:DO 经 idFromName 取得会被复用,
+  // 不清空则同 id 重新发布会复活旧内容
+  await docStub(c.env, id).purge()
   return c.body(null, 204)
 })
 

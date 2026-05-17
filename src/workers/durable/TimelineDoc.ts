@@ -183,6 +183,25 @@ export class TimelineDoc extends DurableObject<Env> {
     }
   }
 
+  /**
+   * 取消发布时调用:断开所有在线连接并清空文档存储。
+   * DO 由 `idFromName` 取得会被复用 —— 不清空则同 id 重新发布会复活旧内容。
+   */
+  async purge(): Promise<void> {
+    // 1008 让客户端 RemoteConnection 转入终态,不再重连
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.close(1008, 'unpublished')
+      } catch {
+        // 已关闭的连接忽略
+      }
+    }
+    this.store.clear()
+    this.cachedDocId = undefined
+    await this.ctx.storage.delete('docId')
+    await this.ctx.storage.deleteAlarm()
+  }
+
   /** 迁移脚本用:灌入初始全量 snapshot,幂等(已有数据则跳过) */
   async seed(bin: Uint8Array): Promise<void> {
     if (!this.store.isEmpty()) return

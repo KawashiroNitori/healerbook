@@ -21,6 +21,7 @@ import { setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
+import { generateId } from '@/utils/id'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -90,6 +91,29 @@ export default function EditorPage() {
 
         if (meta) {
           if (meta.published) {
+            // 本地标记为已发布:与服务端对账。作者可能已取消发布,
+            // 此时服务端无此行,需把本地副本回退为纯本地时间轴。
+            let unpublished = false
+            try {
+              await fetchSharedTimeline(id)
+            } catch (err) {
+              // 仅 404 是「已取消发布」的确定信号;网络等其他错误
+              // 不退化,仍按 editor 打开以保留离线编辑能力
+              unpublished = err instanceof Error && err.message === 'NOT_FOUND'
+            }
+            if (ignore) return
+            if (unpublished) {
+              // 回退为纯本地:换一个全新本地 id,与原云端 id 彻底脱钩,
+              // 避免多份同 id 副本及重新发布时的归属冲突
+              const localId = generateId()
+              await store.rekey(id, localId)
+              const movedMeta = await store.getMeta(localId)
+              if (movedMeta) await store.putMeta({ ...movedMeta, published: false })
+              if (ignore) return
+              toast.info('该时间轴已被作者取消发布,已转为本地时间轴')
+              navigate(`/timeline/${localId}`, { replace: true })
+              return
+            }
             await openTimeline(id, { published: true })
             if (!ignore) setMode('editor')
           } else {
@@ -121,7 +145,7 @@ export default function EditorPage() {
     return () => {
       ignore = true
     }
-  }, [id, openTimeline, setViewerSnapshot])
+  }, [id, openTimeline, setViewerSnapshot, navigate])
 
   // 卸载 / 切 id 时重置 store(断开 WS、销毁引擎)
   useEffect(() => {

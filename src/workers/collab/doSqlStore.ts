@@ -67,6 +67,12 @@ export class DoSqlStore {
     this.sql.exec('DELETE FROM updates')
   }
 
+  /** 清空全部数据（snapshot + updates）；取消发布时调用 */
+  clear(): void {
+    this.sql.exec('DELETE FROM snapshot')
+    this.sql.exec('DELETE FROM updates')
+  }
+
   /** 直接写入一个全量 snapshot（迁移 seed 用），要求当前为空 */
   seedSnapshot(bin: Uint8Array): void {
     this.sql.exec(
