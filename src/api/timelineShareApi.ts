@@ -15,6 +15,9 @@ export interface PublishResult {
 export interface SharedTimelineResponse {
   role: 'editor' | 'viewer'
   authorName: string
+  isAuthor: boolean
+  allowEditRequests: boolean
+  hasPendingRequest: boolean
   /** viewer 角色携带;editor 角色为 undefined(编辑端连 WS 取全量) */
   snapshot?: Timeline
 }
@@ -63,6 +66,9 @@ export async function deleteSharedTimeline(id: string): Promise<void> {
 interface RawSharedResponse {
   role: 'editor' | 'viewer'
   authorName: string
+  isAuthor: boolean
+  allowEditRequests: boolean
+  hasPendingRequest: boolean
   snapshot?: Timeline
 }
 
@@ -73,7 +79,13 @@ interface RawSharedResponse {
 export async function fetchSharedTimeline(id: string): Promise<SharedTimelineResponse> {
   try {
     const raw = await apiClient.get(`timelines/${id}`).json<RawSharedResponse>()
-    const result: SharedTimelineResponse = { role: raw.role, authorName: raw.authorName }
+    const result: SharedTimelineResponse = {
+      role: raw.role,
+      authorName: raw.authorName,
+      isAuthor: raw.isAuthor,
+      allowEditRequests: raw.allowEditRequests,
+      hasPendingRequest: raw.hasPendingRequest,
+    }
     if (raw.snapshot) {
       result.snapshot = {
         ...raw.snapshot,
@@ -90,6 +102,73 @@ export async function fetchSharedTimeline(id: string): Promise<SharedTimelineRes
     if (err instanceof HTTPError) {
       throw new Error(`HTTP ${err.response.status}`)
     }
+    throw err
+  }
+}
+
+/** 作者面板数据:申请开关 + 编辑者列表 + 申请者列表 */
+export interface ShareState {
+  allowEditRequests: boolean
+  editors: { userId: string; userName: string }[]
+  applicants: { userId: string; userName: string; createdAt: number }[]
+}
+
+/** 作者读共享管理面板数据 */
+export async function fetchShareState(id: string): Promise<ShareState> {
+  try {
+    return await apiClient.get(`timelines/${id}/share`).json<ShareState>()
+  } catch (err) {
+    if (err instanceof HTTPError) throw new Error(err.message)
+    throw err
+  }
+}
+
+/** 作者设置申请开关 */
+export async function setAllowEditRequests(id: string, value: boolean): Promise<void> {
+  try {
+    await apiClient.patch(`timelines/${id}/share`, { json: { allowEditRequests: value } })
+  } catch (err) {
+    if (err instanceof HTTPError) throw new Error(err.message)
+    throw err
+  }
+}
+
+/** 用户发起编辑权限申请 */
+export async function requestEditPermission(id: string): Promise<void> {
+  try {
+    await apiClient.post(`timelines/${id}/edit-requests`)
+  } catch (err) {
+    if (err instanceof HTTPError) throw new Error(err.message)
+    throw err
+  }
+}
+
+/** 作者通过申请 */
+export async function approveEditRequest(id: string, userId: string): Promise<void> {
+  try {
+    await apiClient.post(`timelines/${id}/edit-requests/${userId}/approve`)
+  } catch (err) {
+    if (err instanceof HTTPError) throw new Error(err.message)
+    throw err
+  }
+}
+
+/** 作者拒绝申请 */
+export async function rejectEditRequest(id: string, userId: string): Promise<void> {
+  try {
+    await apiClient.post(`timelines/${id}/edit-requests/${userId}/reject`)
+  } catch (err) {
+    if (err instanceof HTTPError) throw new Error(err.message)
+    throw err
+  }
+}
+
+/** 作者移除编辑者 */
+export async function removeEditor(id: string, userId: string): Promise<void> {
+  try {
+    await apiClient.delete(`timelines/${id}/editors/${userId}`)
+  } catch (err) {
+    if (err instanceof HTTPError) throw new Error(err.message)
     throw err
   }
 }
