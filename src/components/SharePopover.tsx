@@ -77,7 +77,7 @@ export default function SharePopover({
     role,
     isAuthor,
     allowEditRequests,
-    hasPendingRequest,
+    hasPendingRequest: hasPendingRequest || requested,
     isRevoked,
   })
   const trigger = deriveShareTrigger({
@@ -86,7 +86,7 @@ export default function SharePopover({
     role,
     isAuthor,
     allowEditRequests,
-    hasPendingRequest,
+    hasPendingRequest: hasPendingRequest || requested,
     isRevoked,
   })
 

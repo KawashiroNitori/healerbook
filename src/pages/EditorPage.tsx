@@ -100,9 +100,10 @@ export default function EditorPage() {
           if (meta.published) {
             // 本地标记为已发布:与服务端对账。作者可能已取消发布,
             // 此时服务端无此行,需把本地副本回退为纯本地时间轴。
+            let serverRes: Awaited<ReturnType<typeof fetchSharedTimeline>> | null = null
             let unpublished = false
             try {
-              await fetchSharedTimeline(id)
+              serverRes = await fetchSharedTimeline(id)
             } catch (err) {
               // 仅 404 是「已取消发布」的确定信号;网络等其他错误
               // 不退化,仍按 editor 打开以保留离线编辑能力
@@ -122,27 +123,24 @@ export default function EditorPage() {
               return
             }
             await openTimeline(id, { published: true })
-            if (!ignore) setMode('editor')
-            // 取角色信息(用于共享 popover);失败默认作者
-            fetchSharedTimeline(id)
-              .then(res => {
-                if (ignore) return
-                setShareRole({
-                  role: res.role,
-                  isAuthor: res.isAuthor,
-                  allowEditRequests: res.allowEditRequests,
-                  hasPendingRequest: res.hasPendingRequest,
-                })
+            if (ignore) return
+            setMode('editor')
+            // 取角色信息(用于共享 popover);使用已拿到的响应,失败时默认作者
+            if (serverRes) {
+              setShareRole({
+                role: serverRes.role,
+                isAuthor: serverRes.isAuthor,
+                allowEditRequests: serverRes.allowEditRequests,
+                hasPendingRequest: serverRes.hasPendingRequest,
               })
-              .catch(() => {
-                if (!ignore)
-                  setShareRole({
-                    role: 'editor',
-                    isAuthor: true,
-                    allowEditRequests: false,
-                    hasPendingRequest: false,
-                  })
+            } else {
+              setShareRole({
+                role: 'editor',
+                isAuthor: true,
+                allowEditRequests: false,
+                hasPendingRequest: false,
               })
+            }
             return
           } else {
             await openTimeline(id)
