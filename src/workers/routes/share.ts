@@ -73,4 +73,75 @@ app.patch('/:id/share', requireAuth, vValidator('json', ShareSettingsSchema), as
   return c.json({ allowEditRequests })
 })
 
+// 用户发起编辑权限申请
+app.post('/:id/edit-requests', requireAuth, async c => {
+  const auth = c.get('auth')!
+  const id = c.req.param('id')
+
+  const tl = await c.env.healerbook_timelines
+    .prepare('SELECT allow_edit_requests FROM timelines WHERE id = ?')
+    .bind(id)
+    .first<{ allow_edit_requests: number }>()
+  if (!tl) return c.json({ error: 'Not found' }, 404)
+
+  const editor = await c.env.healerbook_timelines
+    .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
+    .bind(id, auth.userId)
+    .first()
+  if (editor) return c.json({ error: 'already_editor' }, 409)
+
+  if (tl.allow_edit_requests !== 1) return c.json({ error: 'requests_disabled' }, 403)
+
+  await c.env.healerbook_timelines
+    .prepare(
+      'INSERT OR IGNORE INTO timeline_edit_requests (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
+    )
+    .bind(id, auth.userId, auth.username, Date.now())
+    .run()
+  return c.json({ ok: true }, 201)
+})
+
+// 作者通过申请:删 request 行 + 写 editors 行
+app.post('/:id/edit-requests/:userId/approve', requireAuth, async c => {
+  const auth = c.get('auth')!
+  const id = c.req.param('id')
+  const targetUserId = c.req.param('userId')
+  const author = await findAuthor(c.env, id, auth.userId)
+  if (!author) return c.json({ error: 'Forbidden' }, 403)
+
+  const reqRow = await c.env.healerbook_timelines
+    .prepare('SELECT user_name FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
+    .bind(id, targetUserId)
+    .first<{ user_name: string }>()
+  if (!reqRow) return c.json({ error: 'Not found' }, 404)
+
+  await c.env.healerbook_timelines.batch([
+    c.env.healerbook_timelines
+      .prepare('DELETE FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
+      .bind(id, targetUserId),
+    c.env.healerbook_timelines
+      .prepare(
+        'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
+      )
+      .bind(id, targetUserId, reqRow.user_name, Date.now()),
+  ])
+  return c.json({ ok: true })
+})
+
+// 作者拒绝申请:删 request 行
+app.post('/:id/edit-requests/:userId/reject', requireAuth, async c => {
+  const auth = c.get('auth')!
+  const id = c.req.param('id')
+  const targetUserId = c.req.param('userId')
+  const author = await findAuthor(c.env, id, auth.userId)
+  if (!author) return c.json({ error: 'Forbidden' }, 403)
+
+  const result = await c.env.healerbook_timelines
+    .prepare('DELETE FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
+    .bind(id, targetUserId)
+    .run()
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+  return c.json({ ok: true })
+})
+
 export { app as shareRoutes }
