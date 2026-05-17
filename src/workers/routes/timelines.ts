@@ -18,7 +18,7 @@ const PublishTimelineRequestSchema = v.object({
  * DurableObjectNamespace binding 在 env.ts 中无具体类型，故 cast 为 TimelineDoc
  * 以调用其 RPC 方法（getSnapshotJson）及 fetch。
  */
-function docStub(env: AppEnv['Bindings'], id: string): TimelineDoc {
+export function docStub(env: AppEnv['Bindings'], id: string): TimelineDoc {
   return env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(id)) as unknown as TimelineDoc
 }
 

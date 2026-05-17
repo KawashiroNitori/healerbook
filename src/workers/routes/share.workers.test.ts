@@ -174,3 +174,43 @@ describe('编辑权限申请生命周期', () => {
     expect(res.status).toBe(403)
   })
 })
+
+describe('DELETE /api/timelines/:id/editors/:userId', () => {
+  it('作者移除编辑者:删 timeline_editors 行', async () => {
+    const id = await publishOne('share-rm-000000000001')
+    await env.healerbook_timelines
+      .prepare(
+        'INSERT INTO timeline_editors (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
+      )
+      .bind(id, 'editor-x', 'EditorX', Date.now())
+      .run()
+    const res = await SELF.fetch(`https://app/api/timelines/${id}/editors/editor-x`, {
+      method: 'DELETE',
+      headers: await authHeader(AUTHOR.id, AUTHOR.name),
+    })
+    expect(res.status).toBe(200)
+    const row = await env.healerbook_timelines
+      .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
+      .bind(id, 'editor-x')
+      .first()
+    expect(row).toBeNull()
+  })
+
+  it('不可移除作者本人,返回 400', async () => {
+    const id = await publishOne('share-rm-000000000002')
+    const res = await SELF.fetch(`https://app/api/timelines/${id}/editors/${AUTHOR.id}`, {
+      method: 'DELETE',
+      headers: await authHeader(AUTHOR.id, AUTHOR.name),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('非作者移除编辑者返回 403', async () => {
+    const id = await publishOne('share-rm-000000000003')
+    const res = await SELF.fetch(`https://app/api/timelines/${id}/editors/whoever`, {
+      method: 'DELETE',
+      headers: await authHeader('intruder', 'X'),
+    })
+    expect(res.status).toBe(403)
+  })
+})

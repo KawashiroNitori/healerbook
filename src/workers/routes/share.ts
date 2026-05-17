@@ -4,6 +4,7 @@ import { vValidator } from '@hono/valibot-validator'
 import * as v from 'valibot'
 import type { AppEnv } from '../env'
 import { requireAuth } from '../middleware/requireAuth'
+import { docStub } from './timelines'
 
 const app = new Hono<AppEnv>()
 
@@ -141,6 +142,24 @@ app.post('/:id/edit-requests/:userId/reject', requireAuth, async c => {
     .bind(id, targetUserId)
     .run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+  return c.json({ ok: true })
+})
+
+// 作者移除编辑者:删 timeline_editors 行 + 调 DO 断开该用户连接
+app.delete('/:id/editors/:userId', requireAuth, async c => {
+  const auth = c.get('auth')!
+  const id = c.req.param('id')
+  const targetUserId = c.req.param('userId')
+  const author = await findAuthor(c.env, id, auth.userId)
+  if (!author) return c.json({ error: 'Forbidden' }, 403)
+  if (targetUserId === author.author_id) {
+    return c.json({ error: 'cannot_remove_author' }, 400)
+  }
+  await c.env.healerbook_timelines
+    .prepare('DELETE FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
+    .bind(id, targetUserId)
+    .run()
+  await docStub(c.env, id).kickUser(targetUserId)
   return c.json({ ok: true })
 })
 
