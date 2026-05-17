@@ -400,11 +400,7 @@ export function PeerOverlayMain({
       const annotation = annotationById.get(dragId)
       // 只处理 skillTrack 锚定的注释（damageTrack 注释由 PeerOverlayFixed 负责）
       if (annotation?.anchor.type === 'skillTrack') {
-        const anchor = annotation.anchor as {
-          type: 'skillTrack'
-          playerId: number
-          actionId: number
-        }
+        const anchor = annotation.anchor
         const trackIndex = skillTracks.findIndex(
           t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
         )
