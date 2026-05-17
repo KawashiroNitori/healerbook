@@ -110,8 +110,22 @@ export function PeerOverlayFixed({
         const cardX = ev.time * zoomLevel
         const cardY = yOffset + row * rowHeight + (rowHeight - CARD_H) / 2
 
-        const labelIdx = labelCountByEventId.get(eventId) ?? 0
-        labelCountByEventId.set(eventId, labelIdx + 1)
+        // 拖动自己选中的伤害事件时,初始位置选框不重复画昵称(昵称跟随实时 ghost)
+        const draggingThis = peer.dragging?.kind === 'damage' && peer.dragging.id === eventId
+
+        let nameTag: React.ReactNode = null
+        if (!draggingThis) {
+          const labelIdx = labelCountByEventId.get(eventId) ?? 0
+          labelCountByEventId.set(eventId, labelIdx + 1)
+          nameTag = (
+            <PeerNameTag
+              x={cardX}
+              y={cardY - NAME_TAG_HEIGHT - labelIdx * NAME_TAG_HEIGHT}
+              name={peer.user.name}
+              color={peer.user.color}
+            />
+          )
+        }
 
         nodes.push(
           <Fragment key={`peer-dmg-${peer.clientId}-${eventId}`}>
@@ -126,12 +140,7 @@ export function PeerOverlayFixed({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <PeerNameTag
-              x={cardX}
-              y={cardY - NAME_TAG_HEIGHT - labelIdx * NAME_TAG_HEIGHT}
-              name={peer.user.name}
-              color={peer.user.color}
-            />
+            {nameTag}
           </Fragment>
         )
       }
@@ -315,8 +324,22 @@ export function PeerOverlayMain({
         const iconX = ce.timestamp * zoomLevel
         const iconY = trackIdx * trackHeight + trackHeight / 2 - ICON_SIZE / 2
 
-        const labelIdx = labelCountByCastId.get(castEventId) ?? 0
-        labelCountByCastId.set(castEventId, labelIdx + 1)
+        // 拖动自己选中的 cast 时,初始位置选框不重复画昵称(昵称跟随实时 ghost)
+        const draggingThis = peer.dragging?.kind === 'cast' && peer.dragging.id === castEventId
+
+        let nameTag: React.ReactNode = null
+        if (!draggingThis) {
+          const labelIdx = labelCountByCastId.get(castEventId) ?? 0
+          labelCountByCastId.set(castEventId, labelIdx + 1)
+          nameTag = (
+            <PeerNameTag
+              x={iconX}
+              y={iconY - NAME_TAG_HEIGHT - labelIdx * NAME_TAG_HEIGHT}
+              name={peer.user.name}
+              color={peer.user.color}
+            />
+          )
+        }
 
         nodes.push(
           <Fragment key={`peer-cast-${peer.clientId}-${castEventId}`}>
@@ -331,12 +354,7 @@ export function PeerOverlayMain({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <PeerNameTag
-              x={iconX}
-              y={iconY - NAME_TAG_HEIGHT - labelIdx * NAME_TAG_HEIGHT}
-              name={peer.user.name}
-              color={peer.user.color}
-            />
+            {nameTag}
           </Fragment>
         )
       }
