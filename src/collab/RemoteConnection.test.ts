@@ -333,4 +333,21 @@ describe('RemoteConnection auth hardening', () => {
     expect(FakeWebSocket.instances.length).toBe(1) // 不重连
     conn.destroy()
   })
+
+  it('keeps revoked status sticky after destroy()', async () => {
+    const doc = new Y.Doc()
+    const statuses: string[] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      s => statuses.push(s)
+    )
+    conn.connect()
+    await lastSocket().fireOpen()
+    lastSocket().fireClose(4001)
+    conn.destroy()
+    expect(statuses[statuses.length - 1]).toBe('revoked')
+  })
 })

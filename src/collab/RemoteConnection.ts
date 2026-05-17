@@ -71,6 +71,8 @@ export class RemoteConnection {
   }
 
   private setStatus(next: ConnectionStatus): void {
+    // 'revoked' 是永久终态:编辑权限被撤销后不再回退到其他状态
+    if (this.status === 'revoked') return
     if (this.status === next) return
     this.status = next
     this.onStatus(next)
