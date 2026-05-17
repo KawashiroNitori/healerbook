@@ -53,43 +53,52 @@ app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), asy
   return c.json({ id, publishedAt: now }, 201)
 })
 
-// 公开读:返回 { role, authorName, snapshot? }
-// role=editor(登录且在白名单)→ 不带 snapshot,编辑端连 WS 取全量
-// role=viewer(其余,含未登录)→ 带 snapshot(KV 优先,未命中经 DO RPC)
+// 公开读:返回 { role, authorName, isAuthor, allowEditRequests, hasPendingRequest, snapshot? }
 app.get('/:id', async c => {
   const id = c.req.param('id')
 
   const row = await c.env.healerbook_timelines
-    .prepare('SELECT author_name FROM timelines WHERE id = ?')
+    .prepare('SELECT author_id, author_name, allow_edit_requests FROM timelines WHERE id = ?')
     .bind(id)
-    .first<{ author_name: string }>()
+    .first<{ author_id: string; author_name: string; allow_edit_requests: number }>()
   if (!row) return c.json({ error: 'Not found' }, 404)
 
+  const allowEditRequests = row.allow_edit_requests === 1
   const user = await tryReadAuth(c)
   let role: 'editor' | 'viewer' = 'viewer'
+  let isAuthor = false
+  let hasPendingRequest = false
   if (user) {
+    isAuthor = user.userId === row.author_id
     const editorRow = await c.env.healerbook_timelines
       .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
       .bind(id, user.userId)
       .first()
     if (editorRow) role = 'editor'
+    if (role === 'viewer') {
+      const reqRow = await c.env.healerbook_timelines
+        .prepare('SELECT 1 FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
+        .bind(id, user.userId)
+        .first()
+      hasPendingRequest = reqRow != null
+    }
   }
+
+  const base = { role, authorName: row.author_name, isAuthor, allowEditRequests, hasPendingRequest }
 
   if (role === 'editor') {
-    return c.json({ role, authorName: row.author_name }, 200, {
-      'Cache-Control': 'private, no-cache',
-    })
+    return c.json(base, 200, { 'Cache-Control': 'private, no-cache' })
   }
 
-  // viewer:需要 snapshot
+  // viewer:需要 snapshot(KV 优先,未命中经 DO RPC)
   const cached = await c.env.healerbook_snapshots.get(`tl-snapshot:${id}`)
   const snapshot = cached
     ? (JSON.parse(cached) as object)
     : await docStub(c.env, id).getSnapshotJson()
   if (!snapshot) return c.json({ error: 'Not found' }, 404)
-  return c.json({ role, authorName: row.author_name, snapshot }, 200, {
-    'Cache-Control': 'public, max-age=60',
-  })
+  // 登录用户的响应含 hasPendingRequest(用户相关),不可公开缓存
+  const cacheControl = user ? 'private, no-cache' : 'public, max-age=60'
+  return c.json({ ...base, snapshot }, 200, { 'Cache-Control': cacheControl })
 })
 
 // WebSocket 升级:转发给 DO,注入 X-Timeline-Id

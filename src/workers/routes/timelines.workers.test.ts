@@ -88,6 +88,45 @@ describe('GET /api/timelines/:id role', () => {
     const res = await SELF.fetch('https://app/api/timelines/does-not-exist-00000001')
     expect(res.status).toBe(404)
   })
+
+  it('GET /:id 返回 isAuthor/allowEditRequests/hasPendingRequest', async () => {
+    const id = await publishOne('share-fields-0000000001', 'T')
+    await env.healerbook_snapshots.put(`tl-snapshot:${id}`, JSON.stringify({ x: 1 }))
+
+    // 匿名:全 false
+    const anon = (await (await SELF.fetch(`https://app/api/timelines/${id}`)).json()) as {
+      isAuthor: boolean
+      allowEditRequests: boolean
+      hasPendingRequest: boolean
+    }
+    expect(anon.isAuthor).toBe(false)
+    expect(anon.allowEditRequests).toBe(false)
+    expect(anon.hasPendingRequest).toBe(false)
+
+    // 作者:isAuthor true
+    const author = (await (
+      await SELF.fetch(`https://app/api/timelines/${id}`, {
+        headers: { Authorization: `Bearer ${await authorJwt()}` },
+      })
+    ).json()) as { isAuthor: boolean }
+    expect(author.isAuthor).toBe(true)
+
+    // 非编辑者且有待处理申请:hasPendingRequest true
+    await env.healerbook_timelines
+      .prepare(
+        'INSERT INTO timeline_edit_requests (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
+      )
+      .bind(id, 'viewer-1', 'Viewer', Date.now())
+      .run()
+    const viewerJwt = await signAccessToken('viewer-1', 'Viewer', JWT_SECRET)
+    const viewer = (await (
+      await SELF.fetch(`https://app/api/timelines/${id}`, {
+        headers: { Authorization: `Bearer ${viewerJwt}` },
+      })
+    ).json()) as { role: string; hasPendingRequest: boolean }
+    expect(viewer.role).toBe('viewer')
+    expect(viewer.hasPendingRequest).toBe(true)
+  })
 })
 
 describe('DELETE /api/timelines/:id 取消发布', () => {
