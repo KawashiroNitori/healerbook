@@ -105,7 +105,7 @@ export class TimelineDoc extends DurableObject<Env> {
     if (type === MSG.PUSH) {
       this.store.appendUpdate(payload) // 先落库
       this.broadcast(ws, encodeMessage(MSG.BROADCAST, payload)) // 再广播
-      await this.scheduleSquash() // Task A8
+      await this.scheduleFlush()
       return
     }
     if (type === MSG.AWARENESS) {
@@ -162,17 +162,24 @@ export class TimelineDoc extends DurableObject<Env> {
     }
   }
 
-  private static readonly SQUASH_SOFT = 50
-  private static readonly SQUASH_HARD = 200
-  private static readonly SQUASH_DEBOUNCE_MS = 10_000
+  private static readonly FLUSH_HARD = 200
+  private static readonly FLUSH_DEBOUNCE_MS = 10_000
 
-  /** 每次 push 后调用:按 updates 条数调度 squash */
-  private async scheduleSquash(): Promise<void> {
+  /**
+   * 每次 push 后调用:调度一次去抖 flush。
+   * alarm 到点会 squash 并刷新 KV 快照 / D1 阵容,故任意改动都需安排 flush,
+   * 使列表接口能及时拿到最新阵容;updates 堆积过多则立即触发。
+   */
+  private async scheduleFlush(): Promise<void> {
     const count = this.store.countUpdates()
-    if (count >= TimelineDoc.SQUASH_HARD) {
+    if (count === 0) return
+    if (count >= TimelineDoc.FLUSH_HARD) {
       await this.ctx.storage.setAlarm(Date.now())
-    } else if (count >= TimelineDoc.SQUASH_SOFT) {
-      await this.ctx.storage.setAlarm(Date.now() + TimelineDoc.SQUASH_DEBOUNCE_MS)
+      return
+    }
+    // 已有 alarm 在排队则不重设(从首个改动起 ~10s 内必定 flush 一次)
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + TimelineDoc.FLUSH_DEBOUNCE_MS)
     }
   }
 
@@ -198,16 +205,17 @@ export class TimelineDoc extends DurableObject<Env> {
     await this.writeSnapshotCache()
   }
 
-  /** squash 后把投影 JSON 写入 KV 公开读缓存 */
+  /** squash 后刷新投影:写 KV 公开读缓存,并把阵容回写 D1 content 列 */
   private async writeSnapshotCache(): Promise<void> {
     if (!this.cachedDocId) return
     const json = await this.getSnapshotJson()
-    if (json) {
-      await this.env.healerbook_snapshots.put(
-        `tl-snapshot:${this.cachedDocId}`,
-        JSON.stringify(json)
-      )
-    }
+    if (!json) return
+    await this.env.healerbook_snapshots.put(`tl-snapshot:${this.cachedDocId}`, JSON.stringify(json))
+    // 把阵容回写 D1:GET /api/my/timelines 据此展示阵容,无需唤醒 DO
+    await this.env.healerbook_timelines
+      .prepare('UPDATE timelines SET content = ? WHERE id = ?')
+      .bind(JSON.stringify({ composition: json.composition }), this.cachedDocId)
+      .run()
   }
 
   /** 该 DO 对应的 timelineId —— 由 Worker 在转发 /connect 时经 header 注入 */

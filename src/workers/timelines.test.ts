@@ -401,4 +401,47 @@ describe('GET /api/timelines（列表）', () => {
     expect(body[0].id).toBe('a2')
     expect(body[1].id).toBe('a1')
   })
+
+  it('阵容:优先读 content.composition，回退旧格式 content.c', async () => {
+    const db = makeMockD1([
+      makeDbRow({
+        id: 'newfmt',
+        updated_at: 200,
+        author_id: 'user1',
+        content: JSON.stringify({
+          composition: {
+            players: [
+              { id: 0, job: 'WHM' },
+              { id: 1, job: 'SGE' },
+            ],
+          },
+        }),
+      }),
+      makeDbRow({
+        id: 'oldfmt',
+        updated_at: 100,
+        author_id: 'user1',
+        content: JSON.stringify({ c: ['PLD', '', 'WAR'] }),
+      }),
+    ])
+    const env = makeMockEnv(db)
+    const token = await makeAccessToken('user1', 'User1', 'test-secret')
+
+    const req = new Request('https://example.com/api/my/timelines', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const res = await app.fetch(req, env)
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as Array<{
+      id: string
+      composition: { players: Array<{ id: number; job: string }> } | null
+    }>
+    const byId = Object.fromEntries(body.map(t => [t.id, t]))
+    // 新格式:透传 DO 回写的 composition
+    expect(byId.newfmt.composition?.players.map(p => p.job)).toEqual(['WHM', 'SGE'])
+    // 旧格式:c 槽位数组转 players，空槽被过滤
+    expect(byId.oldfmt.composition?.players.map(p => p.job)).toEqual(['PLD', 'WAR'])
+  })
 })

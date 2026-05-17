@@ -10,12 +10,33 @@
  */
 
 import { Fragment, useMemo } from 'react'
-import { Line, Rect, Text } from 'react-konva'
+import { Label, Line, Rect, Tag, Text } from 'react-konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { Annotation, DamageEvent, CastEvent } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { MitigationAction } from '@/types/mitigation'
 import { effectiveTrackGroup } from '@/types/mitigation'
+
+/** 协作者名字标签:彩色底色 + 白色字体。x/y 为标签左上角。 */
+function PeerNameTag({ x, y, name, color }: { x: number; y: number; name: string; color: string }) {
+  return (
+    <Label x={x} y={y} listening={false}>
+      <Tag fill={color} cornerRadius={2} perfectDrawEnabled={false} />
+      <Text
+        text={name}
+        fontSize={10}
+        fontFamily="Arial, sans-serif"
+        fill="#ffffff"
+        padding={2}
+        listening={false}
+        perfectDrawEnabled={false}
+      />
+    </Label>
+  )
+}
+
+/** 名字标签近似高度(fontSize 10 + 上下 padding 2),用于多标签纵向错开 */
+const NAME_TAG_HEIGHT = 15
 
 // ─────────────────────────────────────────────
 // 固定区域 overlay（伤害事件高亮 + 光标线）
@@ -105,15 +126,11 @@ export function PeerOverlayFixed({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <Text
-              x={cardX + 2}
-              y={cardY - 12 - labelIdx * 12}
-              text={peer.user.name}
-              fontSize={10}
-              fill={peer.user.color}
-              fontFamily="Arial, sans-serif"
-              listening={false}
-              perfectDrawEnabled={false}
+            <PeerNameTag
+              x={cardX}
+              y={cardY - NAME_TAG_HEIGHT - labelIdx * NAME_TAG_HEIGHT}
+              name={peer.user.name}
+              color={peer.user.color}
             />
           </Fragment>
         )
@@ -145,15 +162,11 @@ export function PeerOverlayFixed({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <Text
+            <PeerNameTag
               x={ghostX + 4}
-              y={ghostY + CARD_H - 14}
-              text={peer.user.name}
-              fontSize={10}
-              fill="#ffffff"
-              fontFamily="Arial, sans-serif"
-              listening={false}
-              perfectDrawEnabled={false}
+              y={ghostY + CARD_H - NAME_TAG_HEIGHT - 1}
+              name={peer.user.name}
+              color={peer.user.color}
             />
           </Fragment>
         )
@@ -184,15 +197,11 @@ export function PeerOverlayFixed({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <Text
+            <PeerNameTag
               x={ghostX + 2}
               y={ghostY + ICON_SIZE + 2}
-              text={peer.user.name}
-              fontSize={10}
-              fill={peer.user.color}
-              fontFamily="Arial, sans-serif"
-              listening={false}
-              perfectDrawEnabled={false}
+              name={peer.user.name}
+              color={peer.user.color}
             />
           </Fragment>
         )
@@ -213,16 +222,7 @@ export function PeerOverlayFixed({
             listening={false}
             perfectDrawEnabled={false}
           />
-          <Text
-            x={cx + 3}
-            y={4}
-            text={peer.user.name}
-            fontSize={10}
-            fill={peer.user.color}
-            fontFamily="Arial, sans-serif"
-            listening={false}
-            perfectDrawEnabled={false}
-          />
+          <PeerNameTag x={cx + 3} y={4} name={peer.user.name} color={peer.user.color} />
         </Fragment>
       )
     }
@@ -331,15 +331,11 @@ export function PeerOverlayMain({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <Text
-              x={iconX + 2}
-              y={iconY - 12 - labelIdx * 12}
-              text={peer.user.name}
-              fontSize={10}
-              fill={peer.user.color}
-              fontFamily="Arial, sans-serif"
-              listening={false}
-              perfectDrawEnabled={false}
+            <PeerNameTag
+              x={iconX}
+              y={iconY - NAME_TAG_HEIGHT - labelIdx * NAME_TAG_HEIGHT}
+              name={peer.user.name}
+              color={peer.user.color}
             />
           </Fragment>
         )
@@ -377,15 +373,11 @@ export function PeerOverlayMain({
               listening={false}
               perfectDrawEnabled={false}
             />
-            <Text
+            <PeerNameTag
               x={ghostX + 2}
               y={ghostY + ICON_SIZE + 2}
-              text={peer.user.name}
-              fontSize={10}
-              fill={peer.user.color}
-              fontFamily="Arial, sans-serif"
-              listening={false}
-              perfectDrawEnabled={false}
+              name={peer.user.name}
+              color={peer.user.color}
             />
           </Fragment>
         )
@@ -422,15 +414,11 @@ export function PeerOverlayMain({
                 listening={false}
                 perfectDrawEnabled={false}
               />
-              <Text
+              <PeerNameTag
                 x={ghostX + 2}
                 y={ghostY + ICON_SIZE + 2}
-                text={peer.user.name}
-                fontSize={10}
-                fill={peer.user.color}
-                fontFamily="Arial, sans-serif"
-                listening={false}
-                perfectDrawEnabled={false}
+                name={peer.user.name}
+                color={peer.user.color}
               />
             </Fragment>
           )

@@ -111,6 +111,47 @@ describe('TimelineDoc WebSocket 接入', () => {
     })
   })
 
+  it('flush 把阵容回写 D1 timelines.content', async () => {
+    const docName = 't-d1-comp'
+    await env.healerbook_timelines
+      .prepare(
+        'INSERT INTO timelines (id, name, author_id, author_name, published_at, updated_at, version, content) VALUES (?,?,?,?,?,?,?,?)'
+      )
+      .bind(docName, 'TL', 'us', 'Us', 1, 1, 1, '{}')
+      .run()
+
+    const stub = env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(docName))
+    // /connect 让 DO 记下 timelineId（writeSnapshotCache 依赖 cachedDocId）
+    await stub.fetch('https://do/connect', {
+      headers: { Upgrade: 'websocket', 'X-Timeline-Id': docName },
+    })
+
+    // seed 一个带阵容的 Y.Doc（composition Map:key=玩家槽位 id，value={job}）
+    const doc = new Y.Doc()
+    const comp = doc.getMap('composition')
+    const p0 = new Y.Map()
+    p0.set('job', 'WHM')
+    comp.set('0', p0)
+    const p1 = new Y.Map()
+    p1.set('job', 'SGE')
+    comp.set('1', p1)
+    await stub.seed(Y.encodeStateAsUpdate(doc))
+
+    // 直接执行 DO 的 alarm(= squash + 写 KV 快照 + 回写 D1 阵容)
+    await runInDurableObject(stub, async instance => {
+      await instance.alarm()
+    })
+
+    const row = await env.healerbook_timelines
+      .prepare('SELECT content FROM timelines WHERE id = ?')
+      .bind(docName)
+      .first<{ content: string }>()
+    const parsed = JSON.parse(row!.content) as {
+      composition: { players: { id: number; job: string }[] }
+    }
+    expect(parsed.composition.players.map(p => p.job)).toEqual(['WHM', 'SGE'])
+  })
+
   it('seed 灌入初始数据,getSnapshotJson 投影回 Timeline', async () => {
     const docName = 't-rpc-1'
     const seedDoc = new Y.Doc()
