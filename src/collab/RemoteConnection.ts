@@ -3,7 +3,7 @@ import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protoc
 import { MSG, encodeMessage, decodeMessage, decodeLoadReply } from './syncProtocol'
 import { REMOTE_ORIGIN } from './constants'
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'revoked'
 
 const MAX_BACKOFF_MS = 30_000
 
@@ -159,6 +159,12 @@ export class RemoteConnection {
     if (code === 1008) {
       this.closed = true
       this.setStatus('disconnected')
+      return
+    }
+    // 服务端以 4001 撤销编辑权限:终态,且状态报告 'revoked' 以便上层切只读
+    if (code === 4001) {
+      this.closed = true
+      this.setStatus('revoked')
       return
     }
     this.setStatus('connecting')

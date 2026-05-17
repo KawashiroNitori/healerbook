@@ -315,4 +315,22 @@ describe('RemoteConnection auth hardening', () => {
     expect(new TextDecoder().decode(decodeMessage(lastSocket().sent[0]).payload)).toBe('tok2')
     conn.destroy()
   })
+
+  it('treats a server close with code 4001 as terminal and reports revoked', async () => {
+    const doc = new Y.Doc()
+    const statuses: string[] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      s => statuses.push(s)
+    )
+    conn.connect()
+    await lastSocket().fireOpen()
+    lastSocket().fireClose(4001)
+    expect(statuses[statuses.length - 1]).toBe('revoked')
+    expect(FakeWebSocket.instances.length).toBe(1) // 不重连
+    conn.destroy()
+  })
 })
