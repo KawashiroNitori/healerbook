@@ -93,12 +93,16 @@ app.post('/:id/edit-requests', requireAuth, async c => {
 
   if (tl.allow_edit_requests !== 1) return c.json({ error: 'requests_disabled' }, 403)
 
-  await c.env.healerbook_timelines
+  const inserted = await c.env.healerbook_timelines
     .prepare(
       'INSERT OR IGNORE INTO timeline_edit_requests (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
     )
     .bind(id, auth.userId, auth.username, Date.now())
     .run()
+  // 实际写入新行(非幂等重复)→ 经 DO 把最新申请数推给在线作者
+  if (inserted.meta.changes > 0) {
+    await docStub(c.env, id).notifyEditRequest(id)
+  }
   return c.json({ ok: true }, 201)
 })
 

@@ -10,6 +10,7 @@ export const MSG = {
   PUSH: 4, // client→DO   payload = Yjs update
   BROADCAST: 5, // DO→client   payload = Yjs update
   AWARENESS: 6, // 双向        payload = awareness update
+  EDIT_REQUEST: 7, // DO→client   payload = encodeEditRequest(待处理申请数)
 } as const
 
 export type MsgType = (typeof MSG)[keyof typeof MSG]
@@ -51,4 +52,16 @@ export function decodeLoadReply(payload: Uint8Array): {
     missing: payload.subarray(4, 4 + missingLen),
     stateVector: payload.subarray(4 + missingLen),
   }
+}
+
+/** EDIT_REQUEST payload:4 字节 BE,值为当前待处理的编辑权限申请数 */
+export function encodeEditRequest(count: number): Uint8Array {
+  const out = new Uint8Array(4)
+  new DataView(out.buffer).setUint32(0, count, false)
+  return out
+}
+
+export function decodeEditRequest(payload: Uint8Array): number {
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  return view.getUint32(0, false)
 }

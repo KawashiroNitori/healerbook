@@ -18,6 +18,8 @@ export interface SharedTimelineResponse {
   isAuthor: boolean
   allowEditRequests: boolean
   hasPendingRequest: boolean
+  /** 作者视角:当前待处理的申请数;非作者恒 0 */
+  pendingRequestCount: number
   /** viewer 角色携带;editor 角色为 undefined(编辑端连 WS 取全量) */
   snapshot?: Timeline
 }
@@ -69,6 +71,7 @@ interface RawSharedResponse {
   isAuthor: boolean
   allowEditRequests: boolean
   hasPendingRequest: boolean
+  pendingRequestCount: number
   snapshot?: Timeline
 }
 
@@ -85,6 +88,7 @@ export async function fetchSharedTimeline(id: string): Promise<SharedTimelineRes
       isAuthor: raw.isAuthor,
       allowEditRequests: raw.allowEditRequests,
       hasPendingRequest: raw.hasPendingRequest,
+      pendingRequestCount: raw.pendingRequestCount ?? 0,
     }
     if (raw.snapshot) {
       result.snapshot = {

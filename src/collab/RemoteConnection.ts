@@ -1,6 +1,12 @@
 import * as Y from 'yjs'
 import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness'
-import { MSG, encodeMessage, decodeMessage, decodeLoadReply } from './syncProtocol'
+import {
+  MSG,
+  encodeMessage,
+  decodeMessage,
+  decodeLoadReply,
+  decodeEditRequest,
+} from './syncProtocol'
 import { REMOTE_ORIGIN } from './constants'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'revoked'
@@ -18,6 +24,8 @@ export class RemoteConnection {
   private readonly awareness: Awareness
   private readonly getAuthToken: () => Promise<string | null>
   private readonly onStatus: (status: ConnectionStatus) => void
+  /** 收到 DO 推送的待处理申请数(仅作者连接会收到) */
+  private readonly onEditRequest: ((count: number) => void) | undefined
 
   private ws: WebSocket | null = null
   private status: ConnectionStatus = 'disconnected'
@@ -42,13 +50,15 @@ export class RemoteConnection {
     doc: Y.Doc,
     awareness: Awareness,
     getAuthToken: () => Promise<string | null>,
-    onStatus: (status: ConnectionStatus) => void
+    onStatus: (status: ConnectionStatus) => void,
+    onEditRequest?: (count: number) => void
   ) {
     this.url = url
     this.doc = doc
     this.awareness = awareness
     this.getAuthToken = getAuthToken
     this.onStatus = onStatus
+    this.onEditRequest = onEditRequest
   }
 
   /** 开始连接(幂等:已在连接中或已终态关闭则忽略) */
@@ -144,6 +154,10 @@ export class RemoteConnection {
     }
     if (msg.type === MSG.AWARENESS) {
       applyAwarenessUpdate(this.awareness, msg.payload, REMOTE_ORIGIN)
+      return
+    }
+    if (msg.type === MSG.EDIT_REQUEST) {
+      this.onEditRequest?.(decodeEditRequest(msg.payload))
       return
     }
   }

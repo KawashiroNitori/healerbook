@@ -89,28 +89,31 @@ describe('GET /api/timelines/:id role', () => {
     expect(res.status).toBe(404)
   })
 
-  it('GET /:id 返回 isAuthor/allowEditRequests/hasPendingRequest', async () => {
+  it('GET /:id 返回 isAuthor/allowEditRequests/hasPendingRequest/pendingRequestCount', async () => {
     const id = await publishOne('share-fields-0000000001', 'T')
     await env.healerbook_snapshots.put(`tl-snapshot:${id}`, JSON.stringify({ x: 1 }))
 
-    // 匿名:全 false
+    // 匿名:全 false / 0
     const anon = (await (await SELF.fetch(`https://app/api/timelines/${id}`)).json()) as {
       isAuthor: boolean
       allowEditRequests: boolean
       hasPendingRequest: boolean
+      pendingRequestCount: number
     }
     expect(anon.isAuthor).toBe(false)
     expect(anon.allowEditRequests).toBe(false)
     expect(anon.hasPendingRequest).toBe(false)
+    expect(anon.pendingRequestCount).toBe(0)
 
-    // 作者:isAuthor true, hasPendingRequest false（作者始终在编辑者名单中）
+    // 作者:isAuthor true, hasPendingRequest false（作者始终在编辑者名单中）, 无申请时计数 0
     const author = (await (
       await SELF.fetch(`https://app/api/timelines/${id}`, {
         headers: { Authorization: `Bearer ${await authorJwt()}` },
       })
-    ).json()) as { isAuthor: boolean; hasPendingRequest: boolean }
+    ).json()) as { isAuthor: boolean; hasPendingRequest: boolean; pendingRequestCount: number }
     expect(author.isAuthor).toBe(true)
     expect(author.hasPendingRequest).toBe(false)
+    expect(author.pendingRequestCount).toBe(0)
 
     // allowEditRequests: true 时 GET 响应应反映该标志
     await env.healerbook_timelines
@@ -137,6 +140,14 @@ describe('GET /api/timelines/:id role', () => {
     ).json()) as { role: string; hasPendingRequest: boolean }
     expect(viewer.role).toBe('viewer')
     expect(viewer.hasPendingRequest).toBe(true)
+
+    // 作者:有 1 条待处理申请时 pendingRequestCount 为 1
+    const authorWithReq = (await (
+      await SELF.fetch(`https://app/api/timelines/${id}`, {
+        headers: { Authorization: `Bearer ${await authorJwt()}` },
+      })
+    ).json()) as { pendingRequestCount: number }
+    expect(authorWithReq.pendingRequestCount).toBe(1)
   })
 })
 

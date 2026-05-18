@@ -82,6 +82,8 @@ interface TimelineState {
   currentViewportWidth: number
   /** 远端连接状态 */
   connectionStatus: ConnectionStatus
+  /** 待处理的编辑权限申请数(仅作者有意义):GET /:id 播种 + WS 实时刷新 */
+  pendingRequestCount: number
   /** 是否已发布到云端 */
   isPublished: boolean
   /** 其他协作者的 awareness(已排除自身);非 editor 模式恒为空 */
@@ -176,6 +178,7 @@ const initialUiState = {
   currentTimelineWidth: 0,
   currentViewportWidth: 0,
   connectionStatus: 'disconnected' as ConnectionStatus,
+  pendingRequestCount: 0,
   isPublished: false,
   peers: [] as PeerState[],
 }
@@ -255,7 +258,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     peersUnsub = null
     engine.connectRemote(
       () => useAuthStore.getState().getValidToken(),
-      status => set({ connectionStatus: status })
+      status => set({ connectionStatus: status }),
+      count => set({ pendingRequestCount: count })
     )
     // 设本地 awareness user(昵称 + 颜色),并订阅 peers 变化
     const auth = useAuthStore.getState()
@@ -302,6 +306,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         canUndo: false,
         canRedo: false,
         connectionStatus: 'disconnected',
+        pendingRequestCount: 0,
         isPublished: !!opts?.published,
         peers: [],
       })
@@ -371,6 +376,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         timeline,
         isPublished: true,
         connectionStatus: 'disconnected',
+        pendingRequestCount: 0,
         canUndo: false,
         canRedo: false,
         selectedEventId: null,

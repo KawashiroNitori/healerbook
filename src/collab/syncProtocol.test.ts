@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { MSG, encodeMessage, decodeMessage, encodeLoadReply, decodeLoadReply } from './syncProtocol'
+import {
+  MSG,
+  encodeMessage,
+  decodeMessage,
+  encodeLoadReply,
+  decodeLoadReply,
+  encodeEditRequest,
+  decodeEditRequest,
+} from './syncProtocol'
 
 describe('syncProtocol', () => {
   it('encodeMessage / decodeMessage round-trip', () => {
@@ -22,5 +30,11 @@ describe('syncProtocol', () => {
     const { missing: m, stateVector: s } = decodeLoadReply(encodeLoadReply(missing, sv))
     expect([...m]).toEqual([1, 2, 3, 4, 5])
     expect([...s]).toEqual([6, 7])
+  })
+
+  it('encodeEditRequest / decodeEditRequest round-trip', () => {
+    for (const n of [0, 1, 7, 255, 4096]) {
+      expect(decodeEditRequest(encodeEditRequest(n))).toBe(n)
+    }
   })
 })

@@ -2,7 +2,13 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../env'
 import { DoSqlStore } from '../collab/doSqlStore'
-import { decodeMessage, encodeLoadReply, encodeMessage, MSG } from '@/collab/syncProtocol'
+import {
+  decodeMessage,
+  encodeEditRequest,
+  encodeLoadReply,
+  encodeMessage,
+  MSG,
+} from '@/collab/syncProtocol'
 import * as Y from 'yjs'
 import { encodeStateVectorFromUpdate, diffUpdate } from 'yjs'
 import { verifyToken } from '../jwt'
@@ -193,6 +199,34 @@ export class TimelineDoc extends DurableObject<Env> {
       if (att.authed && att.userId === userId) {
         try {
           ws.close(4001, 'editor revoked')
+        } catch {
+          // 已关闭的连接忽略
+        }
+      }
+    }
+  }
+
+  /**
+   * Worker 在收到新的编辑权限申请后调用:
+   * 把当前待处理申请数推给在线的作者连接,使其共享按钮角标实时刷新。
+   * 仅发给作者本人;无作者在线时静默 no-op。
+   */
+  async notifyEditRequest(timelineId: string): Promise<void> {
+    const authorRow = await this.env.healerbook_timelines
+      .prepare('SELECT author_id FROM timelines WHERE id = ?')
+      .bind(timelineId)
+      .first<{ author_id: string }>()
+    if (!authorRow) return
+    const countRow = await this.env.healerbook_timelines
+      .prepare('SELECT COUNT(*) AS n FROM timeline_edit_requests WHERE timeline_id = ?')
+      .bind(timelineId)
+      .first<{ n: number }>()
+    const frame = encodeMessage(MSG.EDIT_REQUEST, encodeEditRequest(countRow?.n ?? 0))
+    for (const ws of this.ctx.getWebSockets()) {
+      const att = (ws.deserializeAttachment() ?? { authed: false }) as SocketAttachment
+      if (att.authed && att.userId === authorRow.author_id) {
+        try {
+          ws.send(frame)
         } catch {
           // 已关闭的连接忽略
         }

@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as Y from 'yjs'
 import { Awareness, encodeAwarenessUpdate } from 'y-protocols/awareness'
 import { RemoteConnection } from './RemoteConnection'
-import { MSG, encodeMessage, decodeMessage, encodeLoadReply } from './syncProtocol'
+import {
+  MSG,
+  encodeMessage,
+  decodeMessage,
+  encodeLoadReply,
+  encodeEditRequest,
+} from './syncProtocol'
 
 /** 内存 fake WebSocket:记录 client 发出的帧,可手动注入 server 帧 */
 class FakeWebSocket {
@@ -349,5 +355,24 @@ describe('RemoteConnection auth hardening', () => {
     lastSocket().fireClose(4001)
     conn.destroy()
     expect(statuses[statuses.length - 1]).toBe('revoked')
+  })
+
+  it('invokes onEditRequest with the pushed pending-request count', async () => {
+    const doc = new Y.Doc()
+    const counts: number[] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      () => {},
+      n => counts.push(n)
+    )
+    conn.connect()
+    await lastSocket().fireOpen()
+    lastSocket().fireMessage(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    lastSocket().fireMessage(encodeMessage(MSG.EDIT_REQUEST, encodeEditRequest(3)))
+    expect(counts).toEqual([3])
+    conn.destroy()
   })
 })

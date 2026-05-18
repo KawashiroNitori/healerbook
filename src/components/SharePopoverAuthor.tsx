@@ -3,10 +3,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Copy, Check, Loader2, Trash2, X } from 'lucide-react'
+import { Copy, Check, Loader2, Trash2, X, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   fetchShareState,
   setAllowEditRequests,
@@ -15,6 +16,7 @@ import {
   removeEditor,
   type ShareState,
 } from '@/api/timelineShareApi'
+import { useTimelineStore } from '@/store/timelineStore'
 
 interface SharePopoverAuthorProps {
   timelineId: string
@@ -48,13 +50,18 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
     }
   }, [timelineId, reloadKey])
 
+  // 申请数变化同步到 store,使共享按钮角标与列表保持一致
+  useEffect(() => {
+    if (state) useTimelineStore.setState({ pendingRequestCount: state.applicants.length })
+  }, [state])
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('复制失败,请手动复制链接')
+      toast.error('复制失败，请手动复制链接')
     }
   }
 
@@ -140,16 +147,30 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
       ) : (
         <>
           <div className="flex items-center justify-between">
-            <span className="text-sm">允许申请编辑权限</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm">允许申请编辑权限</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="什么是允许申请编辑权限"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[220px]">
+                  开启后，其他人可以申请成为该时间轴的编辑者
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Switch checked={state.allowEditRequests} onCheckedChange={handleToggle} />
           </div>
 
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">编辑者</p>
-            {state.editors.length === 0 ? (
-              <p className="text-xs text-muted-foreground">暂无其他编辑者</p>
-            ) : (
-              state.editors.map(e => (
+          {state.editors.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">编辑者</p>
+              {state.editors.map(e => (
                 <div key={e.userId} className="flex items-center justify-between">
                   <span className="text-sm truncate">{e.userName}</span>
                   <Button
@@ -162,16 +183,14 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">申请编辑权限</p>
-            {state.applicants.length === 0 ? (
-              <p className="text-xs text-muted-foreground">暂无申请</p>
-            ) : (
-              state.applicants.map(a => (
+          {state.applicants.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">申请编辑权限</p>
+              {state.applicants.map(a => (
                 <div key={a.userId} className="flex items-center justify-between">
                   <span className="text-sm truncate">{a.userName}</span>
                   <div className="flex items-center gap-1">
@@ -195,9 +214,9 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
                     </Button>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

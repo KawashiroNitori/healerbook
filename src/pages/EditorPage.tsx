@@ -133,6 +133,8 @@ export default function EditorPage() {
                 allowEditRequests: serverRes.allowEditRequests,
                 hasPendingRequest: serverRes.hasPendingRequest,
               })
+              // 播种共享按钮角标计数;后续新申请由 WS 实时刷新
+              useTimelineStore.setState({ pendingRequestCount: serverRes.pendingRequestCount })
             } else {
               setShareRole({
                 role: 'editor',
@@ -160,7 +162,10 @@ export default function EditorPage() {
         })
         if (res.role === 'editor') {
           await openTimeline(id, { published: true })
-          if (!ignore) setMode('editor')
+          if (ignore) return
+          // openTimeline 已把计数清 0,在其后播种
+          useTimelineStore.setState({ pendingRequestCount: res.pendingRequestCount })
+          setMode('editor')
         } else {
           if (ignore) return
           setViewerSnapshot(res.snapshot!)
@@ -200,6 +205,13 @@ export default function EditorPage() {
     (newId: string) => {
       if (newId === id) {
         setMode('editor')
+        // 发布者即作者:同步共享角色,否则共享按钮停留在初始 viewer 态
+        setShareRole({
+          role: 'editor',
+          isAuthor: true,
+          allowEditRequests: false,
+          hasPendingRequest: false,
+        })
       } else {
         const query = viewMode === 'table' ? '?view=table' : ''
         navigate(`/timeline/${newId}${query}`, { replace: true })

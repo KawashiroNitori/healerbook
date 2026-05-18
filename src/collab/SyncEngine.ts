@@ -66,7 +66,8 @@ export class SyncEngine {
   /** 挂上远端连接(发布 / editor 模式)。幂等。 */
   connectRemote(
     getAuthToken: () => Promise<string | null>,
-    onStatus: (status: ConnectionStatus) => void
+    onStatus: (status: ConnectionStatus) => void,
+    onEditRequest?: (count: number) => void
   ): void {
     if (this.remote) return
     this.remote = new RemoteConnection(
@@ -74,7 +75,8 @@ export class SyncEngine {
       this.doc,
       this.awareness,
       getAuthToken,
-      onStatus
+      onStatus,
+      onEditRequest
     )
     this.remote.connect()
   }

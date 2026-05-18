@@ -65,6 +65,8 @@ export default function SharePopover({
   const { isLoggedIn, login } = useAuth()
   const accessToken = useAuthStore(s => s.accessToken)
   const isRevoked = useTimelineStore(s => s.connectionStatus === 'revoked')
+  // 共享按钮角标计数:GET /:id 播种、WS 实时推送、popover 内审批后回写,统一收敛到 store
+  const pendingRequestCount = useTimelineStore(s => s.pendingRequestCount)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -102,7 +104,7 @@ export default function SharePopover({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('复制失败,请手动复制链接')
+      toast.error('复制失败，请手动复制链接')
     }
   }
 
@@ -137,7 +139,7 @@ export default function SharePopover({
     try {
       await requestEditPermission(timeline.id)
       setRequested(true)
-      toast.success('已提交申请,等待作者通过')
+      toast.success('已提交申请，等待作者通过')
     } catch (err) {
       toast.error(`申请失败:${err instanceof Error ? err.message : '未知错误'}`)
     } finally {
@@ -176,7 +178,7 @@ export default function SharePopover({
           <AlertDialogHeader>
             <AlertDialogTitle>确认发布时间轴</AlertDialogTitle>
             <AlertDialogDescription>
-              发布后,互联网上获得链接的人都能够访问该时间轴。被加入编辑者名单的人可以协同编辑。
+              发布后，互联网上获得链接的人都能够访问该时间轴。被加入编辑者名单的人可以协同编辑。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -191,33 +193,44 @@ export default function SharePopover({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 shrink-0 gap-1 font-normal whitespace-nowrap"
+            className="relative h-7 shrink-0 gap-1 font-normal whitespace-nowrap"
           >
             {triggerIcon}
             <span className="hidden lg:inline">{triggerLabel}</span>
+            {trigger === 'author' && pendingRequestCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white">
+                {pendingRequestCount > 99 ? '99+' : pendingRequestCount}
+              </span>
+            )}
           </Button>
         </PopoverTrigger>
 
         <PopoverContent className="w-80" align="end">
-          <div className="space-y-3">
+          <div className="space-y-1.5">
             <h4 className="font-medium text-sm">共享时间轴</h4>
 
             {view.kind === 'publish' && (
               <div className="space-y-3">
                 {isLoggedIn ? (
-                  <Button
-                    variant="default"
-                    className="w-full"
-                    onClick={() => setConfirmOpen(true)}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    发布
-                  </Button>
+                  <>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>时间轴未共享，仅本设备可查看</span>
+                    </div>
+                    <Button
+                      variant="default"
+                      className="w-full"
+                      onClick={() => setConfirmOpen(true)}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      发布
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground">登录后可发布并共享时间轴。</p>
@@ -232,7 +245,7 @@ export default function SharePopover({
             {view.kind === 'viewer-anon' && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  你只能查看此时间轴,若要编辑时间轴,请生成副本进行编辑。
+                  你只能查看此时间轴，若要编辑时间轴，请创建副本进行编辑。
                 </p>
                 <p className="text-xs text-muted-foreground">
                   已是该时间轴的编辑者?登录后即可编辑。
@@ -249,7 +262,7 @@ export default function SharePopover({
             {view.kind === 'viewer-no-request' && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  你只能查看此时间轴,若要编辑时间轴,请生成副本进行编辑。
+                  你只能查看此时间轴，若要编辑时间轴，请创建副本进行编辑。
                 </p>
                 <ShareButtonBar>{createCopyButton}</ShareButtonBar>
               </div>
@@ -258,7 +271,7 @@ export default function SharePopover({
             {(view.kind === 'viewer-can-request' || view.kind === 'viewer-requested') && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  你只能查看此时间轴,若要编辑时间轴,请向时间轴作者申请编辑权限或生成副本进行编辑。
+                  你只能查看此时间轴，若要编辑时间轴，请向时间轴作者申请编辑权限或创建副本进行编辑。
                 </p>
                 <ShareButtonBar>
                   {createCopyButton}
@@ -286,7 +299,13 @@ export default function SharePopover({
             )}
 
             {view.kind === 'author' && (
-              <SharePopoverAuthor timelineId={timeline.id} shareUrl={shareUrl} />
+              <>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span>时间轴已发布，获得链接的人可阅读</span>
+                </div>
+                <SharePopoverAuthor timelineId={timeline.id} shareUrl={shareUrl} />
+              </>
             )}
           </div>
         </PopoverContent>

@@ -68,6 +68,8 @@ app.get('/:id', async c => {
   let role: 'editor' | 'viewer' = 'viewer'
   let isAuthor = false
   let hasPendingRequest = false
+  // 作者:当前待处理的申请数(供共享按钮角标显示);非作者恒 0
+  let pendingRequestCount = 0
   if (user) {
     isAuthor = user.userId === row.author_id
     const editorRow = await c.env.healerbook_timelines
@@ -82,9 +84,23 @@ app.get('/:id', async c => {
         .first()
       hasPendingRequest = reqRow != null
     }
+    if (isAuthor) {
+      const countRow = await c.env.healerbook_timelines
+        .prepare('SELECT COUNT(*) AS n FROM timeline_edit_requests WHERE timeline_id = ?')
+        .bind(id)
+        .first<{ n: number }>()
+      pendingRequestCount = countRow?.n ?? 0
+    }
   }
 
-  const base = { role, authorName: row.author_name, isAuthor, allowEditRequests, hasPendingRequest }
+  const base = {
+    role,
+    authorName: row.author_name,
+    isAuthor,
+    allowEditRequests,
+    hasPendingRequest,
+    pendingRequestCount,
+  }
 
   if (role === 'editor') {
     return c.json(base, 200, { 'Cache-Control': 'private, no-cache' })
