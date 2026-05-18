@@ -11,9 +11,15 @@ interface EditableTitleProps {
   value: string
   onChange: (value: string) => void
   className?: string
+  readOnly?: boolean
 }
 
-export default function EditableTitle({ value, onChange, className = '' }: EditableTitleProps) {
+export default function EditableTitle({
+  value,
+  onChange,
+  className = '',
+  readOnly = false,
+}: EditableTitleProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -112,17 +118,19 @@ export default function EditableTitle({ value, onChange, className = '' }: Edita
   return (
     <div className="flex items-center gap-2 h-7 group">
       <h1 className={className}>{value}</h1>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="p-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-all"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>编辑标题</TooltipContent>
-      </Tooltip>
+      {!readOnly && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-all"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>编辑标题</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   )
 }

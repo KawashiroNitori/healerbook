@@ -1,11 +1,9 @@
 /**
  * 编辑器 / 查看页面(统一路由 /timeline/:id)
  *
- * 六种状态:
- *   local         — 本地 IndexedDB 有且未发布:纯本地编辑
- *   editor        — 已发布且当前用户在编辑者白名单:实时协同编辑
- *   viewer        — 已发布、他人时间轴:只读查看(服务端 snapshot)
+ * PageMode 只跟踪加载状态；角色由 timelineStore.sessionRole 决定。
  *   loading       — 模式推导中
+ *   ready         — 已就绪（local / author / editor / viewer 均用此态）
  *   not_found     — 本地无 + 服务端 404
  *   network_error — 服务端请求失败(非 404)
  */
@@ -25,6 +23,7 @@ import { generateId } from '@/utils/id'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useDamageCalculation } from '@/hooks/useDamageCalculation'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
+import { useEditLock } from '@/hooks/useEditLock'
 import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import EditorToolbar from '@/components/EditorToolbar'
@@ -40,8 +39,24 @@ import { APP_NAME } from '@/lib/constants'
 import ThemeToggle from '@/components/ThemeToggle'
 import PresenceAvatars from '@/components/PresenceAvatars'
 import { track } from '@/utils/analytics'
+import { decideOpen, type ServerOutcome } from './editorOpenDecision'
+import type { LocalDocMeta } from '@/collab/types'
+import type { Timeline } from '@/types/timeline'
 
-type PageMode = 'local' | 'editor' | 'viewer' | 'loading' | 'not_found' | 'network_error'
+type PageMode = 'loading' | 'ready' | 'not_found' | 'network_error'
+
+function buildVisitedMeta(id: string, snapshot: Timeline): LocalDocMeta {
+  return {
+    docId: id,
+    name: snapshot.name,
+    encounterId: snapshot.encounter?.id ?? 0,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt ?? Math.floor(Date.now() / 1000),
+    composition: snapshot.composition ?? null,
+    kind: 'visited',
+    lastViewedAt: Math.floor(Date.now() / 1000),
+  }
+}
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -86,7 +101,6 @@ export default function EditorPage() {
     let ignore = false
     setMode('loading')
     setAuthorName('')
-    useUIStore.setState({ manualLock: false })
     ;(async () => {
       try {
         const store = new IndexedDBDocStore()
@@ -94,83 +108,75 @@ export default function EditorPage() {
         const meta = await store.getMeta(id)
         if (ignore) return
 
-        if (meta) {
-          if (meta.kind !== 'local') {
-            // 本地标记为已发布:与服务端对账。作者可能已取消发布,
-            // 此时服务端无此行,需把本地副本回退为纯本地时间轴。
-            let serverRes: Awaited<ReturnType<typeof fetchSharedTimeline>> | null = null
-            let unpublished = false
-            try {
-              serverRes = await fetchSharedTimeline(id)
-            } catch (err) {
-              // 仅 404 是「已取消发布」的确定信号;网络等其他错误
-              // 不退化,仍按 editor 打开以保留离线编辑能力
-              unpublished = err instanceof Error && err.message === 'NOT_FOUND'
-            }
-            if (ignore) return
-            if (unpublished) {
-              // 回退为纯本地:换一个全新本地 id,与原云端 id 彻底脱钩,
-              // 避免多份同 id 副本及重新发布时的归属冲突
-              const localId = generateId()
-              await store.rekey(id, localId)
-              const movedMeta = await store.getMeta(localId)
-              if (movedMeta) await store.putMeta({ ...movedMeta, kind: 'local' })
-              if (ignore) return
-              toast.info('该时间轴已被作者取消发布,已转为本地时间轴')
-              navigate(`/timeline/${localId}`, { replace: true })
-              return
-            }
-            await openTimeline(id, { role: 'editor' })
-            if (ignore) return
-            setMode('editor')
-            // 取角色信息(用于共享 popover);使用已拿到的响应,失败时默认作者
-            if (serverRes) {
-              setShareRole({
-                role: serverRes.role,
-                isAuthor: serverRes.isAuthor,
-                allowEditRequests: serverRes.allowEditRequests,
-                hasPendingRequest: serverRes.hasPendingRequest,
-              })
-              // 播种共享按钮角标计数;后续新申请由 WS 实时刷新
-              useTimelineStore.setState({ pendingRequestCount: serverRes.pendingRequestCount })
+        // 查服务端（本地纯 local 时跳过）
+        let server: ServerOutcome | null = null
+        let serverRes: Awaited<ReturnType<typeof fetchSharedTimeline>> | null = null
+        if (!meta || meta.kind !== 'local') {
+          try {
+            serverRes = await fetchSharedTimeline(id)
+            server = { type: 'ok', isAuthor: serverRes.isAuthor, role: serverRes.role }
+          } catch (err) {
+            if (err instanceof Error && err.message === 'NOT_FOUND') {
+              server = { type: 'notfound' }
             } else {
-              setShareRole({
-                role: 'editor',
-                isAuthor: true,
-                allowEditRequests: false,
-                hasPendingRequest: false,
-              })
+              const localDoc = await store.loadDoc(id)
+              server = { type: 'neterror', hasLocalDoc: localDoc !== null }
             }
-            return
-          } else {
-            await openTimeline(id, { role: 'local' })
-            if (!ignore) setMode('local')
           }
+          if (ignore) return
+        }
+
+        const decision = decideOpen(meta ? meta.kind : null, server)
+
+        if (decision.kind === 'rekey-local') {
+          const localId = generateId()
+          await store.rekey(id, localId)
+          const moved = await store.getMeta(localId)
+          if (moved) await store.putMeta({ ...moved, kind: 'local' })
+          if (ignore) return
+          toast.info('该时间轴已被作者取消发布，已转为本地时间轴')
+          navigate(`/timeline/${localId}`, { replace: true })
+          return
+        }
+        if (decision.kind === 'not-found') {
+          if (meta) await store.deleteDoc(id)
+          if (!ignore) setMode('not_found')
+          return
+        }
+        if (decision.kind === 'network-error') {
+          if (!ignore) setMode('network_error')
+          return
+        }
+        if (decision.kind === 'viewer') {
+          setViewerSnapshot(serverRes!.snapshot!)
+          await store.putMeta(buildVisitedMeta(id, serverRes!.snapshot!))
+          if (ignore) return
+          setAuthorName(serverRes!.authorName)
+          setShareRole({
+            role: 'viewer',
+            isAuthor: false,
+            allowEditRequests: serverRes!.allowEditRequests,
+            hasPendingRequest: serverRes!.hasPendingRequest,
+          })
+          setMode('ready')
+          track('timeline-view-shared', { timelineId: id })
           return
         }
 
-        const res = await fetchSharedTimeline(id)
+        // local / author / editor → openTimeline
+        await openTimeline(id, { role: decision.kind })
         if (ignore) return
-        setAuthorName(res.authorName)
-        setShareRole({
-          role: res.role,
-          isAuthor: res.isAuthor,
-          allowEditRequests: res.allowEditRequests,
-          hasPendingRequest: res.hasPendingRequest,
-        })
-        if (res.role === 'editor') {
-          await openTimeline(id, { role: 'editor' })
-          if (ignore) return
-          // openTimeline 已把计数清 0,在其后播种
-          useTimelineStore.setState({ pendingRequestCount: res.pendingRequestCount })
-          setMode('editor')
-        } else {
-          if (ignore) return
-          setViewerSnapshot(res.snapshot!)
-          useUIStore.setState({ manualLock: true })
-          setMode('viewer')
-          track('timeline-view-shared', { timelineId: id })
+        if (serverRes) {
+          useTimelineStore.setState({ pendingRequestCount: serverRes.pendingRequestCount })
+          setAuthorName(serverRes.authorName)
+          setShareRole({
+            role: serverRes.role,
+            isAuthor: serverRes.isAuthor,
+            allowEditRequests: serverRes.allowEditRequests,
+            hasPendingRequest: serverRes.hasPendingRequest,
+          })
         }
+        setMode('ready')
       } catch (err) {
         if (ignore) return
         setMode(err instanceof Error && err.message === 'NOT_FOUND' ? 'not_found' : 'network_error')
@@ -190,11 +196,11 @@ export default function EditorPage() {
     }
   }, [id, reset])
 
-  // 发布成功回调:同 id 原地升级 editor;id 变更则 navigate 重挂
+  // 发布成功回调:同 id 原地升级 author;id 变更则 navigate 重挂
   const handlePublished = useCallback(
     (newId: string) => {
       if (newId === id) {
-        setMode('editor')
+        setMode('ready')
         // 发布者即作者:同步共享角色,否则共享按钮停留在初始 viewer 态
         setShareRole({
           role: 'editor',
@@ -251,6 +257,8 @@ export default function EditorPage() {
   )
   const calculationResults = useDamageCalculation(timeline, { extraExcludeIds })
   const isReadOnly = useEditorReadOnly()
+  const sessionRole = useTimelineStore(s => s.sessionRole)
+  const editLock = useEditLock()
 
   useEffect(() => {
     if (!timeline || isReadOnly) return
@@ -354,7 +362,7 @@ export default function EditorPage() {
     )
   }
 
-  const isViewMode = mode === 'viewer'
+  const isViewMode = sessionRole === 'viewer'
 
   return (
     <div
@@ -372,35 +380,26 @@ export default function EditorPage() {
             <House className="w-5 h-5" />
           </button>
 
-          {isViewMode ? (
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold">{timeline?.name}</h1>
-                {authorName && (
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-                    By {authorName}
-                  </span>
-                )}
-              </div>
-              <EditableDescription
-                value={timeline?.description || ''}
-                onChange={() => {}}
-                readOnly
-              />
-            </div>
-          ) : (
-            <div>
+          <div>
+            <div className="flex items-center gap-2">
               <EditableTitle
                 value={timeline?.name || '时间轴编辑器'}
                 onChange={updateTimelineName}
                 className="text-lg font-bold"
+                readOnly={!editLock.can('metadata')}
               />
-              <EditableDescription
-                value={timeline?.description || ''}
-                onChange={updateTimelineDescription}
-              />
+              {isViewMode && authorName && (
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+                  By {authorName}
+                </span>
+              )}
             </div>
-          )}
+            <EditableDescription
+              value={timeline?.description || ''}
+              onChange={updateTimelineDescription}
+              readOnly={!editLock.can('metadata')}
+            />
+          </div>
 
           <div className="ml-auto flex items-center gap-3">
             <PresenceAvatars />
@@ -413,7 +412,6 @@ export default function EditorPage() {
         <EditorToolbar
           onCreateCopy={handleCreateCopy}
           onPublished={handlePublished}
-          forceReadOnly={isViewMode}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           shareRole={shareRole}
