@@ -55,6 +55,7 @@ export default function HomePage() {
     queryKey: ['myTimelines'],
     queryFn: fetchMyTimelines,
     enabled: isLoggedIn,
+    staleTime: 60_000,
   })
 
   const timelineList = useMemo(
@@ -94,10 +95,10 @@ export default function HomePage() {
             ? '已从列表移除'
             : '时间轴已删除'
       )
+      setPendingDelete(null)
     } catch (err) {
       toast.error(`操作失败：${err instanceof Error ? err.message : '未知错误'}`)
     }
-    setPendingDelete(null)
   }
 
   return (

@@ -38,6 +38,7 @@ describe('mergeTimelineList', () => {
     const list = mergeTimelineList([meta({ docId: 'a', kind: 'local', lastViewedAt: 100 })], server)
     expect(list.map(x => x.id)).toEqual(['s', 'a'])
     expect(list.find(x => x.id === 's')!.kind).toBe('published')
+    expect(list.find(x => x.id === 's')!.encounterId).toBe(0)
   })
 
   it('本地与服务端同 id：本地条目优先，不重复', () => {
