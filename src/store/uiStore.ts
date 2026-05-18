@@ -56,14 +56,23 @@ interface UIState {
 }
 
 function applyTheme(theme: 'light' | 'dark') {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
-  localStorage.setItem('theme', theme)
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('theme', theme)
+  }
 }
 
 function getInitialTheme(): 'light' | 'dark' {
-  const stored = localStorage.getItem('theme')
-  if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem('theme')
+    if (stored === 'light' || stored === 'dark') return stored
+  }
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return 'light'
 }
 
 const initialTheme = getInitialTheme()

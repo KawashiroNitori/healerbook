@@ -97,7 +97,7 @@ interface TimelineState {
   /** 打开一条时间轴:创建 SyncEngine,首帧投影 */
   openTimeline: (
     docId: string,
-    opts: { role: 'local' | 'author' | 'editor'; seedContent?: TimelineContent }
+    opts?: { role?: 'local' | 'author' | 'editor'; seedContent?: TimelineContent }
   ) => Promise<void>
   /** viewer 模式:直接用服务端 snapshot 只读渲染,不建引擎 */
   setViewerSnapshot: (timeline: Timeline) => void
@@ -301,6 +301,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     openTimeline: async (docId, opts) => {
       // Fix 1: 递增 generation,捕获当前值;await 后检测是否已被新调用抢占
       const myGeneration = ++openGeneration
+      const role = opts?.role ?? 'local'
 
       // Fix 2: 先从旧 engine 的 doc 移除 reproject 监听,再销毁引擎
       const prevEngine = get().engine
@@ -320,8 +321,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         canRedo: false,
         connectionStatus: 'disconnected',
         pendingRequestCount: 0,
-        isPublished: opts.role !== 'local',
-        sessionRole: opts.role,
+        isPublished: role !== 'local',
+        sessionRole: role,
         peers: [],
       })
       useUIStore.setState({ manualLock: false })
@@ -368,7 +369,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }
 
       // editor 模式:挂 remote(WS 连接 → load-doc → 双向同步)
-      if (opts.role !== 'local') {
+      if (role !== 'local') {
         wireRemote(engine)
       }
     },
