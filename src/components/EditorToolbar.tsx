@@ -19,6 +19,7 @@ import {
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
+import { useEditLock } from '@/hooks/useEditLock'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Kbd, KbdGroup } from '@/components/ui/kbd'
@@ -67,7 +68,6 @@ interface ShareRole {
 interface EditorToolbarProps {
   onCreateCopy: () => void
   onPublished?: (newId: string) => void
-  forceReadOnly?: boolean
   viewMode: 'timeline' | 'table'
   onViewModeChange: (mode: 'timeline' | 'table') => void
   shareRole: ShareRole
@@ -76,7 +76,6 @@ interface EditorToolbarProps {
 export default function EditorToolbar({
   onCreateCopy,
   onPublished,
-  forceReadOnly,
   viewMode,
   onViewModeChange,
   shareRole,
@@ -114,6 +113,10 @@ export default function EditorToolbar({
 
   const isReplayMode = timeline?.isReplayMode || false
   const isReadOnly = useEditorReadOnly()
+  const editLock = useEditLock()
+  const contentReason = editLock.reasonOf('content')
+  /** 系统强制只读（非用户手动锁）时，锁按钮不可由用户切换 */
+  const lockForced = contentReason !== null && contentReason !== 'manual'
 
   const encounterId = timeline?.encounter?.id
   const statisticsQuery = useEncounterStatistics(encounterId)
@@ -226,7 +229,7 @@ export default function EditorToolbar({
                     variant="outline"
                     size="icon"
                     className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900 dark:hover:text-blue-200"
-                    disabled={forceReadOnly}
+                    disabled={!editLock.can('exitReplay')}
                   >
                     <BugPlay className="w-4 h-4" />
                   </Button>
@@ -261,13 +264,21 @@ export default function EditorToolbar({
                     size="icon"
                     className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
                     onClick={toggleManualLock}
-                    disabled={forceReadOnly}
+                    disabled={lockForced}
                   >
                     {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {isReadOnly ? '切换为编辑模式' : '切换为只读模式'}
+                  {lockForced
+                    ? contentReason === 'viewer'
+                      ? '只读 · 仅查看'
+                      : contentReason === 'offline'
+                        ? '只读 · 连接中断'
+                        : '只读'
+                    : isReadOnly
+                      ? '切换为编辑模式'
+                      : '切换为只读模式'}
                 </TooltipContent>
               </Tooltip>
             )}
