@@ -9,7 +9,7 @@ import {
 } from './syncProtocol'
 import { REMOTE_ORIGIN } from './constants'
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'revoked'
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
 const MAX_BACKOFF_MS = 30_000
 
@@ -26,6 +26,8 @@ export class RemoteConnection {
   private readonly onStatus: (status: ConnectionStatus) => void
   /** 收到 DO 推送的待处理申请数(仅作者连接会收到) */
   private readonly onEditRequest: ((count: number) => void) | undefined
+  /** 编辑权限被撤销（WS 4001）时触发一次 */
+  private readonly onRevoked: (() => void) | undefined
 
   private ws: WebSocket | null = null
   private status: ConnectionStatus = 'disconnected'
@@ -51,7 +53,8 @@ export class RemoteConnection {
     awareness: Awareness,
     getAuthToken: () => Promise<string | null>,
     onStatus: (status: ConnectionStatus) => void,
-    onEditRequest?: (count: number) => void
+    onEditRequest?: (count: number) => void,
+    onRevoked?: () => void
   ) {
     this.url = url
     this.doc = doc
@@ -59,6 +62,7 @@ export class RemoteConnection {
     this.getAuthToken = getAuthToken
     this.onStatus = onStatus
     this.onEditRequest = onEditRequest
+    this.onRevoked = onRevoked
   }
 
   /** 开始连接(幂等:已在连接中或已终态关闭则忽略) */
@@ -81,8 +85,6 @@ export class RemoteConnection {
   }
 
   private setStatus(next: ConnectionStatus): void {
-    // 'revoked' 是永久终态:编辑权限被撤销后不再回退到其他状态
-    if (this.status === 'revoked') return
     if (this.status === next) return
     this.status = next
     this.onStatus(next)
@@ -177,10 +179,11 @@ export class RemoteConnection {
       this.setStatus('disconnected')
       return
     }
-    // 服务端以 4001 撤销编辑权限:终态,且状态报告 'revoked' 以便上层切只读
+    // 服务端以 4001 撤销编辑权限：终态、不重连，触发 onRevoked 让上层降级
     if (code === 4001) {
       this.closed = true
-      this.setStatus('revoked')
+      this.setStatus('disconnected')
+      this.onRevoked?.()
       return
     }
     this.setStatus('connecting')

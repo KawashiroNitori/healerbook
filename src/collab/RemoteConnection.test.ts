@@ -322,39 +322,51 @@ describe('RemoteConnection auth hardening', () => {
     conn.destroy()
   })
 
-  it('treats a server close with code 4001 as terminal and reports revoked', async () => {
+  it('treats a server close with code 4001 as terminal: reports disconnected and fires onRevoked', async () => {
     const doc = new Y.Doc()
     const statuses: string[] = []
+    let revokedCalled = 0
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
       new Awareness(doc),
       () => Promise.resolve('j'),
-      s => statuses.push(s)
+      s => statuses.push(s),
+      undefined,
+      () => {
+        revokedCalled++
+      }
     )
     conn.connect()
     await lastSocket().fireOpen()
     lastSocket().fireClose(4001)
-    expect(statuses[statuses.length - 1]).toBe('revoked')
+    expect(statuses[statuses.length - 1]).toBe('disconnected')
+    expect(revokedCalled).toBe(1)
     expect(FakeWebSocket.instances.length).toBe(1) // 不重连
     conn.destroy()
   })
 
-  it('keeps revoked status sticky after destroy()', async () => {
+  it('onRevoked fires exactly once on 4001; status stays disconnected after destroy()', async () => {
     const doc = new Y.Doc()
     const statuses: string[] = []
+    let revokedCalled = 0
     const conn = new RemoteConnection(
       'ws://x/connect',
       doc,
       new Awareness(doc),
       () => Promise.resolve('j'),
-      s => statuses.push(s)
+      s => statuses.push(s),
+      undefined,
+      () => {
+        revokedCalled++
+      }
     )
     conn.connect()
     await lastSocket().fireOpen()
     lastSocket().fireClose(4001)
     conn.destroy()
-    expect(statuses[statuses.length - 1]).toBe('revoked')
+    expect(statuses[statuses.length - 1]).toBe('disconnected')
+    expect(revokedCalled).toBe(1)
   })
 
   it('invokes onEditRequest with the pushed pending-request count', async () => {

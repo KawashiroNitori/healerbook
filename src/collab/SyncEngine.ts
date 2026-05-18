@@ -67,7 +67,8 @@ export class SyncEngine {
   connectRemote(
     getAuthToken: () => Promise<string | null>,
     onStatus: (status: ConnectionStatus) => void,
-    onEditRequest?: (count: number) => void
+    onEditRequest?: (count: number) => void,
+    onRevoked?: () => void
   ): void {
     if (this.remote) return
     this.remote = new RemoteConnection(
@@ -76,7 +77,8 @@ export class SyncEngine {
       this.awareness,
       getAuthToken,
       onStatus,
-      onEditRequest
+      onEditRequest,
+      onRevoked
     )
     this.remote.connect()
   }

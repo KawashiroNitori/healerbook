@@ -73,8 +73,6 @@ export default function EditorPage() {
     allowEditRequests: boolean
     hasPendingRequest: boolean
   }>({ role: 'viewer', isAuthor: false, allowEditRequests: false, hasPendingRequest: false })
-  const connectionStatus = useTimelineStore(s => s.connectionStatus)
-
   useEffect(() => {
     if (mitigationActions.length === 0) loadMitigationActions()
   }, [mitigationActions.length, loadMitigationActions])
@@ -191,14 +189,6 @@ export default function EditorPage() {
       reset()
     }
   }, [id, reset])
-
-  // 编辑权限被作者撤销:服务端断开 WS,RemoteConnection 报告 'revoked'
-  useEffect(() => {
-    if (connectionStatus === 'revoked') {
-      useUIStore.setState({ manualLock: true })
-      toast.error('你的编辑权限已被移除')
-    }
-  }, [connectionStatus])
 
   // 发布成功回调:同 id 原地升级 editor;id 变更则 navigate 重挂
   const handlePublished = useCallback(
@@ -423,7 +413,7 @@ export default function EditorPage() {
         <EditorToolbar
           onCreateCopy={handleCreateCopy}
           onPublished={handlePublished}
-          forceReadOnly={isViewMode || connectionStatus === 'revoked'}
+          forceReadOnly={isViewMode}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           shareRole={shareRole}

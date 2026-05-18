@@ -64,7 +64,8 @@ export default function SharePopover({
 }: SharePopoverProps) {
   const { isLoggedIn, login } = useAuth()
   const accessToken = useAuthStore(s => s.accessToken)
-  const isRevoked = useTimelineStore(s => s.connectionStatus === 'revoked')
+  // TODO(task-next): 后续任务通过 store 中独立字段（非 connectionStatus）驱动 isRevoked
+  const isRevoked = false
   // 共享按钮角标计数:GET /:id 播种、WS 实时推送、popover 内审批后回写,统一收敛到 store
   const pendingRequestCount = useTimelineStore(s => s.pendingRequestCount)
   const [loading, setLoading] = useState(false)
