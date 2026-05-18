@@ -93,7 +93,7 @@ export default function EditorToolbar({
     redo,
   } = useTimelineStore()
   const {
-    toggleReadOnly,
+    toggleManualLock,
     showActualDamage,
     showOriginalDamage,
     toggleShowActualDamage,
@@ -260,7 +260,7 @@ export default function EditorToolbar({
                     variant="ghost"
                     size="icon"
                     className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
-                    onClick={toggleReadOnly}
+                    onClick={toggleManualLock}
                     disabled={forceReadOnly}
                   >
                     {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}

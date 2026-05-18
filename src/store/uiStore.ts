@@ -14,8 +14,8 @@ interface UIState {
   showCooldownIndicators: boolean
   /** 主题模式 */
   theme: 'light' | 'dark'
-  /** 是否为只读模式 */
-  isReadOnly: boolean
+  /** 用户手动锁定编辑 */
+  manualLock: boolean
   /** 伤害事件轨道是否折叠 */
   isDamageTrackCollapsed: boolean
   /** 是否显示实际伤害 */
@@ -41,8 +41,8 @@ interface UIState {
   toggleCooldownIndicators: () => void
   /** 设置主题 */
   setTheme: (theme: 'light' | 'dark') => void
-  /** 切换只读模式 */
-  toggleReadOnly: () => void
+  /** 切换手动锁定 */
+  toggleManualLock: () => void
   /** 切换伤害事件轨道折叠 */
   toggleDamageTrackCollapsed: () => void
   /** 切换显示实际伤害 */
@@ -76,7 +76,7 @@ export const useUIStore = create<UIState>()(
       showTimeRuler: true,
       showCooldownIndicators: true,
       theme: initialTheme,
-      isReadOnly: false,
+      manualLock: false,
       isDamageTrackCollapsed: false,
       showActualDamage: true,
       showOriginalDamage: false,
@@ -103,9 +103,9 @@ export const useUIStore = create<UIState>()(
         set({ theme })
       },
 
-      toggleReadOnly: () =>
+      toggleManualLock: () =>
         set(state => ({
-          isReadOnly: !state.isReadOnly,
+          manualLock: !state.manualLock,
         })),
 
       toggleDamageTrackCollapsed: () =>
@@ -133,7 +133,7 @@ export const useUIStore = create<UIState>()(
     {
       name: 'ui-store',
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      partialize: ({ theme, draggingId, ...rest }) => rest,
+      partialize: ({ theme, draggingId, manualLock, ...rest }) => rest,
     }
   )
 )

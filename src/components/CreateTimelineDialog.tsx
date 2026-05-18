@@ -85,7 +85,7 @@ export default function CreateTimelineDialog({
       statData: base.statData,
       createdAt: base.createdAt,
     })
-    useUIStore.setState({ isReadOnly: false })
+    useUIStore.setState({ manualLock: false })
     track('timeline-create', { method: 'manual', encounterId: encounterIdNum })
     onCreated()
     window.open(`/timeline/${newId}`, '_blank')

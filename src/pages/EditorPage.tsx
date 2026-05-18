@@ -88,7 +88,7 @@ export default function EditorPage() {
     let ignore = false
     setMode('loading')
     setAuthorName('')
-    useUIStore.setState({ isReadOnly: false })
+    useUIStore.setState({ manualLock: false })
     ;(async () => {
       try {
         const store = new IndexedDBDocStore()
@@ -169,7 +169,7 @@ export default function EditorPage() {
         } else {
           if (ignore) return
           setViewerSnapshot(res.snapshot!)
-          useUIStore.setState({ isReadOnly: true })
+          useUIStore.setState({ manualLock: true })
           setMode('viewer')
           track('timeline-view-shared', { timelineId: id })
         }
@@ -187,7 +187,7 @@ export default function EditorPage() {
   // 卸载 / 切 id 时重置 store(断开 WS、销毁引擎)
   useEffect(() => {
     return () => {
-      useUIStore.setState({ isReadOnly: false })
+      useUIStore.setState({ manualLock: false })
       reset()
     }
   }, [id, reset])
@@ -195,7 +195,7 @@ export default function EditorPage() {
   // 编辑权限被作者撤销:服务端断开 WS,RemoteConnection 报告 'revoked'
   useEffect(() => {
     if (connectionStatus === 'revoked') {
-      useUIStore.setState({ isReadOnly: true })
+      useUIStore.setState({ manualLock: true })
       toast.error('你的编辑权限已被移除')
     }
   }, [connectionStatus])

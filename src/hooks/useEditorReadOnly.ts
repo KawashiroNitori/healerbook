@@ -8,10 +8,7 @@ import { useUIStore } from '@/store/uiStore'
 
 export function useEditorReadOnly(): boolean {
   const timeline = useTimelineStore(state => state.timeline)
-  const userReadOnly = useUIStore(state => state.isReadOnly)
-
+  const manualLock = useUIStore(state => state.manualLock)
   const isReplayMode = timeline?.isReplayMode || false
-
-  // 回放模式下强制只读
-  return isReplayMode || userReadOnly
+  return isReplayMode || manualLock
 }
