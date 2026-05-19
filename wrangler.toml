@@ -14,12 +14,16 @@ run_worker_first = ["/api/*"]
 
 [[kv_namespaces]]
 binding = "healerbook"
-id = "b2d47d0e3be342248906a82ea3a540d5"
+id = "ff1bfe0cbee0435cada9cbce624ad18b"
+
+[[kv_namespaces]]
+binding = "healerbook_snapshots"
+id = "ff1bfe0cbee0435cada9cbce624ad18b"
 
 [[d1_databases]]
 binding = "healerbook_timelines"
-database_name = "healerbook_timelines"
-database_id = "d5c7c316-c36a-42c7-a00e-aa43ceaba3c8"
+database_name = "healerbook_timelines_dev"
+database_id = "937ecb93-3ef7-456e-818b-ff7542b90d1a"
 
 [[durable_objects.bindings]]
 name = "TIMELINE_DOC"
@@ -29,9 +33,6 @@ class_name = "TimelineDoc"
 tag = "v1"
 new_sqlite_classes = ["TimelineDoc"]
 
-[[kv_namespaces]]
-binding = "healerbook_snapshots"
-id = "571cd2c52ccc45c88b22dea53910e163"
 
 # 开发环境
 [env.development]
@@ -42,11 +43,11 @@ FFLOGS_OAUTH_REDIRECT_URI = "http://localhost:5173/callback"
 
 [[env.development.kv_namespaces]]
 binding = "healerbook"
-id = "b2d47d0e3be342248906a82ea3a540d5"
+id = "ff1bfe0cbee0435cada9cbce624ad18b"
 
 [[env.development.kv_namespaces]]
 binding = "healerbook_snapshots"
-id = "571cd2c52ccc45c88b22dea53910e163"
+id = "ff1bfe0cbee0435cada9cbce624ad18b"
 
 [[env.development.durable_objects.bindings]]
 name = "TIMELINE_DOC"
@@ -54,8 +55,8 @@ class_name = "TimelineDoc"
 
 [[env.development.d1_databases]]
 binding = "healerbook_timelines"
-database_name = "healerbook_timelines"
-database_id = "d5c7c316-c36a-42c7-a00e-aa43ceaba3c8"
+database_name = "healerbook_timelines_dev"
+database_id = "937ecb93-3ef7-456e-818b-ff7542b90d1a"
 
 # 生产环境
 [env.production]
