@@ -112,8 +112,10 @@ app.get('/:id', async c => {
     ? (JSON.parse(cached) as object)
     : await docStub(c.env, id).getSnapshotJson()
   if (!snapshot) return c.json({ error: 'Not found' }, 404)
-  // 登录用户的响应含 hasPendingRequest(用户相关),不可公开缓存
-  const cacheControl = user ? 'private, no-cache' : 'public, max-age=60'
+  // snapshot 随协作编辑随时变化:必须 no-cache,否则浏览器会在刷新时
+  // 直接复用陈旧响应,查看者看不到编辑者的实时改动。
+  // 登录用户响应另含 hasPendingRequest(用户相关),用 private。
+  const cacheControl = user ? 'private, no-cache' : 'public, no-cache'
   return c.json({ ...base, snapshot }, 200, { 'Cache-Control': cacheControl })
 })
 

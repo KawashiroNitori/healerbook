@@ -149,6 +149,17 @@ describe('GET /api/timelines/:id role', () => {
     ).json()) as { pendingRequestCount: number }
     expect(authorWithReq.pendingRequestCount).toBe(1)
   })
+
+  it('匿名查看者 GET /:id 响应不可被浏览器缓存,确保刷新即取最新', async () => {
+    const id = await publishOne('share-cache-00000000001', 'T')
+    await env.healerbook_snapshots.put(`tl-snapshot:${id}`, JSON.stringify({ x: 1 }))
+    const res = await SELF.fetch(`https://app/api/timelines/${id}`)
+    expect(res.status).toBe(200)
+    // max-age 会让浏览器刷新时直接复用陈旧响应,导致协作编辑对查看者不可见
+    const cacheControl = res.headers.get('Cache-Control') ?? ''
+    expect(cacheControl).not.toContain('max-age')
+    expect(cacheControl).toContain('no-cache')
+  })
 })
 
 describe('DELETE /api/timelines/:id 取消发布', () => {
