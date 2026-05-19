@@ -194,4 +194,25 @@ describe('meta store', () => {
     expect((await store.getMeta('new'))?.docId).toBe('new')
     expect((await store.getMeta('new'))?.encounterId).toBe(7)
   })
+
+  it('touchLastViewed 更新 lastViewedAt，不存在时不抛出', async () => {
+    const store = new IndexedDBDocStore()
+    await store.open()
+    await store.putMeta({
+      docId: 'tv1',
+      name: 'TV',
+      encounterId: 0,
+      createdAt: 1,
+      updatedAt: 1,
+      composition: null,
+      kind: 'local' as const,
+      lastViewedAt: 1,
+    })
+    await store.touchLastViewed('tv1')
+    const updated = await store.getMeta('tv1')
+    expect(updated?.lastViewedAt).toBeGreaterThan(1)
+
+    // 不存在时不抛出
+    await expect(store.touchLastViewed('nonexistent')).resolves.toBeUndefined()
+  })
 })

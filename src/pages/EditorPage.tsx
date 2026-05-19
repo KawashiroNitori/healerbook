@@ -51,7 +51,7 @@ function buildVisitedMeta(id: string, snapshot: Timeline): LocalDocMeta {
     name: snapshot.name,
     encounterId: snapshot.encounter?.id ?? 0,
     createdAt: snapshot.createdAt,
-    updatedAt: snapshot.updatedAt ?? Math.floor(Date.now() / 1000),
+    updatedAt: snapshot.updatedAt || Math.floor(Date.now() / 1000),
     composition: snapshot.composition ?? null,
     kind: 'visited',
     lastViewedAt: Math.floor(Date.now() / 1000),
@@ -170,6 +170,7 @@ export default function EditorPage() {
 
         // local / author / editor → openTimeline
         await openTimeline(id, { role: decision.kind })
+        await store.touchLastViewed(id)
         if (ignore) return
         if (serverRes) {
           useTimelineStore.setState({ pendingRequestCount: serverRes.pendingRequestCount })

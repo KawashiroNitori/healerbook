@@ -138,6 +138,13 @@ export class IndexedDBDocStore {
     for (const key of keys) await reqToPromise(us.delete(key))
   }
 
+  /** 把一条 meta 的 lastViewedAt 刷新为当前时间；meta 不存在则忽略 */
+  async touchLastViewed(docId: string): Promise<void> {
+    const meta = await this.getMeta(docId)
+    if (!meta) return
+    await this.putMeta({ ...meta, lastViewedAt: Math.floor(Date.now() / 1000) })
+  }
+
   /**
    * 把一条时间轴的全部本地数据从 oldId 改键到 newId。
    * 发布时 id 被服务端清洗变更后使用。

@@ -52,4 +52,22 @@ describe('mergeTimelineList', () => {
     expect(list).toHaveLength(1)
     expect(list[0].name).toBe('A-local')
   })
+
+  it('meta 缺少 lastViewedAt 时回退、不产生 NaN 排序', () => {
+    const stale = {
+      docId: 'stale',
+      name: 'stale',
+      encounterId: 0,
+      createdAt: 10,
+      updatedAt: 50,
+      composition: null,
+      kind: 'local',
+    } as unknown as LocalDocMeta
+    const list = mergeTimelineList(
+      [stale, meta({ docId: 'fresh', kind: 'local', lastViewedAt: 200 })],
+      []
+    )
+    expect(list.map(x => x.id)).toEqual(['fresh', 'stale'])
+    expect(list.every(x => Number.isFinite(x.sortAt))).toBe(true)
+  })
 })

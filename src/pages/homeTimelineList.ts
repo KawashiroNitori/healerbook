@@ -27,7 +27,7 @@ export function mergeTimelineList(
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
     composition: m.composition,
-    sortAt: m.lastViewedAt,
+    sortAt: m.lastViewedAt ?? m.updatedAt ?? m.createdAt ?? 0,
   }))
   const localIds = new Set(items.map(x => x.id))
   for (const s of serverItems) {

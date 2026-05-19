@@ -12,7 +12,7 @@ interface TimelineCardItem {
   name: string
   encounterId: string
   createdAt: number
-  updatedAt: number
+  lastViewedAt: number
   composition?: Composition | null
   kind: 'local' | 'published' | 'visited'
 }
@@ -79,8 +79,8 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
       )}
 
       <p className="text-xs text-muted-foreground">
-        更新于{' '}
-        {new Date(timeline.updatedAt * 1000).toLocaleString('zh-CN', {
+        最后查看{' '}
+        {new Date(timeline.lastViewedAt * 1000).toLocaleString('zh-CN', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',

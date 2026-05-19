@@ -203,7 +203,7 @@ export default function HomePage() {
                     kind: item.kind,
                     encounterId: String(item.encounterId),
                     createdAt: item.createdAt,
-                    updatedAt: item.updatedAt,
+                    lastViewedAt: item.sortAt,
                     composition: item.composition,
                   }}
                   onClick={() => {
