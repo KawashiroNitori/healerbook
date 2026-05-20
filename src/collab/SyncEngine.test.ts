@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
+import * as Y from 'yjs'
 import { SyncEngine } from './SyncEngine'
 import { buildYDoc, yAddCastEvent, projectTimeline } from './docSchema'
 import type { TimelineContent } from './types'
@@ -46,5 +47,39 @@ describe('SyncEngine', () => {
     expect(projectTimeline(e.doc).castEvents).toHaveLength(1)
     e.undoManager.undo()
     expect(projectTimeline(e.doc).castEvents).toHaveLength(0)
+  })
+})
+
+describe('SyncEngine - hadPersistedData', () => {
+  beforeEach(() => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+  })
+
+  it('首次创建无本地数据时 hadPersistedData = false', async () => {
+    const engine = await SyncEngine.create('no-cache-doc')
+    expect(engine.hadPersistedData).toBe(false)
+    engine.destroy()
+  })
+
+  it('seed 提供时也算作 false(seed 不是持久化数据)', async () => {
+    const seed = new Y.Doc()
+    seed.getMap('meta').set('name', 'fresh')
+    const engine = await SyncEngine.create('seed-doc', seed)
+    expect(engine.hadPersistedData).toBe(false)
+    expect(engine.doc.getMap('meta').get('name')).toBe('fresh')
+    engine.destroy()
+  })
+
+  it('再次打开同 docId 时 hadPersistedData = true', async () => {
+    const first = await SyncEngine.create('reopen-doc')
+    first.doc.getMap('meta').set('name', 'persisted-val')
+    await first.flush()
+    first.destroy()
+
+    const second = await SyncEngine.create('reopen-doc')
+    expect(second.hadPersistedData).toBe(true)
+    expect(second.doc.getMap('meta').get('name')).toBe('persisted-val')
+    second.destroy()
   })
 })

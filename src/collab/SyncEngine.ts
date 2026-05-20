@@ -20,16 +20,23 @@ export class SyncEngine {
   readonly doc: Y.Doc
   readonly awareness: Awareness
   readonly undoManager: Y.UndoManager
+  readonly hadPersistedData: boolean
   private readonly store: IndexedDBDocStore
   private remote: RemoteConnection | null = null
   private pending: Promise<void> = Promise.resolve()
   private lastPersistError: unknown = null
 
-  private constructor(docId: string, doc: Y.Doc, store: IndexedDBDocStore) {
+  private constructor(
+    docId: string,
+    doc: Y.Doc,
+    store: IndexedDBDocStore,
+    hadPersistedData: boolean
+  ) {
     this.docId = docId
     this.doc = doc
     this.awareness = new Awareness(this.doc)
     this.store = store
+    this.hadPersistedData = hadPersistedData
     this.undoManager = new Y.UndoManager(
       [
         Y_MAP.meta,
@@ -60,7 +67,7 @@ export class SyncEngine {
       Y.applyUpdate(doc, seedUpdate, 'persisted')
       await store.appendUpdate(docId, seedUpdate)
     }
-    return new SyncEngine(docId, doc, store)
+    return new SyncEngine(docId, doc, store, persisted !== null)
   }
 
   /** 挂上远端连接(发布 / editor 模式)。幂等。 */
@@ -68,7 +75,8 @@ export class SyncEngine {
     getAuthToken: () => Promise<string | null>,
     onStatus: (status: ConnectionStatus) => void,
     onEditRequest?: (count: number) => void,
-    onRevoked?: () => void
+    onRevoked?: () => void,
+    onLoaded?: () => void
   ): void {
     if (this.remote) return
     this.remote = new RemoteConnection(
@@ -78,7 +86,8 @@ export class SyncEngine {
       getAuthToken,
       onStatus,
       onEditRequest,
-      onRevoked
+      onRevoked,
+      onLoaded
     )
     this.remote.connect()
   }
