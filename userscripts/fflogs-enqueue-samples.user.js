@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Healerbook · FFLogs Samples Queue Enqueuer
 // @namespace    healerbook
-// @version      1.3.1
+// @version      1.3.2
 // @description  在 FFLogs zone/reports 页面随机抽 20 个 report code 上报给 /api/samples-queue/enqueue
 // @match        https://www.fflogs.com/zone/reports*
 // @grant        GM_setValue
@@ -282,19 +282,19 @@
   }
 
   // 自动刷新真正执行的动作：
-  //   有 updateDuration() —— 先把 duration 写进页面输入框，再调用它做局部刷新
-  //   没有 updateDuration() —— 退回到整页 reload；duration 写入此时无意义就跳过
+  //   有 updateDuration() —— 调用它做局部刷新（duration 在面板输入框变更时已实时同步）
+  //   没有 updateDuration() —— 退回到整页 reload
   function triggerPageRefresh() {
     if (!pageHasUpdateDuration()) {
       setStatus('页面未提供 updateDuration()，退回整页刷新')
       window.location.reload()
       return
     }
-    syncDurationToPage()
     callPageUpdateDuration()
   }
 
-  // 收到 enqueue 响应后，按开关决定是否用 maxDurationSec 回填面板里的 duration
+  // 收到 enqueue 响应后，按开关决定是否用 maxDurationSec 回填面板里的 duration。
+  // 回填视作面板输入框被修改，同步把新值写到页面 #filter-duration-text 上
   function maybeAutoFillDuration(maxSec) {
     if (!state.autoFillDuration) return
     if (typeof maxSec !== 'number' || !Number.isFinite(maxSec) || maxSec <= 0) return
@@ -303,6 +303,7 @@
     state.durationSeconds = String(Math.floor(maxSec))
     saveSetting('durationSeconds', state.durationSeconds)
     if (durationEl) durationEl.value = state.durationSeconds
+    syncDurationToPage()
   }
 
   function setStatus(msg) {
@@ -478,6 +479,8 @@
     durationEl.addEventListener('change', () => {
       state.durationSeconds = durationEl.value.trim()
       saveSetting('durationSeconds', state.durationSeconds)
+      // 用户改动时立刻同步到页面 #filter-duration-text；非法值由 syncDurationToPage 自身忽略
+      syncDurationToPage()
     })
     autofillEl.addEventListener('change', () => {
       state.autoFillDuration = autofillEl.checked
