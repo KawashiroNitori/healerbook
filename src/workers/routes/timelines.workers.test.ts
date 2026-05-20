@@ -81,7 +81,35 @@ describe('GET /api/timelines/:id role', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { role: string; snapshot?: unknown }
     expect(body.role).toBe('editor')
+    // snapshot 字段是否有值取决于 KV/DO，本用例不关心；详见专门用例
+  })
+
+  it('editor 角色 KV 命中时响应携带 snapshot', async () => {
+    const id = await publishOne('editor-snap-hit-00000001', 'T-edit')
+    const snapshotData = { name: 'T-edit', composition: { players: [] }, damageEvents: [] }
+    await env.healerbook_snapshots.put(`tl-snapshot:${id}`, JSON.stringify(snapshotData))
+
+    const res = await SELF.fetch(`https://app/api/timelines/${id}`, {
+      headers: { Authorization: `Bearer ${await authorJwt()}` },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { role: string; snapshot?: unknown }
+    expect(body.role).toBe('editor')
+    expect(body.snapshot).toEqual(snapshotData)
+    expect(res.headers.get('Cache-Control')).toBe('private, no-cache')
+  })
+
+  it('editor 角色 KV miss 时响应 snapshot 缺省，不报错', async () => {
+    const id = await publishOne('editor-snap-miss-0000001', 'T-edit-miss')
+    // 不写 KV;DO 也为空（新发布未灌入）→ getSnapshotJson() 返回 null
+    const res = await SELF.fetch(`https://app/api/timelines/${id}`, {
+      headers: { Authorization: `Bearer ${await authorJwt()}` },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { role: string; snapshot?: unknown }
+    expect(body.role).toBe('editor')
     expect(body.snapshot).toBeUndefined()
+    expect(res.headers.get('Cache-Control')).toBe('private, no-cache')
   })
 
   it('404 for unknown id', async () => {

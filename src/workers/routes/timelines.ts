@@ -75,7 +75,7 @@ app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), asy
   return c.json({ id, publishedAt: now }, 201)
 })
 
-// 公开读:返回 { role, authorName, isAuthor, allowEditRequests, hasPendingRequest, snapshot? }
+// 公开读:返回 { role, authorName, isAuthor, allowEditRequests, hasPendingRequest, pendingRequestCount, snapshot? }
 app.get('/:id', async c => {
   const id = c.req.param('id')
 
@@ -124,21 +124,23 @@ app.get('/:id', async c => {
     pendingRequestCount,
   }
 
-  if (role === 'editor') {
-    return c.json(base, 200, { 'Cache-Control': 'private, no-cache' })
-  }
-
-  // viewer:需要 snapshot(KV 优先,未命中经 DO RPC)
+  // 三角色共用 KV snapshot 查询:editor / author 用于首屏兜底,viewer 用于只读渲染
   const cached = await c.env.healerbook_snapshots.get(`tl-snapshot:${id}`)
   const snapshot = cached
     ? (JSON.parse(cached) as object)
     : await docStub(c.env, id).getSnapshotJson()
-  if (!snapshot) return c.json({ error: 'Not found' }, 404)
-  // snapshot 随协作编辑随时变化:必须 no-cache,否则浏览器会在刷新时
-  // 直接复用陈旧响应,查看者看不到编辑者的实时改动。
-  // 登录用户响应另含 hasPendingRequest(用户相关),用 private。
-  const cacheControl = user ? 'private, no-cache' : 'public, no-cache'
-  return c.json({ ...base, snapshot }, 200, { 'Cache-Control': cacheControl })
+
+  // viewer 角色:snapshot 缺失视为时间轴未生成内容快照(DO 空 + KV 空) → 404
+  if (role === 'viewer' && !snapshot) return c.json({ error: 'Not found' }, 404)
+
+  // editor / author:始终 private, no-cache(用户相关数据 + snapshot 跟随协同变化)
+  // viewer:已登录(可能含 hasPendingRequest)用 private;匿名用 public;统一 no-cache
+  const cacheControl =
+    role === 'editor' ? 'private, no-cache' : user ? 'private, no-cache' : 'public, no-cache'
+
+  // snapshot 为 undefined 时不写入 body(保持响应字段最小化)
+  const body = snapshot ? { ...base, snapshot } : base
+  return c.json(body, 200, { 'Cache-Control': cacheControl })
 })
 
 // WebSocket 升级:转发给 DO,注入 X-Timeline-Id
