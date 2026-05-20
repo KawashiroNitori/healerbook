@@ -168,8 +168,11 @@ export default function EditorPage() {
           return
         }
 
-        // local / author / editor → openTimeline
-        await openTimeline(id, { role: decision.kind })
+        // local / author / editor → openTimeline;editor/author 透传 KV snapshot 做首屏兜底渲染
+        await openTimeline(id, {
+          role: decision.kind,
+          snapshot: serverRes?.snapshot,
+        })
         await store.touchLastViewed(id)
         if (ignore) return
         if (serverRes) {
