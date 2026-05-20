@@ -344,12 +344,12 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }
 
       // 重置三源:snapshot 来自 opts(可为 undefined),yDocProjection / yDocReady 清空
+      // timeline 由紧随其后的 recomputeTimeline() 派生写入(yDocProjection ?? snapshot)
       set({
         engine: null,
         yDocProjection: null,
         snapshot: opts.snapshot ?? null,
         yDocReady: false,
-        timeline: null,
         selectedEventId: null,
         selectedCastEventId: null,
         canUndo: false,
@@ -397,9 +397,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }
 
       // 持久化数据中可能缺 statData(存量迁移产物)→ 补空结构。
-      // 仅在 Y.Doc 真相已就绪(yDocReady)时执行;否则 Y.Doc 还是空壳,
-      // 等 LOAD_REPLY 应用完毕后再补不迟(必要时,LOAD_REPLY 后会触发 'update' → reproject,
-      // 但 statData 缺失需要单独检测,本次先聚焦数据源拆分,这条 legacy 维护只在已就绪时生效)。
+      // 仅在 Y.Doc 真相已就绪(yDocReady)时执行;缓存 miss 路径下 LOAD_REPLY
+      // 后无独立检测点,历史存量缺失 statData 不在此修复(已知限制)。
       if (get().yDocReady) {
         const projected = get().yDocProjection
         if (projected && !projected.statData) {
@@ -433,12 +432,12 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         peersUnsub = null
         engine.destroy()
       }
+      // timeline 由紧随其后的 recomputeTimeline() 派生写入(yDocProjection ?? snapshot)
       set({
         engine: null,
         yDocProjection: null,
         snapshot: timeline,
         yDocReady: false,
-        timeline: null,
         isPublished: true,
         sessionRole: 'viewer',
         connectionStatus: 'disconnected',

@@ -473,8 +473,16 @@ describe('timelineStore - snapshot 兜底渲染数据源', () => {
     expect(state.yDocProjection).not.toBeNull()
     expect(state.timeline).toBe(state.yDocProjection)
 
-    globalThis.WebSocket = oldWS
-    ;(globalThis as { window?: unknown }).window = oldWindow
+    if (oldWS === undefined) {
+      delete (globalThis as Record<string, unknown>).WebSocket
+    } else {
+      globalThis.WebSocket = oldWS
+    }
+    if (oldWindow === undefined) {
+      delete (globalThis as Record<string, unknown>).window
+    } else {
+      ;(globalThis as { window?: unknown }).window = oldWindow
+    }
     useTimelineStore.getState().reset()
   })
 
@@ -524,8 +532,16 @@ describe('timelineStore - snapshot 兜底渲染数据源', () => {
     expect(state.yDocReady).toBe(false)
     expect(state.timeline).toBe(fallback)
 
-    globalThis.WebSocket = oldWS
-    ;(globalThis as { window?: unknown }).window = oldWindow
+    if (oldWS === undefined) {
+      delete (globalThis as Record<string, unknown>).WebSocket
+    } else {
+      globalThis.WebSocket = oldWS
+    }
+    if (oldWindow === undefined) {
+      delete (globalThis as Record<string, unknown>).window
+    } else {
+      ;(globalThis as { window?: unknown }).window = oldWindow
+    }
     useTimelineStore.getState().reset()
   })
 
