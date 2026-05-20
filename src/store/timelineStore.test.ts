@@ -378,3 +378,188 @@ describe('annotation CRUD', () => {
     expect(useTimelineStore.getState().timeline!.annotations).toHaveLength(1)
   })
 })
+
+describe('timelineStore - snapshot 兜底渲染数据源', () => {
+  beforeEach(() => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    useTimelineStore.getState().reset()
+  })
+
+  it('selector: yDocProjection 有值时优先于 snapshot', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('selector-yDoc-priority', { role: 'local', seedContent: baseContent })
+    // local 角色不挂 remote、本地 build seed 即视为已加载
+    const state = useTimelineStore.getState()
+    expect(state.yDocProjection?.name).toBe('测试时间轴')
+    expect(state.timeline).toBe(state.yDocProjection)
+  })
+
+  it('selector: yDocProjection 为 null 时回退到 snapshot', () => {
+    const fakeTimeline: import('@/types/timeline').Timeline = {
+      id: 'snap-only',
+      name: '只读',
+      encounter: null,
+      composition: { players: [] },
+      damageEvents: [],
+      castEvents: [],
+      annotations: [],
+      statusEvents: [],
+      createdAt: 0,
+      updatedAt: 0,
+    } as unknown as import('@/types/timeline').Timeline
+    useTimelineStore.getState().setViewerSnapshot(fakeTimeline)
+    const state = useTimelineStore.getState()
+    expect(state.yDocProjection).toBeNull()
+    expect(state.snapshot).toBe(fakeTimeline)
+    expect(state.timeline).toBe(fakeTimeline)
+  })
+
+  it('selector: 两者皆 null 时 timeline 为 null', () => {
+    useTimelineStore.getState().reset()
+    const state = useTimelineStore.getState()
+    expect(state.yDocProjection).toBeNull()
+    expect(state.snapshot).toBeNull()
+    expect(state.timeline).toBeNull()
+  })
+
+  it('openTimeline (editor) 缓存命中:立即清 snapshot、yDocReady=true、yDocProjection 就位', async () => {
+    // 第一次写入持久化数据
+    await useTimelineStore
+      .getState()
+      .openTimeline('cache-hit-doc', { role: 'local', seedContent: baseContent })
+    await useTimelineStore.getState().engine!.flush()
+    useTimelineStore.getState().reset()
+
+    // 第二次以 editor 模式打开同 doc 并传 snapshot 兜底:本地缓存应优先,snapshot 立即清
+    const fallback = {
+      ...baseContent,
+      id: 'cache-hit-doc',
+      updatedAt: 0,
+    } as import('@/types/timeline').Timeline
+    // 注意:openTimeline 在 editor/author 模式下会尝试连 WS;此处不挂 WS 测试,因此用 'author'
+    // 角色构造同样的"非 local"路径(role !== 'local' → wireRemote)。为避免真实 WS,我们 stub WebSocket。
+    // SyncEngine.buildWsUrl 还会读 window.location,node 环境下需要 stub。
+    const oldWS = globalThis.WebSocket
+    const oldWindow = (globalThis as { window?: unknown }).window
+    class StubWS {
+      static OPEN = 1
+      static CLOSED = 3
+      readyState = 0
+      binaryType = ''
+      onopen: (() => void) | null = null
+      onmessage: ((ev: { data: ArrayBuffer }) => void) | null = null
+      onclose: ((ev: { code: number }) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(public url: string) {}
+      send() {}
+      close() {
+        this.readyState = StubWS.CLOSED
+      }
+    }
+    // @ts-expect-error stub
+    globalThis.WebSocket = StubWS
+    ;(globalThis as { window?: unknown }).window = {
+      location: { protocol: 'http:', host: 'localhost' },
+    }
+
+    await useTimelineStore
+      .getState()
+      .openTimeline('cache-hit-doc', { role: 'author', snapshot: fallback })
+    const state = useTimelineStore.getState()
+    expect(state.yDocReady).toBe(true)
+    expect(state.snapshot).toBeNull()
+    expect(state.yDocProjection).not.toBeNull()
+    expect(state.timeline).toBe(state.yDocProjection)
+
+    globalThis.WebSocket = oldWS
+    ;(globalThis as { window?: unknown }).window = oldWindow
+    useTimelineStore.getState().reset()
+  })
+
+  it('openTimeline (editor) 缓存 miss:snapshot 保持、yDocProjection null、yDocReady false', async () => {
+    const fallback = {
+      id: 'cache-miss-doc',
+      name: '兜底',
+      encounter: null,
+      composition: { players: [] },
+      damageEvents: [],
+      castEvents: [],
+      annotations: [],
+      statusEvents: [],
+      createdAt: 0,
+      updatedAt: 0,
+    } as unknown as import('@/types/timeline').Timeline
+
+    const oldWS = globalThis.WebSocket
+    const oldWindow = (globalThis as { window?: unknown }).window
+    class StubWS {
+      static OPEN = 1
+      static CLOSED = 3
+      readyState = 0
+      binaryType = ''
+      onopen: (() => void) | null = null
+      onmessage: ((ev: { data: ArrayBuffer }) => void) | null = null
+      onclose: ((ev: { code: number }) => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(public url: string) {}
+      send() {}
+      close() {
+        this.readyState = StubWS.CLOSED
+      }
+    }
+    // @ts-expect-error stub
+    globalThis.WebSocket = StubWS
+    ;(globalThis as { window?: unknown }).window = {
+      location: { protocol: 'http:', host: 'localhost' },
+    }
+
+    await useTimelineStore
+      .getState()
+      .openTimeline('cache-miss-doc', { role: 'editor', snapshot: fallback })
+    const state = useTimelineStore.getState()
+    expect(state.snapshot).toBe(fallback)
+    expect(state.yDocProjection).toBeNull()
+    expect(state.yDocReady).toBe(false)
+    expect(state.timeline).toBe(fallback)
+
+    globalThis.WebSocket = oldWS
+    ;(globalThis as { window?: unknown }).window = oldWindow
+    useTimelineStore.getState().reset()
+  })
+
+  it('setViewerSnapshot 设置 snapshot 字段、yDocProjection null、yDocReady false', () => {
+    const t = {
+      id: 'viewer-doc',
+      name: 'viewer',
+      encounter: null,
+      composition: { players: [] },
+      damageEvents: [],
+      castEvents: [],
+      annotations: [],
+      statusEvents: [],
+      createdAt: 0,
+      updatedAt: 0,
+    } as unknown as import('@/types/timeline').Timeline
+    useTimelineStore.getState().setViewerSnapshot(t)
+    const state = useTimelineStore.getState()
+    expect(state.snapshot).toBe(t)
+    expect(state.yDocProjection).toBeNull()
+    expect(state.yDocReady).toBe(false)
+    expect(state.sessionRole).toBe('viewer')
+  })
+
+  it('reset 清空三源', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('to-reset', { role: 'local', seedContent: baseContent })
+    expect(useTimelineStore.getState().yDocProjection).not.toBeNull()
+    useTimelineStore.getState().reset()
+    const state = useTimelineStore.getState()
+    expect(state.yDocProjection).toBeNull()
+    expect(state.snapshot).toBeNull()
+    expect(state.yDocReady).toBe(false)
+    expect(state.timeline).toBeNull()
+  })
+})

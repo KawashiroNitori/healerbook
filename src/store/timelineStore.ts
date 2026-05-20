@@ -56,7 +56,13 @@ function replaceStatData(doc: YDoc, statData: TimelineStatData): void {
 interface TimelineState {
   /** 同步引擎(持有 Y.Doc 真相源);未打开时间轴时为 null */
   engine: SyncEngine | null
-  /** 当前时间轴 —— Y.Doc 的只读投影 */
+  /** Y.Doc 投影;viewer 永远 null,editor/author 缓存命中或 LOAD_REPLY 后写入 */
+  yDocProjection: Timeline | null
+  /** REST KV 快照;三角色通用,editor/author 在 yDocReady 后清空 */
+  snapshot: Timeline | null
+  /** editor/author:Y.Doc 内容是否已就绪(本地缓存命中或 LOAD_REPLY 应用完毕);viewer 永远 false */
+  yDocReady: boolean
+  /** 派生:yDocProjection ?? snapshot;消费方继续读这里 */
   timeline: Timeline | null
   /** 撤销栈是否非空(响应式,供工具栏按钮禁用判定) */
   canUndo: boolean
@@ -97,7 +103,12 @@ interface TimelineState {
   /** 打开一条时间轴:创建 SyncEngine,首帧投影 */
   openTimeline: (
     docId: string,
-    opts: { role: 'local' | 'author' | 'editor'; seedContent?: TimelineContent }
+    opts: {
+      role: 'local' | 'author' | 'editor'
+      seedContent?: TimelineContent
+      /** REST KV 首屏兜底快照;editor/author 适用,缓存命中后立即清 */
+      snapshot?: Timeline
+    }
   ) => Promise<void>
   /** viewer 模式:直接用服务端 snapshot 只读渲染,不建引擎 */
   setViewerSnapshot: (timeline: Timeline) => void
@@ -222,15 +233,22 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     }, 1000)
   }
 
+  /** 把 yDocProjection ?? snapshot 写回派生 timeline 字段 */
+  const recomputeTimeline = () => {
+    const { yDocProjection, snapshot } = get()
+    set({ timeline: yDocProjection ?? snapshot })
+  }
+
   /** observer:Y.Doc 变更 → 重投影(引用保持) */
   const reproject = () => {
     const engine = get().engine
     if (!engine) return
-    const prev = get().timeline ?? undefined
+    const prev = get().yDocProjection ?? undefined
     const next = projectTimeline(engine.doc, prev)
     next.id = engine.docId
     next.updatedAt = Math.floor(Date.now() / 1000)
-    set({ timeline: next })
+    set({ yDocProjection: next })
+    recomputeTimeline()
     scheduleMetaWrite()
   }
 
@@ -260,6 +278,16 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     set({ peers })
   }
 
+  /** 远端 doc 加载完成回调:缓存命中和 LOAD_REPLY 两条路径共用,幂等 */
+  const onLoadedHandler = () => {
+    if (get().yDocReady) return
+    set({ yDocReady: true, snapshot: null })
+    recomputeTimeline()
+    // LOAD_REPLY 的 missing 可能为空,Y.applyUpdate 不触发 'update' 事件,
+    // 自动 reproject 不会跑;手动调用一次保证 yDocProjection 一定写入。
+    reproject()
+  }
+
   /** 给指定引擎挂 remote;连接状态回流到 store */
   const wireRemote = (engine: SyncEngine) => {
     peersUnsub?.()
@@ -274,7 +302,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         peersUnsub = null
         set({ sessionRole: 'viewer' })
         toast.error('你的编辑权限已被移除')
-      }
+      },
+      onLoadedHandler
     )
     // 设本地 awareness user(昵称 + 颜色),并订阅 peers 变化
     const auth = useAuthStore.getState()
@@ -295,16 +324,17 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
 
   return {
     engine: null,
+    yDocProjection: null,
+    snapshot: null,
+    yDocReady: false,
     timeline: null,
     canUndo: false,
     canRedo: false,
     ...initialUiState,
 
     openTimeline: async (docId, opts) => {
-      // Fix 1: 递增 generation,捕获当前值;await 后检测是否已被新调用抢占
       const myGeneration = ++openGeneration
 
-      // Fix 2: 先从旧 engine 的 doc 移除 reproject 监听,再销毁引擎
       const prevEngine = get().engine
       if (prevEngine) {
         prevEngine.doc.off('update', reproject)
@@ -312,9 +342,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         peersUnsub = null
         prevEngine.destroy()
       }
-      // 切换时间轴:先清空旧投影与选择态,避免渲染到旧数据
+
+      // 重置三源:snapshot 来自 opts(可为 undefined),yDocProjection / yDocReady 清空
       set({
         engine: null,
+        yDocProjection: null,
+        snapshot: opts.snapshot ?? null,
+        yDocReady: false,
         timeline: null,
         selectedEventId: null,
         selectedCastEventId: null,
@@ -326,10 +360,10 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         sessionRole: opts.role,
         peers: [],
       })
+      recomputeTimeline()
       useUIStore.setState({ manualLock: false })
 
       const seedContent = opts.seedContent
-      // seed:若内容缺 statData,补空结构(只存用户覆盖值)
       const seedDoc =
         seedContent !== undefined
           ? buildYDoc(
@@ -341,7 +375,6 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
 
       const engine = await SyncEngine.create(docId, seedDoc)
 
-      // Fix 1: 检测是否已被并发的新调用抢占;若是,销毁刚创建的引擎并中止
       if (myGeneration !== openGeneration) {
         engine.destroy()
         return
@@ -352,15 +385,28 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       engine.undoManager.on('stack-item-popped', syncUndoState)
       engine.undoManager.on('stack-cleared', syncUndoState)
       set({ engine, currentTime: 0 })
-      reproject()
 
-      // 持久化数据中可能缺 statData(存量迁移产物)→ 补空结构
-      // 此写入是初始化维护,不应被 UndoManager 跟踪,故用 HOUSEKEEPING_ORIGIN
-      const projected = get().timeline
-      if (projected && !projected.statData) {
-        engine.doc.transact(() => {
-          replaceStatData(engine.doc, createEmptyStatData())
-        }, HOUSEKEEPING_ORIGIN)
+      // 决定是否立即视为已加载:
+      // - local:seed 即真相源,直接视为已加载;
+      // - editor/author + 本地缓存命中:IndexedDB 内容即真相源(可能比 KV 更新),
+      //   onLoadedHandler 立即清 snapshot、写 yDocReady=true、跑一次 reproject;
+      // 否则 yDocReady=false,等 LOAD_REPLY 触发 onLoadedHandler;
+      // timeline 派生此期间取 snapshot(若有)。
+      if (opts.role === 'local' || engine.hadPersistedData) {
+        onLoadedHandler()
+      }
+
+      // 持久化数据中可能缺 statData(存量迁移产物)→ 补空结构。
+      // 仅在 Y.Doc 真相已就绪(yDocReady)时执行;否则 Y.Doc 还是空壳,
+      // 等 LOAD_REPLY 应用完毕后再补不迟(必要时,LOAD_REPLY 后会触发 'update' → reproject,
+      // 但 statData 缺失需要单独检测,本次先聚焦数据源拆分,这条 legacy 维护只在已就绪时生效)。
+      if (get().yDocReady) {
+        const projected = get().yDocProjection
+        if (projected && !projected.statData) {
+          engine.doc.transact(() => {
+            replaceStatData(engine.doc, createEmptyStatData())
+          }, HOUSEKEEPING_ORIGIN)
+        }
       }
 
       // 首帧投影后初始化小队状态
@@ -369,14 +415,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         get().initializePartyState(composition)
       }
 
-      // editor 模式:挂 remote(WS 连接 → load-doc → 双向同步)
+      // editor / author 模式:挂 remote(WS 连接 → load-doc → 双向同步)
       if (opts.role !== 'local') {
         wireRemote(engine)
       }
     },
 
     setViewerSnapshot: timeline => {
-      // viewer:无引擎,直接用服务端 snapshot 只读渲染
       if (metaTimer) {
         clearTimeout(metaTimer)
         metaTimer = null
@@ -390,7 +435,10 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }
       set({
         engine: null,
-        timeline,
+        yDocProjection: null,
+        snapshot: timeline,
+        yDocReady: false,
+        timeline: null,
         isPublished: true,
         sessionRole: 'viewer',
         connectionStatus: 'disconnected',
@@ -401,6 +449,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         selectedCastEventId: null,
         peers: [],
       })
+      recomputeTimeline()
       useUIStore.setState({ manualLock: false })
       if (timeline.composition) get().initializePartyState(timeline.composition)
     },
@@ -675,7 +724,6 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         clearTimeout(metaTimer)
         metaTimer = null
       }
-      // Fix 2: 先移除 reproject 监听,再销毁引擎
       const engine = get().engine
       if (engine) {
         engine.doc.off('update', reproject)
@@ -683,7 +731,16 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         peersUnsub = null
         engine.destroy()
       }
-      set({ engine: null, timeline: null, canUndo: false, canRedo: false, ...initialUiState })
+      set({
+        engine: null,
+        yDocProjection: null,
+        snapshot: null,
+        yDocReady: false,
+        timeline: null,
+        canUndo: false,
+        canRedo: false,
+        ...initialUiState,
+      })
     },
   }
 })
