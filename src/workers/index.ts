@@ -3,6 +3,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { AppEnv, Env } from './env'
+import { isAllowedOrigin } from './allowedOrigins'
 import { authRoutes } from './routes/auth'
 import { timelinesRoutes } from './routes/timelines'
 import { myRoutes } from './routes/my'
@@ -21,14 +22,12 @@ export { TimelineDoc }
 
 const app = new Hono<AppEnv>()
 
-const PROD_ALLOWED_ORIGINS = ['https://xivhealer.com']
-
 app.use(
   '*',
   cors({
     origin: (origin, c) => {
       if (c.env.ENVIRONMENT !== 'production') return '*'
-      return PROD_ALLOWED_ORIGINS.includes(origin) ? origin : null
+      return isAllowedOrigin(origin) ? origin : null
     },
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],

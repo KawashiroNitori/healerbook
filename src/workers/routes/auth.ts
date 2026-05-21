@@ -5,6 +5,7 @@ import { vValidator } from '@hono/valibot-validator'
 import * as v from 'valibot'
 import type { AppEnv } from '../env'
 import type { Env } from '../env'
+import { isAllowedOrigin } from '../allowedOrigins'
 import { signAccessToken, signRefreshToken, verifyToken } from '../jwt'
 
 interface FFLogsTokenResponse {
@@ -24,12 +25,39 @@ interface FFLogsUserResponse {
   }
 }
 
-async function exchangeCodeForToken(code: string, env: Env): Promise<FFLogsTokenResponse> {
+/**
+ * 校验请求来源域名并据此推导 OAuth redirect_uri。
+ *
+ * - 生产环境：`origin` 必须命中自家站点白名单（见 {@link isAllowedOrigin}）。
+ * - 开发模式：放行任意来源（只要能解析为合法 URL）。
+ *
+ * @returns `${origin}/callback`；来源缺失或不被允许时返回 null。
+ */
+export function resolveRedirectUri(
+  origin: string | null | undefined,
+  isDev: boolean
+): string | null {
+  if (!origin) return null
+  let url: URL
+  try {
+    url = new URL(origin)
+  } catch {
+    return null
+  }
+  if (!isDev && !isAllowedOrigin(origin)) return null
+  return `${url.origin}/callback`
+}
+
+async function exchangeCodeForToken(
+  code: string,
+  redirectUri: string,
+  env: Env
+): Promise<FFLogsTokenResponse> {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: env.FFLOGS_CLIENT_ID!,
     client_secret: env.FFLOGS_CLIENT_SECRET!,
-    redirect_uri: env.FFLOGS_OAUTH_REDIRECT_URI!,
+    redirect_uri: redirectUri,
     code,
   })
 
@@ -71,17 +99,17 @@ const RefreshSchema = v.object({ refresh_token: v.string() })
 const app = new Hono<AppEnv>()
 
 app.post('/callback', vValidator('json', CallbackSchema), async c => {
-  if (
-    !c.env.JWT_SECRET ||
-    !c.env.FFLOGS_CLIENT_ID ||
-    !c.env.FFLOGS_CLIENT_SECRET ||
-    !c.env.FFLOGS_OAUTH_REDIRECT_URI
-  ) {
+  if (!c.env.JWT_SECRET || !c.env.FFLOGS_CLIENT_ID || !c.env.FFLOGS_CLIENT_SECRET) {
     return c.json({ error: 'Server configuration error' }, 500)
+  }
+  const isDev = c.env.ENVIRONMENT !== 'production'
+  const redirectUri = resolveRedirectUri(c.req.header('Origin'), isDev)
+  if (!redirectUri) {
+    return c.json({ error: 'Origin not allowed' }, 403)
   }
   const { code } = c.req.valid('json')
   try {
-    const tokenResponse = await exchangeCodeForToken(code, c.env)
+    const tokenResponse = await exchangeCodeForToken(code, redirectUri, c.env)
     const user = await fetchFFLogsUser(tokenResponse.access_token)
     const userId = String(user.id)
     const [accessToken, refreshToken] = await Promise.all([
