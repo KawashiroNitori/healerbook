@@ -46,9 +46,9 @@ export const RAID_TIERS: RaidTier[] = [
   },
   {
     name: '妖星乱舞绝境战',
-    zone: 0,
+    zone: 73,
     patch: '7.5',
-    encounters: [],
+    encounters: [{ id: 1085, name: '妖星乱舞绝境战', shortName: '', gameZoneId: 0 }],
     comingSoon: true,
   },
 ]
