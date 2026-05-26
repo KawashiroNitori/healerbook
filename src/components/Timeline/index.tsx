@@ -55,6 +55,7 @@ import {
 } from './constants'
 import HpCurveTrack from './HpCurveTrack'
 import { PeerOverlayFixed, PeerOverlayMain } from './PeerOverlay'
+import { useSmoothedPeers } from './useSmoothedPeers'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
@@ -211,6 +212,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     useShallow(s => s.peers.filter(p => p.dragging).map(p => p.dragging!.id))
   )
   const peerDraggingIds = useMemo(() => new Set(peerDraggingIdList), [peerDraggingIdList])
+
+  // 协作者光标 / 拖动 ghost 的补间平滑（按当前缩放做像素域吸附判定）
+  const smoothedPeers = useSmoothedPeers(zoomLevel)
 
   // drop 落点提交后 castEvents 变新引用 → 自动清空 draggingId。
   // 放在 useEffect 而不是 onDragEnd 里，是为了避开 Konva 释放瞬间的状态收束：
@@ -1453,6 +1457,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 fixedAreaHeight={fixedAreaHeight}
                 damageTrackHeight={eventTrackHeight}
                 annotations={damageTrackAnnotations}
+                peers={smoothedPeers}
               />
             </Layer>
           </Stage>
@@ -1548,6 +1553,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                     trackHeight={skillTrackHeight}
                     skillTracksHeight={skillTracksHeight}
                     annotations={skillTrackAnnotations}
+                    peers={smoothedPeers}
                   />
                 }
                 onSelectCastEvent={handleSelectCastEvent}
