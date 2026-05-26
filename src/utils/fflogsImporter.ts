@@ -20,6 +20,7 @@ import { JOB_MAP } from '@/data/jobMap'
 import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
 import { classifyPartialAOE } from './partialAoeClassifier'
+import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
 
 const actionChinese: Record<string, string> = actionChineseRaw
 
@@ -380,8 +381,26 @@ export function parseDamageEvents(
   //   'aoe' / 'partial_aoe' / 'partial_final_aoe'
   // composition 缺失（既有 dev 调用方）时 no-op，保持向后兼容
   classifyPartialAOE(damageEvents, composition)
+  // 流水线最后：按 actionOverride 表强制改写 type，权威覆盖上面所有启发式判别
+  applyActionTypeOverride(damageEvents)
 
   return damageEvents
+}
+
+/**
+ * 硬覆盖：abilityId 命中 actionOverride 表的事件强制改写 type，绕过 detectDamageType /
+ * refine / classifyPartialAOE 的全部启发式。放在流水线最后，确保不会被它们推翻。
+ */
+function applyActionTypeOverride(damageEvents: DamageEvent[]): void {
+  for (const event of damageEvents) {
+    const abilityId = event.playerDamageDetails?.[0]?.abilityId
+    if (abilityId === undefined) continue
+    if (TANK_BUSTER_ACTION_IDS.has(abilityId)) {
+      event.type = 'tankbuster'
+    } else if (AUTO_ATTACK_ACTION_IDS.has(abilityId)) {
+      event.type = 'auto'
+    }
+  }
 }
 
 /**
