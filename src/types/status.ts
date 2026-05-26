@@ -232,7 +232,12 @@ export interface StatusExecutor {
   onBeforeShield?: (ctx: StatusBeforeShieldContext) => PartyState | void
   /** 盾值在本事件被完全打穿瞬间调用 */
   onConsume?: (ctx: StatusConsumeContext) => PartyState | void
-  /** 盾值吸收后调用（无论这个状态自身是否参与了吸收） */
+  /**
+   * 盾值吸收后调用（无论这个状态自身是否参与了吸收）。
+   *
+   * 仅在非坦专伤害（全员 / 部分 AOE）上触发——死刑(tankbuster) / 普攻(auto) 是坦专伤害，
+   * 非 T 不吃，simulate 主循环在 phase 5 派发前统一拦掉，钩子内无需也无法据 type 区分。
+   */
   onAfterDamage?: (ctx: StatusAfterDamageContext) => PartyState | void
   /**
    * 状态到达 endTime、即将被 driver 清理时调用。

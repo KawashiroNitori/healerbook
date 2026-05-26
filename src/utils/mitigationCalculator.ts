@@ -835,31 +835,34 @@ export class MitigationCalculator {
       currentState = stateAfterHp
 
       // Phase 5 onAfterDamage：在 applyDamageToHp 之后跑，让反应式治疗（如礼仪之铃）看到
-      // hp_after_damage 而非 hp_before。filter 复刻 calculate 单路径的 multiplierFilter
-      // 口径——aoe 排除坦专 buff，tankbuster 全包含。多坦下 phase 5 钩子目前只做 partywide
-      // 操作（礼仪之铃 stack 减 / nonTankDamageTotal 累计），按"最优分支后的共享 partyState"
-      // 跑一次即可，避免按 tank 分支重复触发让 stack 加倍消耗。
-      const beforePhase5 = currentState
-      let phase5State = currentState
-      for (const status of currentState.statuses) {
-        const meta = getStatusById(status.statusId)
-        if (!meta?.executor?.onAfterDamage) continue
-        if (meta.isTankOnly && !includeTankOnly) continue
-        if (event.time < status.startTime || event.time > status.endTime) continue
-        const phase5Result = meta.executor.onAfterDamage({
-          status,
-          event,
-          partyState: phase5State,
-          candidateDamage: result.candidateDamage ?? result.finalDamage,
-          finalDamage: result.finalDamage,
-          statistics,
-          recordHeal,
-        })
-        if (phase5Result) phase5State = phase5Result
-      }
-      if (phase5State !== currentState) {
-        currentState = recomputeAndTrack(phase5State, event.time)
-        captureTransition(beforePhase5, currentState, event.time)
+      // hp_after_damage 而非 hp_before。死刑 / 普攻是坦专伤害（includeTankOnly），非 T 不吃，
+      // partywide 反应式钩子（礼仪之铃回血 / 大宇宙累计）一律不应在这类事件上触发——故整段
+      // phase 5 只在非坦专事件（全员 / 部分 AOE）上跑，由这里统一收口，钩子内无需各自重复
+      // 排除 tankbuster / auto。多坦下也只按"最优分支后的共享 partyState"跑一次，避免按 tank
+      // 分支重复触发让 stack 加倍消耗。
+      if (!includeTankOnly) {
+        const beforePhase5 = currentState
+        let phase5State = currentState
+        for (const status of currentState.statuses) {
+          const meta = getStatusById(status.statusId)
+          if (!meta?.executor?.onAfterDamage) continue
+          if (meta.isTankOnly) continue // 坦专 buff 不挂在非 T 身上，不参与 AOE 路径
+          if (event.time < status.startTime || event.time > status.endTime) continue
+          const phase5Result = meta.executor.onAfterDamage({
+            status,
+            event,
+            partyState: phase5State,
+            candidateDamage: result.candidateDamage ?? result.finalDamage,
+            finalDamage: result.finalDamage,
+            statistics,
+            recordHeal,
+          })
+          if (phase5Result) phase5State = phase5Result
+        }
+        if (phase5State !== currentState) {
+          currentState = recomputeAndTrack(phase5State, event.time)
+          captureTransition(beforePhase5, currentState, event.time)
+        }
       }
 
       // 同时刻 cast 推迟到 damage 之后处理：先扣再回，hp 曲线/日志顺序与计算流程一致。

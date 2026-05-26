@@ -1813,6 +1813,208 @@ describe('HP 池 - calculate 内钩子改 hp 真正生效', () => {
   })
 })
 
+describe('Phase 5 onAfterDamage 派发口径', () => {
+  const PARTYWIDE_BUFF_ID = 999902
+
+  // partywide 反应式钩子：记录每次被调用时的事件类型。
+  const firedTypes: DamageEvent['type'][] = []
+  const mkPartywideMeta = (): MitigationStatusMetadata =>
+    ({
+      id: PARTYWIDE_BUFF_ID,
+      name: 'mock-partywide-reactive',
+      type: 'multiplier',
+      performance: { physics: 1, magic: 1, darkness: 1 },
+      isFriendly: true,
+      isTankOnly: false,
+      executor: {
+        onAfterDamage: (ctx: { event: DamageEvent }) => {
+          firedTypes.push(ctx.event.type)
+        },
+      },
+    }) as unknown as MitigationStatusMetadata
+
+  it('只在全员 / 部分 AOE 触发，死刑 / 普攻被主循环拦掉', () => {
+    firedTypes.length = 0
+    const spy = vi
+      .spyOn(registry, 'getStatusById')
+      .mockImplementation(id => (id === PARTYWIDE_BUFF_ID ? mkPartywideMeta() : undefined))
+    try {
+      const calculator = new MitigationCalculator()
+      const initialState: PartyState = {
+        statuses: [
+          {
+            instanceId: 'partywide',
+            statusId: PARTYWIDE_BUFF_ID,
+            startTime: 0,
+            endTime: 60,
+            sourcePlayerId: 1,
+          },
+        ],
+        timestamp: 0,
+      }
+      calculator.simulate({
+        castEvents: [],
+        damageEvents: [
+          mkDmg('A', 10, 'aoe', 10000),
+          mkDmg('B', 20, 'tankbuster', 10000),
+          mkDmg('C', 30, 'partial_aoe', 10000),
+          mkDmg('D', 40, 'auto', 10000),
+          mkDmg('E', 50, 'partial_final_aoe', 10000),
+        ],
+        initialState,
+        baseReferenceMaxHPForAoe: 100000,
+        baseReferenceMaxHPForTank: 100000,
+      })
+
+      expect(firedTypes).toEqual(['aoe', 'partial_aoe', 'partial_final_aoe'])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
+describe('礼仪之铃 (2709) onExpire — 用真实 registry', () => {
+  const BELL_STATUS_ID = 2709
+  const BELL_HEAL_ID = 25863
+
+  // 单层治疗量 = healByAbility[25863]，onExpire 按"剩余层数 × 单层/2"回血。
+  const mkStats = (perStackHeal: number) =>
+    ({
+      shieldByAbility: {},
+      damageByAbility: {},
+      maxHPByJob: {},
+      critShieldByAbility: {},
+      healByAbility: { [BELL_HEAL_ID]: perStackHeal },
+      critHealByAbility: {},
+      sampleSize: 0,
+      updatedAt: '',
+      tankReferenceMaxHP: 100000,
+      referenceMaxHP: 100000,
+    }) as never
+
+  const mkBell = (stack: number): PartyState => ({
+    players: [{ id: 1, job: 'WHM', maxHP: 100000 }],
+    statuses: [
+      {
+        instanceId: 'bell',
+        statusId: BELL_STATUS_ID,
+        startTime: 0,
+        endTime: 20,
+        sourcePlayerId: 1,
+        stack,
+        data: { castEventId: 'bell-cast' },
+      },
+    ],
+    timestamp: 0,
+  })
+
+  it('自然到期回复剩余层数：每层 healByAbility[25863]/2', () => {
+    const calculator = new MitigationCalculator()
+    // 窗口 [0,20] 内无伤害 → 5 层全保留；t=30 的伤害把推进带过 endTime 触发 onExpire。
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [mkDmg('post', 30, 'aoe', 10000)],
+      initialState: mkBell(5),
+      statistics: mkStats(4000),
+      baseReferenceMaxHPForAoe: 100000,
+    })
+
+    const bellHeals = out.healSnapshots.filter(s => s.actionId === BELL_HEAL_ID)
+    expect(bellHeals).toHaveLength(1)
+    expect(bellHeals[0]).toMatchObject({
+      time: 20, // expireTime
+      baseAmount: 10000, // (4000 / 2) * 5
+      sourcePlayerId: 1,
+      isHotTick: false,
+    })
+  })
+
+  it('被伤害打空层数后 removeStatus，到期不重复回血', () => {
+    const calculator = new MitigationCalculator()
+    // stack=1：t=5 的伤害触发 onAfterDamage 满额回血一次并消层到 0 → removeStatus；
+    // t=30 推进带过 endTime 时铃铛已不在 → 不触发 onExpire。
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [mkDmg('hit', 5, 'aoe', 30000), mkDmg('post', 30, 'aoe', 10000)],
+      initialState: mkBell(1),
+      statistics: mkStats(4000),
+      baseReferenceMaxHPForAoe: 100000,
+    })
+
+    const bellHeals = out.healSnapshots.filter(s => s.actionId === BELL_HEAL_ID)
+    // 只有 onAfterDamage 的满额 4000，没有 onExpire 的 (4000/2)*1 = 2000。
+    expect(bellHeals).toHaveLength(1)
+    expect(bellHeals[0]).toMatchObject({ time: 5, baseAmount: 4000 })
+    expect(bellHeals.some(s => s.baseAmount === 2000)).toBe(false)
+  })
+})
+
+describe('泛输血 (2613) onExpire — 用真实 registry', () => {
+  const PANHAIMA_STATUS_ID = 2613
+  const PANHAIMA_ACTION_ID = 24311 // 回血归属记到泛输血 action
+
+  // onExpire 按"剩余层数 × 盾量/2"回血，盾量取 shieldByAbility[2613]。
+  const mkStats = (shieldAmount: number) =>
+    ({
+      shieldByAbility: { [PANHAIMA_STATUS_ID]: shieldAmount },
+      damageByAbility: {},
+      maxHPByJob: {},
+      critShieldByAbility: {},
+      healByAbility: {},
+      critHealByAbility: {},
+      sampleSize: 0,
+      updatedAt: '',
+      tankReferenceMaxHP: 100000,
+      referenceMaxHP: 100000,
+    }) as never
+
+  const mkPanhaima = (stack: number): PartyState => ({
+    players: [{ id: 1, job: 'SGE', maxHP: 100000 }],
+    statuses: [
+      {
+        instanceId: 'panhaima',
+        statusId: PANHAIMA_STATUS_ID,
+        startTime: 0,
+        endTime: 20,
+        sourcePlayerId: 1,
+        stack,
+        data: { castEventId: 'panhaima-cast' },
+      },
+    ],
+    timestamp: 0,
+  })
+
+  const runExpire = (stack: number, shieldAmount: number) => {
+    const calculator = new MitigationCalculator()
+    // t=30 的伤害把推进带过 endTime(20) 触发 onExpire。
+    const out = calculator.simulate({
+      castEvents: [],
+      damageEvents: [mkDmg('post', 30, 'aoe', 10000)],
+      initialState: mkPanhaima(stack),
+      statistics: mkStats(shieldAmount),
+      baseReferenceMaxHPForAoe: 100000,
+    })
+    return out.healSnapshots.filter(s => s.actionId === PANHAIMA_ACTION_ID)
+  }
+
+  it('自然到期回复剩余层数：每层 shieldByAbility[2613]/2', () => {
+    const heals = runExpire(5, 4000)
+    expect(heals).toHaveLength(1)
+    expect(heals[0]).toMatchObject({
+      time: 20, // expireTime
+      baseAmount: 10000, // (4000 / 2) * 5
+      sourcePlayerId: 1,
+      isHotTick: false,
+    })
+  })
+
+  it('回血量随剩余层数线性缩放', () => {
+    const heals = runExpire(2, 4000)
+    expect(heals).toHaveLength(1)
+    expect(heals[0].baseAmount).toBe(4000) // (4000 / 2) * 2
+  })
+})
+
 describe('HP 池 · hpTimeline', () => {
   const baseInitialState: PartyState = { statuses: [], timestamp: 0 }
 

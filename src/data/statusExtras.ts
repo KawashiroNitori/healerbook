@@ -306,6 +306,23 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
           { stack: newStack }
         )
       },
+      // 自然到期时回复剩余层数的治疗：每层 = healByAbility[25863] / 2，与手动收铃铛
+      // （mitigationActions.ts 的 28509）口径一致。被打空层数提前 removeStatus 的不会走到这里。
+      onExpire: ctx => {
+        const remainingStacks = ctx.status.stack ?? 1
+        const baseAmount = ((ctx.statistics?.healByAbility?.[25863] ?? 0) / 2) * remainingStacks
+        return applyDirectHeal(
+          ctx.partyState,
+          baseAmount,
+          {
+            castEventId: (ctx.status.data?.castEventId as string | undefined) ?? '',
+            actionId: 25863,
+            sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
+            time: ctx.expireTime,
+          },
+          ctx.recordHeal
+        )
+      },
     },
   },
   3903: {
@@ -435,11 +452,11 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     category: ['partywide', 'heal'],
     isFriendly: true,
     executor: {
-      // 累计非 T 职业受到的实际伤害；坦专事件（tankbuster / auto）跳过——非 T 不吃伤。
+      // 累计非 T 职业受到的实际伤害。坦专事件（tankbuster / auto）由 simulate 主循环统一拦在
+      // phase 5 派发之外——此钩子根本不会在这类事件上被调用，故无需自行判 type。
       // 读取最新 data 必须从 ctx.partyState.statuses 里 find 同 instanceId（onAfterDamage 的
       // ctx.status 是原始快照，data 字段可能落后于本事件 onConsume 等修改）。
       onAfterDamage: ctx => {
-        if (ctx.event.type === 'tankbuster' || ctx.event.type === 'auto') return
         const current = ctx.partyState.statuses.find(s => s.instanceId === ctx.status.instanceId)
         const prev = (current?.data?.nonTankDamageTotal as number | undefined) ?? 0
         return updateStatusData(ctx.partyState, ctx.status.instanceId, {
@@ -484,5 +501,29 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     isFriendly: true,
     executor: regenStatusExecutor,
     selfHeal: 1.2,
+  },
+
+  // 泛输血：自然到期时把剩余层数转换为直接回血，每层 = shieldByAbility[2613] / 2，
+  // 与礼仪之铃 onExpire 的"剩余层数 → 回血"同款语义（仅数值源换成盾量）。
+  // 盾被打空提前 removeStatus 的不会走到这里。回血归属记到泛输血 action(24311)。
+  2613: {
+    category: ['partywide', 'shield', 'heal'],
+    executor: {
+      onExpire: ctx => {
+        const remainingStacks = ctx.status.stack ?? 1
+        const baseAmount = ((ctx.statistics?.shieldByAbility?.[2613] ?? 0) / 2) * remainingStacks
+        return applyDirectHeal(
+          ctx.partyState,
+          baseAmount,
+          {
+            castEventId: (ctx.status.data?.castEventId as string | undefined) ?? '',
+            actionId: 24311,
+            sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
+            time: ctx.expireTime,
+          },
+          ctx.recordHeal
+        )
+      },
+    },
   },
 }
