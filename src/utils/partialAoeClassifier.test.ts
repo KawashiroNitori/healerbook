@@ -181,19 +181,22 @@ describe('classifyPartialAOE', () => {
     expect(next4.type).toBe('partial_final_aoe')
   })
 
-  it('只命中坦克的"伪 aoe"（refine 没改成 tankbuster）保留 aoe，不动计数', () => {
-    const tankOnlyButAOE: DamageEvent = {
+  it('只命中坦克（部分 AOE 偶然全落在 T）→ partial_aoe，不计入覆盖', () => {
+    // 伤害未达死刑阈值、refine 回退到 aoe；本质是部分 AOE 这次恰好只命中 T。
+    // 应标 partial_aoe（走段累积），而非全员 aoe（按整伤扣非 T 池 + 打断 partial 段）。
+    const tankOnly: DamageEvent = {
       id: 'fake',
       name: 'fake',
       time: 1,
       damage: 5000,
-      type: 'aoe', // refine 验证伤害量阈值未达，回退到了 aoe
+      type: 'aoe',
       damageType: 'physical',
       playerDamageDetails: [detail(1, 'PLD')],
     }
+    // 紧跟一发命中全部非 T 的事件：tankOnly 不计入覆盖，故它仍被独立判为全员 aoe
     const e2 = aoeEvent(2, [3, 4, 5, 6, 7, 8])
-    classifyPartialAOE([tankOnlyButAOE, e2], STD_COMP)
-    expect(tankOnlyButAOE.type).toBe('aoe')
+    classifyPartialAOE([tankOnly, e2], STD_COMP)
+    expect(tankOnly.type).toBe('partial_aoe')
     expect(e2.type).toBe('aoe')
   })
 

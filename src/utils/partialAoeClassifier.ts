@@ -54,7 +54,11 @@ export function classifyPartialAOE(
     }
 
     if (hitNonTanks.size === 0) {
-      // 伪 aoe（只命中坦克），保持 'aoe' 不变，不动计数
+      // 只命中坦克：部分 AOE 对每个人命中概率均等，这次恰好全落在 T 身上是巧合，
+      // 它本质仍是一发部分 AOE——既不是全员 AOE（标 'aoe' 会按整伤扣非 T 池并打断 partial
+      // 段，造成 HP 失真），也不是死刑。标 partial_aoe 让它走段累积的增量模型。
+      // 不计入覆盖：没命中任何非 T，对"覆盖全部非 T → partial_final"零贡献。
+      event.type = 'partial_aoe'
       continue
     }
 
