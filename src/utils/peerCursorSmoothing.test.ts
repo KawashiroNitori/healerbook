@@ -127,4 +127,20 @@ describe('advancePeerSmoothing', () => {
     expect(smoothed[0].user.name).toBe('Alice')
     expect(smoothed[0].selection.eventId).toBe('e1')
   })
+
+  it('dragging 从有值→null：立即清除，不残留', () => {
+    const prev: SmoothStateMap = new Map([
+      [1, { cursorTime: null, dragging: { id: 'd1', time: 5 } }],
+    ])
+    const peers = [makePeer({ dragging: null })]
+    const { smoothed, animating } = advancePeerSmoothing(peers, prev, 16, ZOOM)
+    expect(smoothed[0].dragging).toBeNull()
+    expect(animating).toBe(false)
+  })
+
+  it('peers 为空时：smoothed 为空且不再 animating', () => {
+    const { smoothed, animating } = advancePeerSmoothing([], empty, 16, ZOOM)
+    expect(smoothed).toHaveLength(0)
+    expect(animating).toBe(false)
+  })
 })

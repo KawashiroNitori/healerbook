@@ -28,6 +28,7 @@ export function useSmoothedPeers(zoomLevel: number): PeerState[] {
   }, [peers, zoomLevel])
 
   useEffect(() => {
+    // zoomLevel 故意不在 deps：zoom 变化无需重启 rAF，tick 内通过 zoomRef 读最新值
     let cancelled = false
 
     const tick = (ts: number) => {

@@ -70,6 +70,7 @@ export function PeerOverlayFixed({
   damageTrackHeight,
   annotations,
 }: PeerOverlayFixedProps) {
+  // 在 overlay 内部调用而非父组件下发：使每帧 setState 只重渲本 overlay，不波及主画布
   const peers = useSmoothedPeers(zoomLevel)
   // 构建 eventId → DamageEvent 快速查找
   const damageEventById = useMemo(() => {
@@ -267,6 +268,7 @@ export function PeerOverlayMain({
   skillTracksHeight,
   annotations,
 }: PeerOverlayMainProps) {
+  // 在 overlay 内部调用而非父组件下发：使每帧 setState 只重渲本 overlay，不波及主画布
   const peers = useSmoothedPeers(zoomLevel)
   // castEventId → CastEvent 快速查找
   const castEventById = useMemo(() => {

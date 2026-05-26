@@ -40,22 +40,31 @@
 
 ## 架构与数据流
 
-新增 hook `useSmoothedPeers()`，在 `Timeline/index.tsx` 中**调用一次**，产出平滑后的
-`peers` 数组，分别作为 prop 传给 `PeerOverlayFixed` / `PeerOverlayMain`。两个 overlay
-改为从 prop 接收 peers，不再各自读 store。
-
-这样只存在**一个 rAF 循环**，两个 overlay 渲染同一份平滑数据，天然一致。
+新增 hook `useSmoothedPeers(zoomLevel)`，内部订阅 `store.peers`、驱动 rAF 循环逐帧逼近，
+返回平滑后的 `PeerState[]`。`PeerOverlayFixed` 与 `PeerOverlayMain` **各自内部调用**该 hook。
 
 ```
 store.peers (到达即跳变)
-   → useSmoothedPeers(): 单个 rAF 循环，逐帧逼近目标
-   → smoothedPeers (cursorTime / dragging.time 已平滑，其余字段透传)
-   → PeerOverlayFixed / PeerOverlayMain (props)
+   → useSmoothedPeers(): rAF 循环，逐帧逼近目标
+   → smoothed peers (cursorTime / dragging.time 已平滑，其余字段透传)
+   → 各 overlay 直接渲染
 ```
 
 平滑后的数组形状与 `PeerState[]` 完全一致，只是 `cursorTime` 和 `dragging.time` 被替换
 为平滑值；`clientId` / `user` / `selection` / `dragging` 的 `id` / `kind` / `playerId`
-原样透传。下游 overlay 无需感知平滑的存在。
+原样透传。
+
+> **架构决定（与初版方案的偏差）**：初版设计是「在 `Timeline/index.tsx` 调用一次 hook、
+> 把结果作 prop 下发」，意在只有单个 rAF 循环。但这会把每帧的 `setState` 放在
+> `TimelineCanvas` 上，导致动画期间整棵子树（含未 `memo` 的 `SkillTracksCanvas` /
+> `DamageEventTrack`）每帧重渲——这恰好违背代码库既定约定（本地十字光标用命令式
+> 操作 Konva 节点来避免高频重渲）。因此改为**两个 overlay 各自调用 hook**：每帧
+> `setState` 只重渲各自 overlay 及其 Konva 子树，不波及主画布。
+>
+> 代价是**两个独立 rAF 循环**（计算冗余、两份平滑态）。但同一帧内注册的多个 rAF
+> 回调由浏览器以相同时间戳一并触发，两循环的 `dtMs` 与输入完全一致，平滑结果逐帧
+> 等价、同时收敛同时停止，因此视觉上无不一致。以「重渲收敛到 overlay」换「单循环」
+> 是更优权衡。
 
 ## 平滑算法（帧率无关指数逼近）
 
@@ -95,10 +104,13 @@ cur = cur + (target - cur) * factor
     检测 dragging.id 切换 / null 转换）。
 - **`src/components/Timeline/useSmoothedPeers.ts`**（薄 hook 包装）：
   - 订阅 `store.peers`。
-  - 驱动 `requestAnimationFrame`：仅在「仍在动」时持续调度，settled 后停止。
-  - 调用纯逻辑推进，用 `useState`（或版本号）触发重渲染。
-  - 组件卸载 / peers 清空时 `cancelAnimationFrame` 并清理平滑态。
-  - 返回 `PeerState[]`（平滑后）。
+  - 用 layout effect 同步最新 `peers` / `zoomLevel` 到 ref，供 rAF 循环读取（规避
+    渲染期写 ref 的 lint 规则 `react-hooks/refs`）。
+  - 驱动 `requestAnimationFrame`：仅在「仍在动」时持续调度，settled 后停止；effect
+    内用闭包标志 `cancelled` 断开旧实例的 tick 递归链，消除竞态。
+  - 调用纯逻辑推进，用 `useState` 触发重渲染。
+  - 组件卸载 / peers 清空时 `cancelAnimationFrame` 并清理。
+  - 返回 `PeerState[]`（平滑后）。由各 overlay 内部调用（见上「架构决定」）。
 
 ## 测试（TDD）
 
