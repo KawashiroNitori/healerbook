@@ -10,6 +10,13 @@ if echo "$COMMIT_MSG" | grep -qi "claude"; then
   exit 1
 fi
 
+# 拒绝首行只有 "@" 的提交信息（典型为在 Bash 中误用 PowerShell here-string @'...'@ 所致）
+FIRST_LINE=$(head -n 1 "$COMMIT_MSG_FILE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+if [ "$FIRST_LINE" = "@" ]; then
+  echo "错误：提交信息首行只有 '@'，疑似 here-string 误用，已拒绝提交。"
+  exit 1
+fi
+
 # 检查提交作者姓名和邮箱
 AUTHOR_NAME=$(git config user.name)
 AUTHOR_EMAIL=$(git config user.email)
