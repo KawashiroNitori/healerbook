@@ -1,0 +1,54 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Issue Triage
+        uses: anthropics/claude-code-action@v1
+        env:
+          # Authenticate the gh CLI that Claude calls from Bash
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Triage runs on issues opened by anyone (including non-collaborators).
+          # On a public repo this means every new issue spends some OAuth quota.
+          allowed_non_write_users: "*"
+          prompt: |
+            你在为 Healerbook（FF14 减伤规划工具）仓库 ${{ github.repository }} 自动整理新提交的 issue #${{ github.event.issue.number }}。请全程使用中文，并通过 gh CLI 操作。
+
+            步骤：
+            1. 读取 issue：gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json title,body,author,labels
+            2. 打标签：用 gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "标签名" 从下列【现有】标签中选出匹配项添加（匹配几个加几个，拿不准就少加，不要创建新标签）：
+               - bug：功能异常 / 崩溃
+               - enhancement：新功能 / 改进建议
+               - data：减伤数值 / 技能数据 / 导入解析问题
+               - calculation：减伤计算引擎相关
+               - fflogs：FFLogs 导入 / 解析相关
+               - timeline：时间轴编辑器 / 交互
+               - documentation：文档
+               - question：求助 / 疑问
+            3. 查重：用 gh search issues --repo ${{ github.repository }} "关键词"（必要时 gh issue list --repo ${{ github.repository }}）按标题和正文关键词搜索本仓库已有 issue。若发现高度疑似重复，在摘要评论里列出对应编号并说明理由；但【不要】自动打 duplicate 标签，把确认权留给维护者。
+            4. 缺信息检测：若属于 bug / data 类却缺少关键信息（FFLogs 链接、复现步骤、「期望值 vs 实际值」等），在评论里礼貌地请补充。
+            5. 发摘要评论：把内容写入临时文件后用 gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body-file <文件> 发出（避免中文多行转义问题）。评论包含：判断的问题类型、涉及模块、已添加的标签、（如有）疑似重复编号、（如有）需补充的信息。
+
+            约束：保持评论简洁友好；只整理 issue，不要修改代码、不要关闭 issue、不要自动打 duplicate 标签。
+          # Only whitelist the gh subcommands triage needs (lighter context than the GitHub MCP server)
+          claude_args: |
+            --allowedTools "Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh issue list:*),Bash(gh search issues:*),Bash(gh label list:*),Write,Read"
