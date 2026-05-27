@@ -307,9 +307,15 @@ describe('computeShadowCellsByEvent', () => {
     const tracks = [track(1, 100), track(2, 200)]
     const intervals = (t: SkillTrack) =>
       t.playerId === 1 ? [{ from: 10, to: 30 }] : [{ from: 100, to: 200 }]
-    const result = computeShadowCellsByEvent([damage('d1', 20)], tracks, intervals)
+    const result = computeShadowCellsByEvent(
+      [damage('d1', 20), damage('d2', 150)],
+      tracks,
+      intervals
+    )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
     expect(result.get('d1')?.has(cellKey(2, 200))).toBe(false)
+    expect(result.get('d2')?.has(cellKey(1, 100))).toBe(false)
+    expect(result.get('d2')?.has(cellKey(2, 200))).toBe(true)
   })
 
   it('每个伤害事件都有一个 Set（可能为空）', () => {
