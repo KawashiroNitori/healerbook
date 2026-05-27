@@ -4,6 +4,8 @@
 
 import type { DamageEvent, CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
+import type { Interval } from '@/utils/placement/types'
+import type { SkillTrack } from '@/utils/skillTracks'
 
 /**
  * 生成单元格 key，用于 `Set<string>` 存储
@@ -116,6 +118,40 @@ export function computeCdCellsByEvent(
     const key = castCellKey(castEvent, actionsById)
     for (const event of damageEvents) {
       if (greenEnd <= event.time && event.time < rawEnd) {
+        result.get(event.id)!.add(key)
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * 计算每个伤害事件落在哪些技能列的"斜纹不可放置阴影"区间内。
+ *
+ * 与时间轴斜纹同源：shadow 区间逐轨（per trackGroup）由 `shadowIntervalsForTrack`
+ * 回调给出（调用方封装 cd<=3 / placement 分支 + engine.computeTrackShadow /
+ * computePlacementShadow，见 SkillTracksCanvas）。本函数只做区间→单元格映射。
+ *
+ * 命中规则：from <= damageEvent.time < to（左闭右开，与 computeCdCellsByEvent 一致）。
+ * 归列：按 cellKey(track.playerId, track.actionId)（track.actionId 即 trackGroup id）。
+ * 绿/蓝/斜纹优先级在 TableDataRow 渲染层处理（绿 > 蓝 > 斜纹），本函数不做区间相减。
+ *
+ * @returns Map<damageEventId, Set<cellKey>>
+ */
+export function computeShadowCellsByEvent(
+  damageEvents: DamageEvent[],
+  skillTracks: SkillTrack[],
+  shadowIntervalsForTrack: (track: SkillTrack) => Interval[]
+): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>()
+  for (const event of damageEvents) result.set(event.id, new Set<string>())
+
+  for (const track of skillTracks) {
+    const intervals = shadowIntervalsForTrack(track)
+    if (intervals.length === 0) continue
+    const key = cellKey(track.playerId, track.actionId)
+    for (const event of damageEvents) {
+      if (intervals.some(iv => iv.from <= event.time && event.time < iv.to)) {
         result.get(event.id)!.add(key)
       }
     }

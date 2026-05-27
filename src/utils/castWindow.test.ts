@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { computeLitCellsByEvent, computeCdCellsByEvent, cellKey } from './castWindow'
+import {
+  computeLitCellsByEvent,
+  computeCdCellsByEvent,
+  computeShadowCellsByEvent,
+  cellKey,
+} from './castWindow'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
+import type { SkillTrack } from './skillTracks'
 
 const damage = (id: string, time: number): DamageEvent =>
   ({
@@ -249,6 +255,67 @@ describe('computeCdCellsByEvent', () => {
     expect(result.get('d0')?.has(cellKey(1, 100))).toBe(true) // cast 时刻即命中
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
     expect(result.get('d2')?.has(cellKey(1, 100))).toBe(false) // rawEnd 右开
+  })
+})
+
+describe('computeShadowCellsByEvent', () => {
+  const track = (playerId: number, actionId: number): SkillTrack =>
+    ({ playerId, actionId, job: 'WHM', actionName: `a-${actionId}`, actionIcon: '' }) as SkillTrack
+
+  it('from <= damageTime < to 時標記為 shadow', () => {
+    const tracks = [track(1, 100)]
+    const intervals = () => [{ from: 10, to: 30 }]
+    const result = computeShadowCellsByEvent([damage('d1', 20)], tracks, intervals)
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
+  })
+
+  it('damageTime === from 当刻命中（左闭）', () => {
+    const result = computeShadowCellsByEvent([damage('d1', 10)], [track(1, 100)], () => [
+      { from: 10, to: 30 },
+    ])
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
+  })
+
+  it('damageTime === to 当刻不命中（右开）', () => {
+    const result = computeShadowCellsByEvent([damage('d1', 30)], [track(1, 100)], () => [
+      { from: 10, to: 30 },
+    ])
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false)
+  })
+
+  it('单轨多区间：任一区间命中即标记', () => {
+    const intervals = () => [
+      { from: 0, to: 5 },
+      { from: 20, to: 25 },
+    ]
+    const result = computeShadowCellsByEvent(
+      [damage('d1', 2), damage('d2', 10), damage('d3', 22)],
+      [track(1, 100)],
+      intervals
+    )
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
+    expect(result.get('d2')?.has(cellKey(1, 100))).toBe(false)
+    expect(result.get('d3')?.has(cellKey(1, 100))).toBe(true)
+  })
+
+  it('回调返回空区间则该轨不产生 shadow', () => {
+    const result = computeShadowCellsByEvent([damage('d1', 20)], [track(1, 100)], () => [])
+    expect(result.get('d1')?.size).toBe(0)
+  })
+
+  it('不同 track 独立 keying', () => {
+    const tracks = [track(1, 100), track(2, 200)]
+    const intervals = (t: SkillTrack) =>
+      t.playerId === 1 ? [{ from: 10, to: 30 }] : [{ from: 100, to: 200 }]
+    const result = computeShadowCellsByEvent([damage('d1', 20)], tracks, intervals)
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
+    expect(result.get('d1')?.has(cellKey(2, 200))).toBe(false)
+  })
+
+  it('每个伤害事件都有一个 Set（可能为空）', () => {
+    const result = computeShadowCellsByEvent([damage('d1', 100), damage('d2', 200)], [], () => [])
+    expect(result.get('d1')).toEqual(new Set())
+    expect(result.get('d2')).toEqual(new Set())
   })
 })
 
