@@ -590,6 +590,50 @@ export function parseCastEvents(
  * - 规则匹配必须同时满足 actionId 与 type（begincast/cast 有别）
  * - time<0 的 pre-pull 读条保留，由调用方自行决定是否过滤
  */
+export function parseSyncEvents(
+  events: FFLogsEvent[],
+  fightStartTime: number,
+  playerMap: Map<number, { id: number; name: string; type: string }>,
+  abilityMap?: Map<number, FFLogsAbility>
+): SyncEvent[] {
+  const battleOnceSeen = new Set<number>()
+  const syncEvents: SyncEvent[] = []
+
+  for (const event of events) {
+    if (event.type !== 'cast' && event.type !== 'begincast') continue
+    const actionId = event.abilityGameID
+    if (!actionId) continue
+    // 友方（包含召唤物/宠物）事件排除；非友方即 boss/NPC，命中规则表的才会保留
+    if (event.sourceID != null && playerMap.has(event.sourceID)) continue
+
+    // 规则匹配：同 actionId 且同 type 才算命中（与 submodule factory 行为一致）
+    const rule = SOUMA_SYNC_RULES.get(actionId)
+    if (!rule || rule.type !== event.type) continue
+
+    const battleOnce = Boolean(rule.battleOnce)
+    if (battleOnce) {
+      if (battleOnceSeen.has(actionId)) continue
+      battleOnceSeen.add(actionId)
+    }
+
+    const chineseName = getActionChinese(actionId)
+    const abilityName = abilityMap?.get(actionId)?.name
+    const actionName =
+      chineseName ?? abilityName ?? `unknown_${actionId.toString(16).toUpperCase()}`
+
+    syncEvents.push({
+      time: (event.timestamp - fightStartTime) / 1000,
+      type: event.type,
+      actionId,
+      actionName,
+      window: rule.window,
+      syncOnce: Boolean(rule.syncOnce),
+    })
+  }
+
+  return syncEvents
+}
+
 /**
  * 从事件列表提取盾值原始样本（按 statusId = abilityGameID - 1000000 聚样）。
  *
@@ -646,48 +690,4 @@ export function extractMaxHPData(
     maxHPByJob[job]!.push(maxHP)
   }
   return maxHPByJob as Record<Job, number[]>
-}
-
-export function parseSyncEvents(
-  events: FFLogsEvent[],
-  fightStartTime: number,
-  playerMap: Map<number, { id: number; name: string; type: string }>,
-  abilityMap?: Map<number, FFLogsAbility>
-): SyncEvent[] {
-  const battleOnceSeen = new Set<number>()
-  const syncEvents: SyncEvent[] = []
-
-  for (const event of events) {
-    if (event.type !== 'cast' && event.type !== 'begincast') continue
-    const actionId = event.abilityGameID
-    if (!actionId) continue
-    // 友方（包含召唤物/宠物）事件排除；非友方即 boss/NPC，命中规则表的才会保留
-    if (event.sourceID != null && playerMap.has(event.sourceID)) continue
-
-    // 规则匹配：同 actionId 且同 type 才算命中（与 submodule factory 行为一致）
-    const rule = SOUMA_SYNC_RULES.get(actionId)
-    if (!rule || rule.type !== event.type) continue
-
-    const battleOnce = Boolean(rule.battleOnce)
-    if (battleOnce) {
-      if (battleOnceSeen.has(actionId)) continue
-      battleOnceSeen.add(actionId)
-    }
-
-    const chineseName = getActionChinese(actionId)
-    const abilityName = abilityMap?.get(actionId)?.name
-    const actionName =
-      chineseName ?? abilityName ?? `unknown_${actionId.toString(16).toUpperCase()}`
-
-    syncEvents.push({
-      time: (event.timestamp - fightStartTime) / 1000,
-      type: event.type,
-      actionId,
-      actionName,
-      window: rule.window,
-      syncOnce: Boolean(rule.syncOnce),
-    })
-  }
-
-  return syncEvents
 }
