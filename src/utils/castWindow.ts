@@ -25,19 +25,34 @@ function castCellKey(castEvent: CastEvent, actionsById: Map<number, MitigationAc
 }
 
 /**
+ * cast 绿条（status 覆盖）末端，与时间轴同源：优先用 simulate 出的实际存活区间
+ * `castEffectiveEnd`（含被其他技能延长 / 提前消费的情况），缺失时回退到静态 duration。
+ * 绿格、蓝色 CD 条起点共用此基准，保证与时间轴一致且绿/蓝衔接无缝。
+ */
+function greenEndOf(
+  castEvent: CastEvent,
+  action: MitigationAction,
+  castEffectiveEnd: Map<string, number>
+): number {
+  return castEffectiveEnd.get(castEvent.id) ?? castEvent.timestamp + action.duration
+}
+
+/**
  * 计算每个伤害事件在其时间点上亮起的 (playerId, trackGroupId) 组合。
  *
  * 规则：存在 castEvent 满足
  *   cast.playerId === player
  *   cast 所属 trackGroup === 列对应的 track.actionId
- *   cast.timestamp ≤ damageEvent.time < cast.timestamp + action.duration
+ *   cast.timestamp ≤ damageEvent.time < greenEnd
+ * 其中 greenEnd 取 castEffectiveEnd（含延长 / 提前消费），缺失回退 cast.timestamp + duration。
  *
  * @returns Map<damageEventId, Set<cellKey>>
  */
 export function computeLitCellsByEvent(
   damageEvents: DamageEvent[],
   castEvents: CastEvent[],
-  actionsById: Map<number, MitigationAction>
+  actionsById: Map<number, MitigationAction>,
+  castEffectiveEnd: Map<string, number>
 ): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>()
   for (const event of damageEvents) {
@@ -45,7 +60,8 @@ export function computeLitCellsByEvent(
     for (const castEvent of castEvents) {
       const action = actionsById.get(castEvent.actionId)
       if (!action) continue
-      if (castEvent.timestamp <= event.time && event.time < castEvent.timestamp + action.duration) {
+      const greenEnd = greenEndOf(castEvent, action, castEffectiveEnd)
+      if (castEvent.timestamp <= event.time && event.time < greenEnd) {
         lit.add(castCellKey(castEvent, actionsById))
       }
     }
@@ -93,8 +109,9 @@ export function computeCastMarkerCells(
  *   - Infinity → CD 延伸到时间轴末尾
  *   - 数值     → CD 右端秒数
  *
- * 每个 cast 的 CD 区间 = [greenEnd, rawEnd)，greenEnd = cast.timestamp + action.duration
- * （与 computeLitCellsByEvent 的绿格同基准，保证绿/蓝衔接无缝、不重叠）。
+ * 每个 cast 的 CD 区间 = [greenEnd, rawEnd)，greenEnd 取 castEffectiveEnd（含延长 / 提前
+ * 消费），缺失回退 cast.timestamp + action.duration —— 与 computeLitCellsByEvent 的绿格
+ * 同基准，保证绿/蓝衔接无缝、不重叠。
  * 命中规则：greenEnd <= damageEvent.time < rawEnd（左闭右开；Infinity 恒真）。
  * 归列同绿格：按 castCellKey（trackGroup 变体归 parent 列）。
  *
@@ -104,7 +121,8 @@ export function computeCdCellsByEvent(
   damageEvents: DamageEvent[],
   castEvents: CastEvent[],
   actionsById: Map<number, MitigationAction>,
-  cdBarEndFor: (castEventId: string) => number | null
+  cdBarEndFor: (castEventId: string) => number | null,
+  castEffectiveEnd: Map<string, number>
 ): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>()
   for (const event of damageEvents) result.set(event.id, new Set<string>())
@@ -114,7 +132,7 @@ export function computeCdCellsByEvent(
     if (!action) continue
     const rawEnd = cdBarEndFor(castEvent.id)
     if (rawEnd === null) continue
-    const greenEnd = castEvent.timestamp + action.duration
+    const greenEnd = greenEndOf(castEvent, action, castEffectiveEnd)
     const key = castCellKey(castEvent, actionsById)
     for (const event of damageEvents) {
       if (greenEnd <= event.time && event.time < rawEnd) {

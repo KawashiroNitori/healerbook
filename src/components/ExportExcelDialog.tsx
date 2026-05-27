@@ -12,7 +12,10 @@ import { Switch } from '@/components/ui/switch'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useMitigationStore } from '@/store/mitigationStore'
-import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
+import {
+  useCastEffectiveEnd,
+  useDamageCalculationResults,
+} from '@/contexts/DamageCalculationContext'
 import { deriveSkillTracks } from '@/utils/skillTracks'
 import { sortJobsByOrder, getJobName } from '@/data/jobs'
 import { exportTimelineToExcel } from '@/utils/exportExcel'
@@ -30,6 +33,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
   const globalShowActualDamage = useUIStore(s => s.showActualDamage)
   const actions = useMitigationStore(s => s.actions)
   const calculationResults = useDamageCalculationResults()
+  const castEffectiveEnd = useCastEffectiveEnd()
 
   const [fileName, setFileName] = useState('')
   const [hiddenPlayerIds, setHiddenPlayerIds] = useState<Set<number>>(new Set())
@@ -89,6 +93,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
         showOriginalDamage,
         showActualDamage,
         fileName,
+        castEffectiveEnd,
       })
 
       const blob = new Blob([buffer as BlobPart], {

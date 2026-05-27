@@ -39,30 +39,48 @@ const action = (id: number, duration: number): MitigationAction =>
     executor: () => ({ players: [], statuses: [], timestamp: 0 }),
   }) as unknown as MitigationAction
 
+// 空的 castEffectiveEnd：绿条/CD 起点回退到静态 duration（即旧行为）
+const noEff = new Map<string, number>()
+
 describe('computeLitCellsByEvent', () => {
   it('castTime <= damageTime < castTime + duration 时亮起', () => {
     const actionsById = new Map([[100, action(100, 10)]])
     const events = [damage('d1', 5)]
     const casts = [cast('c1', 1, 100, 0)] // 窗口 [0, 10)
-    const result = computeLitCellsByEvent(events, casts, actionsById)
+    const result = computeLitCellsByEvent(events, casts, actionsById, noEff)
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
   })
 
   it('castTime === damageTime 时亮起（左闭）', () => {
     const actionsById = new Map([[100, action(100, 10)]])
-    const result = computeLitCellsByEvent([damage('d1', 0)], [cast('c1', 1, 100, 0)], actionsById)
+    const result = computeLitCellsByEvent(
+      [damage('d1', 0)],
+      [cast('c1', 1, 100, 0)],
+      actionsById,
+      noEff
+    )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
   })
 
   it('damageTime === castTime + duration 时不亮起（右开）', () => {
     const actionsById = new Map([[100, action(100, 10)]])
-    const result = computeLitCellsByEvent([damage('d1', 10)], [cast('c1', 1, 100, 0)], actionsById)
+    const result = computeLitCellsByEvent(
+      [damage('d1', 10)],
+      [cast('c1', 1, 100, 0)],
+      actionsById,
+      noEff
+    )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false)
   })
 
   it('damageTime 在 cast 窗口之前不亮起', () => {
     const actionsById = new Map([[100, action(100, 10)]])
-    const result = computeLitCellsByEvent([damage('d1', 0)], [cast('c1', 1, 100, 5)], actionsById)
+    const result = computeLitCellsByEvent(
+      [damage('d1', 0)],
+      [cast('c1', 1, 100, 5)],
+      actionsById,
+      noEff
+    )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false)
   })
 
@@ -75,7 +93,8 @@ describe('computeLitCellsByEvent', () => {
     const result = computeLitCellsByEvent(
       [damage('d1', 2), damage('d2', 10), damage('d3', 22)],
       casts,
-      actionsById
+      actionsById,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
     expect(result.get('d2')?.has(cellKey(1, 100))).toBe(false)
@@ -88,7 +107,7 @@ describe('computeLitCellsByEvent', () => {
       [200, action(200, 10)],
     ])
     const casts = [cast('c1', 1, 100, 0), cast('c2', 2, 200, 0)]
-    const result = computeLitCellsByEvent([damage('d1', 5)], casts, actionsById)
+    const result = computeLitCellsByEvent([damage('d1', 5)], casts, actionsById, noEff)
     const lit = result.get('d1')!
     expect(lit.has(cellKey(1, 100))).toBe(true)
     expect(lit.has(cellKey(2, 200))).toBe(true)
@@ -98,15 +117,39 @@ describe('computeLitCellsByEvent', () => {
 
   it('actionsById 中不存在的 actionId 被跳过', () => {
     const actionsById = new Map<number, MitigationAction>()
-    const result = computeLitCellsByEvent([damage('d1', 5)], [cast('c1', 1, 999, 0)], actionsById)
+    const result = computeLitCellsByEvent(
+      [damage('d1', 5)],
+      [cast('c1', 1, 999, 0)],
+      actionsById,
+      noEff
+    )
     expect(result.get('d1')?.size).toBe(0)
   })
 
   it('每个伤害事件都有一个 Set（可能为空）', () => {
     const actionsById = new Map([[100, action(100, 10)]])
-    const result = computeLitCellsByEvent([damage('d1', 100), damage('d2', 200)], [], actionsById)
+    const result = computeLitCellsByEvent(
+      [damage('d1', 100), damage('d2', 200)],
+      [],
+      actionsById,
+      noEff
+    )
     expect(result.get('d1')).toEqual(new Set())
     expect(result.get('d2')).toEqual(new Set())
+  })
+
+  it('castEffectiveEnd 覆盖静态 duration：buff 被延长后绿格延长（与时间轴一致）', () => {
+    const actionsById = new Map([[100, action(100, 10)]]) // 静态窗口 [0,10)
+    const casts = [cast('c1', 1, 100, 0)]
+    const eff = new Map([['c1', 25]]) // 被延长到 25 → 绿格应覆盖 [0,25)
+    const result = computeLitCellsByEvent(
+      [damage('d1', 20), damage('d2', 25)],
+      casts,
+      actionsById,
+      eff
+    )
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true) // 静态会是 false，延长后亮起
+    expect(result.get('d2')?.has(cellKey(1, 100))).toBe(false) // t===effEnd 右开不亮
   })
 })
 
@@ -121,7 +164,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 15)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
   })
@@ -133,7 +177,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 10)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
   })
@@ -145,7 +190,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 30)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false)
   })
@@ -157,7 +203,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 5)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false)
   })
@@ -169,7 +216,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 15)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.size).toBe(0)
   })
@@ -181,7 +229,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 5), damage('d2', 50), damage('d3', 9999)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false) // 还在绿条内
     expect(result.get('d2')?.has(cellKey(1, 100))).toBe(true)
@@ -200,7 +249,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 15)],
       [cast('c1', 1, 200, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
     expect(result.get('d1')?.has(cellKey(1, 200))).toBe(false)
@@ -213,7 +263,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 15)],
       [cast('c1', 1, 999, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d1')?.size).toBe(0)
   })
@@ -224,7 +275,8 @@ describe('computeCdCellsByEvent', () => {
       [damage('d1', 100), damage('d2', 200)],
       [],
       actionsById,
-      () => null
+      () => null,
+      noEff
     )
     expect(result.get('d1')).toEqual(new Set())
     expect(result.get('d2')).toEqual(new Set())
@@ -237,7 +289,7 @@ describe('computeCdCellsByEvent', () => {
     ])
     const cd = stubCd({ c1: 40, c2: 40 }) // 两者 greenEnd=10, CD 区间 [10,40)
     const casts = [cast('c1', 1, 100, 0), cast('c2', 2, 200, 0)]
-    const result = computeCdCellsByEvent([damage('d1', 20)], casts, actionsById, cd)
+    const result = computeCdCellsByEvent([damage('d1', 20)], casts, actionsById, cd, noEff)
     const cdSet = result.get('d1')!
     expect(cdSet.has(cellKey(1, 100))).toBe(true)
     expect(cdSet.has(cellKey(2, 200))).toBe(true)
@@ -250,11 +302,27 @@ describe('computeCdCellsByEvent', () => {
       [damage('d0', 0), damage('d1', 15), damage('d2', 30)],
       [cast('c1', 1, 100, 0)],
       actionsById,
-      cd
+      cd,
+      noEff
     )
     expect(result.get('d0')?.has(cellKey(1, 100))).toBe(true) // cast 时刻即命中
     expect(result.get('d1')?.has(cellKey(1, 100))).toBe(true)
     expect(result.get('d2')?.has(cellKey(1, 100))).toBe(false) // rawEnd 右开
+  })
+
+  it('castEffectiveEnd 覆盖静态 duration：buff 延长后蓝条起点后移（与时间轴一致）', () => {
+    const actionsById = new Map([[100, action(100, 10)]]) // 静态 greenEnd=10
+    const cd = stubCd({ c1: 40 }) // rawEnd=40
+    const eff = new Map([['c1', 25]]) // 延长到 25 → CD 区间应为 [25,40) 而非 [10,40)
+    const result = computeCdCellsByEvent(
+      [damage('d1', 20), damage('d2', 30)],
+      [cast('c1', 1, 100, 0)],
+      actionsById,
+      cd,
+      eff
+    )
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false) // t=20 仍在延长后的绿区内，不归 CD
+    expect(result.get('d2')?.has(cellKey(1, 100))).toBe(true) // t=30 在 [25,40) 内
   })
 })
 

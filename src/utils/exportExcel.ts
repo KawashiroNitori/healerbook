@@ -21,6 +21,11 @@ export interface ExportExcelOptions {
   showOriginalDamage: boolean
   showActualDamage: boolean
   fileName: string
+  /**
+   * 各 cast 的实际 status 结束时刻（含延长 / 提前消费），与时间轴 / 表格同源。
+   * 缺省时绿格回退到静态 action.duration。
+   */
+  castEffectiveEnd?: Map<string, number>
 }
 
 // 颜色常量
@@ -49,6 +54,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     showOriginalDamage,
     showActualDamage,
     fileName,
+    castEffectiveEnd = new Map<string, number>(),
   } = options
 
   const wb = new ExcelJS.Workbook()
@@ -172,7 +178,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
   const litCellsByEvent = computeLitCellsByEvent(
     timeline.damageEvents,
     timeline.castEvents,
-    actionsById
+    actionsById,
+    castEffectiveEnd
   )
   const castMarkerCells = computeCastMarkerCells(
     timeline.damageEvents,

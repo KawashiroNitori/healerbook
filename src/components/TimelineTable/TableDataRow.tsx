@@ -226,7 +226,7 @@ export default function TableDataRow({
               <div className="pointer-events-none absolute inset-0 bg-blue-500/15" />
             )}
             {!isLit && !cdCells.has(key) && shadowCells.has(key) && (
-              <div className="pointer-events-none absolute inset-0 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(120,120,120,0.22)_5px,rgba(120,120,120,0.22)_7px)] dark:[background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(160,160,160,0.25)_5px,rgba(160,160,160,0.25)_7px)]" />
+              <div className="pointer-events-none absolute inset-0 [background-image:repeating-linear-gradient(45deg,transparent_0,transparent_2.714px,rgba(120,120,120,0.22)_2.714px,rgba(120,120,120,0.22)_4.714px)] dark:[background-image:repeating-linear-gradient(45deg,transparent_0,transparent_3.714px,rgba(160,160,160,0.25)_3.714px,rgba(160,160,160,0.25)_4.714px)]" />
             )}
             {isMarker && (
               <img

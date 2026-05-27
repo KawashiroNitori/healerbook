@@ -20,6 +20,7 @@ import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useFilterStore } from '@/store/filterStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
 import {
+  useCastEffectiveEnd,
   useDamageCalculationResults,
   useRemovalTimelinesByExcludeId,
   useStatusTimelineByPlayer,
@@ -62,6 +63,7 @@ export default function TimelineTableView() {
   const calculationResults = useDamageCalculationResults()
   const removalTimelinesByExcludeId = useRemovalTimelinesByExcludeId()
   const statusTimelineByPlayer = useStatusTimelineByPlayer()
+  const castEffectiveEnd = useCastEffectiveEnd()
   const isReadOnly = useEditorReadOnly()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
@@ -85,8 +87,13 @@ export default function TimelineTableView() {
 
   const litCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()
-    return computeLitCellsByEvent(filteredDamageEvents, filteredCastEvents, actionsById)
-  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById])
+    return computeLitCellsByEvent(
+      filteredDamageEvents,
+      filteredCastEvents,
+      actionsById,
+      castEffectiveEnd
+    )
+  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById, castEffectiveEnd])
 
   const markerCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Map<string, number>>()
@@ -99,9 +106,10 @@ export default function TimelineTableView() {
       filteredDamageEvents,
       filteredCastEvents,
       actionsById,
-      engine.cdBarEndFor
+      engine.cdBarEndFor,
+      castEffectiveEnd
     )
-  }, [timeline, engine, filteredDamageEvents, filteredCastEvents, actionsById])
+  }, [timeline, engine, filteredDamageEvents, filteredCastEvents, actionsById, castEffectiveEnd])
 
   const shadowCellsByEvent = useMemo(() => {
     if (!timeline || !engine || isReadOnly) return new Map<string, Set<string>>()
