@@ -10,8 +10,10 @@ import {
   parseSyncEvents,
   findFirstDamageTimestamp,
   convertV1ToReport,
+  parseStatData,
 } from '@/utils/fflogsImporter'
 import { getEncounterWithTier } from '@/data/raidEncounters'
+import { getStatisticsKVKey } from '../top100Sync'
 import type { Timeline } from '@/types/timeline'
 import { generateId } from '@/utils/id'
 import { serializeForServer } from '@/utils/timelineFormat'
@@ -131,6 +133,18 @@ app.get('/import', async c => {
       }
     }
 
+    // 未收录副本（KV 无聚合统计）→ 从本场事件提取 statData 填充数值设置。
+    // KV 抖动按"已支持"保守处理，绝不阻断导入。
+    let statData: ReturnType<typeof parseStatData>
+    try {
+      const statsExist = await c.env.healerbook.get(getStatisticsKVKey(fight.encounterID || 0))
+      if (!statsExist) {
+        statData = parseStatData(eventsData.events || [], playerMap, composition)
+      }
+    } catch (err) {
+      console.error('[FFLogs Import] statData 提取失败，跳过:', err)
+    }
+
     const now = Math.floor(Date.now() / 1000)
     const timeline: Timeline = {
       id: generateId(),
@@ -152,6 +166,7 @@ app.get('/import', async c => {
       annotations: [],
       isReplayMode: true,
       fflogsSource: { reportCode, fightId },
+      ...(statData ? { statData } : {}),
       createdAt: now,
       updatedAt: now,
     }
