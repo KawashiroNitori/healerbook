@@ -30,10 +30,12 @@ import {
   computeCastMarkerCells,
   computeCdCellsByEvent,
   computeLitCellsByEvent,
+  computeShadowCellsByEvent,
 } from '@/utils/castWindow'
 import { generateObjectId } from '@/utils/shortId'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
+import { effectiveTrackGroup } from '@/types/mitigation'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { DamageEvent } from '@/types/timeline'
 import TableHeader from './TableHeader'
@@ -100,6 +102,23 @@ export default function TimelineTableView() {
       engine.cdBarEndFor
     )
   }, [timeline, engine, filteredDamageEvents, filteredCastEvents, actionsById])
+
+  const shadowCellsByEvent = useMemo(() => {
+    if (!timeline || !engine || isReadOnly) return new Map<string, Set<string>>()
+    const eng = engine
+    const shadowIntervalsForTrack = (track: SkillTrack) => {
+      const parent = actionsById.get(track.actionId)
+      if (!parent) return []
+      // cd<=3 且无 placement：纯 CD 冲突窗口对 GCD 级技能是噪音，不画
+      if (parent.cooldown <= 3 && !parent.placement) return []
+      const groupId = effectiveTrackGroup(parent)
+      // cd<=3 有 placement：只画 placement 非法区；否则完整 track 阴影（含前向 CD 提示）
+      return parent.cooldown <= 3
+        ? eng.computePlacementShadow(groupId, track.playerId)
+        : eng.computeTrackShadow(groupId, track.playerId)
+    }
+    return computeShadowCellsByEvent(filteredDamageEvents, skillTracks, shadowIntervalsForTrack)
+  }, [timeline, engine, isReadOnly, filteredDamageEvents, skillTracks, actionsById])
 
   // 单元格点击：在该行事件时刻放置/移除对应技能
   // - 带图标的单元格（marker，即 cast 起点）→ 移除对应 cast
@@ -344,6 +363,7 @@ export default function TimelineTableView() {
                   skillTracks={skillTracks}
                   litCells={litCellsByEvent.get(row.id) ?? new Set()}
                   cdCells={cdCellsByEvent.get(row.id) ?? new Set()}
+                  shadowCells={shadowCellsByEvent.get(row.id) ?? new Set()}
                   markerCells={markerCellsByEvent.get(row.id) ?? new Map<string, number>()}
                   actionsById={actionsById}
                   calculationResult={calculationResults.get(row.id)}
