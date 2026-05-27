@@ -4,7 +4,14 @@
 
 import { describe, it, expect } from 'vitest'
 import { parseFFLogsUrl } from './fflogsParser'
-import { parseCastEvents, parseDamageEvents, parseSyncEvents } from './fflogsImporter'
+import {
+  parseCastEvents,
+  parseDamageEvents,
+  parseSyncEvents,
+  extractShieldData,
+  extractHealData,
+  extractMaxHPData,
+} from './fflogsImporter'
 import type { FFLogsAbility } from '@/types/fflogs'
 
 type V2Actor = { id: number; name: string; type: string }
@@ -1862,5 +1869,68 @@ describe('parseSyncEvents', () => {
     const result = parseSyncEvents(events, fightStartTime, mockPlayerMap)
     expect(result).toHaveLength(1)
     expect(result[0].time).toBeCloseTo(-2.3, 3)
+  })
+})
+
+describe('extractShieldData', () => {
+  it('应按 statusId（abilityGameID-1000000）聚样，且不变异传入事件', () => {
+    const events = [
+      { type: 'absorbed', abilityGameID: 1001457, amount: 5000 },
+      { type: 'absorbed', abilityGameID: 1001457, amount: 7000 },
+      // 泛血印 1002643 应被当作泛输血 1002613 计入，但不写回 event
+      { type: 'absorbed', abilityGameID: 1002643, amount: 800 },
+    ] as unknown as Parameters<typeof extractShieldData>[0]
+
+    const result = extractShieldData(events)
+
+    expect(result[1457]).toEqual([5000, 7000])
+    expect(result[2613]).toEqual([800])
+    // 非变异：原始 event 的 abilityGameID 保持 1002643
+    expect((events as { abilityGameID: number }[])[2].abilityGameID).toBe(1002643)
+  })
+})
+
+describe('extractHealData', () => {
+  it('应按原始 abilityGameID 聚样并排除 overheal 事件', () => {
+    const events = [
+      { type: 'heal', abilityGameID: 7388, amount: 3000 },
+      { type: 'heal', abilityGameID: 7388, amount: 5000, overheal: 100 }, // 排除
+      { type: 'heal', abilityGameID: 1002108, amount: 800 }, // HoT（1e6+status）原样保留
+    ] as unknown as Parameters<typeof extractHealData>[0]
+
+    const result = extractHealData(events)
+
+    expect(result[7388]).toEqual([3000])
+    expect(result[1002108]).toEqual([800])
+  })
+})
+
+describe('extractMaxHPData', () => {
+  it('应用 playerMap 把 targetResources.maxHitPoints 归到职业', () => {
+    const playerMap = new Map([
+      [1, { id: 1, name: 'T', type: 'Warrior' }],
+      [2, { id: 2, name: 'H', type: 'WhiteMage' }],
+    ])
+    const events = [
+      {
+        type: 'heal',
+        abilityGameID: 1,
+        amount: 1,
+        targetID: 1,
+        targetResources: { maxHitPoints: 200000 },
+      },
+      {
+        type: 'heal',
+        abilityGameID: 1,
+        amount: 1,
+        targetID: 2,
+        targetResources: { maxHitPoints: 120000 },
+      },
+    ] as unknown as Parameters<typeof extractMaxHPData>[0]
+
+    const result = extractMaxHPData(events, playerMap)
+
+    expect(result.WAR).toEqual([200000])
+    expect(result.WHM).toEqual([120000])
   })
 })

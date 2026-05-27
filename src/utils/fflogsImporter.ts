@@ -590,6 +590,64 @@ export function parseCastEvents(
  * - 规则匹配必须同时满足 actionId 与 type（begincast/cast 有别）
  * - time<0 的 pre-pull 读条保留，由调用方自行决定是否过滤
  */
+/**
+ * 从事件列表提取盾值原始样本（按 statusId = abilityGameID - 1000000 聚样）。
+ *
+ * 非变异：FFLogs 把泛输血（1002613）记成泛血印（1002643），此处用局部变量修正，
+ * 不写回 event —— events 数组被多个解析器共享。
+ */
+export function extractShieldData(events: FFLogsEvent[]): Record<number, number[]> {
+  const shieldByAbility: Record<number, number[]> = {}
+  for (const event of events) {
+    if (event.type === 'absorbed' && event.abilityGameID && event.amount) {
+      const rawId = event.abilityGameID === 1002643 ? 1002613 : event.abilityGameID
+      const statusId = rawId - 1000000
+      if (!shieldByAbility[statusId]) shieldByAbility[statusId] = []
+      shieldByAbility[statusId].push(event.amount)
+    }
+  }
+  return shieldByAbility
+}
+
+/**
+ * 从事件列表提取治疗原始样本（按 heal 事件原始 abilityGameID 聚样，排除 overheal）。
+ */
+export function extractHealData(events: FFLogsEvent[]): Record<number, number[]> {
+  const healByAbility: Record<number, number[]> = {}
+  for (const event of events) {
+    if (event.type === 'heal' && !event.overheal && event.abilityGameID && event.amount) {
+      if (!healByAbility[event.abilityGameID]) healByAbility[event.abilityGameID] = []
+      healByAbility[event.abilityGameID].push(event.amount)
+    }
+  }
+  return healByAbility
+}
+
+/**
+ * 从 heal 事件的 targetResources.maxHitPoints 按职业聚样最大 HP。
+ */
+export function extractMaxHPData(
+  events: FFLogsEvent[],
+  playerMap: Map<number, { id: number; name: string; type: string }>
+): Record<Job, number[]> {
+  const maxHPByJob: Partial<Record<Job, number[]>> = {}
+  for (const event of events) {
+    if (event.type !== 'heal') continue
+    const targetResources = (event as FFLogsEvent & { targetResources?: { maxHitPoints?: number } })
+      .targetResources
+    const maxHP = targetResources?.maxHitPoints
+    const targetID = event.targetID
+    if (!maxHP || maxHP <= 0 || !targetID) continue
+    const player = playerMap.get(targetID)
+    if (!player?.type) continue
+    const job = JOB_MAP[player.type.replace(/\s/g, '')]
+    if (!job) continue
+    if (!maxHPByJob[job]) maxHPByJob[job] = []
+    maxHPByJob[job]!.push(maxHP)
+  }
+  return maxHPByJob as Record<Job, number[]>
+}
+
 export function parseSyncEvents(
   events: FFLogsEvent[],
   fightStartTime: number,

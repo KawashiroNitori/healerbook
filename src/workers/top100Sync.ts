@@ -13,9 +13,14 @@ import type { FFLogsEvent, FFLogsV1Report, FFLogsAbility, FFLogsReport } from '@
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import { calculatePercentile } from '@/utils/stats'
-import { JOB_MAP } from '@/data/jobMap'
 import type { DamageEvent } from '@/types/timeline'
-import { parseDamageEvents, parseComposition } from '@/utils/fflogsImporter'
+import {
+  parseDamageEvents,
+  parseComposition,
+  extractShieldData,
+  extractHealData,
+  extractMaxHPData,
+} from '@/utils/fflogsImporter'
 import { generateId } from '@/utils/id'
 
 /** KV 中存储的 TOP100 数据结构 */
@@ -72,11 +77,6 @@ export function extractFightStats(
   fight: FFLogsV1Report['fights'][number],
   events: FFLogsEvent[]
 ): ExtractedFightData {
-  const damageByAbility = extractDamageData(events)
-  const shieldByAbility = extractShieldData(events)
-  const maxHPByJob = extractMaxHPData(events, report)
-  const healByAbility = extractHealData(events)
-
   const playerMap = new Map<number, { id: number; name: string; type: string }>()
   for (const actor of report.friendlies ?? []) {
     playerMap.set(actor.id, { id: actor.id, name: actor.name, type: actor.type })
@@ -85,6 +85,11 @@ export function extractFightStats(
   for (const ability of report.abilities ?? []) {
     abilityMap.set(ability.gameID, ability)
   }
+
+  const damageByAbility = extractDamageData(events)
+  const shieldByAbility = extractShieldData(events)
+  const maxHPByJob = extractMaxHPData(events, playerMap)
+  const healByAbility = extractHealData(events)
 
   const composition = parseComposition(report as unknown as FFLogsReport, fight.id)
   const fullDamageEvents = parseDamageEvents(
@@ -195,24 +200,6 @@ export function getSamplesKVKey(encounterId: number): string {
 }
 
 /**
- * 从事件列表中提取治疗数据
- */
-function extractHealData(events: FFLogsEvent[]): Record<number, number[]> {
-  const healByAbility: Record<number, number[]> = {}
-
-  for (const event of events) {
-    if (event.type === 'heal' && !event.overheal && event.abilityGameID && event.amount) {
-      if (!healByAbility[event.abilityGameID]) {
-        healByAbility[event.abilityGameID] = []
-      }
-      healByAbility[event.abilityGameID].push(event.amount)
-    }
-  }
-
-  return healByAbility
-}
-
-/**
  * 从事件列表中提取伤害数据
  */
 function extractDamageData(events: FFLogsEvent[]): Record<number, number[]> {
@@ -231,63 +218,6 @@ function extractDamageData(events: FFLogsEvent[]): Record<number, number[]> {
   }
 
   return damageByAbility
-}
-
-/**
- * 从事件列表中提取盾值数据
- * 从 absorbed 类型的事件中提取盾值技能 ID 和数值
- * 注意：abilityGameID 需要减去 1000000 偏移值得到真实的状态 ID
- */
-function extractShieldData(events: FFLogsEvent[]): Record<number, number[]> {
-  const shieldByAbility: Record<number, number[]> = {}
-
-  for (const event of events) {
-    if (event.type === 'absorbed' && event.abilityGameID && event.amount) {
-      // 不知为何，FFLogs 的 absorbed 事件会把泛输血（1002613）记录为泛血印（1002643）
-      if (event.abilityGameID === 1002643) event.abilityGameID = 1002613
-      // 减去 100 万偏移值得到真实的状态 ID
-      const statusId = event.abilityGameID - 1000000
-      if (!shieldByAbility[statusId]) {
-        shieldByAbility[statusId] = []
-      }
-      shieldByAbility[statusId].push(event.amount)
-    }
-  }
-
-  return shieldByAbility
-}
-
-/**
- * 从事件列表中提取最大生命值数据
- * 从 heal 类型的事件中提取目标的最大生命值
- */
-function extractMaxHPData(events: FFLogsEvent[], report: FFLogsV1Report): Record<Job, number[]> {
-  const maxHPByJob: Partial<Record<Job, number[]>> = {}
-
-  for (const event of events) {
-    // absorbed 事件的 targetResources 包含 maxHitPoints 字段
-    if (event.type === 'heal') {
-      const targetResources = (
-        event as FFLogsEvent & { targetResources?: { maxHitPoints?: number } }
-      ).targetResources
-      if (targetResources) {
-        const maxHP = targetResources.maxHitPoints
-        const targetID = event.targetID
-        if (maxHP && maxHP > 0 && targetID) {
-          const actor = report.friendlies?.find(a => a.id === targetID)
-          if (actor && actor.type) {
-            const job = JOB_MAP[actor.type.replace(/\s/g, '')]
-            if (job) {
-              if (!maxHPByJob[job]) maxHPByJob[job] = []
-              maxHPByJob[job]!.push(maxHP)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return maxHPByJob as Record<Job, number[]>
 }
 
 const MAX_SAMPLES = 500
