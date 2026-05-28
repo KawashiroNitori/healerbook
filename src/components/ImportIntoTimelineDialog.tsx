@@ -9,6 +9,8 @@
 
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { track } from '@/utils/analytics'
 import { Modal, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { TimeInput } from '@/components/ui/time-input'
@@ -19,12 +21,13 @@ import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { parseFromAny } from '@/utils/timelineFormat'
 import { parseApiError } from '@/api/parseApiError'
 import { generateId } from '@/utils/id'
-import { extractImportableFromTimeline, type ImportableSubset } from '@/utils/importAdapter'
 import {
+  extractImportableFromTimeline,
   buildPlayerIdMap,
   dedupeSyncEvents,
   filterByRange,
   validateCastsForImport,
+  type ImportableSubset,
   type ImportRange,
 } from '@/utils/importAdapter'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -54,6 +57,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
   const [parsedKey, setParsedKey] = useState<string>('')
 
   const timeline = useTimelineStore(s => s.timeline)
+  const bulkImport = useTimelineStore(s => s.bulkImport)
   const currentEncounter = timeline?.encounter
   const [templateEvents, setTemplateEvents] = useState<DamageEvent[] | null>(null)
   const [templatePrefetching, setTemplatePrefetching] = useState(false)
@@ -198,8 +202,12 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
           : '解析'
       : '确认导入'
 
+  const rangeInvalid = rangeMode === 'range' && !rangeEndUnlimited && rangeStart >= rangeEnd
+  const typesAllUnchecked = !includeDamage && (source !== 'fflogs' || !includeCast)
+  const canConfirm = step === 2 && preview !== null && !rangeInvalid && !typesAllUnchecked
+
   const canNext =
-    step === 1 ? (source === 'fflogs' ? urlValid : (templateEvents?.length ?? 0) > 0) : true // Step 2 由 Task 13 接管
+    step === 1 ? (source === 'fflogs' ? urlValid : (templateEvents?.length ?? 0) > 0) : true
 
   const handleSourceChange = (s: SourceKind) => {
     if (s === source) return
@@ -208,6 +216,32 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
     setParsedKey('')
     setError('')
     setStep(1)
+  }
+
+  const handleConfirm = () => {
+    if (!preview) return
+    bulkImport({
+      damageEvents: includeDamage ? preview.damages : [],
+      castEvents: source === 'fflogs' && includeCast ? preview.casts : [],
+      syncEvents: preview.syncs, // sync 始终静默导入
+    })
+    track('editor-import', {
+      source,
+      damageCount: includeDamage ? preview.damageCount : 0,
+      castCount: source === 'fflogs' && includeCast ? preview.castKept : 0,
+      castSkipped: source === 'fflogs' && includeCast ? preview.castSkipped : 0,
+      syncCount: preview.syncs.length,
+      rangeMode,
+    })
+    const segs: string[] = []
+    if (includeDamage) segs.push(`${preview.damageCount} 伤害`)
+    if (source === 'fflogs' && includeCast) {
+      segs.push(
+        `${preview.castKept} 技能${preview.castSkipped > 0 ? `（跳过 ${preview.castSkipped}）` : ''}`
+      )
+    }
+    toast.success(`导入完成：${segs.join(' / ')}`)
+    onClose()
   }
 
   const handleParse = async () => {
@@ -260,7 +294,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       if (needReparse || !parsed) void handleParse()
       else setStep(2)
     } else {
-      // Task 13 接入 bulkImport
+      handleConfirm()
     }
   }
 
@@ -401,24 +435,31 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
               </RadioGroup>
 
               {rangeMode === 'range' ? (
-                <div className="flex items-center gap-2">
-                  <TimeInput value={rangeStart} onChange={setRangeStart} size="sm" />
-                  <span className="text-muted-foreground">~</span>
-                  {rangeEndUnlimited ? (
-                    <div className="px-3 py-1 border border-border rounded text-muted-foreground text-sm font-mono min-w-[88px] text-center">
-                      ∞
-                    </div>
-                  ) : (
-                    <TimeInput value={rangeEnd} onChange={setRangeEnd} size="sm" />
+                <>
+                  <div
+                    className={`flex items-center gap-2 ${rangeInvalid ? 'ring-1 ring-destructive rounded-md p-1' : ''}`}
+                  >
+                    <TimeInput value={rangeStart} onChange={setRangeStart} size="sm" />
+                    <span className="text-muted-foreground">~</span>
+                    {rangeEndUnlimited ? (
+                      <div className="px-3 py-1 border border-border rounded text-muted-foreground text-sm font-mono min-w-[88px] text-center">
+                        ∞
+                      </div>
+                    ) : (
+                      <TimeInput value={rangeEnd} onChange={setRangeEnd} size="sm" />
+                    )}
+                    <label className="flex items-center gap-2 text-sm ml-2">
+                      <Checkbox
+                        checked={rangeEndUnlimited}
+                        onCheckedChange={v => setRangeEndUnlimited(!!v)}
+                      />
+                      至时间轴结尾
+                    </label>
+                  </div>
+                  {rangeInvalid && (
+                    <p className="text-xs text-destructive mt-1">起始时间必须小于结束时间</p>
                   )}
-                  <label className="flex items-center gap-2 text-sm ml-2">
-                    <Checkbox
-                      checked={rangeEndUnlimited}
-                      onCheckedChange={v => setRangeEndUnlimited(!!v)}
-                    />
-                    至时间轴结尾
-                  </label>
-                </div>
+                </>
               ) : (
                 <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                   ⚠ 全部模式可能与时间轴已有事件重复。建议改用「时间区间」并选择空白时间段。
@@ -470,7 +511,10 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
           <Button variant="outline" onClick={onClose} disabled={isParsing}>
             取消
           </Button>
-          <Button onClick={handleNext} disabled={isParsing || !canNext}>
+          <Button
+            onClick={handleNext}
+            disabled={isParsing || (step === 1 ? !canNext : !canConfirm)}
+          >
             {nextLabel}
           </Button>
         </ModalFooter>
