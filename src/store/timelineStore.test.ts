@@ -5,11 +5,11 @@
  * 测试用 fake-indexeddb 提供 IndexedDB,每个用例独立 DB。
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import * as Y from 'yjs'
 import { useTimelineStore } from './timelineStore'
-import type { Composition } from '@/types/timeline'
+import type { Composition, DamageEvent, CastEvent, SyncEvent } from '@/types/timeline'
 import type { TimelineContent } from '@/collab/types'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
 import { buildYDoc } from '@/collab/docSchema'
@@ -738,5 +738,78 @@ describe('timelineStore - snapshot 兜底渲染数据源', () => {
       ;(globalThis as { window?: unknown }).window = oldWindow
     }
     useTimelineStore.getState().reset()
+  })
+})
+
+describe('bulkImport', () => {
+  beforeEach(async () => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    const store = useTimelineStore.getState()
+    await store.openTimeline('bulk-import-test', { role: 'local', seedContent: baseContent })
+  })
+
+  afterEach(() => {
+    useTimelineStore.getState().reset()
+  })
+
+  it('一次写入若干 damage / cast / sync，仅一步 undo 全部回滚', () => {
+    const before = useTimelineStore.getState().timeline!
+    const damages: DamageEvent[] = [
+      { id: 'will-regen-1', name: 'd1', time: 1, damage: 100, type: 'aoe', damageType: 'magical' },
+      { id: 'will-regen-2', name: 'd2', time: 2, damage: 200, type: 'aoe', damageType: 'magical' },
+    ]
+    const casts: CastEvent[] = [{ id: 'will-regen-c1', actionId: 7382, timestamp: 1, playerId: 1 }]
+    const syncs: SyncEvent[] = [
+      { time: 1, type: 'cast', actionId: 100, actionName: 'A', window: [2, 2], syncOnce: false },
+    ]
+
+    useTimelineStore
+      .getState()
+      .bulkImport({ damageEvents: damages, castEvents: casts, syncEvents: syncs })
+
+    const after = useTimelineStore.getState().timeline!
+    expect(after.damageEvents.length).toBe(before.damageEvents.length + 2)
+    expect(after.castEvents.length).toBe(before.castEvents.length + 1)
+    expect(after.syncEvents?.length).toBe(1)
+
+    // 一步 undo 即清空
+    expect(useTimelineStore.getState().canUndo).toBe(true)
+    useTimelineStore.getState().undo()
+
+    const reverted = useTimelineStore.getState().timeline!
+    expect(reverted.damageEvents.length).toBe(before.damageEvents.length)
+    expect(reverted.castEvents.length).toBe(before.castEvents.length)
+    expect(useTimelineStore.getState().canUndo).toBe(false)
+    expect(reverted.syncEvents == null || reverted.syncEvents.length === 0).toBe(true)
+  })
+
+  it('写入时给每条 damage / cast 重新生成 id（避免与现有冲突）', () => {
+    useTimelineStore.getState().bulkImport({
+      damageEvents: [
+        { id: 'foo', name: 'd', time: 1, damage: 100, type: 'aoe', damageType: 'magical' },
+      ],
+    })
+    const ev = useTimelineStore.getState().timeline!.damageEvents.at(-1)!
+    expect(ev.id).not.toBe('foo')
+    expect(ev.id.length).toBeGreaterThan(4)
+  })
+
+  it('sync 整数组替换（带原有 sync 时与 incoming 合并并按 time 排序）', () => {
+    // 通过 store 不暴露的方式预置 sync 不方便；改用先 bulkImport 一条做 baseline
+    useTimelineStore.getState().bulkImport({
+      syncEvents: [
+        { time: 10, type: 'cast', actionId: 100, actionName: 'A', window: [0, 0], syncOnce: false },
+      ],
+    })
+    // 再追加另一条更早的
+    useTimelineStore.getState().bulkImport({
+      syncEvents: [
+        { time: 5, type: 'cast', actionId: 200, actionName: 'B', window: [0, 0], syncOnce: false },
+      ],
+    })
+
+    const sync = useTimelineStore.getState().timeline!.syncEvents!
+    expect(sync.map(s => s.time)).toEqual([5, 10])
   })
 })
