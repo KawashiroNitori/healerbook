@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import type { Timeline, Composition } from '@/types/timeline'
-import { extractImportableFromTimeline, filterByRange, buildPlayerIdMap } from './importAdapter'
+import type { CastEvent } from '@/types/timeline'
+import {
+  extractImportableFromTimeline,
+  filterByRange,
+  buildPlayerIdMap,
+  validateCastsForImport,
+} from './importAdapter'
+import { createPlacementEngine } from '@/utils/placement/engine'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 
 const baseTimeline = (overrides: Partial<Timeline> = {}): Timeline => ({
   id: 't1',
@@ -151,5 +159,94 @@ describe('buildPlayerIdMap', () => {
     const incoming = comp([[100, 'AST']])
     const current = comp([[1, 'WHM']])
     expect(buildPlayerIdMap(incoming, current).size).toBe(0)
+  })
+})
+
+describe('validateCastsForImport', () => {
+  const fakeAction = MITIGATION_DATA.actions.find(a => a.cooldown && a.cooldown >= 60)
+  if (!fakeAction) {
+    throw new Error('Test setup: no action with cooldown >= 60 found in MITIGATION_DATA')
+  }
+  const actionId = fakeAction.id
+  const job = fakeAction.jobs[0]
+  const currentComp: Composition = { players: [{ id: 1, job }] }
+  const incomingComp: Composition = { players: [{ id: 100, job }] }
+  const makeBaseTimeline = (): Timeline => ({
+    id: 't',
+    name: '',
+    encounter: { id: 0, name: '', displayName: '', zone: '', damageEvents: [] },
+    composition: currentComp,
+    damageEvents: [],
+    castEvents: [],
+    statusEvents: [],
+    annotations: [],
+    createdAt: 0,
+    updatedAt: 0,
+  })
+
+  it('playerId 不在 map → 跳过', () => {
+    const map = buildPlayerIdMap({ players: [] }, currentComp) // 空 map
+    const incoming: CastEvent[] = [{ id: 'i1', actionId, timestamp: 10, playerId: 100 }]
+    const result = validateCastsForImport({
+      incoming,
+      playerIdMap: map,
+      baseTimeline: makeBaseTimeline(),
+      mitigationActions: MITIGATION_DATA.actions,
+      statusTimelineByPlayer: new Map(),
+      createEngine: createPlacementEngine,
+    })
+    expect(result.kept).toHaveLength(0)
+    expect(result.skipped).toBe(1)
+  })
+
+  it('actionId 不在 registry → 跳过', () => {
+    const map = buildPlayerIdMap(incomingComp, currentComp)
+    const incoming: CastEvent[] = [{ id: 'i1', actionId: 99999999, timestamp: 10, playerId: 100 }]
+    const result = validateCastsForImport({
+      incoming,
+      playerIdMap: map,
+      baseTimeline: makeBaseTimeline(),
+      mitigationActions: MITIGATION_DATA.actions,
+      statusTimelineByPlayer: new Map(),
+      createEngine: createPlacementEngine,
+    })
+    expect(result.kept).toHaveLength(0)
+    expect(result.skipped).toBe(1)
+  })
+
+  it('同 player 同 action 间隔 < CD → 第 2 个进 skipped', () => {
+    const map = buildPlayerIdMap(incomingComp, currentComp)
+    const incoming: CastEvent[] = [
+      { id: 'i1', actionId, timestamp: 10, playerId: 100 },
+      { id: 'i2', actionId, timestamp: 11, playerId: 100 }, // 1 秒内重复
+    ]
+    const result = validateCastsForImport({
+      incoming,
+      playerIdMap: map,
+      baseTimeline: makeBaseTimeline(),
+      mitigationActions: MITIGATION_DATA.actions,
+      statusTimelineByPlayer: new Map(),
+      createEngine: createPlacementEngine,
+    })
+    expect(result.kept).toHaveLength(1)
+    expect(result.kept[0].playerId).toBe(1) // 映射后
+    expect(result.skipped).toBe(1)
+  })
+
+  it('全合法 → kept = incoming（playerId 已映射）', () => {
+    const map = buildPlayerIdMap(incomingComp, currentComp)
+    const incoming: CastEvent[] = [{ id: 'i1', actionId, timestamp: 10, playerId: 100 }]
+    const result = validateCastsForImport({
+      incoming,
+      playerIdMap: map,
+      baseTimeline: makeBaseTimeline(),
+      mitigationActions: MITIGATION_DATA.actions,
+      statusTimelineByPlayer: new Map(),
+      createEngine: createPlacementEngine,
+    })
+    expect(result.kept).toHaveLength(1)
+    expect(result.kept[0].playerId).toBe(1)
+    expect(result.kept[0].actionId).toBe(actionId)
+    expect(result.skipped).toBe(0)
   })
 })

@@ -6,6 +6,9 @@
  */
 
 import type { Timeline, DamageEvent, CastEvent, SyncEvent, Composition } from '@/types/timeline'
+import type { MitigationAction } from '@/types/mitigation'
+import type { StatusTimelineByPlayer, PlacementEngine } from '@/utils/placement/types'
+import type { createPlacementEngine } from '@/utils/placement/engine'
 
 export interface ImportableSubset {
   damageEvents: DamageEvent[]
@@ -52,6 +55,70 @@ export function buildPlayerIdMap(incoming: Composition, current: Composition): M
     }
   }
   return map
+}
+
+export interface ValidateCastsArgs {
+  incoming: CastEvent[]
+  playerIdMap: Map<number, number>
+  baseTimeline: Timeline
+  mitigationActions: MitigationAction[]
+  statusTimelineByPlayer: StatusTimelineByPlayer
+  /** 注入 engine factory，方便测试 / 解耦 */
+  createEngine: typeof createPlacementEngine
+}
+
+export function validateCastsForImport(args: ValidateCastsArgs): {
+  kept: CastEvent[]
+  skipped: number
+} {
+  const {
+    incoming,
+    playerIdMap,
+    baseTimeline,
+    mitigationActions,
+    statusTimelineByPlayer,
+    createEngine,
+  } = args
+  const actionMap = new Map(mitigationActions.map(a => [a.id, a]))
+  const sorted = [...incoming].sort((a, b) => a.timestamp - b.timestamp)
+
+  const accepted: CastEvent[] = []
+  let skipped = 0
+
+  // 每次接受新 cast 后重建 engine —— O(n²) 但 n≈50，可接受
+  const buildEngine = (): PlacementEngine =>
+    createEngine({
+      castEvents: [...baseTimeline.castEvents, ...accepted],
+      actions: actionMap,
+      statusTimelineByPlayer,
+    })
+  let engine = buildEngine()
+
+  for (const raw of sorted) {
+    const mappedId = playerIdMap.get(raw.playerId)
+    if (mappedId === undefined) {
+      // reason: incoming playerId not present in current composition
+      skipped++
+      continue
+    }
+    const action = actionMap.get(raw.actionId)
+    if (!action) {
+      // reason: actionId not in mitigation registry
+      skipped++
+      continue
+    }
+    // excludeId 传 undefined：incoming cast 不在 engine 当前 castEvents 内，无需排除
+    const result = engine.canPlaceCastEvent(action, mappedId, raw.timestamp, undefined)
+    if (!result.ok) {
+      // reason: placement engine rejected (CD / status / resource)
+      skipped++
+      continue
+    }
+    accepted.push({ ...raw, playerId: mappedId })
+    engine = buildEngine()
+  }
+
+  return { kept: accepted, skipped }
 }
 
 export function extractImportableFromTimeline(t: Timeline): ImportableSubset {
