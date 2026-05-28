@@ -15,6 +15,7 @@ import {
   Settings,
   Eye,
   Download,
+  Upload,
 } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -55,6 +56,7 @@ import SharePopover from './SharePopover'
 import StatDataDialog from './StatDataDialog'
 const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
 const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
+const ImportIntoTimelineDialog = lazy(() => import('./ImportIntoTimelineDialog'))
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { track } from '@/utils/analytics'
 
@@ -104,12 +106,14 @@ export default function EditorToolbar({
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSoumaDialog, setShowSoumaDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   const canUndo = useTimelineStore(s => s.canUndo)
   const canRedo = useTimelineStore(s => s.canRedo)
   const isPublished = useTimelineStore(s => s.isPublished)
+  const sessionRole = useTimelineStore(s => s.sessionRole)
 
   const isReplayMode = timeline?.isReplayMode || false
   const isReadOnly = useEditorReadOnly()
@@ -423,6 +427,37 @@ export default function EditorToolbar({
               </>
             )}
 
+            {/* 导入 */}
+            {!isReplayMode && sessionRole !== 'viewer' && (
+              <>
+                <div className="w-px h-6 bg-border mx-1" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setShowImportDialog(true)}
+                        disabled={!editLock.can('content')}
+                      >
+                        <Upload className="w-4 h-4" />
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {editLock.can('content')
+                      ? '导入'
+                      : contentReason === 'viewer'
+                        ? '只读 · 仅查看'
+                        : contentReason === 'offline'
+                          ? '只读 · 连接中断'
+                          : '只读'}
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            )}
+
             {/* Exit Replay Mode Confirmation */}
             <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
               <AlertDialogContent>
@@ -459,6 +494,12 @@ export default function EditorToolbar({
         )}
         {showSoumaDialog && (
           <ExportSoumaDialog open={showSoumaDialog} onClose={() => setShowSoumaDialog(false)} />
+        )}
+        {showImportDialog && (
+          <ImportIntoTimelineDialog
+            open={showImportDialog}
+            onClose={() => setShowImportDialog(false)}
+          />
         )}
       </Suspense>
     </>
