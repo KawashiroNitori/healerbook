@@ -16,6 +16,18 @@ export interface ImportableSubset {
   sourceLabel: string
 }
 
+export type ImportRange = { mode: 'all' } | { mode: 'range'; start: number; end: number | null }
+
+export function filterByRange<T>(events: T[], range: ImportRange, getTime: (e: T) => number): T[] {
+  if (range.mode === 'all') return events
+  return events.filter(e => {
+    const t = getTime(e)
+    if (t < range.start) return false
+    if (range.end !== null && t >= range.end) return false
+    return true
+  })
+}
+
 export function extractImportableFromTimeline(t: Timeline): ImportableSubset {
   const parts: string[] = []
   if (t.fflogsSource) {
