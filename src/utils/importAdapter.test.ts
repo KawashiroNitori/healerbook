@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { Timeline } from '@/types/timeline'
-import { extractImportableFromTimeline, filterByRange } from './importAdapter'
+import type { Timeline, Composition } from '@/types/timeline'
+import { extractImportableFromTimeline, filterByRange, buildPlayerIdMap } from './importAdapter'
 
 const baseTimeline = (overrides: Partial<Timeline> = {}): Timeline => ({
   id: 't1',
@@ -76,5 +76,80 @@ describe('filterByRange', () => {
 
   it('start === end 返回空', () => {
     expect(filterByRange(events, { mode: 'range', start: 20, end: 20 }, getT)).toEqual([])
+  })
+})
+
+const comp = (entries: Array<[number, string]>): Composition => ({
+  players: entries.map(([id, job]) => ({ id, job: job as Composition['players'][number]['job'] })),
+})
+
+describe('buildPlayerIdMap', () => {
+  it('1:1 全匹配', () => {
+    const incoming = comp([
+      [100, 'WHM'],
+      [101, 'SCH'],
+    ])
+    const current = comp([
+      [1, 'WHM'],
+      [2, 'SCH'],
+    ])
+    const map = buildPlayerIdMap(incoming, current)
+    expect(map.get(100)).toBe(1)
+    expect(map.get(101)).toBe(2)
+  })
+
+  it('多对多按出现顺序匹配', () => {
+    const incoming = comp([
+      [100, 'WHM'],
+      [101, 'WHM'],
+      [102, 'SCH'],
+    ])
+    const current = comp([
+      [1, 'WHM'],
+      [2, 'SCH'],
+      [3, 'WHM'],
+    ])
+    const map = buildPlayerIdMap(incoming, current)
+    expect(map.get(100)).toBe(1) // 双方第 1 个 WHM
+    expect(map.get(101)).toBe(3) // 双方第 2 个 WHM
+    expect(map.get(102)).toBe(2) // 双方第 1 个 SCH
+  })
+
+  it('incoming 多余职业 → 不入 map', () => {
+    const incoming = comp([
+      [100, 'WHM'],
+      [101, 'AST'],
+    ])
+    const current = comp([[1, 'WHM']])
+    const map = buildPlayerIdMap(incoming, current)
+    expect(map.get(100)).toBe(1)
+    expect(map.has(101)).toBe(false)
+  })
+
+  it('incoming 同职业人数 > current → 多出的不入 map', () => {
+    const incoming = comp([
+      [100, 'WHM'],
+      [101, 'WHM'],
+    ])
+    const current = comp([[1, 'WHM']])
+    const map = buildPlayerIdMap(incoming, current)
+    expect(map.get(100)).toBe(1)
+    expect(map.has(101)).toBe(false)
+  })
+
+  it('current 多余职业 → incoming 不分配对应 player', () => {
+    const incoming = comp([[100, 'WHM']])
+    const current = comp([
+      [1, 'WHM'],
+      [2, 'SCH'],
+    ])
+    const map = buildPlayerIdMap(incoming, current)
+    expect(map.get(100)).toBe(1)
+  })
+
+  it('完全无交集 → 空 map', () => {
+    const incoming = comp([[100, 'AST']])
+    const current = comp([[1, 'WHM']])
+    expect(buildPlayerIdMap(incoming, current).size).toBe(0)
   })
 })

@@ -5,7 +5,7 @@
  * 收窄成「可追加到当前时间轴」的子集，并提供过滤 / 职业映射 / cast 校验 / sync 去重。
  */
 
-import type { Timeline, DamageEvent, CastEvent, SyncEvent } from '@/types/timeline'
+import type { Timeline, DamageEvent, CastEvent, SyncEvent, Composition } from '@/types/timeline'
 
 export interface ImportableSubset {
   damageEvents: DamageEvent[]
@@ -26,6 +26,32 @@ export function filterByRange<T>(events: T[], range: ImportRange, getTime: (e: T
     if (range.end !== null && t >= range.end) return false
     return true
   })
+}
+
+export function buildPlayerIdMap(incoming: Composition, current: Composition): Map<number, number> {
+  // 双方按 job 分桶，组内保持 composition.players 出现顺序
+  const groupByJob = (c: Composition): Map<string, number[]> => {
+    const groups = new Map<string, number[]>()
+    for (const p of c.players) {
+      const arr = groups.get(p.job)
+      if (arr) arr.push(p.id)
+      else groups.set(p.job, [p.id])
+    }
+    return groups
+  }
+  const inc = groupByJob(incoming)
+  const cur = groupByJob(current)
+  const map = new Map<number, number>()
+  for (const [job, incIds] of inc) {
+    const curIds = cur.get(job)
+    if (!curIds) continue
+    for (let i = 0; i < incIds.length; i++) {
+      const target = curIds[i]
+      if (target === undefined) break
+      map.set(incIds[i], target)
+    }
+  }
+  return map
 }
 
 export function extractImportableFromTimeline(t: Timeline): ImportableSubset {
