@@ -15,7 +15,14 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { useUIStore } from '@/store/uiStore'
-import type { Timeline, DamageEvent, CastEvent, Composition, Annotation } from '@/types/timeline'
+import type {
+  Timeline,
+  DamageEvent,
+  CastEvent,
+  Composition,
+  Annotation,
+  SyncEvent,
+} from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
@@ -46,6 +53,7 @@ import {
 } from '@/collab/docSchema'
 import type { TimelineContent } from '@/collab/types'
 import { LOCAL_ORIGIN, HOUSEKEEPING_ORIGIN } from '@/collab/constants'
+import { generateId } from '@/utils/id'
 
 /** `yReplaceStatData` 接受宽泛 `Record`,此处收敛到 `TimelineStatData` 入参 */
 function replaceStatData(doc: YDoc, statData: TimelineStatData): void {
@@ -161,6 +169,12 @@ interface TimelineState {
   updateAnnotation: (id: string, updates: Partial<Pick<Annotation, 'text' | 'time'>>) => void
   /** 删除注释 */
   removeAnnotation: (id: string) => void
+  /** 批量导入：单个 Y.Doc 事务包裹所有写入，UndoManager 视为一步 */
+  bulkImport: (data: {
+    damageEvents?: DamageEvent[]
+    castEvents?: CastEvent[]
+    syncEvents?: SyncEvent[]
+  }) => void
   /** 解除回放模式（不可撤销） */
   exitReplayMode: () => void
   /** 更新时间轴统计数据 */
@@ -658,6 +672,36 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       const engine = get().engine
       if (!engine) return
       yRemoveAnnotation(engine.doc, id)
+    },
+
+    bulkImport: data => {
+      const engine = get().engine
+      if (!engine) return
+      const damageEvents = data.damageEvents ?? []
+      const castEvents = data.castEvents ?? []
+      const syncEvents = data.syncEvents ?? []
+      if (damageEvents.length === 0 && castEvents.length === 0 && syncEvents.length === 0) return
+
+      engine.doc.transact(() => {
+        for (const e of damageEvents) {
+          yAddDamageEvent(engine.doc, {
+            ...e,
+            id: generateId(),
+            time: Math.max(0, e.time),
+            snapshotTime: e.snapshotTime != null ? Math.max(0, e.snapshotTime) : e.snapshotTime,
+          })
+        }
+        for (const c of castEvents) {
+          yAddCastEvent(engine.doc, { ...c, id: generateId() })
+        }
+        if (syncEvents.length > 0) {
+          // get().timeline reflects pre-transact state; Yjs fires 'update' only after
+          // the outer transact completes, so reading here gives the existing baseline.
+          const existing = get().timeline?.syncEvents ?? []
+          const merged = [...existing, ...syncEvents].sort((a, b) => a.time - b.time)
+          ySetMeta(engine.doc, { syncEvents: merged })
+        }
+      }, LOCAL_ORIGIN)
     },
 
     updateStatData: statData => {
