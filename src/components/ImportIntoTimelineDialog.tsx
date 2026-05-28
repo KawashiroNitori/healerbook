@@ -17,6 +17,9 @@ import { parseFromAny } from '@/utils/timelineFormat'
 import { parseApiError } from '@/api/parseApiError'
 import { generateId } from '@/utils/id'
 import { extractImportableFromTimeline, type ImportableSubset } from '@/utils/importAdapter'
+import { useTimelineStore } from '@/store/timelineStore'
+import { fetchEncounterTemplate } from '@/api/encounterTemplate'
+import type { DamageEvent } from '@/types/timeline'
 
 interface ImportIntoTimelineDialogProps {
   open: boolean
@@ -24,18 +27,23 @@ interface ImportIntoTimelineDialogProps {
 }
 
 type Step = 1 | 2
-type SourceKind = 'fflogs'
+type SourceKind = 'fflogs' | 'template'
 
 export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTimelineDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>(1)
-  const [source] = useState<SourceKind>('fflogs') // 模板源在 Task 9 引入
+  const [source, setSource] = useState<SourceKind>('fflogs')
   const [url, setUrl] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState('')
   const [parsed, setParsed] = useState<ImportableSubset | null>(null)
-  /** parsed 对应的 URL，用于检测用户改动 URL 后是否需要重新解析 */
+  /** parsed 对应的 key，用于检测来源变动后是否需要重新解析 */
   const [parsedKey, setParsedKey] = useState<string>('')
+
+  const timeline = useTimelineStore(s => s.timeline)
+  const currentEncounter = timeline?.encounter
+  const [templateEvents, setTemplateEvents] = useState<DamageEvent[] | null>(null)
+  const [templatePrefetching, setTemplatePrefetching] = useState(false)
 
   // 自动聚焦 + 剪贴板探测
   useEffect(() => {
@@ -60,41 +68,104 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       setParsed(null)
       setParsedKey('')
       setIsParsing(false)
+      setSource('fflogs')
     }
   }, [open])
 
+  // prefetch 副本模板
+  useEffect(() => {
+    if (!open || !currentEncounter?.id) {
+      setTemplateEvents(null)
+      return
+    }
+    setTemplatePrefetching(true)
+    let ignore = false
+    void fetchEncounterTemplate(currentEncounter.id)
+      .then(res => {
+        if (!ignore) setTemplateEvents(res.events)
+      })
+      .catch(() => {
+        if (!ignore) setTemplateEvents([])
+      })
+      .finally(() => {
+        if (!ignore) setTemplatePrefetching(false)
+      })
+    return () => {
+      ignore = true
+    }
+  }, [open, currentEncounter?.id])
+
   const parsedUrl = url ? parseFFLogsUrl(url) : null
   const urlValid = !!parsedUrl?.reportCode
-  const needReparse = parsed !== null && parsedKey !== url
-  const nextLabel = step === 1 ? (parsed && !needReparse ? '下一步' : '解析') : '确认导入'
+
+  const templateAvailable = (templateEvents?.length ?? 0) > 0
+  const showSegmented = !!currentEncounter && templateAvailable
+
+  const reparseKey = source === 'fflogs' ? url : `template:${currentEncounter?.id ?? ''}`
+  const needReparse = parsed !== null && parsedKey !== reparseKey
+
+  const nextLabel =
+    step === 1
+      ? source === 'template'
+        ? '下一步'
+        : parsed && !needReparse
+          ? '下一步'
+          : '解析'
+      : '确认导入'
+
+  const canNext =
+    step === 1 ? (source === 'fflogs' ? urlValid : (templateEvents?.length ?? 0) > 0) : true // Step 2 由 Task 13 接管
+
+  const handleSourceChange = (s: SourceKind) => {
+    if (s === source) return
+    setSource(s)
+    setParsed(null)
+    setParsedKey('')
+    setError('')
+    setStep(1)
+  }
 
   const handleParse = async () => {
-    if (!parsedUrl?.reportCode) return
     setError('')
-    setIsParsing(true)
-    try {
-      const params = new URLSearchParams({ reportCode: parsedUrl.reportCode })
-      if (!parsedUrl.isLastFight && parsedUrl.fightId !== null) {
-        params.set('fightId', String(parsedUrl.fightId))
+    if (source === 'fflogs') {
+      if (!parsedUrl?.reportCode) return
+      setIsParsing(true)
+      try {
+        const params = new URLSearchParams({ reportCode: parsedUrl.reportCode })
+        if (!parsedUrl.isLastFight && parsedUrl.fightId !== null) {
+          params.set('fightId', String(parsedUrl.fightId))
+        }
+        const response = await apiClient.get(`fflogs/import?${params}`, {
+          timeout: 120000,
+          throwHttpErrors: false,
+        })
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as unknown
+          throw new Error(parseApiError(body, response.status))
+        }
+        const raw = await response.json()
+        const fullTimeline = parseFromAny(raw, { id: generateId() })
+        const extracted = extractImportableFromTimeline(fullTimeline)
+        setParsed(extracted)
+        setParsedKey(url)
+        setStep(2)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '解析失败')
+      } finally {
+        setIsParsing(false)
       }
-      const response = await apiClient.get(`fflogs/import?${params}`, {
-        timeout: 120000,
-        throwHttpErrors: false,
+    } else {
+      // template
+      if (!templateEvents) return
+      setParsed({
+        damageEvents: templateEvents,
+        castEvents: [],
+        syncEvents: [],
+        encounter: currentEncounter ?? null,
+        sourceLabel: `模板「${currentEncounter?.name ?? ''}」`,
       })
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as unknown
-        throw new Error(parseApiError(body, response.status))
-      }
-      const raw = await response.json()
-      const fullTimeline = parseFromAny(raw, { id: generateId() })
-      const extracted = extractImportableFromTimeline(fullTimeline)
-      setParsed(extracted)
-      setParsedKey(url)
+      setParsedKey(`template:${currentEncounter?.id}`)
       setStep(2)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '解析失败')
-    } finally {
-      setIsParsing(false)
     }
   }
 
@@ -125,32 +196,65 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
 
       {/* 内容区 */}
       <div className="px-6 py-6 min-h-[220px] space-y-4">
-        {/* source 变量用于 Task 9 的来源切换器，此处暂只有 fflogs */}
-        {step === 1 && source === 'fflogs' && (
+        {step === 1 && (
           <>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                FFLogs 链接
-              </label>
-              <input
-                ref={inputRef}
-                type="text"
-                value={url}
-                onChange={e => setUrl(e.target.value)}
-                placeholder="https://www.fflogs.com/reports/ABC123#fight=5"
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                disabled={isParsing}
-              />
-              {url && !urlValid && (
-                <p className="text-xs text-destructive mt-1">无法识别 FFLogs 链接</p>
-              )}
-            </div>
-            {isParsing && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                正在解析 FFLogs 报告...
+            {showSegmented && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  来源
+                </label>
+                <div className="inline-flex border border-border rounded-md p-0.5 bg-muted/30">
+                  <button
+                    type="button"
+                    onClick={() => handleSourceChange('fflogs')}
+                    className={`px-3 py-1 rounded text-xs ${source === 'fflogs' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                  >
+                    FFLogs 战斗
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSourceChange('template')}
+                    className={`px-3 py-1 rounded text-xs ${source === 'template' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                  >
+                    副本模板
+                  </button>
+                </div>
               </div>
             )}
+
+            {source === 'fflogs' && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  FFLogs 链接
+                </label>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  placeholder="https://www.fflogs.com/reports/ABC123#fight=5"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={isParsing}
+                />
+                {url && !urlValid && (
+                  <p className="text-xs text-destructive mt-1">无法识别 FFLogs 链接</p>
+                )}
+              </div>
+            )}
+
+            {source === 'template' && currentEncounter && (
+              <div className="rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
+                将从模板「{currentEncounter.name}」导入（按当前时间轴 encounter 自动选择）
+              </div>
+            )}
+
+            {(isParsing || templatePrefetching) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {isParsing ? '正在解析...' : '正在加载模板...'}
+              </div>
+            )}
+
             {error && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
                 {error}
@@ -179,7 +283,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
           <Button variant="outline" onClick={onClose} disabled={isParsing}>
             取消
           </Button>
-          <Button onClick={handleNext} disabled={isParsing || (step === 1 && !urlValid)}>
+          <Button onClick={handleNext} disabled={isParsing || !canNext}>
             {nextLabel}
           </Button>
         </ModalFooter>
