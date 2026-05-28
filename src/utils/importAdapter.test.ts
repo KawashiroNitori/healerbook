@@ -58,6 +58,13 @@ describe('extractImportableFromTimeline', () => {
     const t = baseTimeline()
     expect(extractImportableFromTimeline(t).sourceLabel).toBe('M3S')
   })
+
+  it('暴露 incoming composition', () => {
+    const t = baseTimeline({
+      composition: { players: [{ id: 5, job: 'WHM' }] },
+    })
+    expect(extractImportableFromTimeline(t).composition.players).toHaveLength(1)
+  })
 })
 
 describe('filterByRange', () => {

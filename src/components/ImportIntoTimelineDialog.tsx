@@ -7,7 +7,7 @@
  * 详见 design/superpowers/specs/2026-05-29-editor-import-design.md
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -20,8 +20,18 @@ import { parseFromAny } from '@/utils/timelineFormat'
 import { parseApiError } from '@/api/parseApiError'
 import { generateId } from '@/utils/id'
 import { extractImportableFromTimeline, type ImportableSubset } from '@/utils/importAdapter'
+import {
+  buildPlayerIdMap,
+  dedupeSyncEvents,
+  filterByRange,
+  validateCastsForImport,
+  type ImportRange,
+} from '@/utils/importAdapter'
 import { useTimelineStore } from '@/store/timelineStore'
 import { fetchEncounterTemplate } from '@/api/encounterTemplate'
+import { useMitigationStore } from '@/store/mitigationStore'
+import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
+import { createPlacementEngine } from '@/utils/placement/engine'
 import type { DamageEvent } from '@/types/timeline'
 
 interface ImportIntoTimelineDialogProps {
@@ -55,6 +65,52 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
   const [rangeStart, setRangeStart] = useState(0)
   const [rangeEnd, setRangeEnd] = useState(0)
   const [rangeEndUnlimited, setRangeEndUnlimited] = useState(true)
+
+  const mitigationActions = useMitigationStore(s => s.actions)
+  const calc = useContext(DamageCalculationContext)
+
+  const range = useMemo<ImportRange>(
+    () =>
+      rangeMode === 'all'
+        ? { mode: 'all' }
+        : { mode: 'range', start: rangeStart, end: rangeEndUnlimited ? null : rangeEnd },
+    [rangeMode, rangeStart, rangeEnd, rangeEndUnlimited]
+  )
+
+  const encounterMismatch =
+    parsed?.encounter && timeline?.encounter && parsed.encounter.id !== timeline.encounter.id
+
+  const preview = useMemo(() => {
+    if (!parsed || !timeline) return null
+    const damages = includeDamage ? filterByRange(parsed.damageEvents, range, e => e.time) : []
+    const filteredCasts = includeCast
+      ? filterByRange(parsed.castEvents, range, e => e.timestamp)
+      : []
+    // 即便 includeCast=false，sync 仍按范围过滤（用户可见不显示，但提交时也带）
+    const filteredSyncs = filterByRange(parsed.syncEvents, range, e => e.time)
+
+    const playerIdMap = buildPlayerIdMap(parsed.composition, timeline.composition)
+
+    const castResult = validateCastsForImport({
+      incoming: filteredCasts,
+      playerIdMap,
+      baseTimeline: timeline,
+      mitigationActions,
+      statusTimelineByPlayer: calc?.statusTimelineByPlayer ?? new Map(),
+      createEngine: createPlacementEngine,
+    })
+
+    const syncResult = dedupeSyncEvents(filteredSyncs, timeline.syncEvents ?? [])
+
+    return {
+      damageCount: damages.length,
+      damages,
+      castKept: castResult.kept.length,
+      castSkipped: castResult.skipped,
+      casts: castResult.kept,
+      syncs: syncResult.kept,
+    }
+  }, [parsed, timeline, range, includeDamage, includeCast, mitigationActions, calc])
 
   // 自动聚焦 + 剪贴板探测
   useEffect(() => {
@@ -191,6 +247,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
         castEvents: [],
         syncEvents: [],
         encounter: currentEncounter ?? null,
+        composition: timeline?.composition ?? { players: [] },
         sourceLabel: `模板「${currentEncounter?.name ?? ''}」`,
       })
       setParsedKey(`template:${currentEncounter?.id}`)
@@ -299,6 +356,13 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
               {source === 'fflogs' && ` / ${parsed.castEvents.length} 技能`}
             </div>
 
+            {encounterMismatch && (
+              <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
+                ⚠ 该报告的副本「{parsed?.encounter?.name}」与当前时间轴「{timeline?.encounter?.name}
+                」不一致
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                 数据类型
@@ -361,6 +425,36 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                 </div>
               )}
             </div>
+
+            {preview && (
+              <div className="rounded-md bg-muted/40 px-3 py-2 font-mono text-xs leading-6">
+                <div className="text-muted-foreground">本次将导入：</div>
+                {includeDamage && (
+                  <div>
+                    {'　'}
+                    伤害事件{'　'}
+                    <span className="text-green-600 dark:text-green-400">
+                      {preview.damageCount} 条
+                    </span>
+                  </div>
+                )}
+                {source === 'fflogs' && includeCast && (
+                  <div>
+                    {'　'}
+                    技能使用{'　'}
+                    <span className="text-green-600 dark:text-green-400">
+                      {preview.castKept} 条
+                    </span>
+                    {preview.castSkipped > 0 && (
+                      <span className="text-yellow-600 dark:text-yellow-400">
+                        {' '}
+                        （跳过 {preview.castSkipped} 条因 CD/状态冲突或玩家不在阵容）
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
