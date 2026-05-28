@@ -15,6 +15,8 @@ export interface ImportableSubset {
   castEvents: CastEvent[]
   syncEvents: SyncEvent[]
   encounter: Timeline['encounter'] | null
+  /** 报告内的 incoming composition；用于按职业映射 playerId */
+  composition: Composition
   /** 显示给用户的来源标签，例："报告 ABC123 / 战斗 #5 / M3S" 或 "M3S" */
   sourceLabel: string
 }
@@ -151,6 +153,7 @@ export function extractImportableFromTimeline(t: Timeline): ImportableSubset {
     castEvents: t.castEvents ?? [],
     syncEvents: t.syncEvents ?? [],
     encounter: t.encounter ?? null,
+    composition: t.composition ?? { players: [] },
     sourceLabel: parts.join(' / ') || '未知来源',
   }
 }
