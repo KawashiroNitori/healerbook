@@ -12,8 +12,8 @@ function getSecretKey(secret: string): Uint8Array {
 }
 
 export interface AccessTokenPayload extends JWTPayload {
-  sub: string // FFLogs user ID（字符串）
-  name: string // FFLogs username
+  sub: string // my-user-id（字符串化整数;存量用户 == fflogs id）
+  name: string // 显示名（初始取 fflogs name）
   jti: string
 }
 

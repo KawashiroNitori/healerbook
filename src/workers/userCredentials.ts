@@ -1,0 +1,152 @@
+/// <reference types="@cloudflare/workers-types" />
+
+export interface OAuthData {
+  access_token: string
+  refresh_token: string
+  /** unix 秒;0 表示占位/未知 */
+  expires_at: number
+}
+
+export function serializeOAuthData(d: OAuthData): string {
+  return JSON.stringify({
+    access_token: d.access_token,
+    refresh_token: d.refresh_token,
+    expires_at: d.expires_at,
+  })
+}
+
+export function parseOAuthData(row: { data: string }): OAuthData {
+  const raw = JSON.parse(row.data) as Partial<OAuthData>
+  return {
+    access_token: raw.access_token ?? '',
+    refresh_token: raw.refresh_token ?? '',
+    expires_at: raw.expires_at ?? 0,
+  }
+}
+
+/**
+ * now(秒) 严格大于 expires_at 即视为过期。
+ *
+ * 注意：`expires_at=0` 是存量占位凭据（空 token）的标志，恒判为过期；
+ * 调用方使用前应检查 `access_token` 非空串，而非仅依赖过期判定
+ * （占位凭据即便"刷新"也无可用 token，需走完整 OAuth 流程补写）。
+ */
+export function isOAuthExpired(d: OAuthData, nowSec: number): boolean {
+  return nowSec > d.expires_at
+}
+
+export interface CredentialRow {
+  id: number
+  user_id: number
+  type: string
+  provider: string
+  identifier: string
+  data: string
+  created_at: number
+  updated_at: number
+}
+
+export interface OAuthLoginInput {
+  provider: string
+  providerUserId: string
+  name: string
+  accessToken: string
+  refreshToken: string
+  /** unix 秒 */
+  expiresAt: number
+}
+
+export async function getCredential(
+  db: D1Database,
+  userId: number,
+  provider: string
+): Promise<CredentialRow | null> {
+  return db
+    .prepare(
+      'SELECT id, user_id, type, provider, identifier, data, created_at, updated_at FROM user_credentials WHERE user_id = ? AND provider = ?'
+    )
+    .bind(userId, provider)
+    .first<CredentialRow>()
+}
+
+export async function findCredential(
+  db: D1Database,
+  provider: string,
+  identifier: string
+): Promise<CredentialRow | null> {
+  return db
+    .prepare(
+      'SELECT id, user_id, type, provider, identifier, data, created_at, updated_at FROM user_credentials WHERE provider = ? AND identifier = ?'
+    )
+    .bind(provider, identifier)
+    .first<CredentialRow>()
+}
+
+/**
+ * 登录编排：findCredential 命中→在一个 batch 内 UPDATE 凭据 data + UPDATE users.name（isNew=false，复用既有 user_id）；
+ * 未命中→调 registerWithOAuth（isNew=true）。
+ * 命中分支用 db.batch 保证两条 UPDATE 原子执行。
+ * 覆盖存量「占位凭据（空 token）」首次真正登录时补写 token 的场景。
+ * 任一写库失败抛错，由调用方（auth callback）转 HTTP 500。
+ *
+ * 注意：input.refreshToken 为空串会覆盖既有 refresh_token —— FFLogs 场景正确
+ * （授权码流程不下发 refresh_token）；未来其他 provider 复用本函数需自行确保传入有效值。
+ */
+export async function loginWithOAuth(
+  db: D1Database,
+  input: OAuthLoginInput
+): Promise<{ userId: number; isNew: boolean }> {
+  const cred = await findCredential(db, input.provider, input.providerUserId)
+  if (cred) {
+    const now = Math.floor(Date.now() / 1000)
+    const data = serializeOAuthData({
+      access_token: input.accessToken,
+      refresh_token: input.refreshToken,
+      expires_at: input.expiresAt,
+    })
+    await db.batch([
+      db
+        .prepare('UPDATE user_credentials SET data = ?, updated_at = ? WHERE id = ?')
+        .bind(data, now, cred.id),
+      db
+        .prepare('UPDATE users SET name = ?, updated_at = ? WHERE id = ?')
+        .bind(input.name, now, cred.user_id),
+    ])
+    return { userId: cred.user_id, isNew: false }
+  }
+  const { userId } = await registerWithOAuth(db, input)
+  return { userId, isNew: true }
+}
+
+/**
+ * register 流程：单条 batch（隐式事务）内 INSERT users + INSERT user_credentials。
+ * 第二条用 last_insert_rowid() 引用刚建的 users.id（同一连接顺序执行）。
+ * 唯一约束冲突或写库失败时整批回滚并抛错。
+ *
+ * 依赖说明：本实现依赖 D1 batch 在同一连接上顺序执行，使第二条的
+ * `last_insert_rowid()` 取到第一条 INSERT 的 users.id。若未来 D1 改变 batch
+ * 执行语义（如并行 / 跨连接），应改为 two-step：先 INSERT users 取
+ * `meta.last_row_id`，再以该值 INSERT credential。
+ */
+export async function registerWithOAuth(
+  db: D1Database,
+  input: OAuthLoginInput
+): Promise<{ userId: number }> {
+  const now = Math.floor(Date.now() / 1000)
+  const data = serializeOAuthData({
+    access_token: input.accessToken,
+    refresh_token: input.refreshToken,
+    expires_at: input.expiresAt,
+  })
+  const [usersRes] = await db.batch([
+    db
+      .prepare('INSERT INTO users (name, created_at, updated_at) VALUES (?, ?, ?)')
+      .bind(input.name, now, now),
+    db
+      .prepare(
+        "INSERT INTO user_credentials (user_id, type, provider, identifier, data, created_at, updated_at) VALUES (last_insert_rowid(), 'oauth', ?, ?, ?, ?, ?)"
+      )
+      .bind(input.provider, input.providerUserId, data, now, now),
+  ])
+  return { userId: usersRes.meta.last_row_id as number }
+}

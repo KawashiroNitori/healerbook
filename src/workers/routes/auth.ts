@@ -7,6 +7,7 @@ import type { AppEnv } from '../env'
 import type { Env } from '../env'
 import { isAllowedOrigin } from '../allowedOrigins'
 import { signAccessToken, signRefreshToken, verifyToken } from '../jwt'
+import { loginWithOAuth } from '../userCredentials'
 
 interface FFLogsTokenResponse {
   access_token: string
@@ -108,24 +109,44 @@ app.post('/callback', vValidator('json', CallbackSchema), async c => {
     return c.json({ error: 'Origin not allowed' }, 403)
   }
   const { code } = c.req.valid('json')
+  let user: { id: number; name: string }
+  let tokenResponse: FFLogsTokenResponse
   try {
-    const tokenResponse = await exchangeCodeForToken(code, redirectUri, c.env)
-    const user = await fetchFFLogsUser(tokenResponse.access_token)
-    const userId = String(user.id)
-    const [accessToken, refreshToken] = await Promise.all([
-      signAccessToken(userId, user.name, c.env.JWT_SECRET),
-      signRefreshToken(userId, user.name, c.env.JWT_SECRET),
-    ])
-    return c.json({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      name: user.name,
-      user_id: userId,
-    })
+    tokenResponse = await exchangeCodeForToken(code, redirectUri, c.env)
+    user = await fetchFFLogsUser(tokenResponse.access_token)
   } catch (error) {
     console.error('[Auth] callback error:', error)
     return c.json({ error: 'OAuth callback failed' }, 400)
   }
+
+  const expiresAt = Math.floor(Date.now() / 1000) + tokenResponse.expires_in
+  let userId: number
+  try {
+    const result = await loginWithOAuth(c.env.healerbook_timelines, {
+      provider: 'fflogs',
+      providerUserId: String(user.id),
+      name: user.name,
+      accessToken: tokenResponse.access_token,
+      refreshToken: '', // fflogs 授权码流程不下发 refresh_token
+      expiresAt,
+    })
+    userId = result.userId
+  } catch (error) {
+    console.error('[Auth] persist error:', error)
+    return c.json({ error: 'Login persistence failed' }, 500)
+  }
+
+  const sub = String(userId)
+  const [accessToken, refreshToken] = await Promise.all([
+    signAccessToken(sub, user.name, c.env.JWT_SECRET),
+    signRefreshToken(sub, user.name, c.env.JWT_SECRET),
+  ])
+  return c.json({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    name: user.name,
+    user_id: sub,
+  })
 })
 
 app.post('/refresh', vValidator('json', RefreshSchema), async c => {
