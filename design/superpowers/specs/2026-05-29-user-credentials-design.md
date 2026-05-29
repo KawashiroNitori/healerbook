@@ -29,7 +29,7 @@
 | ---------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | 存储位置               | 复用现有 `healerbook_timelines` D1 库，新增表                                                       | 跨库无法 JOIN/事务；token 与用户数据同域；省一套 dev/prod binding                             |
 | token 加密             | **明文存储**                                                                                        | D1 访问受 Worker 控制；快速交付，未来可加密                                                   |
-| my-user-id 形态        | 整数自增；**存量复用 fflogs id（< 1e6），新用户从 1000000 起自增**                                  | 存量零迁移，且存量用户 `users.id == fflogs id` 使其已签 JWT 仍兼容                            |
+| my-user-id 形态        | 整数自增；**存量复用 fflogs id（< 1e6），新用户从 1000001 起自增**                                  | 存量零迁移，且存量用户 `users.id == fflogs id` 使其已签 JWT 仍兼容                            |
 | 命名空间碰撞           | 用户保证存量 user_id 全 < 1e6；复用只针对**存量封闭集合**，新登录者一律走自增（≥1e6），两区间不相交 | 避免两个无上界整数命名空间相撞                                                                |
 | credential 建模        | **单表 + type + JSON**（修正版）                                                                    | 加新认证类型零 DDL；认证类型少时灵活性优先                                                    |
 | provider               | 提升为独立一等列（稳定来源键，参与唯一约束与查找）                                                  | passkey 的"用户命名"是展示名、可变可重复，放 `data.name`，不与来源键混用                      |
@@ -99,11 +99,11 @@ CREATE INDEX idx_user_credentials_user ON user_credentials (user_id);
 ### migration `0005_create_user_credentials.sql`
 
 1. 建 `users`、`user_credentials` 表与索引（见第 3 节）。
-2. **seed 自增起点**，让新用户从 1000000 开始：
+2. **seed 自增起点**，让新用户从 1000001 开始：
    ```sql
-   INSERT INTO sqlite_sequence (name, seq) VALUES ('users', 999999);
+   INSERT INTO sqlite_sequence (name, seq) VALUES ('users', 1000000);
    ```
-   （`sqlite_sequence` 在表声明 `AUTOINCREMENT` 后即存在；该行确保下一个自增值为 1000000。）
+   （`sqlite_sequence` 在表声明 `AUTOINCREMENT` 后即存在；该行确保下一个自增值为 1000001。）
 3. **回填存量用户**——对来自 `timelines`、`timeline_editors`、`timeline_edit_requests` 的 distinct 历史 user id 各建一行 `users` 与一行占位 `user_credentials`：
 
    ```sql
@@ -129,7 +129,7 @@ CREATE INDEX idx_user_credentials_user ON user_credentials (user_id);
    - `INSERT OR IGNORE` 容忍重复，使迁移可重入。
    - 存量 id 全 < 1e6（用户保证），不与 seed 后的自增段相交。
 
-> 迁移脚本本身在 PR 中编写并以 `wrangler d1 migrations apply` 应用；本设计只规定其语义。生产应用前需在 dev 库验证回填行数与 distinct 用户数一致。
+> 迁移脚本本身在 PR 中编写并以 `wrangler d1 migrations apply` 应用；本设计只规定其语义。
 
 ## 5. 登录流程改造（`src/workers/routes/auth.ts`）
 
@@ -138,34 +138,38 @@ CREATE INDEX idx_user_credentials_user ON user_credentials (user_id);
 ```
 callback 拿到 fflogs (id, name):
   cred = 查 user_credentials(provider='fflogs', identifier=String(fflogs_id))
-  if cred 命中:
+  if cred 命中:                         # —— 登录（已注册）
     user_id = cred.user_id
     UPSERT: 更新 cred.data = {access_token, refresh_token:'', expires_at = now + expires_in}
             更新 users.name = fflogs_name, users.updated_at
-  else (全新用户):
-    INSERT users(name=fflogs_name) → 取自增 user_id (≥1e6)
-    INSERT user_credentials(user_id, 'oauth','fflogs', String(fflogs_id), data=...)
+  else:                                 # —— 首次见到该 fflogs 账号
+    user_id = register(fflogs_id, fflogs_name, data)   # 见下方 register 流程
   签发 JWT: sub = String(user_id)   ← 关键:不再是 fflogs id
   返回 { access_token, refresh_token, name, user_id }
+
+register 流程（凭据未命中的全新 fflogs 账号，单条事务内完成）:
+  INSERT users(name=fflogs_name)        → 取自增 user_id (≥1000001)
+  INSERT user_credentials(user_id, 'oauth','fflogs', String(fflogs_id), data=...)
+  return user_id
 ```
 
 - `expires_at = floor(Date.now()/1000) + tokenResponse.expires_in`。
-- 写库失败处理，按**是否已知 my-user-id** 分两种：
-  - **命中存量/已有凭据**（`cred` 命中，`user_id` 已知）：更新 `data`(token) / `users.name` 仅是副作用。失败时 `console.error` 并**仍返回 JWT**（`sub` = 已知 `user_id`），token 留待下次登录补写。降级安全，因为 `user_id` 不依赖本次写库。
-  - **全新用户建 `users` 失败**（无法分配 my-user-id）：**登录失败，返回 5xx**，不签发 JWT。
-    > 理由：此时没有合法的 my-user-id。绝不能回退用 fflogs id 充当 `sub`——新用户的 fflogs id 可能 ≥ 1e6，既会破坏命名空间隔离（与未来自增 id 碰撞），又会导致其本次以 fflogs id 建立的数据在下次拿到真正自增 id 后"失踪"。宁可让该次登录失败、由用户重试。
+- **写库失败处理：登录（命中分支 UPSERT token/name）或注册（register）任一写库失败，一律返回 HTTP 500、不签发 JWT，由用户重试。** 不保留"仍返回 JWT、token 下次补写"的降级路径——fail-fast，行为统一。
+  > 注册失败尤其不能回退用 fflogs id 充当 `sub`——新用户的 fflogs id 可能 ≥ 1e6，既会破坏命名空间隔离（与未来自增 id 碰撞），又会导致其本次以 fflogs id 建立的数据在下次拿到真正自增 id 后"失踪"。
 
 ## 6. 数据访问模块（`src/workers/userCredentials.ts`，新建）
 
 把 SQL 收拢在薄模块里，保持 `auth.ts` 干净并便于单测：
 
 - `findCredential(db, provider, identifier)` → `{ id, user_id, type, provider, identifier, data, ... } | null`
+- `registerWithOAuth(db, { provider, providerUserId, name, accessToken, refreshToken, expiresAt })` → `{ userId }`
+  - register 流程：单条事务内 `INSERT users`（取自增 ≥1000001）+ `INSERT user_credentials`。仅用于凭据未命中的全新账号。
 - `loginWithOAuth(db, { provider, providerUserId, name, accessToken, refreshToken, expiresAt })` → `{ userId, isNew }`
-  - 封装第 5 节的命中/新建/UPSERT 逻辑，单条事务内完成。
+  - 编排第 5 节：`findCredential` 命中→UPSERT token/name（`isNew=false`）；未命中→调 `registerWithOAuth`（`isNew=true`）。各自单条事务。
 - `getCredential(db, userId, provider)` → 取某用户某来源凭据（供未来代调 API 取 token）。
 - `parseOAuthData(row)` / `serializeOAuthData(...)` → `data` JSON 的读写与类型收口（含 `expires_at` 过期判定 helper）。
 
-同目录 `userCredentials.test.ts` 覆盖：命中更新、新建分配 ≥1e6、UPSERT 覆盖语义、`(provider, identifier)` 唯一约束拒重复、过期判定、JSON 读写。
+同目录 `userCredentials.test.ts` 覆盖：登录命中更新、register 新建分配 ≥1000001、UPSERT 覆盖语义、`(provider, identifier)` 唯一约束拒重复、过期判定、JSON 读写。
 
 ## 7. JWT / 中间件 / 前端影响
 
@@ -190,15 +194,11 @@ callback 拿到 fflogs (id, name):
 ## 9. 测试与验证计划
 
 - `userCredentials.test.ts`：见第 6 节。
-- `auth` 回归：callback 命中存量凭据→更新 token 且 `sub`=my-user-id；全新用户→分配 ≥1e6；落库失败→仍返回 JWT（降级路径）。
-- 迁移验证：dev 库应用 0005 后，`users` 行数 == 存量 distinct user id 数；每个 `users` 有对应 `fflogs` 占位凭据；`SELECT seq FROM sqlite_sequence WHERE name='users'` == 999999（无新用户时）。
+- `auth` 回归：callback 命中存量凭据→更新 token 且 `sub`=my-user-id；未命中→走 register 分配 ≥1000001；登录或注册任一落库失败→HTTP 500、不签发 JWT。
 - 全量门禁：`pnpm test:run`、`pnpm lint`、`pnpm exec tsc --noEmit` 全绿。
 
 ## 10. 风险与缓解
 
-| 风险                                          | 缓解                                                                         |
-| --------------------------------------------- | ---------------------------------------------------------------------------- |
-| 存量 user_id 实际存在 ≥ 1e6 的值              | 迁移前先 `SELECT MAX(CAST(author_id AS INTEGER))` 等核验；用户已确认全 < 1e6 |
-| 回填 name 缺失/为空                           | 取 distinct 来源里任一非空 name;实在为空则存空串，登录时由 fflogs name 覆盖  |
-| `CAST(author_id AS INTEGER)` 对非数字 id 异常 | 现有 author_id/user_id 均为 fflogs 数字 id;迁移前抽样核验无非数字值          |
-| D1 故障致登录落库失败                         | 第 5 节降级路径:仍返回 JWT，token 下次登录补写                               |
+| 风险                  | 缓解                                               |
+| --------------------- | -------------------------------------------------- |
+| D1 故障致登录落库失败 | 登录/注册任一落库失败直接返回 HTTP 500，由用户重试 |
