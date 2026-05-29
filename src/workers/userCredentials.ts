@@ -50,6 +50,19 @@ export interface OAuthLoginInput {
   expiresAt: number
 }
 
+export async function getCredential(
+  db: D1Database,
+  userId: number,
+  provider: string
+): Promise<CredentialRow | null> {
+  return db
+    .prepare(
+      'SELECT id, user_id, type, provider, identifier, data, created_at, updated_at FROM user_credentials WHERE user_id = ? AND provider = ?'
+    )
+    .bind(userId, provider)
+    .first<CredentialRow>()
+}
+
 export async function findCredential(
   db: D1Database,
   provider: string,

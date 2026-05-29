@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { env } from 'cloudflare:test'
-import { findCredential, loginWithOAuth, registerWithOAuth } from './userCredentials'
+import { findCredential, getCredential, loginWithOAuth, registerWithOAuth } from './userCredentials'
 
 const db = () => env.healerbook_timelines
 
@@ -147,5 +147,25 @@ describe('loginWithOAuth', () => {
     expect(r).toEqual({ userId: 42, isNew: false })
     const cred = await findCredential(env.healerbook_timelines, 'fflogs', '42')
     expect(JSON.parse(cred!.data).access_token).toBe('filled')
+  })
+})
+
+describe('getCredential', () => {
+  it('按 (userId, provider) 取回该用户的凭据', async () => {
+    const { userId } = await registerWithOAuth(env.healerbook_timelines, {
+      provider: 'fflogs',
+      providerUserId: 'get-1',
+      name: 'G',
+      accessToken: 'g-tok',
+      refreshToken: '',
+      expiresAt: 1,
+    })
+    const cred = await getCredential(env.healerbook_timelines, userId, 'fflogs')
+    expect(cred?.identifier).toBe('get-1')
+    expect(JSON.parse(cred!.data).access_token).toBe('g-tok')
+  })
+
+  it('无匹配返回 null', async () => {
+    expect(await getCredential(env.healerbook_timelines, 999999999, 'fflogs')).toBeNull()
   })
 })
