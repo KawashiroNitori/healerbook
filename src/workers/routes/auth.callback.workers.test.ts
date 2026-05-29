@@ -72,4 +72,34 @@ describe('POST /api/auth/callback', () => {
     expect(second.user_id).toBe(first.user_id)
     expect(second.name).toBe('Repeat2')
   })
+
+  it('存量回填用户首次真实登录:复用存量 my-user-id、补写占位空 token', async () => {
+    // 预置存量回填状态：users.id=500(<1e6,模拟存量 fflogs id 复用)，
+    // user_credentials 一行占位凭据(空 token / expires_at=0)。
+    await env.healerbook_timelines.batch([
+      env.healerbook_timelines
+        .prepare('INSERT INTO users (id, name, created_at, updated_at) VALUES (500, ?, 0, 0)')
+        .bind('LegacyName'),
+      env.healerbook_timelines.prepare(
+        "INSERT INTO user_credentials (user_id, type, provider, identifier, data, created_at, updated_at) VALUES (500, 'oauth', 'fflogs', '500', json_object('access_token','','refresh_token','','expires_at',0), 0, 0)"
+      ),
+    ])
+
+    stubFFLogs(500, 'LegacyName')
+    const res = await callback('c')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { user_id: string; name: string; access_token: string }
+
+    // 复用存量 my-user-id，未分配新 ≥1000001 id。
+    expect(body.user_id).toBe('500')
+
+    const verified = await verifyToken(body.access_token, 'test-secret')
+    expect(verified.ok && verified.payload.sub).toBe('500')
+
+    // 占位空 token 被补写为真实 token。
+    const cred = await env.healerbook_timelines
+      .prepare("SELECT data FROM user_credentials WHERE provider='fflogs' AND identifier='500'")
+      .first<{ data: string }>()
+    expect(JSON.parse(cred!.data).access_token).toBe('ff-access')
+  })
 })

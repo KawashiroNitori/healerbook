@@ -24,7 +24,13 @@ export function parseOAuthData(row: { data: string }): OAuthData {
   }
 }
 
-/** now(秒) 严格大于 expires_at 即视为过期 */
+/**
+ * now(秒) 严格大于 expires_at 即视为过期。
+ *
+ * 注意：`expires_at=0` 是存量占位凭据（空 token）的标志，恒判为过期；
+ * 调用方使用前应检查 `access_token` 非空串，而非仅依赖过期判定
+ * （占位凭据即便"刷新"也无可用 token，需走完整 OAuth 流程补写）。
+ */
 export function isOAuthExpired(d: OAuthData, nowSec: number): boolean {
   return nowSec > d.expires_at
 }
@@ -116,6 +122,11 @@ export async function loginWithOAuth(
  * register 流程：单条 batch（隐式事务）内 INSERT users + INSERT user_credentials。
  * 第二条用 last_insert_rowid() 引用刚建的 users.id（同一连接顺序执行）。
  * 唯一约束冲突或写库失败时整批回滚并抛错。
+ *
+ * 依赖说明：本实现依赖 D1 batch 在同一连接上顺序执行，使第二条的
+ * `last_insert_rowid()` 取到第一条 INSERT 的 users.id。若未来 D1 改变 batch
+ * 执行语义（如并行 / 跨连接），应改为 two-step：先 INSERT users 取
+ * `meta.last_row_id`，再以该值 INSERT credential。
  */
 export async function registerWithOAuth(
   db: D1Database,

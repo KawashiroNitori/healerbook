@@ -31,4 +31,7 @@ describe('isOAuthExpired', () => {
     expect(isOAuthExpired(sample, 1000)).toBe(false)
     expect(isOAuthExpired(sample, 999)).toBe(false)
   })
+  it('expires_at=0 占位凭据恒判过期（文档化占位语义）', () => {
+    expect(isOAuthExpired({ access_token: '', refresh_token: '', expires_at: 0 }, 1)).toBe(true)
+  })
 })
