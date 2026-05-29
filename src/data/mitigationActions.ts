@@ -561,21 +561,26 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       executor: (ctx: ActionExecutionContext) => {
         // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
+        const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
         const sageShieldId = 2609 // 贤者群盾
-        const baseHeal = computeFinalHeal(
-          ctx.statistics?.healByAbility[185] ?? 10000,
-          ctx.partyState,
-          ctx.sourcePlayerId,
-          ctx.useTime
-        )
+        // 秘策激活时鼓舞为暴击盾，展开战术复制的也是暴击盾，故用暴击治疗量预估
+        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
+        const rawHeal = hasRecitation
+          ? (ctx.statistics?.critHealByAbility[185] ?? 10000)
+          : (ctx.statistics?.healByAbility[185] ?? 10000)
+        const baseHeal = computeFinalHeal(rawHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
         const barrier = Math.round(baseHeal * 1.8)
+        // recitationId 入 uniqueGroup：施盾前一并移除秘策，即消耗秘策
         return createShieldExecutor(baseShieldId, 30, {
           fixedBarrier: barrier,
-          uniqueGroup: [baseShieldId, sageShieldId],
+          uniqueGroup: [recitationId, baseShieldId, sageShieldId],
         })(ctx)
       },
-      statDataEntries: [{ type: 'heal', key: 185, label: '单盾' }],
+      statDataEntries: [
+        { type: 'heal', key: 185, label: '单盾' },
+        { type: 'critHeal', key: 185, label: '暴击单盾' },
+      ],
     },
     {
       id: 16542,
