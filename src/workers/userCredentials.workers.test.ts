@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { env } from 'cloudflare:test'
+import { findCredential, registerWithOAuth } from './userCredentials'
 
 const db = () => env.healerbook_timelines
 
@@ -37,5 +38,51 @@ describe('migration 0005 schema', () => {
         .run()
     await ins('dup-1')
     await expect(ins('dup-1')).rejects.toThrow()
+  })
+})
+
+describe('registerWithOAuth + findCredential', () => {
+  const input = {
+    provider: 'fflogs',
+    providerUserId: 'reg-100',
+    name: 'Reg',
+    accessToken: 'a-tok',
+    refreshToken: '',
+    expiresAt: 5000,
+  }
+
+  it('注册分配自增 user_id ≥1000001 并写入凭据', async () => {
+    const { userId } = await registerWithOAuth(env.healerbook_timelines, input)
+    expect(userId).toBeGreaterThanOrEqual(1000001)
+
+    const cred = await findCredential(env.healerbook_timelines, 'fflogs', 'reg-100')
+    expect(cred).not.toBeNull()
+    expect(cred!.user_id).toBe(userId)
+    expect(cred!.type).toBe('oauth')
+    expect(JSON.parse(cred!.data).access_token).toBe('a-tok')
+  })
+
+  it('users.name 取 register 传入的 name', async () => {
+    const { userId } = await registerWithOAuth(env.healerbook_timelines, {
+      ...input,
+      providerUserId: 'reg-101',
+      name: 'NameCheck',
+    })
+    const u = await env.healerbook_timelines
+      .prepare('SELECT name FROM users WHERE id = ?')
+      .bind(userId)
+      .first<{ name: string }>()
+    expect(u?.name).toBe('NameCheck')
+  })
+
+  it('findCredential 未命中返回 null', async () => {
+    expect(await findCredential(env.healerbook_timelines, 'fflogs', 'no-such')).toBeNull()
+  })
+
+  it('重复注册同一 (provider, identifier) 抛错（唯一约束）', async () => {
+    await registerWithOAuth(env.healerbook_timelines, { ...input, providerUserId: 'reg-dup' })
+    await expect(
+      registerWithOAuth(env.healerbook_timelines, { ...input, providerUserId: 'reg-dup' })
+    ).rejects.toThrow()
   })
 })
