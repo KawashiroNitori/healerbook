@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { env, SELF } from 'cloudflare:test'
 import { verifyToken } from '@/workers/jwt'
 
-// 让 worker 内部对 fflogs 的两次 fetch 返回可控结果
+// 让 worker 内部对 fflogs 的两次 fetch 返回可控结果。
+// 注意：vi.stubGlobal 仅在 worker 与测试运行于同一 isolate 时有效（当前非 service binding 模式）。
+// 若将 auth worker 提取为独立 service binding，stub 将不再拦截内部 fetch，需改用 fetchMock / MSW。
 function stubFFLogs(userId: number, name: string, expiresIn = 3600) {
   vi.stubGlobal(
     'fetch',
