@@ -390,16 +390,50 @@ export default function EditorToolbar({
               </>
             )}
 
+            {/* 导入 */}
+            {!isReplayMode && sessionRole !== 'viewer' && (
+              <>
+                <div className="w-px h-6 bg-border mx-1" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setShowImportDialog(true)}
+                        disabled={!editLock.can('content')}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {editLock.can('content')
+                      ? '导入'
+                      : contentReason === 'viewer'
+                        ? '只读 · 仅查看'
+                        : contentReason === 'offline'
+                          ? '只读 · 连接中断'
+                          : '只读'}
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            )}
+
             {/* 导出 */}
             {timeline && (
               <>
-                <div className="w-px h-6 bg-border mx-1" />
+                {/* 导入隐藏时（回放 / viewer），由导出补上与「共享」隔开的分割线 */}
+                {(isReplayMode || sessionRole === 'viewer') && (
+                  <div className="w-px h-6 bg-border mx-1" />
+                )}
                 <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
                   <Tooltip open={exportMenuOpen ? false : undefined}>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <Download className="w-4 h-4" />
+                          <Upload className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
@@ -424,37 +458,6 @@ export default function EditorToolbar({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </>
-            )}
-
-            {/* 导入 */}
-            {!isReplayMode && sessionRole !== 'viewer' && (
-              <>
-                <div className="w-px h-6 bg-border mx-1" />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setShowImportDialog(true)}
-                        disabled={!editLock.can('content')}
-                      >
-                        <Upload className="w-4 h-4" />
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {editLock.can('content')
-                      ? '导入'
-                      : contentReason === 'viewer'
-                        ? '只读 · 仅查看'
-                        : contentReason === 'offline'
-                          ? '只读 · 连接中断'
-                          : '只读'}
-                  </TooltipContent>
-                </Tooltip>
               </>
             )}
 
