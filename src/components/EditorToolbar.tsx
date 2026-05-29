@@ -14,8 +14,8 @@ import {
   TriangleAlert,
   Settings,
   Eye,
-  Download,
-  Upload,
+  FileInput,
+  FileOutput,
 } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -404,7 +404,7 @@ export default function EditorToolbar({
                         onClick={() => setShowImportDialog(true)}
                         disabled={!editLock.can('content')}
                       >
-                        <Download className="w-4 h-4" />
+                        <FileInput className="w-4 h-4" />
                       </Button>
                     </span>
                   </TooltipTrigger>
@@ -433,7 +433,7 @@ export default function EditorToolbar({
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <Upload className="w-4 h-4" />
+                          <FileOutput className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>

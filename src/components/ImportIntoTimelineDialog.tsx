@@ -2,7 +2,7 @@
  * 导入到当前时间轴 —— 2 步 wizard
  *
  * Step 1: 选择来源（FFLogs 战斗 / 副本模板）+ 输入数据 + 解析
- * Step 2: 配置导入（数据类型 / 时间范围 / 实时预览 / 确认导入）
+ * Step 2: 数据导入（数据类型 / 时间范围 / 实时预览 / 确认导入）
  *
  * 详见 design/superpowers/specs/2026-05-29-editor-import-design.md
  */
@@ -35,6 +35,8 @@ import { fetchEncounterTemplate } from '@/api/encounterTemplate'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
+import { sortJobsByOrder } from '@/data/jobs'
+import JobIcon from '@/components/JobIcon'
 import type { DamageEvent } from '@/types/timeline'
 
 interface ImportIntoTimelineDialogProps {
@@ -83,6 +85,17 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
 
   const encounterMismatch =
     parsed?.encounter && timeline?.encounter && parsed.encounter.id !== timeline.encounter.id
+
+  // 阵容比对：按职业多重集合判断是否一致（FFLogs 与时间轴的玩家 id 体系不同，只能比职业构成）
+  const partyMismatch = useMemo(() => {
+    if (source !== 'fflogs' || !parsed?.composition || !timeline?.composition) return false
+    const jobsKey = (players: Array<{ job: string }>) =>
+      players
+        .map(p => p.job)
+        .sort()
+        .join(',')
+    return jobsKey(parsed.composition.players) !== jobsKey(timeline.composition.players)
+  }, [source, parsed, timeline])
 
   const preview = useMemo(() => {
     if (!parsed || !timeline) return null
@@ -299,7 +312,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
   }
 
   return (
-    <Modal open={open} onClose={onClose} disableBackdropClick={isParsing}>
+    <Modal open={open} onClose={onClose} disableBackdropClick>
       {/* 标题区 —— 保持 Task 7 的无 ModalContent 结构，以便 stepper border-b 贴边 */}
       <div className="px-6 pt-6 pb-4">
         <ModalHeader className="mb-0">
@@ -311,13 +324,17 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       <div className="px-6 py-3 border-b bg-muted/30 flex items-center gap-3 text-sm">
         <span className={step === 1 ? 'font-semibold' : 'text-muted-foreground'}>① 选择来源</span>
         <span className="text-muted-foreground">→</span>
-        <span className={step === 2 ? 'font-semibold' : 'text-muted-foreground'}>② 配置导入</span>
+        <span className={step === 2 ? 'font-semibold' : 'text-muted-foreground'}>② 数据导入</span>
       </div>
 
       {/* 内容区 */}
       <div className="px-6 py-6 min-h-[220px] space-y-4">
         {step === 1 && (
           <>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              本功能旨在将其他战斗记录所产生的伤害与技能使用快速导入到已有时间轴，由于每场战斗的实际战斗时长和伤害出现时机可能不同，导入后可能会出现重复的伤害事件与技能，请仔细甄别导入结果是否准确，并人工修正可能出现的错误。
+            </p>
+
             {showSegmented && (
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -336,37 +353,34 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                     onClick={() => handleSourceChange('template')}
                     className={`px-3 py-1 rounded text-xs ${source === 'template' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
                   >
-                    副本模板
+                    云端模板
                   </button>
                 </div>
               </div>
             )}
 
-            {source === 'fflogs' && (
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                  FFLogs 链接
-                </label>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  placeholder="https://www.fflogs.com/reports/ABC123#fight=5"
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={isParsing}
-                />
-                {url && !urlValid && (
-                  <p className="text-xs text-destructive mt-1">无法识别 FFLogs 链接</p>
-                )}
-              </div>
-            )}
-
-            {source === 'template' && currentEncounter && (
-              <div className="rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
-                将从模板「{currentEncounter.name}」导入（按当前时间轴 encounter 自动选择）
-              </div>
-            )}
+            {/* 始终挂载并占位，模板模式下仅隐藏，避免切换来源时对话框高度突变 */}
+            <div
+              className={source === 'fflogs' ? '' : 'invisible'}
+              aria-hidden={source !== 'fflogs'}
+            >
+              <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                FFLogs 链接
+              </label>
+              <input
+                ref={inputRef}
+                type="text"
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                placeholder="https://www.fflogs.com/reports/ABC123#fight=5"
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isParsing || source !== 'fflogs'}
+                tabIndex={source === 'fflogs' ? undefined : -1}
+              />
+              {url && !urlValid && (
+                <p className="text-xs text-destructive mt-1">无法识别 FFLogs 链接</p>
+              )}
+            </div>
 
             {(isParsing || templatePrefetching) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -385,15 +399,36 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
 
         {step === 2 && parsed && (
           <div className="space-y-5">
-            <div className="rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
-              已解析：{parsed.sourceLabel} · {parsed.damageEvents.length} 伤害
-              {source === 'fflogs' && ` / ${parsed.castEvents.length} 技能`}
-            </div>
+            {partyMismatch && (
+              <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300 space-y-2">
+                <div>
+                  ⚠
+                  该报告的阵容与当前时间轴阵容不一致，导入的技能可能无法正确归属到对应玩家，请仔细核对
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-xs text-muted-foreground w-16">报告阵容</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {sortJobsByOrder(parsed?.composition?.players ?? [], p => p.job).map((p, i) => (
+                      <JobIcon key={i} job={p.job} size="sm" />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-xs text-muted-foreground w-16">时间轴阵容</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {sortJobsByOrder(timeline?.composition?.players ?? [], p => p.job).map(
+                      (p, i) => (
+                        <JobIcon key={i} job={p.job} size="sm" />
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {encounterMismatch && (
               <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
-                ⚠ 该报告的副本「{parsed?.encounter?.name}」与当前时间轴「{timeline?.encounter?.name}
-                」不一致
+                ⚠ 该报告的副本与当前时间轴的副本不一致
               </div>
             )}
 
@@ -439,16 +474,26 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                   <div
                     className={`flex items-center gap-2 ${rangeInvalid ? 'ring-1 ring-destructive rounded-md p-1' : ''}`}
                   >
-                    <TimeInput value={rangeStart} onChange={setRangeStart} size="sm" />
+                    <TimeInput
+                      value={rangeStart}
+                      onChange={setRangeStart}
+                      size="sm"
+                      className="w-[104px] shrink-0"
+                    />
                     <span className="text-muted-foreground">~</span>
                     {rangeEndUnlimited ? (
-                      <div className="px-3 py-1 border border-border rounded text-muted-foreground text-sm font-mono min-w-[88px] text-center">
+                      <div className="w-[104px] shrink-0 px-2.5 py-1.5 border border-border rounded-md text-muted-foreground text-sm font-mono text-center">
                         ∞
                       </div>
                     ) : (
-                      <TimeInput value={rangeEnd} onChange={setRangeEnd} size="sm" />
+                      <TimeInput
+                        value={rangeEnd}
+                        onChange={setRangeEnd}
+                        size="sm"
+                        className="w-[104px] shrink-0"
+                      />
                     )}
-                    <label className="flex items-center gap-2 text-sm ml-2">
+                    <label className="flex items-center gap-2 text-sm ml-2 shrink-0 whitespace-nowrap">
                       <Checkbox
                         checked={rangeEndUnlimited}
                         onCheckedChange={v => setRangeEndUnlimited(!!v)}
@@ -461,7 +506,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                   )}
                 </>
               ) : (
-                <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
                   ⚠ 全部模式可能与时间轴已有事件重复。建议改用「时间区间」并选择空白时间段。
                 </div>
               )}
@@ -489,7 +534,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                     {preview.castSkipped > 0 && (
                       <span className="text-yellow-600 dark:text-yellow-400">
                         {' '}
-                        （跳过 {preview.castSkipped} 条因 CD/状态冲突或玩家不在阵容）
+                        （跳过 {preview.castSkipped} 条）
                       </span>
                     )}
                   </div>
