@@ -31,7 +31,7 @@ describe('migration 0005 schema', () => {
     const ins = (id: string) =>
       db()
         .prepare(
-          "INSERT INTO user_credentials (user_id, type, provider, identifier, data, created_at, updated_at) VALUES (?, 'oauth', 'dupprov', ?, '{}', ?, ?)"
+          'INSERT INTO user_credentials (user_id, type, provider, identifier, data, created_at, updated_at) VALUES (?, \'oauth\', \'dupprov\', ?, \'{"access_token":"","refresh_token":"","expires_at":0}\', ?, ?)'
         )
         .bind(uid, id, now, now)
         .run()

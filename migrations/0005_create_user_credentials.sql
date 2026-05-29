@@ -27,11 +27,11 @@ CREATE INDEX IF NOT EXISTS idx_user_credentials_user ON user_credentials (user_i
 -- seed 自增起点:新用户从 1000001 起。必须在回填之前执行——
 -- 此时 sqlite_sequence 尚无 'users' 行,可直接 INSERT;之后回填的显式 id 均 < 1e6,
 -- 不会下调 seq(SQLite 取 max(seq, rowid))。
-INSERT INTO sqlite_sequence (name, seq) VALUES ('users', 1000000);
+INSERT OR IGNORE INTO sqlite_sequence (name, seq) VALUES ('users', 1000000);
 
 -- 回填存量用户:汇总 timelines/editors/edit_requests 的 distinct id(取任一非空 name)
 INSERT OR IGNORE INTO users (id, name, created_at, updated_at)
-SELECT id, MIN(name), unixepoch(), unixepoch() FROM (
+SELECT id, COALESCE(MIN(name), ''), unixepoch(), unixepoch() FROM (
   SELECT CAST(author_id AS INTEGER) AS id, author_name AS name FROM timelines
   UNION ALL
   SELECT CAST(user_id AS INTEGER),         user_name        FROM timeline_editors
