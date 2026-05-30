@@ -30,6 +30,10 @@ export default defineConfig({
           bindings: {
             JWT_SECRET: 'test-secret',
             SYNC_AUTH_TOKEN: 'test-sync-token',
+            // auth callback 经 SELF.fetch 触发真实 worker，需要这两个值非空（见 auth.ts 配置校验）。
+            // 显式注入测试占位值，避免测试隐式依赖 gitignored 的 .dev.vars（本地有、CI 无 → 500）。
+            FFLOGS_CLIENT_ID: 'test-client-id',
+            FFLOGS_CLIENT_SECRET: 'test-client-secret',
             TEST_MIGRATIONS: migrations,
           },
         },
