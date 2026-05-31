@@ -43,6 +43,14 @@ export interface V2PlayerDamageDetail {
   ss: V2StatusSnapshot[]
 }
 
+/** V2 临时减伤；ty: 0=percent, 1=shield */
+export interface V2TempMitigation {
+  id: string
+  n: string
+  ty: 0 | 1
+  v: number
+}
+
 export interface V2DamageEvent {
   /** name */
   n: string
@@ -58,6 +66,8 @@ export interface V2DamageEvent {
   st?: number
   /** playerDamageDetails（replay 模式专用） */
   pdd?: V2PlayerDamageDetail[]
+  /** tempMitigations（临时减伤） */
+  tm?: V2TempMitigation[]
 }
 
 export interface V2CastEvents {

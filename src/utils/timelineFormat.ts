@@ -20,6 +20,8 @@ import type {
   PlayerDamageDetail,
   StatusSnapshot,
   SyncEvent,
+  TempMitigation,
+  TempMitigationType,
   Timeline,
 } from '@/types/timeline'
 import { MAX_PARTY_SIZE } from '@/types/timeline'
@@ -30,6 +32,7 @@ import type {
   V2PlayerDamageDetail,
   V2StatusSnapshot,
   V2SyncEvent,
+  V2TempMitigation,
   V2Timeline,
 } from '@/types/timelineV2'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -67,6 +70,12 @@ const SYNC_TYPE_TO_NUM: Record<'begincast' | 'cast', 0 | 1> = {
   cast: 1,
 }
 const NUM_TO_SYNC_TYPE: readonly ('begincast' | 'cast')[] = ['begincast', 'cast']
+
+const TEMP_MIT_TYPE_TO_NUM: Record<TempMitigationType, 0 | 1> = {
+  percent: 0,
+  shield: 1,
+}
+const NUM_TO_TEMP_MIT_TYPE: readonly TempMitigationType[] = ['percent', 'shield']
 
 // ──────────────────────────────────────────────────────────────
 // 内存 → V2
@@ -107,6 +116,16 @@ function toV2DamageEvent(e: DamageEvent, remap: Map<number, number>): V2DamageEv
     dt: DAMAGE_TYPE_TO_NUM[e.damageType],
   }
   if (e.snapshotTime !== undefined) out.st = e.snapshotTime
+  if (e.tempMitigations && e.tempMitigations.length > 0) {
+    out.tm = e.tempMitigations.map(
+      (t): V2TempMitigation => ({
+        id: t.id,
+        n: t.name,
+        ty: TEMP_MIT_TYPE_TO_NUM[t.type],
+        v: t.value,
+      })
+    )
+  }
   if (e.playerDamageDetails && e.playerDamageDetails.length > 0) {
     out.pdd = e.playerDamageDetails.map(d => toV2PlayerDamageDetail(d, remap))
   }
@@ -247,6 +266,16 @@ function fromV2DamageEvent(e: V2DamageEvent, composition: Composition): DamageEv
     damageType: NUM_TO_DAMAGE_TYPE[e.dt],
   }
   if (e.st !== undefined) out.snapshotTime = e.st
+  if (e.tm && e.tm.length > 0) {
+    out.tempMitigations = e.tm.map(
+      (t): TempMitigation => ({
+        id: t.id,
+        name: t.n,
+        type: NUM_TO_TEMP_MIT_TYPE[t.ty] ?? 'percent',
+        value: t.v,
+      })
+    )
+  }
   if (e.pdd && e.pdd.length > 0) {
     out.playerDamageDetails = e.pdd.map(d => fromV2PlayerDamageDetail(d, composition))
   }

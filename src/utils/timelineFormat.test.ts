@@ -296,6 +296,28 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     const back = hydrateFromV2(v2)
     expect(back.damageEvents[1].type).toBe('aoe')
   })
+
+  it('临时减伤 tempMitigations round-trip', () => {
+    const tl = makeEditorTimeline()
+    tl.damageEvents[1].tempMitigations = [
+      { id: 'tmA', name: '外团盾', type: 'shield', value: 30000 },
+      { id: 'tmB', name: '额外20%', type: 'percent', value: 20 },
+    ]
+    const restored = hydrateFromV2(toV2(tl))
+    const ev = restored.damageEvents.find(e => e.name === '分摊')!
+    expect(ev.tempMitigations).toEqual([
+      { id: 'tmA', name: '外团盾', type: 'shield', value: 30000 },
+      { id: 'tmB', name: '额外20%', type: 'percent', value: 20 },
+    ])
+  })
+
+  it('无 tempMitigations 时不产出 tm 字段', () => {
+    const tl = makeEditorTimeline()
+    const v2 = toV2(tl)
+    expect(v2.de.every(d => d.tm === undefined)).toBe(true)
+    const restored = hydrateFromV2(v2)
+    expect(restored.damageEvents.every(e => e.tempMitigations === undefined)).toBe(true)
+  })
 })
 
 describe('toV2 / hydrateFromV2 (replay mode)', () => {
