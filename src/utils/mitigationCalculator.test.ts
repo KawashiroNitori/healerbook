@@ -869,6 +869,54 @@ describe('MitigationCalculator', () => {
       expect(result.updatedPartyState).toBeDefined()
     })
   })
+
+  describe('临时减伤', () => {
+    it('临时百分比减伤乘算折入最终伤害', () => {
+      const event: DamageEvent = {
+        ...makeEvent(100000, 10, 'magical', 'aoe'),
+        tempMitigations: [{ id: 'tm1', name: '临时20%', type: 'percent', value: 20 }],
+      }
+      const result = calculator.calculate(event, basePartyState)
+      expect(result.finalDamage).toBe(80000)
+      expect(result.candidateDamage).toBe(80000)
+      // 临时减伤不进 appliedStatuses（有独立 section 展示）
+      expect(result.appliedStatuses).toHaveLength(0)
+    })
+
+    it('临时百分比与真实百分比减伤叠乘', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [{ id: 1, job: 'WHM', maxHP: 100000 }],
+        statuses: [
+          {
+            instanceId: 'temperance',
+            statusId: 1873,
+            startTime: 0,
+            endTime: 25,
+            sourcePlayerId: 2,
+          },
+        ],
+      }
+      const event: DamageEvent = {
+        ...makeEvent(100000, 10, 'magical', 'aoe'),
+        tempMitigations: [{ id: 'tm1', name: '临时20%', type: 'percent', value: 20 }],
+      }
+      // 真实 10%（节制）× 临时 20% = 100000 * 0.9 * 0.8 = 72000
+      const result = calculator.calculate(event, partyState)
+      expect(result.finalDamage).toBe(72000)
+      expect(result.appliedStatuses).toHaveLength(1) // 只有真实状态进 appliedStatuses
+    })
+
+    it('临时百分比 value 被 clamp 到 0–100', () => {
+      const event: DamageEvent = {
+        ...makeEvent(100000, 10, 'magical', 'aoe'),
+        tempMitigations: [{ id: 'tm1', name: '超界', type: 'percent', value: 150 }],
+      }
+      const result = calculator.calculate(event, basePartyState)
+      // clamp 到 100% → 全免
+      expect(result.finalDamage).toBe(0)
+    })
+  })
 })
 
 describe('多坦 per-victim 路径', () => {

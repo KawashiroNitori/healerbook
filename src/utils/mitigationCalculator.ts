@@ -1024,6 +1024,14 @@ export class MitigationCalculator {
       }
     }
 
+    // 临时百分比减伤（仅本事件）：乘算折入 multiplier，不进 appliedStatuses（有独立 section 展示）
+    for (const tm of event.tempMitigations ?? []) {
+      if (tm.type === 'percent') {
+        const pct = Math.min(100, Math.max(0, tm.value))
+        multiplier *= 1 - pct / 100
+      }
+    }
+
     const candidateDamage = Math.round(originalDamage * multiplier)
 
     // Phase 2: onBeforeShield — 状态可在此阶段新增/修改状态
