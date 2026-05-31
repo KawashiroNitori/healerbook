@@ -32,6 +32,8 @@ export interface PerTankResult {
   appliedStatuses: MitigationStatus[]
   /** 该分支个性化后的参考 HP（叠乘 maxHP 倍率） */
   referenceMaxHP: number
+  /** 盾前伤害（含临时百分比、不含临时盾）；供减伤构成色块切分盾/百分比 */
+  candidateDamage: number
 }
 
 /**
@@ -263,12 +265,20 @@ export class MitigationCalculator {
       perVictimRaw.sort((a, b) => a.finalDamage - b.finalDamage)
       const bestBranch = perVictimRaw[0]
       const perVictim: PerTankResult[] = perVictimRaw.map(
-        ({ playerId, finalDamage, mitigationPercentage, appliedStatuses, referenceMaxHP }) => ({
+        ({
           playerId,
           finalDamage,
           mitigationPercentage,
           appliedStatuses,
           referenceMaxHP,
+          candidateDamage,
+        }) => ({
+          playerId,
+          finalDamage,
+          mitigationPercentage,
+          appliedStatuses,
+          referenceMaxHP,
+          candidateDamage,
         })
       )
       return {

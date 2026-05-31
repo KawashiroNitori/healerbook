@@ -990,6 +990,30 @@ describe('MitigationCalculator', () => {
       // 这确认了真实盾消耗了且仅消耗了其自身的 30000，临时盾没有改变其消耗量
       expect(result.updatedPartyState!.statuses).toHaveLength(0)
     })
+
+    it('多坦分支结果各自带出 candidateDamage', () => {
+      const partyState: PartyState = {
+        ...basePartyState,
+        players: [
+          { id: 1, job: 'PLD', maxHP: 100000 },
+          { id: 2, job: 'WAR', maxHP: 100000 },
+        ],
+        statuses: [],
+      }
+      const event: DamageEvent = {
+        ...makeEvent(100000, 10, 'physical', 'tankbuster'),
+        tempMitigations: [{ id: 'tm1', name: '临时20%', type: 'percent', value: 20 }],
+      }
+      const result = calculator.calculate(event, partyState, {
+        tankPlayerIds: [1, 2],
+        baseReferenceMaxHP: 100000,
+      })
+      expect(result.perVictim).toBeDefined()
+      expect(result.perVictim).toHaveLength(2)
+      for (const v of result.perVictim!) {
+        expect(v.candidateDamage).toBe(80000)
+      }
+    })
   })
 })
 
