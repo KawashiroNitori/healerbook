@@ -164,6 +164,29 @@ export interface PlayerDamageDetail {
 }
 
 /**
+ * 临时减伤类型
+ */
+export type TempMitigationType = 'percent' | 'shield'
+
+/**
+ * 临时减伤（仅对所挂伤害事件生效，不进 PartyState、不作为 buff）
+ */
+export interface TempMitigation {
+  /** 列表项 id（nanoid），用于 React key 与删除定位 */
+  id: string
+  /** 减伤名称（用户填写） */
+  name: string
+  /** 减伤类型 */
+  type: TempMitigationType
+  /**
+   * 减伤效果：
+   * - type='percent'：百分比数值，范围 0–100（如 20 表示 20%）
+   * - type='shield'：盾量（吸收的绝对伤害值，整数 ≥ 0）
+   */
+  value: number
+}
+
+/**
  * 伤害事件
  */
 export interface DamageEvent {
@@ -185,6 +208,8 @@ export interface DamageEvent {
   packetId?: number
   /** DOT 快照时间（秒）— 百分比减伤以此时刻为准而非 tick 时间 */
   snapshotTime?: number
+  /** 临时减伤列表（仅对本事件生效）；存量事件无此字段 */
+  tempMitigations?: TempMitigation[]
 }
 
 /**
