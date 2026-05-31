@@ -136,17 +136,25 @@ export default function TempMitigationSection({ event }: TempMitigationSectionPr
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">
-                {type === 'percent' ? '减伤效果（百分比 %）' : '减伤效果（盾量）'}
+                {type === 'percent' ? '减伤效果（百分比）' : '减伤效果（盾量）'}
               </label>
-              <Input
-                type="number"
-                min={0}
-                max={type === 'percent' ? 100 : undefined}
-                step={1}
-                value={value}
-                onChange={e => setValue(e.target.value)}
-                placeholder={type === 'percent' ? '如 20' : '如 30000'}
-              />
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={0}
+                  max={type === 'percent' ? 100 : undefined}
+                  step={1}
+                  value={value}
+                  onChange={e => setValue(e.target.value)}
+                  placeholder={type === 'percent' ? '如 20' : '如 30000'}
+                  className={type === 'percent' ? 'pr-7' : undefined}
+                />
+                {type === 'percent' && (
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    %
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
