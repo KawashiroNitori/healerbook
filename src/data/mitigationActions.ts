@@ -207,6 +207,21 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createBuffExecutor(409, 10),
     },
     {
+      id: 16464,
+      name: '原初的勇猛',
+      icon: '/i/002000/002567.png',
+      jobs: ['WAR'],
+      category: ['self', 'percentage', 'shield'],
+      duration: 8,
+      cooldown: 25,
+      executor: ctx => {
+        let partyState = createBuffExecutor(1858, 8)(ctx) // 原初的武猛
+        partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState }) // 原初的血潮
+        return createShieldExecutor(2680, 20)({ ...ctx, partyState }) // 原初的血烟
+      },
+      statDataEntries: [{ type: 'shield', key: 2680 }],
+    },
+    {
       id: 25751,
       name: '原初的血气',
       icon: '/i/002000/002569.png',
@@ -215,9 +230,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 8,
       cooldown: 25,
       executor: ctx => {
-        let partyState = createBuffExecutor(2678, 8)(ctx)
-        partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState })
-        return createShieldExecutor(2680, 20)({ ...ctx, partyState })
+        let partyState = createBuffExecutor(2678, 8)(ctx) // 原初的武猛
+        partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState }) // 原初的血潮
+        return createShieldExecutor(2680, 20)({ ...ctx, partyState }) // 原初的血烟
       },
       statDataEntries: [{ type: 'shield', key: 2680 }],
     },
