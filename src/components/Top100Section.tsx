@@ -392,7 +392,7 @@ function ProgressEncounterPanel({ tier }: { tier: RaidTier }) {
       {/* 跑马灯横条（文字无缝循环滚动）。渲染多份铺满容器，位移 -50% 循环无缝 */}
       <div className="rounded-lg border bg-muted/30 px-4 py-1.5 overflow-hidden whitespace-nowrap">
         <div className="marquee-track">
-          {Array.from({ length: 8 }).map((_, i) => (
+          {Array.from({ length: 16 }).map((_, i) => (
             <span
               key={i}
               className="text-sm text-muted-foreground inline-flex items-center"
