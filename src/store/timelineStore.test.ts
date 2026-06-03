@@ -866,6 +866,36 @@ describe('bulkMoveSelection', () => {
   })
 })
 
+describe('bulkDeleteSelection', () => {
+  beforeEach(async () => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    await useTimelineStore
+      .getState()
+      .openTimeline('del-test', { role: 'local', seedContent: seedWithItems })
+  })
+
+  afterEach(() => {
+    useTimelineStore.getState().reset()
+  })
+
+  it('删除全部选中并清空 selection，单步 undo', () => {
+    const store = useTimelineStore.getState()
+    store.setSelection({ eventIds: ['d1'], castEventIds: ['c1'], annotationIds: ['a1'] })
+    store.bulkDeleteSelection()
+    let tl = useTimelineStore.getState().timeline!
+    expect(tl.damageEvents).toHaveLength(0)
+    expect(tl.castEvents).toHaveLength(0)
+    expect(tl.annotations ?? []).toHaveLength(0)
+    expect(useTimelineStore.getState().selectedEventIds).toEqual([])
+
+    store.undo()
+    tl = useTimelineStore.getState().timeline!
+    expect(tl.damageEvents).toHaveLength(1)
+    expect(tl.castEvents).toHaveLength(1)
+  })
+})
+
 describe('多选 selection', () => {
   beforeEach(async () => {
     // eslint-disable-next-line no-global-assign

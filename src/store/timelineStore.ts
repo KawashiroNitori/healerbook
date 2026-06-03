@@ -193,6 +193,8 @@ interface TimelineState {
   removeAnnotation: (id: string) => void
   /** 批量平移选中对象的时间（同一事务，单步 undo） */
   bulkMoveSelection: (delta: number) => void
+  /** 批量删除选中对象（同一事务，单步 undo），随后清空选择 */
+  bulkDeleteSelection: () => void
   /** 批量导入：单个 Y.Doc 事务包裹所有写入，UndoManager 视为一步 */
   bulkImport: (data: {
     damageEvents?: DamageEvent[]
@@ -822,6 +824,24 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
             })
         }
       }, LOCAL_ORIGIN)
+    },
+
+    bulkDeleteSelection: () => {
+      const engine = get().engine
+      if (!engine) return
+      const { selectedEventIds, selectedCastEventIds, selectedAnnotationIds } = get()
+      if (
+        selectedEventIds.length === 0 &&
+        selectedCastEventIds.length === 0 &&
+        selectedAnnotationIds.length === 0
+      )
+        return
+      engine.doc.transact(() => {
+        for (const id of selectedEventIds) yRemoveDamageEvent(engine.doc, id)
+        for (const id of selectedCastEventIds) yRemoveCastEvent(engine.doc, id)
+        for (const id of selectedAnnotationIds) yRemoveAnnotation(engine.doc, id)
+      }, LOCAL_ORIGIN)
+      get().clearSelection()
     },
 
     bulkImport: data => {
