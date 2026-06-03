@@ -719,16 +719,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 从系统剪贴板粘贴时间轴对象，锚定到目标时间
   const pasteAtTime = useCallback(async (targetTime: number) => {
     let text: string | null = null
+    let clipboardAccessFailed = false
     try {
       const items = await navigator.clipboard.read()
       const item = items.find(it => it.types.includes(CLIPBOARD_MIME))
       if (item) text = await (await item.getType(CLIPBOARD_MIME)).text()
     } catch {
-      /* 无权限 / 不支持 */
+      clipboardAccessFailed = true
     }
     const payload = text ? parseClipboardPayload(text) : null
     if (!payload) {
-      toast.error('剪贴板没有可粘贴的时间轴对象')
+      toast.error(
+        clipboardAccessFailed
+          ? '无法读取剪贴板（浏览器不支持或权限被拒绝）'
+          : '剪贴板没有可粘贴的时间轴对象'
+      )
       return
     }
     const tl = useTimelineStore.getState().timeline

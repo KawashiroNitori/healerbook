@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MousePointerClick } from 'lucide-react'
-import type { DamageEvent, AnnotationAnchor } from '@/types/timeline'
+import type { AnnotationAnchor } from '@/types/timeline'
 import { modKey, deleteKeyLabel } from '@/utils/platform'
 
 export type ContextMenuState =
@@ -58,8 +58,6 @@ export type ContextMenuState =
       type: 'multiSelection'
       count: number
     }
-
-export type DamageEventClipboard = Omit<DamageEvent, 'id' | 'time'> | null
 
 interface TimelineContextMenuProps {
   menu: ContextMenuState | null
