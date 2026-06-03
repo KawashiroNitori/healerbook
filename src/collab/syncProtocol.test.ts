@@ -52,7 +52,7 @@ describe('awareness 二进制 codec', () => {
   it('完整 state round-trip(含 user / selection / cursorTime / dragging)', () => {
     const state: AwarenessState = {
       user: { id: 'u-42', name: '阿岛', color: '#abcdef' },
-      selection: { eventId: 'aB3', castEventId: null },
+      selection: { eventIds: ['aB3', 'aB4'], castEventIds: ['c1'], annotationIds: [] },
       cursorTime: 12.5,
       dragging: { id: 'cZ9', kind: 'cast', time: 30.25, playerId: 3 },
     }
@@ -60,14 +60,18 @@ describe('awareness 二进制 codec', () => {
     expect(back.user?.id).toBe('u-42')
     expect(back.user?.name).toBe('阿岛')
     expect(back.user?.color).toBe(colorForUser('u-42')) // color 由 id 重算,不上线
-    expect(back.selection).toEqual({ eventId: 'aB3', castEventId: null })
+    expect(back.selection).toEqual({
+      eventIds: ['aB3', 'aB4'],
+      castEventIds: ['c1'],
+      annotationIds: [],
+    })
     expect(back.cursorTime).toBe(12.5)
     expect(back.dragging).toEqual({ id: 'cZ9', kind: 'cast', time: 30.25, playerId: 3 })
   })
 
   it('上行 state(无 user)round-trip:user 不置位', () => {
     const state: Partial<AwarenessState> = {
-      selection: { eventId: null, castEventId: null },
+      selection: { eventIds: [], castEventIds: [], annotationIds: [] },
       cursorTime: 8,
       dragging: null,
     }
@@ -79,13 +83,25 @@ describe('awareness 二进制 codec', () => {
 
   it('dragging.playerId 为 null(damage/annotation)round-trip', () => {
     const state: Partial<AwarenessState> = {
-      selection: { eventId: null, castEventId: null },
+      selection: { eventIds: [], castEventIds: [], annotationIds: [] },
       cursorTime: null,
       dragging: { id: 'd1', kind: 'damage', time: 5, playerId: null },
     }
     const back = decodeAwarenessState(encodeAwarenessState(state))
     expect(back.dragging?.playerId).toBeNull()
     expect(back.dragging?.kind).toBe('damage')
+  })
+
+  it('selection arrays round-trip(含 annotationIds)', () => {
+    const state: Partial<AwarenessState> = {
+      selection: { eventIds: ['e1', 'e2'], castEventIds: [], annotationIds: ['ann1'] },
+      cursorTime: null,
+      dragging: null,
+    }
+    const back = decodeAwarenessState(encodeAwarenessState(state))
+    expect(back.selection.eventIds).toEqual(['e1', 'e2'])
+    expect(back.selection.castEventIds).toEqual([])
+    expect(back.selection.annotationIds).toEqual(['ann1'])
   })
 
   it('encodeAwarenessBinary / applyAwarenessBinary 把 peer state 投进对端 Awareness', () => {

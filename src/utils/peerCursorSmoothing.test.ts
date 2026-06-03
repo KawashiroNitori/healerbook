@@ -7,7 +7,7 @@ function makePeer(over: Partial<PeerState> = {}): PeerState {
   return {
     clientId: 1,
     user: { id: 'u1', name: 'Alice', color: '#f00' },
-    selection: { eventId: null, castEventId: null },
+    selection: { eventIds: [], castEventIds: [], annotationIds: [] },
     cursorTime: null,
     dragging: null,
     ...over,
@@ -121,11 +121,16 @@ describe('advancePeerSmoothing', () => {
   })
 
   it('其余字段（user / selection / clientId）原样透传', () => {
-    const peers = [makePeer({ cursorTime: 4, selection: { eventId: 'e1', castEventId: null } })]
+    const peers = [
+      makePeer({
+        cursorTime: 4,
+        selection: { eventIds: ['e1'], castEventIds: [], annotationIds: [] },
+      }),
+    ]
     const { smoothed } = advancePeerSmoothing(peers, empty, 16, ZOOM)
     expect(smoothed[0].clientId).toBe(1)
     expect(smoothed[0].user.name).toBe('Alice')
-    expect(smoothed[0].selection.eventId).toBe('e1')
+    expect(smoothed[0].selection.eventIds).toEqual(['e1'])
   })
 
   it('dragging 从有值→null：立即清除，不残留', () => {

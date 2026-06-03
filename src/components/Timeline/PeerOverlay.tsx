@@ -98,10 +98,8 @@ export function PeerOverlayFixed({
   const nodes: React.ReactNode[] = []
 
   for (const peer of peers) {
-    const { eventId } = peer.selection
-
     // ── 伤害事件选中高亮 ──
-    if (eventId) {
+    for (const eventId of peer.selection.eventIds) {
       const ev = damageEventById.get(eventId)
       const row = damageEventRowMap.get(eventId)
       if (ev != null && row != null) {
@@ -311,10 +309,8 @@ export function PeerOverlayMain({
   const nodes: React.ReactNode[] = []
 
   for (const peer of peers) {
-    const { castEventId } = peer.selection
-
     // ── cast 事件选中高亮 ──
-    if (castEventId) {
+    for (const castEventId of peer.selection.castEventIds) {
       const ce = castEventById.get(castEventId)
       const trackIdx = castEventTrackIndex.get(castEventId)
       if (ce != null && trackIdx != null) {

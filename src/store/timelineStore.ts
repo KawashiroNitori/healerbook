@@ -331,7 +331,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       peers.push({
         clientId,
         user: s.user,
-        selection: s.selection ?? { eventId: null, castEventId: null },
+        selection: s.selection ?? { eventIds: [], castEventIds: [], annotationIds: [] },
         cursorTime: s.cursorTime ?? null,
         dragging: s.dragging ?? null,
       })
@@ -368,7 +368,11 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     )
     // 本地 awareness 不设 user —— 由服务端按 JWT 身份在广播帧注入(省上行 + 防伪)。
     // 仅初始化动态字段,并订阅 peers 变化。
-    engine.awareness.setLocalStateField('selection', { eventId: null, castEventId: null })
+    engine.awareness.setLocalStateField('selection', {
+      eventIds: [],
+      castEventIds: [],
+      annotationIds: [],
+    })
     engine.awareness.setLocalStateField('cursorTime', null)
     engine.awareness.setLocalStateField('dragging', null)
     const onPeersChange = () => reprojectPeers(engine)
@@ -599,8 +603,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         selectedAnnotationIds: next.annotationIds,
         ...deriveSingle(next),
       })
-      // TODO(Task 8): awareness selection type becomes arrays
-      get().engine?.awareness.setLocalStateField('selection', next as never)
+      get().engine?.awareness.setLocalStateField('selection', next)
     },
 
     addToSelection: sel => {

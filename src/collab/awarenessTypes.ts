@@ -15,8 +15,8 @@ export interface AwarenessState {
    * peer 必有 user。见 syncProtocol 的 encode/inject。
    */
   user?: UserIdentity
-  /** 当前选中的事件;未选中各字段为 null */
-  selection: { eventId: string | null; castEventId: string | null }
+  /** 当前选中的对象 id 列表；未选中为空数组 */
+  selection: { eventIds: string[]; castEventIds: string[]; annotationIds: string[] }
   /** 鼠标悬停对应的时间轴时间(秒);不在画布上为 null */
   cursorTime: number | null
   /** 正在拖动的对象 ghost;未拖动为 null */

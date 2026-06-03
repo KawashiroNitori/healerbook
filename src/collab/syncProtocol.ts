@@ -81,11 +81,12 @@ export function decodeEditRequest(payload: Uint8Array): number {
 // JSON 串换成 bitmask 二进制布局,大幅缩小高频 awareness 帧。详见聊天设计。
 //
 // state 布局:[bitmask uint8] + 按位顺序的字段
-//   bit0 user      : varString id, varString name      (color 解码端 colorForUser(id) 重算)
-//   bit1 sel.eventId: varString
-//   bit2 sel.castEventId: varString
-//   bit3 cursorTime : float32
-//   bit4 dragging   : uint8 kind, float32 time, varUint(playerId+1|0=null), varString id
+//   bit0 user              : varString id, varString name      (color 解码端 colorForUser(id) 重算)
+//   bit1 sel.eventIds      : varUint count + count × varString
+//   bit2 sel.castEventIds  : varUint count + count × varString
+//   bit3 cursorTime        : float32
+//   bit4 dragging          : uint8 kind, float32 time, varUint(playerId+1|0=null), varString id
+//   bit5 sel.annotationIds : varUint count + count × varString
 //
 // envelope:[varUint numClients] + 每 client [varUint clientID][varUint clock][varUint8Array state]
 //   state 段为空(长度 0)表示该 client 被移除(null state)。
@@ -95,26 +96,42 @@ const B_SEL_EVENT = 1 << 1
 const B_SEL_CAST = 1 << 2
 const B_CURSOR = 1 << 3
 const B_DRAG = 1 << 4
+const B_SEL_ANNOTATION = 1 << 5
 
 const DRAG_KINDS = ['damage', 'cast', 'annotation'] as const
 
-/** 单个 AwarenessState → 二进制(user 缺省时 bit0 不置位,用于上行不带 user) */
+/** varString[] を書く: [varUint count] + count × varString */
+function writeVarStringArray(enc: encoding.Encoder, arr: string[]): void {
+  encoding.writeVarUint(enc, arr.length)
+  for (const s of arr) encoding.writeVarString(enc, s)
+}
+
+/** varString[] を読む: [varUint count] + count × varString */
+function readVarStringArray(dec: decoding.Decoder): string[] {
+  const count = decoding.readVarUint(dec)
+  const arr: string[] = []
+  for (let i = 0; i < count; i++) arr.push(decoding.readVarString(dec))
+  return arr
+}
+
+/** 単個 AwarenessState → 二進制(user 缺省时 bit0 不置位,用于上行不带 user) */
 export function encodeAwarenessState(state: Partial<AwarenessState>): Uint8Array {
   const enc = encoding.createEncoder()
   const { user, selection, cursorTime, dragging } = state
   let mask = 0
   if (user) mask |= B_USER
-  if (selection?.eventId != null) mask |= B_SEL_EVENT
-  if (selection?.castEventId != null) mask |= B_SEL_CAST
+  if (selection?.eventIds && selection.eventIds.length > 0) mask |= B_SEL_EVENT
+  if (selection?.castEventIds && selection.castEventIds.length > 0) mask |= B_SEL_CAST
   if (cursorTime != null) mask |= B_CURSOR
   if (dragging) mask |= B_DRAG
+  if (selection?.annotationIds && selection.annotationIds.length > 0) mask |= B_SEL_ANNOTATION
   encoding.writeUint8(enc, mask)
   if (mask & B_USER) {
     encoding.writeVarString(enc, user!.id)
     encoding.writeVarString(enc, user!.name)
   }
-  if (mask & B_SEL_EVENT) encoding.writeVarString(enc, selection!.eventId!)
-  if (mask & B_SEL_CAST) encoding.writeVarString(enc, selection!.castEventId!)
+  if (mask & B_SEL_EVENT) writeVarStringArray(enc, selection!.eventIds)
+  if (mask & B_SEL_CAST) writeVarStringArray(enc, selection!.castEventIds)
   if (mask & B_CURSOR) encoding.writeFloat32(enc, cursorTime!)
   if (mask & B_DRAG) {
     encoding.writeUint8(enc, DRAG_KINDS.indexOf(dragging!.kind))
@@ -122,6 +139,7 @@ export function encodeAwarenessState(state: Partial<AwarenessState>): Uint8Array
     encoding.writeVarUint(enc, dragging!.playerId == null ? 0 : dragging!.playerId + 1)
     encoding.writeVarString(enc, dragging!.id)
   }
+  if (mask & B_SEL_ANNOTATION) writeVarStringArray(enc, selection!.annotationIds)
   return encoding.toUint8Array(enc)
 }
 
@@ -130,7 +148,7 @@ export function decodeAwarenessState(bytes: Uint8Array): AwarenessState {
   const dec = decoding.createDecoder(bytes)
   const mask = decoding.readUint8(dec)
   const state: AwarenessState = {
-    selection: { eventId: null, castEventId: null },
+    selection: { eventIds: [], castEventIds: [], annotationIds: [] },
     cursorTime: null,
     dragging: null,
   }
@@ -139,8 +157,8 @@ export function decodeAwarenessState(bytes: Uint8Array): AwarenessState {
     const name = decoding.readVarString(dec)
     state.user = { id, name, color: colorForUser(id) }
   }
-  if (mask & B_SEL_EVENT) state.selection.eventId = decoding.readVarString(dec)
-  if (mask & B_SEL_CAST) state.selection.castEventId = decoding.readVarString(dec)
+  if (mask & B_SEL_EVENT) state.selection.eventIds = readVarStringArray(dec)
+  if (mask & B_SEL_CAST) state.selection.castEventIds = readVarStringArray(dec)
   if (mask & B_CURSOR) state.cursorTime = decoding.readFloat32(dec)
   if (mask & B_DRAG) {
     const kind = DRAG_KINDS[decoding.readUint8(dec)]
@@ -149,6 +167,7 @@ export function decodeAwarenessState(bytes: Uint8Array): AwarenessState {
     const id = decoding.readVarString(dec)
     state.dragging = { id, kind, time: dragTime, playerId: rawPlayer === 0 ? null : rawPlayer - 1 }
   }
+  if (mask & B_SEL_ANNOTATION) state.selection.annotationIds = readVarStringArray(dec)
   return state
 }
 
