@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { getIconUrl } from '@/utils/iconUtils'
 import type { MitigationAction } from '@/types/mitigation'
 import { getActionById } from '@/api/xivapi'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 import JobIcon from './JobIcon'
 import type { TooltipPlacement } from '@/store/tooltipStore'
 
@@ -191,6 +192,11 @@ export default function ActionTooltip({
 
   const { action: displayedAction } = displayedData
 
+  // 复唱时间优先取 mitigationActions.ts 中定义的 cooldown（秒）；
+  // 文件中缺少该技能（或未定义有效 CD）时回退到 xivapi 的 Recast100ms
+  const localAction = MITIGATION_DATA.actions.find(a => a.id === displayedAction.id)
+  const localCooldown = localAction && localAction.cooldown > 0 ? localAction.cooldown : null
+
   return (
     <div
       ref={tooltipRef}
@@ -269,7 +275,7 @@ export default function ActionTooltip({
               <div className="flex-1">
                 <div className="text-[10px] text-gray-400">复唱时间</div>
                 <div className="text-base text-white font-medium pr-1">
-                  {apiData.Recast100ms / 10}s
+                  {localCooldown ?? apiData.Recast100ms / 10}s
                 </div>
                 <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
               </div>
