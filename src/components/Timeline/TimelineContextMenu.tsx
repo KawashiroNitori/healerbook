@@ -63,7 +63,6 @@ export type DamageEventClipboard = Omit<DamageEvent, 'id' | 'time'> | null
 
 interface TimelineContextMenuProps {
   menu: ContextMenuState | null
-  clipboard: DamageEventClipboard
   isReadOnly: boolean
   onClose: () => void
   onDeleteCast: (castEventId: string) => void
@@ -72,7 +71,6 @@ interface TimelineContextMenuProps {
   onCopyDamageEvent: (eventId: string) => void
   onDeleteDamageEvent: (eventId: string) => void
   onAddDamageEvent: (time: number) => void
-  onPasteDamageEvent: (time: number) => void
   onAddAnnotation: (time: number, anchor: AnnotationAnchor) => void
   onEditAnnotation: (annotationId: string) => void
   onDeleteAnnotation: (annotationId: string) => void
@@ -85,7 +83,6 @@ interface TimelineContextMenuProps {
 
 export default function TimelineContextMenu({
   menu,
-  clipboard,
   isReadOnly,
   onClose,
   onDeleteCast,
@@ -94,7 +91,6 @@ export default function TimelineContextMenu({
   onCopyDamageEvent,
   onDeleteDamageEvent,
   onAddDamageEvent,
-  onPasteDamageEvent,
   onAddAnnotation,
   onEditAnnotation,
   onDeleteAnnotation,
@@ -249,7 +245,7 @@ export default function TimelineContextMenu({
                 <MousePointerClick className="size-3" />
               </DropdownMenuShortcut>
             </DropdownMenuItem>
-            {onPasteSelection ? (
+            {onPasteSelection && (
               <DropdownMenuItem
                 disabled={pasteAvailable !== true}
                 onClick={() => {
@@ -260,18 +256,6 @@ export default function TimelineContextMenu({
                 粘贴{pasteAvailable === 'checking' ? '…' : ''}
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
-            ) : (
-              clipboard && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    onPasteDamageEvent(menu.time)
-                    onClose()
-                  }}
-                >
-                  粘贴
-                  <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              )
             )}
             <DropdownMenuItem
               onClick={() => {

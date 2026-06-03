@@ -29,11 +29,16 @@ import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { generateObjectId } from '@/utils/shortId'
-import { CLIPBOARD_MIME } from '@/utils/timelineClipboard'
+import {
+  CLIPBOARD_MIME,
+  buildClipboardPayload,
+  parseClipboardPayload,
+  remapClipboardForPaste,
+} from '@/utils/timelineClipboard'
 import AddEventDialog from '../AddEventDialog'
 import AnnotationPopover from './AnnotationPopover'
 import TimelineContextMenu from './TimelineContextMenu'
-import type { ContextMenuState, DamageEventClipboard } from './TimelineContextMenu'
+import type { ContextMenuState } from './TimelineContextMenu'
 import TimeRuler from './TimeRuler'
 import DamageEventTrack from './DamageEventTrack'
 import SkillTrackLabels from './SkillTrackLabels'
@@ -105,7 +110,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const scrollLeftRef = useRef(0)
   const scrollTopRef = useRef(0)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
-  const [clipboard, setClipboard] = useState<DamageEventClipboard>(null)
   const [pasteAvailable, setPasteAvailable] = useState<'checking' | boolean>(false)
   const [editingAnnotation, setEditingAnnotation] = useState<{
     annotation: { id: string; text: string; time: number; anchor: AnnotationAnchor } | null
@@ -172,8 +176,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const {
     timeline,
     zoomLevel,
-    selectedEventId,
-    selectedCastEventId,
     pendingScrollProgress,
     selectEvent,
     selectCastEvent,
@@ -693,33 +695,58 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
   }, [width, zoomLevel, setZoomLevel])
 
-  // 复制 / 粘贴伤害事件（热键与右键菜单共用）
-  const handleContextMenuCopyDamageEvent = useCallback(
-    (eventId: string) => {
-      if (!timeline) return
-      const event = timeline.damageEvents.find(e => e.id === eventId)
-      if (!event) return
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, time: _time, ...rest } = event
-      setClipboard(rest)
-      toast.success('已复制伤害事件')
-    },
-    [timeline]
-  )
+  // 批量复制选中对象到系统剪贴板（自定义 web MIME，外部应用不可见）
+  const copySelection = useCallback(async () => {
+    const s = useTimelineStore.getState()
+    if (!s.timeline) return
+    const total =
+      s.selectedEventIds.length + s.selectedCastEventIds.length + s.selectedAnnotationIds.length
+    if (total === 0) return
+    const payload = buildClipboardPayload(s.timeline, {
+      eventIds: s.selectedEventIds,
+      castEventIds: s.selectedCastEventIds,
+      annotationIds: s.selectedAnnotationIds,
+    })
+    try {
+      const blob = new Blob([JSON.stringify(payload)], { type: CLIPBOARD_MIME })
+      await navigator.clipboard.write([new ClipboardItem({ [CLIPBOARD_MIME]: blob })])
+      toast.success(`已复制 ${total} 个对象`)
+    } catch {
+      toast.error('复制失败：当前浏览器不支持写入剪贴板')
+    }
+  }, [])
 
-  const handleContextMenuPasteDamageEvent = useCallback(
-    (time: number) => {
-      if (!clipboard) return
-      const { addDamageEvent } = useTimelineStore.getState()
-      addDamageEvent({
-        ...clipboard,
-        id: generateObjectId(),
-        time,
-      })
-      toast.success('已粘贴伤害事件')
-    },
-    [clipboard]
-  )
+  // 从系统剪贴板粘贴时间轴对象，锚定到目标时间
+  const pasteAtTime = useCallback(async (targetTime: number) => {
+    let text: string | null = null
+    try {
+      const items = await navigator.clipboard.read()
+      const item = items.find(it => it.types.includes(CLIPBOARD_MIME))
+      if (item) text = await (await item.getType(CLIPBOARD_MIME)).text()
+    } catch {
+      /* 无权限 / 不支持 */
+    }
+    const payload = text ? parseClipboardPayload(text) : null
+    if (!payload) {
+      toast.error('剪贴板没有可粘贴的时间轴对象')
+      return
+    }
+    const tl = useTimelineStore.getState().timeline
+    if (!tl) return
+    const validActionIds = new Set(useMitigationStore.getState().actions.map(a => a.id))
+    const result = remapClipboardForPaste(payload, {
+      currentComposition: tl.composition,
+      targetTime,
+      validActionIds,
+    })
+    useTimelineStore.getState().pasteObjects({
+      damageEvents: result.damageEvents,
+      castEvents: result.castEvents,
+      annotations: result.annotations,
+    })
+    if (result.skipped > 0) toast.warning(`已粘贴，跳过 ${result.skipped} 个无法落位的对象`)
+    else toast.success('已粘贴')
+  }, [])
 
   // 探测系统剪贴板是否含有时间轴数据（用于右键空白菜单显示粘贴项）
   const probePaste = useCallback(async () => {
@@ -748,46 +775,47 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     preventDefault: true,
   })
 
-  // 删除选中的事件或注释
+  // 删除：多选时批量删除，否则删单个选中项或固定注释
   useHotkeys(
     'delete, backspace',
     () => {
+      const s = useTimelineStore.getState()
+      const total =
+        s.selectedEventIds.length + s.selectedCastEventIds.length + s.selectedAnnotationIds.length
+      if (total > 0) {
+        s.bulkDeleteSelection()
+        return
+      }
       if (pinnedAnnotationId) {
         removeAnnotation(pinnedAnnotationId)
         setPinnedAnnotationId(null)
-      } else if (selectedEventId) {
-        removeDamageEvent(selectedEventId)
-      } else if (selectedCastEventId) {
-        removeCastEvent(selectedCastEventId)
       }
     },
     { enabled: !isReadOnly },
-    [pinnedAnnotationId, selectedEventId, selectedCastEventId]
+    [pinnedAnnotationId]
   )
 
-  // 复制选中的伤害事件
+  // 复制选中对象到系统剪贴板
   useHotkeys(
     'mod+c',
     () => {
-      if (!selectedEventId) return
-      handleContextMenuCopyDamageEvent(selectedEventId)
+      void copySelection()
     },
     { enabled: !isReadOnly },
-    [selectedEventId, handleContextMenuCopyDamageEvent]
+    [copySelection]
   )
 
-  // 粘贴伤害事件（在鼠标悬浮位置，若无则在视口中央）
+  // 粘贴（在鼠标悬浮位置，若无则在视口中央）
   useHotkeys(
     'mod+v',
     () => {
-      if (!clipboard) return
-      const pasteTime =
+      const t =
         hoverTimeRef.current ??
         (clampedScrollRef.current.scrollLeft + viewportWidth / 2) / zoomLevel
-      handleContextMenuPasteDamageEvent(Math.round(pasteTime * 10) / 10)
+      void pasteAtTime(Math.round(t * 10) / 10)
     },
     { enabled: !isReadOnly, preventDefault: true },
-    [clipboard, viewportWidth, zoomLevel, handleContextMenuPasteDamageEvent]
+    [pasteAtTime, viewportWidth, zoomLevel]
   )
 
   // 计算技能图标的 tooltip 锚点矩形
@@ -1810,21 +1838,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       {/* 右键上下文菜单 */}
       <TimelineContextMenu
         menu={contextMenu}
-        clipboard={clipboard}
         isReadOnly={isReadOnly}
         onClose={handleContextMenuClose}
         onDeleteCast={removeCastEvent}
         onAddCast={handleContextMenuAddCast}
         onCopyDamageEventText={handleCopyDamageEventText}
-        onCopyDamageEvent={handleContextMenuCopyDamageEvent}
+        onCopyDamageEvent={() => void copySelection()}
         onDeleteDamageEvent={removeDamageEvent}
         onAddDamageEvent={handleContextMenuAddDamageEvent}
-        onPasteDamageEvent={handleContextMenuPasteDamageEvent}
         onAddAnnotation={handleAddAnnotation}
         onEditAnnotation={handleEditAnnotation}
         onDeleteAnnotation={handleDeleteAnnotation}
+        onCopySelection={() => void copySelection()}
         onDeleteSelection={() => useTimelineStore.getState().bulkDeleteSelection()}
         pasteAvailable={pasteAvailable}
+        onPasteSelection={t => void pasteAtTime(t)}
       />
 
       {/* 注释悬浮查看（pointer-events: none，通过 CSS 变量实时跟随滚动） */}
