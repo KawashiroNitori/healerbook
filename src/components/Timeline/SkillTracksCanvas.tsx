@@ -38,7 +38,7 @@ interface SkillTracksCanvasProps {
   timelineWidth: number
   trackHeight: number
   maxTime: number
-  selectedCastEventId: string | null
+  selectedCastEventIds: string[]
   draggingEventPosition: { eventId: string; x: number } | null
   scrollLeft: number
   scrollTop: number
@@ -100,7 +100,7 @@ export default function SkillTracksCanvas({
   timelineWidth,
   trackHeight,
   maxTime,
-  selectedCastEventId,
+  selectedCastEventIds,
   draggingEventPosition,
   scrollLeft,
   scrollTop,
@@ -561,7 +561,7 @@ export default function SkillTracksCanvas({
           if (castX + cooldownWidth < visibleMinX || castX > visibleMaxX) return null
 
           const trackY = trackIndex * trackHeight + trackHeight / 2
-          const isSelected = castEvent.id === selectedCastEventId
+          const isSelected = selectedCastEventIds.includes(castEvent.id)
 
           const displayAction = displayActionOverrides.get(castEvent.id)
 

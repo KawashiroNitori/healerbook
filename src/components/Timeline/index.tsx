@@ -187,6 +187,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     updateAnnotation,
     removeAnnotation,
   } = useTimelineStore()
+  // 多选 ID 列表——渲染期需响应式订阅，保证高亮随选区变化更新
+  const selectedEventIds = useTimelineStore(s => s.selectedEventIds)
+  const selectedCastEventIds = useTimelineStore(s => s.selectedCastEventIds)
   const { actions } = useMitigationStore()
   const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
@@ -854,9 +857,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const handleEventDragEnd = (eventId: string, x: number) => {
     if (isReadOnly) return
     const newTime = Math.max(TIMELINE_START_TIME, Math.round((x / zoomLevel) * 10) / 10)
-    const { updateDamageEvent, setLocalDragging } = useTimelineStore.getState()
-    updateDamageEvent(eventId, { time: newTime })
-    setLocalDragging(null)
+    const s = useTimelineStore.getState()
+    const totalSelected =
+      s.selectedEventIds.length + s.selectedCastEventIds.length + s.selectedAnnotationIds.length
+    if (totalSelected > 1 && s.selectedEventIds.includes(eventId)) {
+      // 多选：整体等距平移，以被拖动事件的原始时间为基准
+      const orig = timeline?.damageEvents.find(e => e.id === eventId)?.time ?? newTime
+      s.bulkMoveSelection(newTime - orig)
+    } else {
+      s.updateDamageEvent(eventId, { time: newTime })
+    }
+    s.setLocalDragging(null)
     setDraggingEventPosition(null)
   }
 
@@ -953,7 +964,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         if (member) nextActionId = member.id
       }
     }
-    updateCastEvent(castEventId, { timestamp: newTime, actionId: nextActionId })
+    const s = useTimelineStore.getState()
+    const totalSelected =
+      s.selectedEventIds.length + s.selectedCastEventIds.length + s.selectedAnnotationIds.length
+    if (totalSelected > 1 && s.selectedCastEventIds.includes(castEventId)) {
+      // 多选：整体等距平移，以被拖动 cast 的原始时间戳为基准；跳过变体切换
+      const orig = timeline?.castEvents.find(c => c.id === castEventId)?.timestamp ?? newTime
+      s.bulkMoveSelection(newTime - orig)
+    } else {
+      updateCastEvent(castEventId, { timestamp: newTime, actionId: nextActionId })
+    }
     useTimelineStore.getState().setLocalDragging(null)
   }
 
@@ -1519,7 +1539,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
               <DamageEventTrack
                 events={filteredDamageEvents}
-                selectedEventId={selectedEventId}
+                selectedEventIds={selectedEventIds}
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}
                 trackHeight={eventTrackHeight}
@@ -1675,7 +1695,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 timelineWidth={timelineWidth}
                 trackHeight={skillTrackHeight}
                 maxTime={maxTime}
-                selectedCastEventId={selectedCastEventId}
+                selectedCastEventIds={selectedCastEventIds}
                 draggingEventPosition={draggingEventPosition}
                 scrollLeft={clampedScrollLeft}
                 scrollTop={clampedScrollTop}

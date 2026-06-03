@@ -10,7 +10,7 @@ import type { DamageEvent, Annotation } from '@/types/timeline'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]
-  selectedEventId: string | null
+  selectedEventIds: string[]
   zoomLevel: number
   timelineWidth: number
   trackHeight: number
@@ -55,7 +55,7 @@ interface DamageEventTrackProps {
 
 export default function DamageEventTrack({
   events,
-  selectedEventId,
+  selectedEventIds,
   zoomLevel,
   timelineWidth,
   trackHeight,
@@ -187,8 +187,8 @@ export default function DamageEventTrack({
         })
         .sort((a, b) => {
           // 选中的事件排在最后（渲染在最顶层）
-          if (a.id === selectedEventId) return 1
-          if (b.id === selectedEventId) return -1
+          if (selectedEventIds.includes(a.id)) return 1
+          if (selectedEventIds.includes(b.id)) return -1
           // 其他事件按时间排序
           return a.time - b.time
         })
@@ -197,7 +197,7 @@ export default function DamageEventTrack({
             <DamageEventCard
               key={event.id}
               event={event}
-              isSelected={selectedEventId === event.id}
+              isSelected={selectedEventIds.includes(event.id)}
               zoomLevel={zoomLevel}
               rowHeight={rowHeight}
               row={rowMap.get(event.id) ?? 0}
