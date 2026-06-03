@@ -329,7 +329,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['GNB'],
       category: ['self', 'percentage'],
       duration: 20,
-      cooldown: 120,
+      cooldown: 90,
       executor: createBuffExecutor(1832, 20),
     },
     {
