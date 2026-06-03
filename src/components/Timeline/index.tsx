@@ -1025,7 +1025,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         (payload.type === 'castEvent' && sel.selectedCastEventIds.includes(payload.castEventId)) ||
         (payload.type === 'annotation' && sel.selectedAnnotationIds.includes(payload.annotationId))
       if (total > 1 && inMulti) {
-        setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
+        // 只读模式无批量编辑操作，不弹批量菜单；仍 return 避免塌缩多选
+        if (!isReadOnly) {
+          setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
+        }
         return
       }
 
@@ -1042,11 +1045,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       setContextMenu({ ...payload, x: clientX, y: clientY, time })
     },
-    [selectCastEvent, selectEvent, probePaste]
+    [selectCastEvent, selectEvent, probePaste, isReadOnly]
   )
 
   const handleContextMenuClose = useCallback(() => {
     setContextMenu(null)
+    setPasteAvailable(false)
   }, [])
 
   const handleContextMenuAddCast = (actionId: number, playerId: number, time: number) => {
