@@ -1420,6 +1420,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const inRuler = localY <= timeRulerHeight
     if (canvasTool !== 'select' && !inRuler) return
     const localX = e.clientX - rect.left
+    // 按下点落在某个对象盒内（选中态对象可拖动）时交给 Konva 处理（拖动 / 单击选中），
+    // 不启动框选；仅空白处按下才框选（按对象=操作对象，按空白=框选）。
+    // 标尺带内无对象，inRuler 时跳过此判断，保持全高度框选。
+    if (!inRuler) {
+      const hit = buildMarqueeObjectsRef
+        .current()
+        .some(o => localX >= o.x0 && localX <= o.x1 && localY >= o.y0 && localY <= o.y1)
+      if (hit) return
+    }
     marquee.onPointerDown(localX, localY, e.shiftKey)
 
     const onMove = (ev: PointerEvent) => {
