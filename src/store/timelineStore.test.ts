@@ -814,6 +814,58 @@ describe('bulkImport', () => {
   })
 })
 
+const seedWithItems: TimelineContent = {
+  ...baseContent,
+  damageEvents: [
+    { id: 'd1', name: 'AA', time: 10, damage: 1000, type: 'aoe', damageType: 'magical' },
+  ],
+  castEvents: [{ id: 'c1', actionId: 16536, timestamp: 12, playerId: 2 }],
+  annotations: [{ id: 'a1', text: '注', time: 14, anchor: { type: 'damageTrack' } }],
+}
+
+describe('bulkMoveSelection', () => {
+  beforeEach(async () => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    await useTimelineStore
+      .getState()
+      .openTimeline('move-test', { role: 'local', seedContent: seedWithItems })
+  })
+
+  afterEach(() => {
+    useTimelineStore.getState().reset()
+  })
+
+  it('对全部选中对象施加同一 delta，下界夹紧', () => {
+    const store = useTimelineStore.getState()
+    store.setSelection({ eventIds: ['d1'], castEventIds: ['c1'], annotationIds: ['a1'] })
+    store.bulkMoveSelection(5)
+    const tl = useTimelineStore.getState().timeline!
+    expect(tl.damageEvents.find(e => e.id === 'd1')!.time).toBe(15)
+    expect(tl.castEvents.find(c => c.id === 'c1')!.timestamp).toBe(17)
+    expect(tl.annotations!.find(a => a.id === 'a1')!.time).toBe(19)
+  })
+
+  it('伤害事件下界为 0', () => {
+    const store = useTimelineStore.getState()
+    store.setSelection({ eventIds: ['d1'] })
+    store.bulkMoveSelection(-1000)
+    expect(useTimelineStore.getState().timeline!.damageEvents.find(e => e.id === 'd1')!.time).toBe(
+      0
+    )
+  })
+
+  it('一次移动只产生一步 undo', () => {
+    const store = useTimelineStore.getState()
+    store.setSelection({ eventIds: ['d1'], castEventIds: ['c1'] })
+    store.bulkMoveSelection(3)
+    store.undo()
+    const tl = useTimelineStore.getState().timeline!
+    expect(tl.damageEvents.find(e => e.id === 'd1')!.time).toBe(10)
+    expect(tl.castEvents.find(c => c.id === 'c1')!.timestamp).toBe(12)
+  })
+})
+
 describe('多选 selection', () => {
   beforeEach(async () => {
     // eslint-disable-next-line no-global-assign

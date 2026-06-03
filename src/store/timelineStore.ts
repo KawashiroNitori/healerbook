@@ -13,6 +13,7 @@
  */
 
 import { create } from 'zustand'
+import { TIMELINE_START_TIME } from '@/components/Timeline/constants'
 import { toast } from 'sonner'
 import { useUIStore } from '@/store/uiStore'
 import type {
@@ -190,6 +191,8 @@ interface TimelineState {
   updateAnnotation: (id: string, updates: Partial<Pick<Annotation, 'text' | 'time'>>) => void
   /** 删除注释 */
   removeAnnotation: (id: string) => void
+  /** 批量平移选中对象的时间（同一事务，单步 undo） */
+  bulkMoveSelection: (delta: number) => void
   /** 批量导入：单个 Y.Doc 事务包裹所有写入，UndoManager 视为一步 */
   bulkImport: (data: {
     damageEvents?: DamageEvent[]
@@ -783,6 +786,42 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
           annotationIds: get().selectedAnnotationIds.filter(x => x !== id),
         })
       }
+    },
+
+    bulkMoveSelection: delta => {
+      const engine = get().engine
+      const tl = get().timeline
+      if (!engine || !tl || delta === 0) return
+      const { selectedEventIds, selectedCastEventIds, selectedAnnotationIds } = get()
+      if (
+        selectedEventIds.length === 0 &&
+        selectedCastEventIds.length === 0 &&
+        selectedAnnotationIds.length === 0
+      )
+        return
+      const dmg = new Map(tl.damageEvents.map(e => [e.id, e]))
+      const cast = new Map(tl.castEvents.map(c => [c.id, c]))
+      const ann = new Map((tl.annotations ?? []).map(a => [a.id, a]))
+      engine.doc.transact(() => {
+        for (const id of selectedEventIds) {
+          const e = dmg.get(id)
+          if (e) yUpdateDamageEvent(engine.doc, id, { time: Math.max(0, e.time + delta) })
+        }
+        for (const id of selectedCastEventIds) {
+          const c = cast.get(id)
+          if (c)
+            yUpdateCastEvent(engine.doc, id, {
+              timestamp: Math.max(TIMELINE_START_TIME, c.timestamp + delta),
+            })
+        }
+        for (const id of selectedAnnotationIds) {
+          const a = ann.get(id)
+          if (a)
+            yUpdateAnnotation(engine.doc, id, {
+              time: Math.max(TIMELINE_START_TIME, a.time + delta),
+            })
+        }
+      }, LOCAL_ORIGIN)
     },
 
     bulkImport: data => {
