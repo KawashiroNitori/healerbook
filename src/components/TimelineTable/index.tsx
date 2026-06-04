@@ -53,6 +53,9 @@ import {
   SKILL_COL_WIDTH,
 } from './constants'
 
+/** 表格点击放置技能时，cast 锚定时刻相对伤害发生时刻的提前量（秒） */
+const CAST_ANCHOR_LEAD = 0.1
+
 export default function TimelineTableView() {
   const timeline = useTimelineStore(s => s.timeline)
   const selectEvent = useTimelineStore(s => s.selectEvent)
@@ -172,10 +175,15 @@ export default function TimelineTableView() {
       // CD 冲突 / 资源耗尽 已由 pickUniqueMember 内部 canPlaceCastEvent 闭环过滤
       // （legal = placement ∩ resourceLegalIntervals）；此处不再重复 overlap 窗口检查——
       // 旧 overlap 按 action.cooldown 硬窗口互斥，与多充能（慰藉/献奉）语义冲突。
+      //
+      // 锚定时刻略提前于伤害发生时刻 CAST_ANCHOR_LEAD：cast 与伤害同刻时，simulator
+      // 在同一时间点的事件排序可能让状态附加晚于伤害结算，导致减伤不生效。提前 0.1s
+      // 保证状态在伤害落地前已挂上。绿格/marker 仍归到点击的这一行（相邻伤害事件间隔
+      // 远大于 0.1s）。
       addCastEvent({
         id: generateObjectId(),
         actionId: resolvedActionId,
-        timestamp: event.time,
+        timestamp: event.time - CAST_ANCHOR_LEAD,
         playerId: track.playerId,
       })
     },
