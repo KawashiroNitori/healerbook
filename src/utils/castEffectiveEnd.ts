@@ -15,15 +15,15 @@ export type StatusTier = 'primary' | 'other'
  * 判定一个 status instance 归入主减伤层还是其它层。
  *
  * category 为主：`meta.category` 含 'percentage' 或 'shield' → primary，否则 other。
- * category 整体缺省（undefined）时兜底：`type === 'multiplier'`（百分比）或实例带
- * barrier（盾）→ primary。category 已标注即视为权威，不再叠加 type/barrier 兜底。
+ * category 缺省（undefined 或空数组）时兜底：`type === 'multiplier'`（百分比）或实例带
+ * barrier（盾）→ primary。category 非空标注即视为权威，不再叠加 type/barrier 兜底。
  */
 export function statusTier(
   meta: MitigationStatusMetadata | undefined,
   status: MitigationStatus
 ): StatusTier {
   const category = meta?.category
-  if (category) {
+  if (category && category.length > 0) {
     return category.includes('percentage') || category.includes('shield') ? 'primary' : 'other'
   }
   const isPercentage = meta?.type === 'multiplier'
@@ -46,16 +46,16 @@ export interface CastEndEntry {
  */
 export function reduceCastEffectiveEnds(entries: CastEndEntry[]): Map<string, number> {
   const primary = new Map<string, number>()
-  const any = new Map<string, number>()
+  const all = new Map<string, number>()
   for (const e of entries) {
-    any.set(e.castId, Math.max(any.get(e.castId) ?? -Infinity, e.to))
+    all.set(e.castId, Math.max(all.get(e.castId) ?? -Infinity, e.to))
     if (e.tier === 'primary') {
       primary.set(e.castId, Math.max(primary.get(e.castId) ?? -Infinity, e.to))
     }
   }
   const result = new Map<string, number>()
-  for (const castId of any.keys()) {
-    result.set(castId, primary.get(castId) ?? any.get(castId)!)
+  for (const castId of all.keys()) {
+    result.set(castId, primary.get(castId) ?? all.get(castId)!)
   }
   return result
 }

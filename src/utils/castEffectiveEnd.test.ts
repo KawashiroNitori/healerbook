@@ -6,7 +6,7 @@ const mkStatus = (patch: Partial<MitigationStatus> = {}): MitigationStatus =>
   ({ instanceId: 'i', statusId: 1, startTime: 0, endTime: 1, ...patch }) as MitigationStatus
 
 const mkMeta = (patch: Partial<MitigationStatusMetadata> = {}): MitigationStatusMetadata =>
-  patch as MitigationStatusMetadata
+  ({ isTankOnly: false, ...patch }) as MitigationStatusMetadata
 
 describe('statusTier', () => {
   it('category 含 percentage → primary', () => {
@@ -25,6 +25,12 @@ describe('statusTier', () => {
 
   it('category 仅 scope（self）无效果类 → other', () => {
     expect(statusTier(mkMeta({ category: ['self'] }), mkStatus())).toBe('other')
+  })
+
+  it('category 为空数组（视作未标注）+ 实例带 barrier → 兜底 primary', () => {
+    expect(statusTier(mkMeta({ category: [] }), mkStatus({ remainingBarrier: 100 }))).toBe(
+      'primary'
+    )
   })
 
   it('category 已标注但不含 percentage/shield 时不再叠加 type 兜底 → other', () => {
