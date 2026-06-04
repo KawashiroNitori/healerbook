@@ -53,7 +53,7 @@ import {
 } from '@/collab/docSchema'
 import type { TimelineContent } from '@/collab/types'
 import { LOCAL_ORIGIN, HOUSEKEEPING_ORIGIN } from '@/collab/constants'
-import { generateId } from '@/utils/id'
+import { generateObjectId } from '@/utils/shortId'
 
 /** `yReplaceStatData` 接受宽泛 `Record`,此处收敛到 `TimelineStatData` 入参 */
 function replaceStatData(doc: YDoc, statData: TimelineStatData): void {
@@ -686,13 +686,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         for (const e of damageEvents) {
           yAddDamageEvent(engine.doc, {
             ...e,
-            id: generateId(),
+            id: generateObjectId(),
             time: Math.max(0, e.time),
             snapshotTime: e.snapshotTime != null ? Math.max(0, e.snapshotTime) : e.snapshotTime,
           })
         }
         for (const c of castEvents) {
-          yAddCastEvent(engine.doc, { ...c, id: generateId() })
+          yAddCastEvent(engine.doc, { ...c, id: generateObjectId() })
         }
         if (syncEvents.length > 0) {
           // get().timeline reflects pre-transact state; Yjs fires 'update' only after

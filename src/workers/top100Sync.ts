@@ -21,7 +21,7 @@ import {
   extractHealData,
   extractMaxHPData,
 } from '@/utils/fflogsImporter'
-import { generateId } from '@/utils/id'
+import { generateObjectId } from '@/utils/shortId'
 
 /** KV 中存储的 TOP100 数据结构 */
 export interface Top100Data {
@@ -141,7 +141,7 @@ interface BuildEncounterTemplateInput {
  * - 仅当 `fightDurationMs > oldTemplate.templateSourceDurationMs`（或旧 template 不存在）时返回新 template
  * - 不做 abilityId 出现场数过滤；前端可用 `EncounterStatistics.abilityFightCount` 自行过滤
  * - 每个保留事件的 `damage` 用 `p50Map[abilityId]` 覆盖；无 p50 时保留原 damage
- * - 每个事件重新 generateId
+ * - 每个事件重新 generateObjectId
  *
  * 返回 null 表示"无需写入"（不是错误）。
  */
@@ -156,7 +156,7 @@ export function buildEncounterTemplate(input: BuildEncounterTemplateInput): {
   }
 
   const events: EncounterTemplateEvent[] = fightEvents.map(e => ({
-    id: generateId(),
+    id: generateObjectId(),
     name: e.name,
     time: e.time,
     damage: p50Map[e.abilityId ?? 0] ?? e.damage,
