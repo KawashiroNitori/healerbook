@@ -33,16 +33,13 @@ export default function PasteConfirmDialog({
 }: PasteConfirmDialogProps) {
   if (!pending) return null
 
-  const kept = pending.damageEvents.length + pending.castEvents.length + pending.annotations.length
-
   return (
     <AlertDialog open={true} onOpenChange={open => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>部分对象无法粘贴</AlertDialogTitle>
+          <AlertDialogTitle>部分技能无法粘贴</AlertDialogTitle>
           <AlertDialogDescription>
-            有 {pending.skipped} 个技能 / 注释无法映射到当前时间轴的对应职业轨道。 是否继续粘贴其余{' '}
-            {kept} 个对象？
+            当前阵容与剪贴板中的技能阵容不符，部分技能无法粘贴到当前时间轴，是否要继续粘贴剩余技能？
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
