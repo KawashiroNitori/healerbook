@@ -34,10 +34,12 @@ import {
   buildClipboardPayload,
   parseClipboardPayload,
   remapClipboardForPaste,
+  type PasteResult,
 } from '@/utils/timelineClipboard'
 import AddEventDialog from '../AddEventDialog'
 import AnnotationPopover from './AnnotationPopover'
 import TimelineContextMenu from './TimelineContextMenu'
+import PasteConfirmDialog from './PasteConfirmDialog'
 import type { ContextMenuState } from './TimelineContextMenu'
 import TimeRuler from './TimeRuler'
 import DamageEventTrack from './DamageEventTrack'
@@ -111,6 +113,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const scrollTopRef = useRef(0)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [pasteAvailable, setPasteAvailable] = useState<'checking' | boolean>(false)
+  // 粘贴时有对象无法映射 → 暂存结果，等用户在确认框里决定是否继续
+  const [pendingPaste, setPendingPaste] = useState<PasteResult | null>(null)
   const [editingAnnotation, setEditingAnnotation] = useState<{
     annotation: { id: string; text: string; time: number; anchor: AnnotationAnchor } | null
     time: number
@@ -440,7 +444,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
   // 十字准线：鼠标移动事件（直接操作 Konva 节点，不触发 React 重渲染）
   const createCrosshairMoveHandler = useCallback(
-    (stageRefParam: React.RefObject<Konva.Stage | null>, withTrackHighlight: boolean) =>
+    (
+      stageRefParam: React.RefObject<Konva.Stage | null>,
+      withTrackHighlight: boolean,
+      hasRuler: boolean
+    ) =>
       (e: MouseEvent) => {
         if (isDraggingRef.current) {
           if (hoverTimeRef.current !== null) {
@@ -460,6 +468,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         const xPx = time * zoomLevel
 
         hoverTimeRef.current = time
+
+        // 光标提示：当一次拖拽会触发框选时给 crosshair（框选模式整片画布，或鼠标在时间标尺带内）
+        const overRuler = hasRuler && e.clientY - rect.top <= timeRulerHeight
+        stage.container().style.cursor =
+          useUIStore.getState().canvasTool === 'select' || overRuler ? 'crosshair' : 'default'
 
         // 节流上报本地光标位置（~50ms），避免高频 awareness 写入
         const now = Date.now()
@@ -570,8 +583,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const mainContainer = mainStage.container()
     const fixedContainer = fixedStage.container()
 
-    const handleMainMove = createCrosshairMoveHandler(stageRef, true)
-    const handleFixedMove = createCrosshairMoveHandler(fixedStageRef, false)
+    const handleMainMove = createCrosshairMoveHandler(stageRef, true, false)
+    const handleFixedMove = createCrosshairMoveHandler(fixedStageRef, false, true)
 
     mainContainer.addEventListener('mousemove', handleMainMove)
     mainContainer.addEventListener('mouseleave', handleCrosshairLeave)
@@ -731,33 +744,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }, [])
 
   // 从系统剪贴板粘贴时间轴对象，锚定到目标时间
-  const pasteAtTime = useCallback(async (targetTime: number) => {
-    let text: string | null = null
-    let clipboardAccessFailed = false
-    try {
-      const items = await navigator.clipboard.read()
-      const item = items.find(it => it.types.includes(CLIPBOARD_MIME))
-      if (item) text = await (await item.getType(CLIPBOARD_MIME)).text()
-    } catch {
-      clipboardAccessFailed = true
-    }
-    const payload = text ? parseClipboardPayload(text) : null
-    if (!payload) {
-      toast.error(
-        clipboardAccessFailed
-          ? '无法读取剪贴板（浏览器不支持或权限被拒绝）'
-          : '剪贴板没有可粘贴的时间轴对象'
-      )
-      return
-    }
-    const tl = useTimelineStore.getState().timeline
-    if (!tl) return
-    const validActionIds = new Set(useMitigationStore.getState().actions.map(a => a.id))
-    const result = remapClipboardForPaste(payload, {
-      currentComposition: tl.composition,
-      targetTime,
-      validActionIds,
-    })
+  // 把 remap 结果写入时间轴并选中
+  const commitPaste = useCallback((result: PasteResult) => {
     useTimelineStore.getState().pasteObjects({
       damageEvents: result.damageEvents,
       castEvents: result.castEvents,
@@ -766,6 +754,49 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (result.skipped > 0) toast.warning(`已粘贴，跳过 ${result.skipped} 个无法落位的对象`)
     else toast.success('已粘贴')
   }, [])
+
+  const pasteAtTime = useCallback(
+    async (targetTime: number) => {
+      let text: string | null = null
+      let clipboardAccessFailed = false
+      try {
+        const items = await navigator.clipboard.read()
+        const item = items.find(it => it.types.includes(CLIPBOARD_MIME))
+        if (item) text = await (await item.getType(CLIPBOARD_MIME)).text()
+      } catch {
+        clipboardAccessFailed = true
+      }
+      const payload = text ? parseClipboardPayload(text) : null
+      if (!payload) {
+        toast.error(
+          clipboardAccessFailed
+            ? '无法读取剪贴板（浏览器不支持或权限被拒绝）'
+            : '剪贴板没有可粘贴的时间轴对象'
+        )
+        return
+      }
+      const tl = useTimelineStore.getState().timeline
+      if (!tl) return
+      const validActionIds = new Set(useMitigationStore.getState().actions.map(a => a.id))
+      const result = remapClipboardForPaste(payload, {
+        currentComposition: tl.composition,
+        targetTime,
+        validActionIds,
+      })
+      const kept = result.damageEvents.length + result.castEvents.length + result.annotations.length
+      // 有对象无法映射：全被跳过则直接报错；否则弹确认框让用户决定是否粘贴其余
+      if (result.skipped > 0) {
+        if (kept === 0) {
+          toast.error(`无法粘贴：${result.skipped} 个对象都无法映射到当前时间轴轨道`)
+          return
+        }
+        setPendingPaste(result)
+        return
+      }
+      commitPaste(result)
+    },
+    [commitPaste]
+  )
 
   // 探测系统剪贴板是否含有时间轴数据（用于右键空白菜单显示粘贴项）
   const probePaste = useCallback(async () => {
@@ -794,22 +825,18 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     preventDefault: true,
   })
 
-  // 全选：选中时间轴所有伤害事件 / 技能 cast / 注释
-  useHotkeys(
-    'mod+a',
-    () => {
-      const s = useTimelineStore.getState()
-      const tl = s.timeline
-      if (!tl) return
-      s.setSelection({
-        eventIds: tl.damageEvents.map(e => e.id),
-        castEventIds: tl.castEvents.map(c => c.id),
-        annotationIds: (tl.annotations ?? []).map(a => a.id),
-      })
-    },
-    { enabled: !isReadOnly, preventDefault: true },
-    []
-  )
+  // 全选：选中时间轴所有伤害事件 / 技能 cast / 注释（mod+a 快捷键与空白处右键菜单共用）
+  const selectAll = useCallback(() => {
+    const s = useTimelineStore.getState()
+    const tl = s.timeline
+    if (!tl) return
+    s.setSelection({
+      eventIds: tl.damageEvents.map(e => e.id),
+      castEventIds: tl.castEvents.map(c => c.id),
+      annotationIds: (tl.annotations ?? []).map(a => a.id),
+    })
+  }, [])
+  useHotkeys('mod+a', selectAll, { enabled: !isReadOnly, preventDefault: true }, [selectAll])
 
   // 删除：多选时批量删除，否则删单个选中项或固定注释
   useHotkeys(
@@ -1986,6 +2013,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onDeleteSelection={() => useTimelineStore.getState().bulkDeleteSelection()}
         pasteAvailable={pasteAvailable}
         onPasteSelection={t => void pasteAtTime(t)}
+        onSelectAll={selectAll}
+      />
+
+      <PasteConfirmDialog
+        pending={pendingPaste}
+        onConfirm={() => {
+          if (pendingPaste) commitPaste(pendingPaste)
+          setPendingPaste(null)
+        }}
+        onCancel={() => setPendingPaste(null)}
       />
 
       {/* 注释悬浮查看（pointer-events: none，通过 CSS 变量实时跟随滚动） */}

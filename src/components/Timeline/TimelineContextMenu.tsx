@@ -77,6 +77,8 @@ interface TimelineContextMenuProps {
   /** 粘贴可用性：'checking' | true | false；控制空白菜单粘贴项 */
   pasteAvailable?: 'checking' | boolean
   onPasteSelection?: (time: number) => void
+  /** 全选时间轴所有对象（空白处菜单项） */
+  onSelectAll?: () => void
 }
 
 export default function TimelineContextMenu({
@@ -96,6 +98,7 @@ export default function TimelineContextMenu({
   onDeleteSelection,
   pasteAvailable,
   onPasteSelection,
+  onSelectAll,
 }: TimelineContextMenuProps) {
   if (!menu) return null
 
@@ -189,6 +192,20 @@ export default function TimelineContextMenu({
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
+            {onSelectAll && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    onSelectAll()
+                    onClose()
+                  }}
+                >
+                  全选
+                  <DropdownMenuShortcut>{modKey}A</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
 
@@ -243,6 +260,14 @@ export default function TimelineContextMenu({
                 <MousePointerClick className="size-3" />
               </DropdownMenuShortcut>
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                onAddAnnotation(menu.time, { type: 'damageTrack' })
+                onClose()
+              }}
+            >
+              添加注释
+            </DropdownMenuItem>
             {onPasteSelection && (
               <DropdownMenuItem
                 disabled={pasteAvailable !== true}
@@ -255,14 +280,20 @@ export default function TimelineContextMenu({
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
-              onClick={() => {
-                onAddAnnotation(menu.time, { type: 'damageTrack' })
-                onClose()
-              }}
-            >
-              添加注释
-            </DropdownMenuItem>
+            {onSelectAll && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    onSelectAll()
+                    onClose()
+                  }}
+                >
+                  全选
+                  <DropdownMenuShortcut>{modKey}A</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
         {menu.type === 'annotation' && (
