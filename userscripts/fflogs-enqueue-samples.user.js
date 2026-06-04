@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Healerbook · FFLogs Samples Queue Enqueuer
 // @namespace    healerbook
-// @version      1.3.2
+// @version      1.3.3
 // @description  在 FFLogs zone/reports 页面随机抽 20 个 report code 上报给 /api/samples-queue/enqueue
 // @match        https://www.fflogs.com/zone/reports*
 // @grant        GM_setValue
@@ -506,12 +506,12 @@
           reject(new Error('CF_CHALLENGE'))
           return
         }
-        if (extractReportCodes().length >= 5) {
+        if (extractReportCodes().length >= 1) {
           resolve()
           return
         }
         if (Date.now() - start > timeoutMs) {
-          reject(new Error(`表格内 report 链接不足（${timeoutMs}ms 超时）`))
+          reject(new Error(`表格内没有任何 report 链接（${timeoutMs}ms 超时）`))
           return
         }
         setTimeout(tick, 300)
