@@ -307,6 +307,43 @@ describe('TimelineDoc WebSocket 接入', () => {
       expect(peer?.user?.id).toBe('ua-snap')
       expect(peer?.cursorTime).toBe(12.5)
     })
+
+    it('大 selection(全选)仍广播给在线连接,不被 serializeAttachment 2KB 上限吞掉', async () => {
+      const docName = 't-aware-large-selection'
+      const wsA = await authConnect(docName, 'ua-large')
+      const wsB = await authConnect(docName, 'ub-large')
+
+      const awarenessToB = new Promise<Uint8Array>(resolve => {
+        wsB.addEventListener('message', e => {
+          const f = decodeMessage(new Uint8Array((e as MessageEvent).data as ArrayBuffer))
+          if (f.type === MSG.AWARENESS) resolve(f.payload)
+        })
+      })
+
+      // 模拟「全选」:几百个对象 id,注入身份后远超 DO attachment 2KB 上限
+      const docA = new Y.Doc()
+      const awarenessA = new Awareness(docA)
+      const manyIds = Array.from({ length: 400 }, (_, i) => `obj-${i.toString().padStart(8, '0')}`)
+      awarenessA.setLocalStateField('selection', {
+        eventIds: manyIds,
+        castEventIds: manyIds,
+        annotationIds: [],
+      })
+      const payload = encodeAwarenessBinary(awarenessA, [awarenessA.clientID])
+      expect(payload.byteLength).toBeGreaterThan(2048)
+      wsA.send(encodeMessage(MSG.AWARENESS, payload))
+
+      // 旧实现会在广播前 serializeAttachment 抛错吞掉本次广播,B 收不到 → 超时失败
+      const broadcasted = await awarenessToB
+      const docB = new Y.Doc()
+      const awarenessB = new Awareness(docB)
+      applyAwarenessBinary(awarenessB, broadcasted, 'remote')
+      const peer = awarenessB.getStates().get(awarenessA.clientID) as
+        | { user?: { id: string }; selection?: { eventIds: string[] } }
+        | undefined
+      expect(peer?.user?.id).toBe('ua-large')
+      expect(peer?.selection?.eventIds).toHaveLength(400)
+    })
   })
 
   it('kickUser 用 4001 关闭目标用户连接,不影响他人', async () => {

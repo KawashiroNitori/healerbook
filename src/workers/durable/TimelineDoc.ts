@@ -125,8 +125,16 @@ export class TimelineDoc extends DurableObject<Env> {
         id: att.userId ?? '',
         name: displayName(att.name, att.userId ?? ''),
       })
-      ws.serializeAttachment({ ...att, lastAwareness: Array.from(injected) })
+      // 广播是关键路径,必须先发:大 selection(如全选)注入后可能 >2KB,
+      // 会让下面的 serializeAttachment 抛错;若先持久化再广播,异常会吞掉本次广播。
       this.broadcast(ws, encodeMessage(MSG.AWARENESS, injected))
+      // 再尽力把最近一帧存进 attachment 供后入连接补发(handleAuth 行)。
+      // DO serializeAttachment 上限 2KB,超限则放弃持久化(后入者下一帧再同步),不影响已在线广播。
+      try {
+        ws.serializeAttachment({ ...att, lastAwareness: Array.from(injected) })
+      } catch {
+        ws.serializeAttachment({ ...att, lastAwareness: undefined })
+      }
       return
     }
   }
