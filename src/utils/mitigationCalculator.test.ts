@@ -1484,7 +1484,8 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     })
     // 3830 在 t=5 被打穿且 removeOnBarrierBreak → interval to=5
     // 3829 buff 没人动 → interval to=15
-    // max → 15
+    // 3829(percentage) 与 3830(shield) 同为 primary，走「多 primary 取 max」分支 → 15
+    // （非 primary-vs-other 分支；后者由「主减伤盾被打穿」用例验证）
     expect(castEffectiveEndByCastEventId.get('c1')).toBe(15)
   })
 
