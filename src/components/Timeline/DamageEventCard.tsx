@@ -136,7 +136,11 @@ const DamageEventCard = memo(function DamageEventCard({
         x: pos.x,
         y: y,
       })}
-      onClick={onSelect}
+      onClick={e => {
+        // 右键不触发选中：右键的选区 / 菜单逻辑统一由 handleContextMenu 处理，
+        // 避免在 onContextMenu 前把多选塌缩成单个
+        if (e.evt.button !== 2) onSelect()
+      }}
       onTap={onSelect}
       onMouseEnter={e => {
         const stage = e.target.getStage()

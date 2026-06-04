@@ -159,6 +159,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const clampedScrollRef = useRef({ scrollLeft: 0, scrollTop: 0 })
   /** 实际视觉垂直滚动位置，仅由 handleDirectScroll 更新，不受 React state 影响 */
   const visualScrollTopRef = useRef(0)
+  // 框选边缘自动滚动：最近指针的容器局部 x/y、rAF 句柄、循环内追踪的当前水平/垂直滚动
+  const marqueePointerXRef = useRef(0)
+  const marqueePointerYRef = useRef(0)
+  const autoScrollRafRef = useRef<number | null>(null)
+  const autoScrollScrollLeftRef = useRef(0)
+  const autoScrollScrollTopRef = useRef(0)
   // 记录是否点击了背景（用于区分点击和拖动）
   const clickedBackgroundRef = useRef(false)
   const hasMovedRef = useRef(false)
@@ -324,6 +330,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
     // 同步 minimap 视口指示器
     minimapRef.current?.updateViewport(newScrollLeft)
+  }, [])
+
+  // 卸载兜底：若拖框中途组件卸载，停掉边缘自动滚动 rAF，避免无限重排
+  useEffect(() => {
+    return () => {
+      if (autoScrollRafRef.current !== null) cancelAnimationFrame(autoScrollRafRef.current)
+    }
   }, [])
 
   // 布局常量
@@ -758,23 +771,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const pasteAtTime = useCallback(
     async (targetTime: number) => {
       let text: string | null = null
-      let clipboardAccessFailed = false
       try {
         const items = await navigator.clipboard.read()
         const item = items.find(it => it.types.includes(CLIPBOARD_MIME))
         if (item) text = await (await item.getType(CLIPBOARD_MIME)).text()
       } catch {
-        clipboardAccessFailed = true
+        // 读取剪贴板失败（不支持 / 无权限）：静默不粘贴
       }
       const payload = text ? parseClipboardPayload(text) : null
-      if (!payload) {
-        toast.error(
-          clipboardAccessFailed
-            ? '无法读取剪贴板（浏览器不支持或权限被拒绝）'
-            : '剪贴板没有可粘贴的时间轴对象'
-        )
-        return
-      }
+      if (!payload) return
       const tl = useTimelineStore.getState().timeline
       if (!tl) return
       const validActionIds = new Set(useMitigationStore.getState().actions.map(a => a.id))
@@ -836,7 +841,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       annotationIds: (tl.annotations ?? []).map(a => a.id),
     })
   }, [])
-  useHotkeys('mod+a', selectAll, { enabled: !isReadOnly, preventDefault: true }, [selectAll])
+  // 全选只读取选择状态，只读/回放模式也允许
+  useHotkeys('mod+a', selectAll, { enabled: true, preventDefault: true }, [selectAll])
 
   // 删除：多选时批量删除，否则删单个选中项或固定注释
   useHotkeys(
@@ -858,13 +864,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [pinnedAnnotationId]
   )
 
-  // 复制选中对象到系统剪贴板
+  // 复制选中对象到系统剪贴板（只读/回放模式也允许：复制不改时间轴）
   useHotkeys(
     'mod+c',
     () => {
       void copySelection()
     },
-    { enabled: !isReadOnly },
+    { enabled: true },
     [copySelection]
   )
 
@@ -1172,10 +1178,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         (payload.type === 'castEvent' && sel.selectedCastEventIds.includes(payload.castEventId)) ||
         (payload.type === 'annotation' && sel.selectedAnnotationIds.includes(payload.annotationId))
       if (total > 1 && inMulti) {
-        // 只读模式无批量编辑操作，不弹批量菜单；仍 return 避免塌缩多选
-        if (!isReadOnly) {
-          setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
-        }
+        // 批量菜单：只读/回放模式只显示「复制」（删除在菜单内按只读隐藏），仍 return 避免塌缩多选
+        setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
         return
       }
 
@@ -1192,7 +1196,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
       setContextMenu({ ...payload, x: clientX, y: clientY, time })
     },
-    [selectCastEvent, selectEvent, probePaste, isReadOnly]
+    [selectCastEvent, selectEvent, probePaste]
   )
 
   const handleContextMenuClose = useCallback(() => {
@@ -1376,16 +1380,14 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         sel.selectedCastEventIds.length +
         sel.selectedAnnotationIds.length
       if (total > 1 && sel.selectedAnnotationIds.includes(annotationId)) {
-        // 右键命中多选集合内注释：弹批量菜单（只读不弹），并 return 避免塌缩多选
-        if (!isReadOnly) {
-          setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
-        }
+        // 右键命中多选集合内注释：弹批量菜单（只读也弹，仅显示复制），return 避免塌缩多选
+        setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
         return
       }
       setPinnedAnnotationId(null)
       setContextMenu({ type: 'annotation', annotationId, x: clientX, y: clientY, time })
     },
-    [isReadOnly]
+    []
   )
 
   const handleEditAnnotation = useCallback(
@@ -1638,11 +1640,90 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
     marquee.onPointerDown(localX, localY, e.shiftKey)
 
+    // 边缘自动滚动：拖框/拖标尺时光标靠近边缘，自动滚动以选取超出一屏的内容。
+    // 水平作用于整片画布；垂直仅作用于主舞台（技能轨区：fixedAreaHeight ~ canvasBottom）。
+    const canvasLeftEdge = labelColumnWidth + SCROLLBAR_WIDTH
+    const canvasBottom = height - minimapHeight
+    const EDGE = 80 // 触发带宽度（px）
+    const MAX_STEP = 16 // 每帧最大滚动量（px）
+    marqueePointerXRef.current = localX
+    marqueePointerYRef.current = localY
+    autoScrollScrollLeftRef.current = clampedScrollRef.current.scrollLeft
+    autoScrollScrollTopRef.current = clampedScrollRef.current.scrollTop
+    // 返回某轴的滚动增量（已夹在边界内），并更新追踪 ref
+    const axisStep = (
+      pos: number,
+      lowEdge: number,
+      highEdge: number,
+      curRef: React.MutableRefObject<number>,
+      min: number,
+      max: number
+    ): number => {
+      let dir = 0
+      let intensity = 0
+      if (pos < lowEdge + EDGE) {
+        dir = -1
+        intensity = Math.min(1, (lowEdge + EDGE - pos) / EDGE)
+      } else if (pos > highEdge - EDGE) {
+        dir = 1
+        intensity = Math.min(1, (pos - (highEdge - EDGE)) / EDGE)
+      }
+      if (dir === 0) return 0
+      const next = Math.max(min, Math.min(max, curRef.current + dir * MAX_STEP * intensity))
+      const delta = next - curRef.current
+      curRef.current = next
+      return delta
+    }
+    const tick = () => {
+      const dx = axisStep(
+        marqueePointerXRef.current,
+        canvasLeftEdge,
+        width,
+        autoScrollScrollLeftRef,
+        minScrollLeftRef.current,
+        maxScrollLeftRef.current
+      )
+      // 垂直：仅当指针在主区内（>= fixedAreaHeight）才滚动；触发带为主区顶/底
+      const py = marqueePointerYRef.current
+      const dy =
+        py >= fixedAreaHeight
+          ? axisStep(
+              py,
+              fixedAreaHeight,
+              canvasBottom,
+              autoScrollScrollTopRef,
+              0,
+              maxScrollTopRef.current
+            )
+          : 0
+      if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+        const nextLeft = autoScrollScrollLeftRef.current
+        const nextTop = autoScrollScrollTopRef.current
+        clampedScrollRef.current.scrollTop = nextTop
+        if (Math.abs(dx) > 0.01) setScrollLeft(nextLeft)
+        if (Math.abs(dy) > 0.01) setScrollTop(nextTop)
+        handleDirectScroll(nextLeft, nextTop)
+        marquee.shiftStart(-dx, -dy) // 起点锚定世界坐标（垂直锚定主区）
+      }
+      autoScrollRafRef.current = requestAnimationFrame(tick)
+    }
+    autoScrollRafRef.current = requestAnimationFrame(tick)
+
+    const stopAutoScroll = () => {
+      if (autoScrollRafRef.current !== null) {
+        cancelAnimationFrame(autoScrollRafRef.current)
+        autoScrollRafRef.current = null
+      }
+    }
+
     const onMove = (ev: PointerEvent) => {
       const r = container.getBoundingClientRect()
+      marqueePointerXRef.current = ev.clientX - r.left
+      marqueePointerYRef.current = ev.clientY - r.top
       marquee.onPointerMove(ev.clientX - r.left, ev.clientY - r.top)
     }
     const onUp = () => {
+      stopAutoScroll()
       marquee.onPointerUp()
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)

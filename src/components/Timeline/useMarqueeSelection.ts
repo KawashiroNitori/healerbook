@@ -42,6 +42,14 @@ export function useMarqueeSelection({ rulerHeight, buildObjects }: Args) {
     setRect(r => (r ? { ...r, x1: x, y1: y } : null))
   }, [])
 
+  /**
+   * 边缘自动滚动时平移选框起点，使其锚定在世界坐标。
+   * scrollLeft 增加 Δ → 固定世界点的屏幕 x 减少 Δ，故起点 x0 同步 -Δ。
+   */
+  const shiftStart = useCallback((dx: number, dy: number) => {
+    setRect(r => (r ? { ...r, x0: r.x0 + dx, y0: r.y0 + dy } : null))
+  }, [])
+
   const onPointerUp = useCallback(() => {
     const start = startRef.current
     startRef.current = null
@@ -56,5 +64,5 @@ export function useMarqueeSelection({ rulerHeight, buildObjects }: Args) {
     })
   }, [buildObjects])
 
-  return { rect, onPointerDown, onPointerMove, onPointerUp }
+  return { rect, onPointerDown, onPointerMove, onPointerUp, shiftStart }
 }

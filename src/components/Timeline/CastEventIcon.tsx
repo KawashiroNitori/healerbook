@@ -128,7 +128,11 @@ const CastEventIcon = memo(function CastEventIcon({
           y: lockedY,
         }
       }}
-      onClick={onSelect}
+      onClick={e => {
+        // 右键不触发选中：避免在 onContextMenu 前把多选塌缩成单个，
+        // 右键的选区 / 菜单逻辑统一由 handleContextMenu 处理
+        if (e.evt.button !== 2) onSelect()
+      }}
       onTap={onSelect}
       onDragMove={e => {
         onDragMove?.(e.target.x())

@@ -180,8 +180,8 @@ export default function EditorToolbar({
               <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
             </div>
 
-            {/* 平移 / 框选 工具切换（仅时间轴视图 + 可编辑时展示） */}
-            {viewMode !== 'table' && !isReadOnly && (
+            {/* 平移 / 框选 工具切换（仅时间轴视图；只读/回放也可切换以便选中、复制） */}
+            {viewMode !== 'table' && (
               <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>

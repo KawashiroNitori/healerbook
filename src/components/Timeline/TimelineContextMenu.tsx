@@ -102,8 +102,8 @@ export default function TimelineContextMenu({
 }: TimelineContextMenuProps) {
   if (!menu) return null
 
-  // 只读模式下，只有伤害事件有可用菜单项（复制文本、复制）
-  if (isReadOnly && menu.type !== 'damageEvent') return null
+  // 只读模式下仅保留可读操作的菜单：伤害事件（复制文本/复制）与多选（复制）
+  if (isReadOnly && menu.type !== 'damageEvent' && menu.type !== 'multiSelection') return null
 
   const handleOpenChange = (open: boolean) => {
     if (!open) onClose()
@@ -142,16 +142,18 @@ export default function TimelineContextMenu({
               复制全部
               <DropdownMenuShortcut>{modKey}C</DropdownMenuShortcut>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => {
-                onDeleteSelection()
-                onClose()
-              }}
-            >
-              删除全部
-              <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
-            </DropdownMenuItem>
+            {!isReadOnly && (
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => {
+                  onDeleteSelection()
+                  onClose()
+                }}
+              >
+                删除全部
+                <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            )}
           </>
         )}
 
