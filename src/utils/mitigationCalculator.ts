@@ -19,6 +19,12 @@ import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplier } from '@/executors/healMath'
 import { isStatusValidForTank } from './statusFilter'
+import {
+  statusTier,
+  reduceCastEffectiveEnds,
+  type StatusTier,
+  type CastEndEntry,
+} from './castEffectiveEnd'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 
 /**
@@ -177,10 +183,10 @@ export interface SimulateOutput {
   /** playerId → statusId → StatusInterval[]；task 5 才填充，本 task 返回空 Map */
   statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>>
   /**
-   * castEvent.id → 该 cast 附着的所有 instance 中实际收束时刻的最大值。
-   * 仅在 cast 有 executor 且产生了至少一个新 instance 时进表；
-   * seeded buff（sourceCastEventId === ''）不进表。
-   * 渲染层用此字段定位绿条末端，miss 时回退到 cast.timestamp + action.duration。
+   * castEvent.id → 该 cast 的绿条末端。优先取该 cast 附着的「主减伤」（percentage /
+   * shield）instance 的实际收束 max；该 cast 不产生主减伤 status 时回退到全部 instance
+   * 的 max。seeded buff（sourceCastEventId === ''）不进表。渲染层用此字段定位绿条末端，
+   * miss 时回退到 cast.timestamp + action.duration。分类与聚合见 utils/castEffectiveEnd.ts。
    */
   castEffectiveEndByCastEventId: Map<string, number>
   /** 所有治疗事件（cast + HoT tick）的 snapshot，按 time 升序 */
@@ -469,6 +475,7 @@ export class MitigationCalculator {
     const damageResults = new Map<string, CalculationResult>()
     const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
     const castEffectiveEndByCastEventId = new Map<string, number>()
+    const castEndEntries: CastEndEntry[] = []
     const healSnapshots: HealSnapshot[] = []
     const hpTimeline: HpTimelinePoint[] = []
     // 已被 advance 剔除（endTime < cur）但 DOT snapshotTime 仍可能落在区间内的 buff。
@@ -541,6 +548,7 @@ export class MitigationCalculator {
       from: number
       stacks: number
       endTime: number
+      tier: StatusTier
     }
     const open = new Map<string, OpenRecord>()
 
@@ -557,10 +565,10 @@ export class MitigationCalculator {
       byStatus.set(rec.statusId, arr)
       statusTimelineByPlayer.set(rec.targetPlayerId, byStatus)
 
-      // 维护 castEffectiveEnd：sourceCastEventId 为空（seeded buff）跳过；否则取 max
+      // 维护绿条末端原始条目：seeded buff（sourceCastEventId 为空）跳过；
+      // 收尾按 tier 优先合成 castEffectiveEndByCastEventId。
       if (rec.sourceCastEventId !== '') {
-        const prev = castEffectiveEndByCastEventId.get(rec.sourceCastEventId) ?? -Infinity
-        castEffectiveEndByCastEventId.set(rec.sourceCastEventId, Math.max(prev, to))
+        castEndEntries.push({ castId: rec.sourceCastEventId, to, tier: rec.tier })
       }
     }
 
@@ -600,6 +608,7 @@ export class MitigationCalculator {
           from: at,
           stacks: s.stack ?? 1,
           endTime: s.endTime,
+          tier: statusTier(getStatusById(s.statusId), s),
         })
       }
 
@@ -922,6 +931,10 @@ export class MitigationCalculator {
       pushInterval(rec, rec.endTime)
     }
     open.clear()
+
+    for (const [castId, end] of reduceCastEffectiveEnds(castEndEntries)) {
+      castEffectiveEndByCastEventId.set(castId, end)
+    }
 
     for (const byStatus of statusTimelineByPlayer.values()) {
       for (const list of byStatus.values()) {

@@ -1437,7 +1437,7 @@ describe('多坦 per-victim 路径', () => {
 
 describe('simulate → castEffectiveEndByCastEventId', () => {
   it('cast 一个 buff，无后续事件 → effectiveEnd = ts + duration', () => {
-    // 节制 16536 attach 1873（25s）+ 3881（30s），max = 10 + 30 = 40
+    // 节制 16536 attach 1873（25s, 节制本体=primary）+ 3881（30s, 神爱抚预备 marker=other）；绿条取 primary → 10 + 25 = 35
     const castEvents = [
       { id: 'c1', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
     ]
@@ -1447,7 +1447,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
       damageEvents: [],
       initialState: { players: [], statuses: [], timestamp: 0 },
     })
-    expect(castEffectiveEndByCastEventId.get('c1')).toBe(40)
+    expect(castEffectiveEndByCastEventId.get('c1')).toBe(35)
   })
 
   it('盾被中途打穿但 buff 还活 → effectiveEnd = max（取 buff 的 to）', () => {
@@ -1500,8 +1500,8 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
       initialState: { players: [], statuses: [], timestamp: 0 },
     })
     expect(castEffectiveEndByCastEventId.get('first')).toBe(20)
-    // 节制 16536 attach 1873（25s）+ 3881（30s），second cast at t=20 → max = 20+30 = 50
-    expect(castEffectiveEndByCastEventId.get('second')).toBe(50)
+    // second cast at t=20：primary 1873 至 45；3881（神爱抚预备 marker=other）不再撑长绿条 → 45
+    expect(castEffectiveEndByCastEventId.get('second')).toBe(45)
   })
 
   it('多 status cast → effectiveEnd = max(interval.to)', () => {
@@ -1551,6 +1551,43 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
       } as never,
     })
     expect(castEffectiveEndByCastEventId.get('c1')).toBe(7)
+  })
+
+  it('主减伤盾被打穿 → 绿条取盾收束时刻，而非更长的 regen', () => {
+    // 摆脱 7388 attach shield 1457(30s) + regen 2108(15s)。
+    // t=5 一发大 AOE 打穿盾（removeOnBarrierBreak）→ 盾区间 to=5、regen 仍活到 15。
+    // 旧口径 max(5,15)=15；新口径优先 primary(盾) → 5。
+    const castEvents = [
+      { id: 'c1', actionId: 7388, playerId: 1, timestamp: 0 } as unknown as CastEvent,
+    ]
+    const calc = new MitigationCalculator()
+    const { castEffectiveEndByCastEventId } = calc.simulate({
+      castEvents,
+      damageEvents: [
+        {
+          id: 'd1',
+          name: 'd1',
+          time: 5,
+          damage: 1_000_000,
+          type: 'aoe',
+          damageType: 'physical',
+        } as DamageEvent,
+      ],
+      initialState: { players: [{ id: 1, job: 'WAR', maxHP: 100000 }], statuses: [], timestamp: 0 },
+      statistics: {
+        shieldByAbility: { 1457: 5000 },
+        damageByAbility: {},
+        maxHPByJob: {},
+        critShieldByAbility: {},
+        healByAbility: {},
+        critHealByAbility: {},
+        sampleSize: 0,
+        updatedAt: '',
+        tankReferenceMaxHP: 100000,
+        referenceMaxHP: 100000,
+      } as never,
+    })
+    expect(castEffectiveEndByCastEventId.get('c1')).toBe(5)
   })
 
   // 未实现的测试（等中期 extension / detonation executor 落地后补）：
