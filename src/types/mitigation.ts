@@ -23,8 +23,16 @@ export type MitigationType = 'target_percentage' | 'non_target_percentage' | 'ba
  * - partywide: 群体生效
  * - self: 可对自身生效
  * - target: 可对目标生效
+ * - boss: 降低 boss 输出的 debuff（目标减，如雪仇/牵制/武装解除/昏乱）；与 'target'（坦克定向）正交
  */
-export type MitigationCategory = 'shield' | 'percentage' | 'heal' | 'partywide' | 'self' | 'target'
+export type MitigationCategory =
+  | 'shield'
+  | 'percentage'
+  | 'heal'
+  | 'partywide'
+  | 'self'
+  | 'target'
+  | 'boss'
 
 /**
  * 副本统计数据

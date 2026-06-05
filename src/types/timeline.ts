@@ -210,6 +210,12 @@ export interface DamageEvent {
   snapshotTime?: number
   /** 临时减伤列表（仅对本事件生效）；存量事件无此字段 */
   tempMitigations?: TempMitigation[]
+  /**
+   * 目标减是否对本事件无效。省略/false = 目标减正常生效（默认）；
+   * true = 本事件无视目标减，计算时跳过所有 category 含 'boss' 的状态。
+   * 仅在关闭时存 true，存量事件无此字段。
+   */
+  targetMitigationDisabled?: boolean
 }
 
 /**

@@ -181,6 +181,12 @@ export interface StatusExtras {
 
 /** statusId → 本地补充字段 */
 export const STATUS_EXTRAS: Record<number, StatusExtras> = {
+  // 目标减（降低 boss 输出的 debuff）
+  1193: { category: ['partywide', 'percentage', 'boss'] }, // 雪仇（目标减）
+  1195: { category: ['partywide', 'percentage', 'boss'] }, // 牵制（目标减）
+  860: { category: ['partywide', 'percentage', 'boss'] }, // 武装解除（目标减）
+  1203: { category: ['partywide', 'percentage', 'boss'] }, // 昏乱（目标减）
+
   // T 通用
 
   1191: { isTankOnly: true, heal: 1.15, category: ['self', 'percentage'] }, // 铁壁
