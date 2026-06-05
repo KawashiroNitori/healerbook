@@ -8,7 +8,7 @@
  */
 
 import type {
-  FFLogsV1Report,
+  FFLogsReport,
   FFLogsEvent,
   FFLogsEventsResponse,
   FFLogsAbility,
@@ -53,7 +53,7 @@ async function main() {
 
   // 1. 获取报告元数据
   console.error(`获取报告 ${REPORT_CODE} ...`)
-  const report = await fetchJSON<FFLogsV1Report>(`fflogs/report/${REPORT_CODE}`)
+  const report = await fetchJSON<FFLogsReport>(`fflogs/report/${REPORT_CODE}`)
 
   // 2. 确定战斗
   const fightId = FIGHT_ID ?? report.fights[report.fights.length - 1]?.id
@@ -65,12 +65,12 @@ async function main() {
     }
     process.exit(1)
   }
-  console.error(`战斗 #${fight.id}: ${fight.name} (${fight.start_time} - ${fight.end_time})`)
+  console.error(`战斗 #${fight.id}: ${fight.name} (${fight.startTime} - ${fight.endTime})`)
 
   // 3. 获取事件
   console.error('获取事件 ...')
   const data = await fetchJSON<FFLogsEventsResponse>(
-    `fflogs/events/${REPORT_CODE}?start=${fight.start_time}&end=${fight.end_time}`
+    `fflogs/events/${REPORT_CODE}?start=${fight.startTime}&end=${fight.endTime}`
   )
   console.error(`共 ${data.events.length} 个事件`)
 
@@ -80,7 +80,7 @@ async function main() {
   console.error(JSON.stringify(filtered, null, 2))
 
   // 5. 输出事件时间线
-  const fightStart = fight.start_time
+  const fightStart = fight.startTime
   for (const e of filtered) {
     const t = ((e.timestamp - fightStart) / 1000).toFixed(2)
     const target = e.targetID ?? '?'
@@ -116,7 +116,7 @@ async function main() {
     abilityMap.set(a.gameID, a)
   })
 
-  const fightStartTime = findFirstDamageTimestamp(data.events, fight.start_time)
+  const fightStartTime = findFirstDamageTimestamp(data.events, fight.startTime)
   console.error(`fightStartTime: ${fightStartTime}`)
 
   const damageEvents = parseDamageEvents(filtered, fightStartTime, playerMap, abilityMap)

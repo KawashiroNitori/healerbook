@@ -5,35 +5,9 @@
 import type { Job } from '@/data/jobs'
 
 /**
- * FFLogs v1 战斗报告响应
+ * FFLogs 报告里的 Actor（玩家或 NPC）
  */
-export interface FFLogsV1Report {
-  /** 语言 */
-  lang?: string
-  /** 战斗列表 */
-  fights: FFLogsV1Fight[]
-  /** 报告标题 */
-  title?: string
-  /** 报告所有者 */
-  owner?: string
-  /** 开始时间 */
-  start?: number
-  /** 结束时间 */
-  end?: number
-  /** 友方单位（玩家） */
-  friendlies?: FFLogsV1Actor[]
-  /** 敌对单位 */
-  enemies?: FFLogsV1Actor[]
-  /** 技能元数据（V2 API 提供） */
-  abilities?: FFLogsAbility[]
-  /** 阶段数据 */
-  phases?: FFLogsV2Phase[]
-}
-
-/**
- * FFLogs v1 Actor（玩家或 NPC）
- */
-export interface FFLogsV1Actor {
+export interface FFLogsReportActor {
   /** Actor ID */
   id: number
   /** GUID */
@@ -55,51 +29,7 @@ export interface FFLogsV1Actor {
 }
 
 /**
- * FFLogs v1 战斗
- */
-export interface FFLogsV1Fight {
-  /** 战斗 ID */
-  id: number
-  /** Boss ID */
-  boss: number
-  /** 开始时间（相对于报告开始，毫秒） */
-  start_time: number
-  /** 结束时间（相对于报告开始，毫秒） */
-  end_time: number
-  /** 战斗名称 */
-  name: string
-  /** 区域 ID */
-  zoneID: number
-  /** 区域名称 */
-  zoneName: string
-  /** 区域计数器 */
-  zoneCounter?: number
-  /** 队伍人数 */
-  size?: number
-  /** 难度 */
-  difficulty?: number
-  /** 是否击杀 */
-  kill?: boolean
-  /** 部分进度 */
-  partial?: number
-  /** 是否进行中 */
-  inProgress?: boolean
-  /** 标准阵容 */
-  standardComposition?: boolean
-  /** 是否有回响 */
-  hasEcho?: boolean
-  /** 战斗时间（毫秒） */
-  combatTime?: number
-  /** Boss 百分比 */
-  bossPercentage?: number
-  /** 战斗百分比 */
-  fightPercentage?: number
-  /** FFXIV 游戏内区域 id（V2 查询填充，V1 原生无此字段） */
-  gameZoneID?: number
-}
-
-/**
- * FFLogs 战斗报告（兼容类型）
+ * FFLogs 战斗报告
  */
 export interface FFLogsReport {
   /** 报告代码 */
@@ -115,9 +45,9 @@ export interface FFLogsReport {
   /** 战斗列表 */
   fights: FFLogsFight[]
   /** 友方单位（玩家） */
-  friendlies?: FFLogsV1Actor[]
+  friendlies?: FFLogsReportActor[]
   /** 敌对单位 */
-  enemies?: FFLogsV1Actor[]
+  enemies?: FFLogsReportActor[]
   /** 技能元数据（V2 API 提供） */
   abilities?: FFLogsAbility[]
 }
@@ -140,7 +70,7 @@ export interface FFLogsFight {
   endTime: number
   /** 副本 ID */
   encounterID?: number
-  /** FFXIV 游戏内区域 id（仅 V2 查询包含，V1 回退为 undefined） */
+  /** FFXIV 游戏内区域 id（gameZone 缺失时为 undefined） */
   gameZoneId?: number
 }
 
@@ -324,18 +254,6 @@ export interface FFLogsV2Fight {
   encounterID: number
   /** FFXIV 游戏内区域（可为 null，对应某些异常战斗） */
   gameZone?: { id: number } | null
-}
-
-export interface FFLogsV2PhaseMetadata {
-  id: number
-  name: string
-  isIntermission: boolean
-}
-
-export interface FFLogsV2Phase {
-  encounterID: number
-  separatesWipes: boolean
-  phases: FFLogsV2PhaseMetadata[]
 }
 
 export interface FFLogsV2Actor {

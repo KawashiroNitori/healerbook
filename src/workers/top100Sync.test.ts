@@ -21,7 +21,7 @@ import {
 import type { SampleQueueRow } from './samplesQueue'
 import { calculatePercentile } from '@/utils/stats'
 import type { DamageEvent } from '@/types/timeline'
-import type { FFLogsV1Report, FFLogsEvent } from '@/types/fflogs'
+import type { FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import type { FFLogsClientV2, RankingEntry } from './fflogsClientV2'
@@ -332,7 +332,7 @@ describe('handleGetEncounterTemplate', () => {
 
 describe('extractFightStats', () => {
   it('damage / heal / shield / maxHP 全提取，slim events 含 abilityId', () => {
-    const fight = { id: 5, start_time: 1000, end_time: 121000 } as FFLogsV1Report['fights'][number]
+    const fight = { id: 5, startTime: 1000, endTime: 121000 } as FFLogsReport['fights'][number]
     const report = {
       fights: [fight],
       friendlies: [{ id: 7, name: 'Healer', type: 'WhiteMage' }],
@@ -346,7 +346,7 @@ describe('extractFightStats', () => {
       start: 0,
       end: 1,
       zone: 0,
-    } as unknown as FFLogsV1Report
+    } as unknown as FFLogsReport
 
     const events = [
       {

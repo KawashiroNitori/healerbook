@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { app } from './index'
 import type { Env } from './env'
-import type { FFLogsV1Report } from '../types/fflogs'
+import type { FFLogsReport } from '../types/fflogs'
 
 interface JsonBody {
   error?: string
@@ -58,16 +58,17 @@ const mockEnv: Env = {
   healerbook_timelines: {} as D1Database,
 }
 
-/** 构造一个最小的 V1 报告 */
-function makeV1Report(
-  fights: FFLogsV1Report['fights'] = [],
-  overrides: Partial<FFLogsV1Report> = {}
-): FFLogsV1Report {
+/** 构造一个最小的报告 */
+function makeReport(
+  fights: FFLogsReport['fights'] = [],
+  overrides: Partial<FFLogsReport> = {}
+): FFLogsReport {
   return {
+    code: 'ABC123',
     title: 'Test Report',
     lang: 'en',
-    start: 1000000,
-    end: 2000000,
+    startTime: 1000000,
+    endTime: 2000000,
     fights,
     friendlies: [
       {
@@ -85,18 +86,15 @@ function makeV1Report(
   }
 }
 
-function makeFight(id: number, overrides: Partial<FFLogsV1Report['fights'][0]> = {}) {
+function makeFight(id: number, overrides: Partial<FFLogsReport['fights'][0]> = {}) {
   return {
     id,
     name: 'Test Boss',
     difficulty: 100,
     kill: true,
-    start_time: 0,
-    end_time: 300000,
-    boss: 93,
-    zoneID: 0,
-    zoneName: '',
-    size: 8,
+    startTime: 0,
+    endTime: 300000,
+    encounterID: 93,
     ...overrides,
   }
 }
@@ -120,7 +118,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('fightId 非数字应返回 400', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5)]))
 
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=abc'
@@ -137,7 +135,7 @@ describe('handleFFLogsImport', () => {
 
   describe('战斗查找', () => {
     it('报告中无战斗记录且不传 fightId 应返回 404', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([]))
+      mockGetReport.mockResolvedValue(makeReport([]))
 
       const request = new Request('https://example.com/api/fflogs/import?reportCode=ABC123')
       const response = await app.fetch(request, mockEnv)
@@ -148,7 +146,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('指定的 fightId 不存在应返回 404', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5)]))
 
       const request = new Request(
         'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=99'
@@ -165,7 +163,7 @@ describe('handleFFLogsImport', () => {
 
   describe('正常流程', () => {
     it('传入 reportCode + fightId 应返回完整 Timeline', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5), makeFight(10)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5), makeFight(10)]))
       mockGetEvents.mockResolvedValue({ events: [] })
 
       const request = new Request(
@@ -197,7 +195,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('不传 fightId 应取最后一场战斗', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(3), makeFight(5), makeFight(10)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(3), makeFight(5), makeFight(10)]))
       mockGetEvents.mockResolvedValue({ events: [] })
 
       const request = new Request('https://example.com/api/fflogs/import?reportCode=ABC123')
@@ -209,7 +207,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('导入流程产出 syncEvents', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5)]))
       // boss sourceID 999 不在 friendlies（playerMap）中；begincast 空间斩 (0xa3da)
       // timestamp = fightStartTime(0) + 10000 → time = 10s
       mockGetEvents.mockResolvedValue({
@@ -243,7 +241,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('FFLogs 返回 gameZoneID 时序列化应带 gz（供 Souma 识别未预置副本区域）', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5, { gameZoneID: 1321 })]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5, { gameZoneId: 1321 })]))
       mockGetEvents.mockResolvedValue({ events: [] })
 
       const request = new Request(
@@ -257,7 +255,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('FFLogs 未返回 gameZoneID 时不应输出 gz', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5)]))
       mockGetEvents.mockResolvedValue({ events: [] })
 
       const request = new Request(
@@ -271,7 +269,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('匿名报告代码 a:ABC123 应正确传递给 getReport', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(1)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(1)]))
       mockGetEvents.mockResolvedValue({ events: [] })
 
       const request = new Request(
@@ -301,7 +299,7 @@ describe('handleFFLogsImport', () => {
     })
 
     it('getEvents 失败应返回 502', async () => {
-      mockGetReport.mockResolvedValue(makeV1Report([makeFight(5)]))
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5)]))
       mockGetEvents.mockRejectedValue(new Error('Network error'))
 
       const request = new Request(
@@ -319,7 +317,7 @@ describe('handleFFLogsImport', () => {
     it('非 boss 来源的伤害事件应标记 targetMitigationDisabled，boss 来源不标记', async () => {
       // enemies: 500=boss（type Boss），700=小怪；fight.name='Test Boss'
       mockGetReport.mockResolvedValue(
-        makeV1Report([makeFight(5)], {
+        makeReport([makeFight(5)], {
           enemies: [
             { id: 500, guid: 500, name: 'Test Boss', type: 'Boss' },
             { id: 700, guid: 700, name: 'Add', type: 'NPC' },

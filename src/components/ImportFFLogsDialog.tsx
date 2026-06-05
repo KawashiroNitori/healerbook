@@ -12,7 +12,6 @@ import { createNewTimeline, buildFFLogsSourceIndex } from '@/utils/timelineStora
 import type { LocalDocMeta } from '@/collab/types'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
-import { getEncounterWithTier } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
 import { apiClient } from '@/api/apiClient'
 import { parseFromAny } from '@/utils/timelineFormat'
@@ -173,14 +172,7 @@ export default function ImportFFLogsDialog({
         import('@/api/fflogsClient'),
         import('@/utils/fflogsImporter'),
       ])
-      const {
-        parseComposition,
-        parseDamageEvents,
-        parseCastEvents,
-        parseSyncEvents,
-        findFirstDamageTimestamp,
-        buildBossIds,
-      } = importer
+      const { parseFightImport, resolveImportTimelineName } = importer
 
       // 获取报告数据
       const client = createFFLogsClient()
@@ -202,20 +194,8 @@ export default function ImportFFLogsDialog({
         throw new Error(`战斗 #${fightId} 不存在`)
       }
 
-      // 创建时间轴名称
-      // 优先从 raidEncounters.ts 查询副本名称
-      let timelineName = fight.name || `战斗 ${fightId}`
-
-      if (fight.encounterID) {
-        const result = getEncounterWithTier(fight.encounterID)
-        if (result) {
-          // 单副本 tier（如绝境战）的 tier.name === encounter.name，避免拼成 "X - X"
-          timelineName =
-            result.tier.name === result.encounter.name
-              ? result.tier.name
-              : `${result.tier.name} - ${result.encounter.name}`
-        }
-      }
+      // 创建时间轴名称（优先从 raidEncounters.ts 查询副本名称）
+      const timelineName = resolveImportTimelineName(fight)
 
       // 创建新时间轴
       const newTimeline = createNewTimeline(fight.encounterID?.toString() || '0', timelineName)
@@ -246,57 +226,16 @@ export default function ImportFFLogsDialog({
 
         setLoadingStep(`正在解析数据...`)
 
-        // 构建玩家 ID 映射
-        const playerMap = new Map<number, { id: number; name: string; type: string }>()
-        report.friendlies?.forEach(player => {
-          playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
-        })
-
-        // 构建技能元数据映射（V2 API 提供）
-        const abilityMap = new Map<
-          number,
-          { gameID: number; name: string; type: string | number }
-        >()
-        report.abilities?.forEach(ability => {
-          abilityMap.set(ability.gameID, ability)
-        })
-
-        // 从事件中提取实际参与战斗的玩家 ID
-        const participantIds = new Set<number>()
-        for (const event of eventsData.events || []) {
-          if (event.sourceID && playerMap.has(event.sourceID)) participantIds.add(event.sourceID)
-          if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
-        }
-
-        // 重新解析阵容（用参与者过滤）
-        const composition = parseComposition(report, fightId!, participantIds)
+        // 与服务端 /import 共用同一套解析编排
+        const { composition, damageEvents, castEvents, syncEvents } = parseFightImport(
+          report,
+          fight,
+          eventsData.events || []
+        )
         newTimeline.composition = composition
-
-        // 战斗零时间：第一个 damage 事件的时间戳
-        const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
-
-        // 解析伤害事件（传入 composition 启用 partial AOE 状态机识别）
-        const bossIds = buildBossIds(report.enemies, fight.name)
-        const damageEvents = parseDamageEvents(
-          eventsData.events || [],
-          fightStartTime,
-          playerMap,
-          abilityMap,
-          composition,
-          bossIds
-        )
         newTimeline.damageEvents = damageEvents
-
-        // 解析技能使用事件
-        const castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
-
-        // 解析 sync 事件（boss 关键技能锚点，用于 Souma 导出）
-        newTimeline.syncEvents = parseSyncEvents(
-          eventsData.events || [],
-          fightStartTime,
-          playerMap,
-          abilityMap
-        )
+        newTimeline.castEvents = castEvents
+        newTimeline.syncEvents = syncEvents
 
         // 设置为回放模式
         newTimeline.isReplayMode = true
@@ -309,8 +248,6 @@ export default function ImportFFLogsDialog({
           reportCode: parsed.reportCode!,
           fightId: fightId!,
         }
-
-        newTimeline.castEvents = castEvents
       } catch (eventError) {
         console.error('Failed to fetch events:', eventError)
         throw eventError

@@ -3,17 +3,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../env'
 import { createClient } from '../env'
-import {
-  parseComposition,
-  parseDamageEvents,
-  parseCastEvents,
-  parseSyncEvents,
-  findFirstDamageTimestamp,
-  convertV1ToReport,
-  parseStatData,
-  buildBossIds,
-} from '@/utils/fflogsImporter'
-import { getEncounterWithTier } from '@/data/raidEncounters'
+import { parseFightImport, resolveImportTimelineName, parseStatData } from '@/utils/fflogsImporter'
 import { getStatisticsKVKey } from '../top100Sync'
 import type { Timeline } from '@/types/timeline'
 import { generateId } from '@/utils/id'
@@ -66,8 +56,7 @@ app.get('/import', async c => {
 
   try {
     const client = createClient(c.env)
-    const v1Report = await client.getReport({ reportCode })
-    const report = convertV1ToReport(v1Report, reportCode)
+    const report = await client.getReport({ reportCode })
 
     let fightId: number
     if (fightIdParam) {
@@ -92,53 +81,15 @@ app.get('/import', async c => {
       start: fight.startTime,
       end: fight.endTime,
     })
+    const events = eventsData.events || []
 
-    const playerMap = new Map<number, { id: number; name: string; type: string }>()
-    report.friendlies?.forEach(player => {
-      playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
-    })
-
-    const abilityMap = new Map<number, { gameID: number; name: string; type: string | number }>()
-    report.abilities?.forEach(ability => {
-      abilityMap.set(ability.gameID, ability)
-    })
-
-    const participantIds = new Set<number>()
-    for (const event of eventsData.events || []) {
-      if (event.sourceID && playerMap.has(event.sourceID)) participantIds.add(event.sourceID)
-      if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
-    }
-
-    const composition = parseComposition(report, fightId, participantIds)
-    const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
-    const bossIds = buildBossIds(report.enemies, fight.name)
-    const damageEvents = parseDamageEvents(
-      eventsData.events || [],
-      fightStartTime,
-      playerMap,
-      abilityMap,
-      composition,
-      bossIds
-    )
-    const castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
-    const syncEvents = parseSyncEvents(
-      eventsData.events || [],
-      fightStartTime,
-      playerMap,
-      abilityMap
+    const { composition, playerMap, damageEvents, castEvents, syncEvents } = parseFightImport(
+      report,
+      fight,
+      events
     )
 
-    let timelineName = fight.name || `战斗 ${fightId}`
-    if (fight.encounterID) {
-      const result = getEncounterWithTier(fight.encounterID)
-      if (result) {
-        // 单副本 tier（如绝境战）的 tier.name === encounter.name，避免拼成 "X - X"
-        timelineName =
-          result.tier.name === result.encounter.name
-            ? result.tier.name
-            : `${result.tier.name} - ${result.encounter.name}`
-      }
-    }
+    const timelineName = resolveImportTimelineName(fight)
 
     // 未收录副本（KV 无聚合统计）→ 从本场事件提取 statData 填充数值设置。
     // KV 抖动按"已支持"保守处理，绝不阻断导入。
@@ -146,7 +97,7 @@ app.get('/import', async c => {
     try {
       const statsExist = await c.env.healerbook.get(getStatisticsKVKey(fight.encounterID || 0))
       if (!statsExist) {
-        statData = parseStatData(eventsData.events || [], playerMap, composition)
+        statData = parseStatData(events, playerMap, composition)
       }
     } catch (err) {
       console.error('[FFLogs Import] statData 提取失败，跳过:', err)

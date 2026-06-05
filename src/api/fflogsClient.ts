@@ -5,14 +5,8 @@
  */
 
 import { TimeoutError } from 'ky'
-import type {
-  FFLogsV1Report,
-  FFLogsReport,
-  FFLogsEvent,
-  FFLogsEventsResponse,
-} from '@/types/fflogs'
+import type { FFLogsReport, FFLogsEvent, FFLogsEventsResponse } from '@/types/fflogs'
 import { apiClient } from './apiClient'
-import { convertV1ToReport } from '@/utils/fflogsImporter'
 
 const REQUEST_TIMEOUT = 60000
 
@@ -33,8 +27,7 @@ export class FFLogsClient {
         const error = (await response.json()) as { error?: string }
         throw new Error(error.error || `HTTP ${response.status}`)
       }
-      const v1Report = (await response.json()) as FFLogsV1Report
-      return convertV1ToReport(v1Report, reportCode)
+      return (await response.json()) as FFLogsReport
     } catch (error) {
       throw this.handleError(error)
     }

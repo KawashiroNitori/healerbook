@@ -9,7 +9,7 @@
 import { FFLogsClientV2, type RankingEntry } from './fflogsClientV2'
 import { enqueueRankings, pickNextSample, type SampleQueueRow } from './samplesQueue'
 import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
-import type { FFLogsEvent, FFLogsV1Report, FFLogsAbility, FFLogsReport } from '@/types/fflogs'
+import type { FFLogsEvent, FFLogsAbility, FFLogsReport } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import { calculatePercentile } from '@/utils/stats'
@@ -73,8 +73,8 @@ export interface ExtractedFightData {
  * 不做任何 KV 写入，纯函数易于测试与复用。
  */
 export function extractFightStats(
-  report: FFLogsV1Report,
-  fight: FFLogsV1Report['fights'][number],
+  report: FFLogsReport,
+  fight: FFLogsReport['fights'][number],
   events: FFLogsEvent[]
 ): ExtractedFightData {
   const playerMap = new Map<number, { id: number; name: string; type: string }>()
@@ -91,16 +91,16 @@ export function extractFightStats(
   const maxHPByJob = extractMaxHPData(events, playerMap)
   const healByAbility = extractHealData(events)
 
-  const composition = parseComposition(report as unknown as FFLogsReport, fight.id)
+  const composition = parseComposition(report, fight.id)
   const fullDamageEvents = parseDamageEvents(
     events,
-    fight.start_time,
+    fight.startTime,
     playerMap,
     abilityMap,
     composition
   )
   const damageEvents = slimDamageEvents(fullDamageEvents)
-  const durationMs = fight.end_time - fight.start_time
+  const durationMs = fight.endTime - fight.startTime
 
   return { damageByAbility, shieldByAbility, maxHPByJob, healByAbility, durationMs, damageEvents }
 }
@@ -319,8 +319,8 @@ export function makeDefaultFetchExtracted(client: FFLogsClientV2) {
     if (!fight) throw new Error(`Fight ${row.fight_id} not found in ${row.report_code}`)
     const eventsResponse = await client.getEvents({
       reportCode: row.report_code,
-      start: fight.start_time,
-      end: fight.end_time,
+      start: fight.startTime,
+      end: fight.endTime,
     })
     return extractFightStats(report, fight, eventsResponse.events)
   }

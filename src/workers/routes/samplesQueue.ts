@@ -22,20 +22,20 @@ app.post('/enqueue', requireSyncToken, vValidator('json', EnqueueSamplesRequestS
     reportCodes.map(async (reportCode): Promise<Pick> => {
       try {
         const report = await client.getReport({ reportCode })
-        const matching = report.fights.filter(f => f.boss === encounterId)
+        const matching = report.fights.filter(f => f.encounterID === encounterId)
         if (matching.length === 0) {
           return { reportCode, status: 'no-match' }
         }
         const kills = matching.filter(f => f.kill)
         const pool = kills.length > 0 ? kills : matching
         const longest = pool.reduce((best, f) =>
-          f.end_time - f.start_time > best.end_time - best.start_time ? f : best
+          f.endTime - f.startTime > best.endTime - best.startTime ? f : best
         )
         return {
           reportCode,
           status: 'ok',
           fightID: longest.id,
-          durationMs: longest.end_time - longest.start_time,
+          durationMs: longest.endTime - longest.startTime,
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)

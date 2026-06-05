@@ -4,13 +4,12 @@
  */
 
 import type {
-  FFLogsV1Report,
+  FFLogsReport,
   FFLogsEventsResponse,
   FFLogsEventDataType,
-  FFLogsAbility,
   FFLogsEvent,
 } from '@/types/fflogs'
-import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability, FFLogsV2Phase } from '@/types/fflogs'
+import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from '@/types/fflogs'
 import { buildComposition } from '@/utils/rosterUtils'
 
 export interface FFLogsV2Config {
@@ -83,8 +82,6 @@ interface V2ReportPayload {
   startTime: number
   endTime: number
   fights: FFLogsV2Fight[]
-  owner: { name: string }
-  phases: FFLogsV2Phase[]
   masterData: {
     actors: FFLogsV2Actor[]
     enemyActors: FFLogsV2Actor[]
@@ -93,14 +90,14 @@ interface V2ReportPayload {
 }
 
 /**
- * 把 getReport 的 V2 响应映射为 V1 报告形状（保持下游解析器接口一致）。导出以便单测。
+ * 把 getReport 的 V2 响应直接映射为应用内的 FFLogsReport。导出以便单测。
  *
  * 敌方 actor 用 `subType || type` 派生 type：FFLogs 中 boss 为
  * `type:"NPC"` + `subType:"Boss"`，映射后 type="Boss"，使 buildBossIds 的 'Boss'
  * 判定命中（已对真实 API 验证：subType 字面值确为 "Boss"，普通小怪为 "NPC"）。
  */
-export function mapV2ReportToV1Report(report: V2ReportPayload): FFLogsV1Report {
-  const toV1Actor = (actor: FFLogsV2Actor) => ({
+export function mapV2ReportToReport(report: V2ReportPayload, reportCode: string): FFLogsReport {
+  const toActor = (actor: FFLogsV2Actor) => ({
     id: actor.id,
     guid: actor.id,
     name: actor.name,
@@ -108,36 +105,28 @@ export function mapV2ReportToV1Report(report: V2ReportPayload): FFLogsV1Report {
     server: actor.server,
   })
   return {
-    title: report.title,
-    owner: report.owner?.name ?? '',
-    start: report.startTime,
-    end: report.endTime,
-    phases: report.phases,
+    code: reportCode,
+    title: report.title || '未命名报告',
+    startTime: report.startTime,
+    endTime: report.endTime,
     fights: report.fights.map(fight => ({
       id: fight.id,
       name: fight.name,
       difficulty: fight.difficulty ?? 0,
       kill: fight.kill || false,
-      start_time: fight.startTime,
-      end_time: fight.endTime,
-      boss: fight.encounterID,
-      zoneID: 0,
-      zoneName: '',
-      gameZoneID: fight.gameZone?.id != null ? Math.floor(fight.gameZone.id) : undefined,
-      size: 8,
-      hasEcho: false,
-      bossPercentage: 0,
-      fightPercentage: 0,
-      lastPhaseForPercentageDisplay: 0,
+      startTime: fight.startTime,
+      endTime: fight.endTime,
+      encounterID: fight.encounterID,
+      gameZoneId: fight.gameZone?.id != null ? Math.floor(fight.gameZone.id) : undefined,
     })),
-    friendlies: report.masterData.actors.map(toV1Actor),
-    enemies: (report.masterData.enemyActors ?? []).map(toV1Actor),
+    friendlies: report.masterData.actors.map(toActor),
+    enemies: (report.masterData.enemyActors ?? []).map(toActor),
     abilities: report.masterData.abilities.map(ability => ({
       gameID: ability.gameID,
       name: ability.name,
       type: ability.type,
       icon: ability.icon,
-    })) as FFLogsAbility[],
+    })),
   }
 }
 
@@ -281,7 +270,7 @@ export class FFLogsClientV2 {
   /**
    * 获取战斗报告
    */
-  async getReport(params: GetReportParams): Promise<FFLogsV1Report> {
+  async getReport(params: GetReportParams): Promise<FFLogsReport> {
     const { reportCode } = params
 
     const query = `
@@ -292,18 +281,6 @@ export class FFLogsClientV2 {
             title
             startTime
             endTime
-            owner {
-              name
-            }
-            phases {
-              encounterID
-              separatesWipes
-              phases {
-                id
-                name
-                isIntermission
-              }
-            }
             fights {
               id
               name
@@ -346,7 +323,7 @@ export class FFLogsClientV2 {
     const data = (await this.query(query, { code: reportCode })) as {
       reportData: { report: V2ReportPayload }
     }
-    return mapV2ReportToV1Report(data.reportData.report)
+    return mapV2ReportToReport(data.reportData.report, reportCode)
   }
 
   /**

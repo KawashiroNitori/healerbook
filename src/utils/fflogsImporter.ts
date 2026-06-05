@@ -2,13 +2,7 @@
  * FFLogs 数据解析工具（V2 API）
  */
 
-import type {
-  FFLogsReport,
-  FFLogsV1Report,
-  FFLogsAbility,
-  FFLogsEvent,
-  FFLogsV1Actor,
-} from '@/types/fflogs'
+import type { FFLogsReport, FFLogsAbility, FFLogsEvent, FFLogsReportActor } from '@/types/fflogs'
 import type { TimelineStatData } from '@/types/statData'
 import type {
   Composition,
@@ -29,6 +23,7 @@ import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
 import { classifyPartialAOE } from './partialAoeClassifier'
 import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
+import { getEncounterWithTier } from '@/data/raidEncounters'
 
 // actionChinese.json 为上游全量映射；action.json 为本地补充的额外 actionId → 中文名
 // （如 RSV 占位 id），后者覆盖前者以便就近修正翻译
@@ -42,32 +37,6 @@ const actionChinese: Record<string, string> = {
  * （含无中文/英文映射时的 unknown_<hex> fallback）
  */
 const AUTO_ATTACK_PATTERN = /^(攻击|Attack|Attacke|Attaque|攻撃|공격|unknown_[0-9a-f]{4})$/i
-
-/**
- * 将 Worker 返回的 V1 格式报告转换为 FFLogsReport
- */
-export function convertV1ToReport(v1Report: FFLogsV1Report, reportCode: string): FFLogsReport {
-  return {
-    code: reportCode,
-    title: v1Report.title || '未命名报告',
-    lang: v1Report.lang,
-    startTime: v1Report.start,
-    endTime: v1Report.end,
-    fights: v1Report.fights.map(fight => ({
-      id: fight.id,
-      name: fight.name,
-      difficulty: fight.difficulty,
-      kill: fight.kill || false,
-      startTime: fight.start_time,
-      endTime: fight.end_time,
-      encounterID: fight.boss,
-      gameZoneId: fight.gameZoneID,
-    })),
-    friendlies: v1Report.friendlies,
-    enemies: v1Report.enemies,
-    abilities: v1Report.abilities,
-  }
-}
 
 function getActionChinese(actionId: number): string | undefined {
   return actionChinese[actionId.toString()]
@@ -114,7 +83,10 @@ export function parseComposition(
  * type==='Boss' → 名称等于战斗名 → 仅一个敌人 → 按名扩展同名实体（分身/转场）。
  * 检测失败返回空集，调用方据此降级为不判定。
  */
-export function buildBossIds(enemies: FFLogsV1Actor[] | undefined, fightName: string): Set<number> {
+export function buildBossIds(
+  enemies: FFLogsReportActor[] | undefined,
+  fightName: string
+): Set<number> {
   const ids = new Set<number>()
   if (!enemies?.length) return ids
   for (const e of enemies) if (e.type === 'Boss') ids.add(e.id)
@@ -831,4 +803,82 @@ export function parseStatData(
     healByAbility,
     critHealByAbility,
   }
+}
+
+/**
+ * 单场 fight 导入解析的产物。两条导入路径（服务端 /import 与前端 dev-only
+ * client_import）共用，差异仅剩 timeline 落地方式与服务端独有的 statData 提取。
+ */
+export interface FightImportResult {
+  composition: Composition
+  /** 战斗零时间（首个 damage 事件时间戳，毫秒） */
+  fightStartTime: number
+  /** playerId → 基本信息，供调用方进一步提取 statData */
+  playerMap: Map<number, { id: number; name: string; type: string }>
+  damageEvents: DamageEvent[]
+  castEvents: CastEvent[]
+  syncEvents: SyncEvent[]
+}
+
+/**
+ * 从单场 fight 的 report + events 跑完整解析编排，产出 timeline 所需的核心数据。
+ *
+ * 把 playerMap / abilityMap / participantIds / boss 判定 / damage·cast·sync 解析
+ * 收口为单一函数，避免服务端与前端两条导入路径各抄一份导致行为漂移。
+ */
+export function parseFightImport(
+  report: FFLogsReport,
+  fight: FFLogsReport['fights'][number],
+  events: FFLogsEvent[]
+): FightImportResult {
+  const playerMap = new Map<number, { id: number; name: string; type: string }>()
+  report.friendlies?.forEach(player => {
+    playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
+  })
+
+  const abilityMap = new Map<number, FFLogsAbility>()
+  report.abilities?.forEach(ability => {
+    abilityMap.set(ability.gameID, ability)
+  })
+
+  const participantIds = new Set<number>()
+  for (const event of events) {
+    if (event.sourceID && playerMap.has(event.sourceID)) participantIds.add(event.sourceID)
+    if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
+  }
+
+  const composition = parseComposition(report, fight.id, participantIds)
+  const fightStartTime = findFirstDamageTimestamp(events, fight.startTime)
+  const bossIds = buildBossIds(report.enemies, fight.name)
+  const damageEvents = parseDamageEvents(
+    events,
+    fightStartTime,
+    playerMap,
+    abilityMap,
+    composition,
+    bossIds
+  )
+  const castEvents = parseCastEvents(events, fightStartTime, playerMap)
+  const syncEvents = parseSyncEvents(events, fightStartTime, playerMap, abilityMap)
+
+  return { composition, fightStartTime, playerMap, damageEvents, castEvents, syncEvents }
+}
+
+/**
+ * 由 fight 推导时间轴名称：优先查 raidEncounters 的 tier/encounter 组合名，
+ * 未收录则回退战斗名 / `战斗 N`。两条导入路径共用。
+ */
+export function resolveImportTimelineName(fight: FFLogsReport['fights'][number]): string {
+  let name = fight.name || `战斗 ${fight.id}`
+  if (fight.encounterID) {
+    const result = getEncounterWithTier(fight.encounterID)
+    if (result) {
+      // 单副本 tier（如绝境战）的 tier.name === encounter.name，避免拼成 "X - X"
+      name =
+        result.tier.name === result.encounter.name
+          ? result.tier.name
+          : `${result.tier.name} - ${result.encounter.name}`
+    }
+  }
+  return name
 }
