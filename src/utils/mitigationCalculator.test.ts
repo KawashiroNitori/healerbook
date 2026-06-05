@@ -2762,3 +2762,61 @@ describe('partial 段延迟扣盾', () => {
     }
   })
 })
+
+describe('目标减开关 (targetMitigationDisabled)', () => {
+  let calculator: MitigationCalculator
+  let basePartyState: PartyState
+
+  beforeEach(() => {
+    calculator = new MitigationCalculator()
+    basePartyState = {
+      players: [{ id: 1, job: 'PLD', maxHP: 100000 }],
+      statuses: [],
+      timestamp: 0,
+    }
+  })
+
+  it('关闭目标减时跳过 boss 状态（雪仇 1193），不计入 appliedStatuses 且伤害更高', () => {
+    const partyState: PartyState = {
+      ...basePartyState,
+      players: [{ id: 1, job: 'WHM', maxHP: 100000 }],
+      statuses: [
+        { instanceId: 'reprisal', statusId: 1193, startTime: 0, endTime: 15, sourcePlayerId: 2 },
+      ],
+    }
+    const on = calculator.calculate(makeEvent(100000, 10, 'magical', 'aoe'), partyState)
+    const off = calculator.calculate(
+      { ...makeEvent(100000, 10, 'magical', 'aoe'), targetMitigationDisabled: true },
+      partyState
+    )
+    expect(on.appliedStatuses.some(s => s.statusId === 1193)).toBe(true)
+    expect(off.appliedStatuses.some(s => s.statusId === 1193)).toBe(false)
+    expect(off.finalDamage).toBeGreaterThan(on.finalDamage)
+  })
+
+  it('开关只抑制 boss 状态，不影响其它 partywide 百分比减伤（节制 1873）', () => {
+    const partyState: PartyState = {
+      ...basePartyState,
+      players: [{ id: 1, job: 'WHM', maxHP: 100000 }],
+      statuses: [
+        { instanceId: 'reprisal', statusId: 1193, startTime: 0, endTime: 15, sourcePlayerId: 2 },
+        {
+          instanceId: 'temperance',
+          statusId: 1873,
+          startTime: 0,
+          endTime: 25,
+          sourceActionId: 16536,
+          sourcePlayerId: 2,
+        },
+      ],
+    }
+    const off = calculator.calculate(
+      { ...makeEvent(100000, 10, 'magical', 'aoe'), targetMitigationDisabled: true },
+      partyState
+    )
+    expect(off.appliedStatuses.some(s => s.statusId === 1873)).toBe(true)
+    expect(off.appliedStatuses.some(s => s.statusId === 1193)).toBe(false)
+    // 节制 -10% 仍生效（雪仇被跳过后只剩节制）
+    expect(off.finalDamage).toBe(90000)
+  })
+})

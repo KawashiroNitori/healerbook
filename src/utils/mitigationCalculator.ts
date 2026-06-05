@@ -1035,6 +1035,8 @@ export class MitigationCalculator {
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (!multiplierFilter(meta, status)) continue
+      // 目标减开关：本事件关闭目标减时，跳过所有 boss debuff（不乘、不计入 appliedStatuses）
+      if (event.targetMitigationDisabled && meta.category?.includes('boss')) continue
 
       if (meta.type === 'multiplier') {
         if (mitigationTime >= status.startTime && mitigationTime <= status.endTime) {
