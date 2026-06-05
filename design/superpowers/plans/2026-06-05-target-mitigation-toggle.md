@@ -558,6 +558,27 @@ git status
 
 ---
 
+### Task 7: 修复导入空转——抓取敌方 actor + 服务端接线（实现期发现）
+
+**背景**：Task 3 接了 `buildBossIds(report.enemies, ...)`，但 `fflogsClientV2.getReport` 的
+GraphQL 查询只取 `actors(type: "Player")`，**从不返回 enemies** → `report.enemies` 永远
+undefined → 自动判定在生产环境完全空转。且服务端 `/import`（`routes/fflogs.ts`）未接 buildBossIds。
+
+**真实 API 验证**（report `Mk1Jwzx4v9jyYKCR`）：`actors(type:"NPC")` 过滤有效；别名查询合法；
+boss 实体为 `type:"NPC"` + `subType:"Boss"`（字面 "Boss"），普通小怪 `subType:"NPC"`。
+
+**Files:**
+
+- Modify: `src/workers/fflogsClientV2.ts`（查询补 `enemyActors: actors(type:"NPC")`；抽出导出纯函数
+  `mapV2ReportToV1Report`，映射 `enemies`，actor 用 `subType || type` 派生 type）
+- Modify: `src/workers/routes/fflogs.ts`（`/import` 接 `buildBossIds(report.enemies, fight.name)` 并传第 6 参）
+- Test: `src/workers/fflogsClientV2.test.ts`（新增：mapper 把 NPC→enemies、boss type 派生为 'Boss'、
+  且 buildBossIds 能据此识别 boss/排除小怪）
+- Test: `src/workers/fflogsImportHandler.test.ts`（新增：服务端 `/import` 端到端——boss 来源不标记、
+  小怪来源标 `tmd`）
+
+**验证**：`pnpm test:run` 973 passed、`pnpm lint`、`pnpm exec tsc --noEmit` 均通过。
+
 ## Self-Review（作者自检结论）
 
 - **Spec 覆盖**：`'boss'` 枚举(Task1)、statusExtras 标注(Task1)、DamageEvent 字段(Task1)、计算跳过(Task2)、导入自动判定+buildBossIds(Task3)、V2/剪贴板持久化(Task4)、PropertyPanel Switch(Task5)、测试(Task2/3/4)、实现顺序(Task1→6) 均有对应任务。

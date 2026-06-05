@@ -118,7 +118,10 @@ export function yUpdateDamageEvent(doc: Y.Doc, id: string, patch: Partial<Damage
     const ymap = mapOf(doc, Y_MAP.damageEvents).get(id)
     if (!ymap) return
     for (const [k, v] of Object.entries(patch)) {
-      if (v !== undefined) ymap.set(k, v)
+      // 显式 undefined 表示"清除该字段"（如关闭 DoT 快照、重新启用目标减）。
+      // 必须 delete 而非跳过——跳过会让旧值残留，导致开关无法切回。
+      if (v === undefined) ymap.delete(k)
+      else ymap.set(k, v)
     }
   }, LOCAL_ORIGIN)
 }

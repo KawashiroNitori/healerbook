@@ -127,6 +127,19 @@ describe('granular mutators', () => {
       { id: 'tm1', name: '临时盾', type: 'shield', value: 30000 },
     ])
   })
+
+  it('yUpdateDamageEvent 写 undefined 清除字段（DoT / 目标减开关能关闭并重开）', () => {
+    const doc = buildYDoc(sample)
+    yUpdateDamageEvent(doc, 'd1', { targetMitigationDisabled: true, snapshotTime: 5 })
+    const before = projectTimeline(doc).damageEvents.find(e => e.id === 'd1')!
+    expect(before.targetMitigationDisabled).toBe(true)
+    expect(before.snapshotTime).toBe(5)
+    // 写 undefined 必须删除字段——否则旧值残留，开关切不回去
+    yUpdateDamageEvent(doc, 'd1', { targetMitigationDisabled: undefined, snapshotTime: undefined })
+    const after = projectTimeline(doc).damageEvents.find(e => e.id === 'd1')!
+    expect(after.targetMitigationDisabled).toBeUndefined()
+    expect(after.snapshotTime).toBeUndefined()
+  })
 })
 
 describe('projectTimeline 引用保持', () => {

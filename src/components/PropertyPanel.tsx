@@ -627,7 +627,7 @@ export default function PropertyPanel() {
             }
             disabled={isReadOnly}
           />
-          <span className="text-xs text-muted-foreground shrink-0">目标减生效</span>
+          <span className="text-xs text-muted-foreground shrink-0">目标减有效</span>
         </div>
 
         {/* 部分 AOE 伤害详情（仅编辑模式 + HP 模拟开 + partial AOE + 有段快照） */}

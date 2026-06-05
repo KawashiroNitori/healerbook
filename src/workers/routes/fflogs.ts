@@ -11,6 +11,7 @@ import {
   findFirstDamageTimestamp,
   convertV1ToReport,
   parseStatData,
+  buildBossIds,
 } from '@/utils/fflogsImporter'
 import { getEncounterWithTier } from '@/data/raidEncounters'
 import { getStatisticsKVKey } from '../top100Sync'
@@ -110,12 +111,14 @@ app.get('/import', async c => {
 
     const composition = parseComposition(report, fightId, participantIds)
     const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
+    const bossIds = buildBossIds(report.enemies, fight.name)
     const damageEvents = parseDamageEvents(
       eventsData.events || [],
       fightStartTime,
       playerMap,
       abilityMap,
-      composition
+      composition,
+      bossIds
     )
     const castEvents = parseCastEvents(eventsData.events || [], fightStartTime, playerMap)
     const syncEvents = parseSyncEvents(

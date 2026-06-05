@@ -77,6 +77,70 @@ let tokenExpiresAt: number = 0
 
 const KV_TOKEN_KEY = 'fflogs:oauth_token'
 
+/** getReport 的 GraphQL 响应中 reportData.report 的结构 */
+interface V2ReportPayload {
+  title: string
+  startTime: number
+  endTime: number
+  fights: FFLogsV2Fight[]
+  owner: { name: string }
+  phases: FFLogsV2Phase[]
+  masterData: {
+    actors: FFLogsV2Actor[]
+    enemyActors: FFLogsV2Actor[]
+    abilities: FFLogsV2Ability[]
+  }
+}
+
+/**
+ * 把 getReport 的 V2 响应映射为 V1 报告形状（保持下游解析器接口一致）。导出以便单测。
+ *
+ * 敌方 actor 用 `subType || type` 派生 type：FFLogs 中 boss 为
+ * `type:"NPC"` + `subType:"Boss"`，映射后 type="Boss"，使 buildBossIds 的 'Boss'
+ * 判定命中（已对真实 API 验证：subType 字面值确为 "Boss"，普通小怪为 "NPC"）。
+ */
+export function mapV2ReportToV1Report(report: V2ReportPayload): FFLogsV1Report {
+  const toV1Actor = (actor: FFLogsV2Actor) => ({
+    id: actor.id,
+    guid: actor.id,
+    name: actor.name,
+    type: actor.subType || actor.type,
+    server: actor.server,
+  })
+  return {
+    title: report.title,
+    owner: report.owner?.name ?? '',
+    start: report.startTime,
+    end: report.endTime,
+    phases: report.phases,
+    fights: report.fights.map(fight => ({
+      id: fight.id,
+      name: fight.name,
+      difficulty: fight.difficulty ?? 0,
+      kill: fight.kill || false,
+      start_time: fight.startTime,
+      end_time: fight.endTime,
+      boss: fight.encounterID,
+      zoneID: 0,
+      zoneName: '',
+      gameZoneID: fight.gameZone?.id != null ? Math.floor(fight.gameZone.id) : undefined,
+      size: 8,
+      hasEcho: false,
+      bossPercentage: 0,
+      fightPercentage: 0,
+      lastPhaseForPercentageDisplay: 0,
+    })),
+    friendlies: report.masterData.actors.map(toV1Actor),
+    enemies: (report.masterData.enemyActors ?? []).map(toV1Actor),
+    abilities: report.masterData.abilities.map(ability => ({
+      gameID: ability.gameID,
+      name: ability.name,
+      type: ability.type,
+      icon: ability.icon,
+    })) as FFLogsAbility[],
+  }
+}
+
 export class FFLogsClientV2 {
   private clientId: string
   private clientSecret: string
@@ -266,6 +330,13 @@ export class FFLogsClientV2 {
                 subType
                 server
               }
+              enemyActors: actors(type: "NPC") {
+                id
+                name
+                type
+                subType
+                server
+              }
             }
           }
         }
@@ -273,61 +344,9 @@ export class FFLogsClientV2 {
     `
 
     const data = (await this.query(query, { code: reportCode })) as {
-      reportData: {
-        report: {
-          title: string
-          startTime: number
-          endTime: number
-          fights: FFLogsV2Fight[]
-          owner: { name: string }
-          phases: FFLogsV2Phase[]
-          masterData: {
-            actors: FFLogsV2Actor[]
-            abilities: FFLogsV2Ability[]
-          }
-        }
-      }
+      reportData: { report: V2ReportPayload }
     }
-    const report = data.reportData.report
-
-    // 转换为 v1 格式（保持接口一致性）
-    return {
-      title: report.title,
-      owner: report.owner?.name ?? '',
-      start: report.startTime,
-      end: report.endTime,
-      phases: report.phases,
-      fights: report.fights.map(fight => ({
-        id: fight.id,
-        name: fight.name,
-        difficulty: fight.difficulty ?? 0,
-        kill: fight.kill || false,
-        start_time: fight.startTime,
-        end_time: fight.endTime,
-        boss: fight.encounterID,
-        zoneID: 0,
-        zoneName: '',
-        gameZoneID: fight.gameZone?.id != null ? Math.floor(fight.gameZone.id) : undefined,
-        size: 8,
-        hasEcho: false,
-        bossPercentage: 0,
-        fightPercentage: 0,
-        lastPhaseForPercentageDisplay: 0,
-      })),
-      friendlies: report.masterData.actors.map(actor => ({
-        id: actor.id,
-        guid: actor.id,
-        name: actor.name,
-        type: actor.subType || actor.type,
-        server: actor.server,
-      })),
-      abilities: report.masterData.abilities.map(ability => ({
-        gameID: ability.gameID,
-        name: ability.name,
-        type: ability.type,
-        icon: ability.icon,
-      })) as FFLogsAbility[],
-    }
+    return mapV2ReportToV1Report(data.reportData.report)
   }
 
   /**

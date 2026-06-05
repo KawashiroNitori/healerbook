@@ -314,4 +314,67 @@ describe('handleFFLogsImport', () => {
       expect(body.error).toContain('Network error')
     })
   })
+
+  describe('目标减自动判定', () => {
+    it('非 boss 来源的伤害事件应标记 targetMitigationDisabled，boss 来源不标记', async () => {
+      // enemies: 500=boss（type Boss），700=小怪；fight.name='Test Boss'
+      mockGetReport.mockResolvedValue(
+        makeV1Report([makeFight(5)], {
+          enemies: [
+            { id: 500, guid: 500, name: 'Test Boss', type: 'Boss' },
+            { id: 700, guid: 700, name: 'Add', type: 'NPC' },
+          ],
+        })
+      )
+      // 玩家 target=1（friendlies 里的 WhiteMage）；boss 来源一刀、小怪来源一刀，相隔 4s
+      mockGetEvents.mockResolvedValue({
+        events: [
+          {
+            type: 'calculateddamage',
+            timestamp: 100000,
+            sourceID: 500,
+            targetID: 1,
+            abilityGameID: 12345,
+          },
+          {
+            type: 'damage',
+            timestamp: 100000,
+            sourceID: 500,
+            targetID: 1,
+            abilityGameID: 12345,
+            amount: 10000,
+            unmitigatedAmount: 10000,
+          },
+          {
+            type: 'calculateddamage',
+            timestamp: 104000,
+            sourceID: 700,
+            targetID: 1,
+            abilityGameID: 12345,
+          },
+          {
+            type: 'damage',
+            timestamp: 104000,
+            sourceID: 700,
+            targetID: 1,
+            abilityGameID: 12345,
+            amount: 8000,
+            unmitigatedAmount: 8000,
+          },
+        ],
+      })
+
+      const request = new Request(
+        'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
+      )
+      const response = await app.fetch(request, mockEnv)
+
+      expect(response.status).toBe(200)
+      const body = (await response.json()) as JsonBody
+      const de = body.de as Array<{ t: number; tmd?: boolean }>
+      expect(de.length).toBe(2)
+      expect(de.find(e => e.t === 0)?.tmd).toBeUndefined() // boss 来源
+      expect(de.find(e => e.t === 4)?.tmd).toBe(true) // 小怪来源
+    })
+  })
 })
