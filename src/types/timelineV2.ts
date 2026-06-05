@@ -68,6 +68,8 @@ export interface V2DamageEvent {
   pdd?: V2PlayerDamageDetail[]
   /** tempMitigations（临时减伤） */
   tm?: V2TempMitigation[]
+  /** 目标减无效（省略=生效） */
+  tmd?: boolean
 }
 
 export interface V2CastEvents {

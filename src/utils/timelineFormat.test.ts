@@ -318,6 +318,19 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     const restored = hydrateFromV2(v2)
     expect(restored.damageEvents.every(e => e.tempMitigations === undefined)).toBe(true)
   })
+
+  it('targetMitigationDisabled round-trip', () => {
+    const tl = makeEditorTimeline()
+    tl.damageEvents[0].targetMitigationDisabled = true
+    const v2 = toV2(tl)
+    // 序列化：只在 true 时产出短键 tmd，未设置不产出
+    expect(v2.de[0].tmd).toBe(true)
+    expect(v2.de[1].tmd).toBeUndefined()
+    const restored = hydrateFromV2(v2)
+    expect(restored.damageEvents[0].targetMitigationDisabled).toBe(true)
+    // 未设置的事件保持省略（不被写成 false）
+    expect(restored.damageEvents[1].targetMitigationDisabled).toBeUndefined()
+  })
 })
 
 describe('toV2 / hydrateFromV2 (replay mode)', () => {

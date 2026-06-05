@@ -116,6 +116,7 @@ function toV2DamageEvent(e: DamageEvent, remap: Map<number, number>): V2DamageEv
     dt: DAMAGE_TYPE_TO_NUM[e.damageType],
   }
   if (e.snapshotTime !== undefined) out.st = e.snapshotTime
+  if (e.targetMitigationDisabled) out.tmd = true
   if (e.tempMitigations && e.tempMitigations.length > 0) {
     out.tm = e.tempMitigations.map(
       (t): V2TempMitigation => ({
@@ -266,6 +267,7 @@ function fromV2DamageEvent(e: V2DamageEvent, composition: Composition): DamageEv
     damageType: NUM_TO_DAMAGE_TYPE[e.dt],
   }
   if (e.st !== undefined) out.snapshotTime = e.st
+  if (e.tmd) out.targetMitigationDisabled = true
   if (e.tm && e.tm.length > 0) {
     out.tempMitigations = e.tm.map(
       (t): TempMitigation => ({

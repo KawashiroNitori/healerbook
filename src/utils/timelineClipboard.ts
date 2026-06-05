@@ -99,6 +99,9 @@ export function remapClipboardForPaste(
     ...(e.packetId !== undefined && { packetId: e.packetId }),
     ...(e.snapshotTime !== undefined && { snapshotTime: e.snapshotTime }),
     ...(e.tempMitigations !== undefined && { tempMitigations: e.tempMitigations }),
+    ...(e.targetMitigationDisabled !== undefined && {
+      targetMitigationDisabled: e.targetMitigationDisabled,
+    }),
   }))
 
   const castEvents: Omit<CastEvent, 'id'>[] = []
