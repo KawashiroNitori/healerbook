@@ -179,6 +179,7 @@ export default function ImportFFLogsDialog({
         parseCastEvents,
         parseSyncEvents,
         findFirstDamageTimestamp,
+        buildBossIds,
       } = importer
 
       // 获取报告数据
@@ -275,12 +276,14 @@ export default function ImportFFLogsDialog({
         const fightStartTime = findFirstDamageTimestamp(eventsData.events || [], fight.startTime)
 
         // 解析伤害事件（传入 composition 启用 partial AOE 状态机识别）
+        const bossIds = buildBossIds(report.enemies, fight.name)
         const damageEvents = parseDamageEvents(
           eventsData.events || [],
           fightStartTime,
           playerMap,
           abilityMap,
-          composition
+          composition,
+          bossIds
         )
         newTimeline.damageEvents = damageEvents
 

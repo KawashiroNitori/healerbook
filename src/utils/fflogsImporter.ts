@@ -2,7 +2,13 @@
  * FFLogs 数据解析工具（V2 API）
  */
 
-import type { FFLogsReport, FFLogsV1Report, FFLogsAbility, FFLogsEvent } from '@/types/fflogs'
+import type {
+  FFLogsReport,
+  FFLogsV1Report,
+  FFLogsAbility,
+  FFLogsEvent,
+  FFLogsV1Actor,
+} from '@/types/fflogs'
 import type { TimelineStatData } from '@/types/statData'
 import type {
   Composition,
@@ -104,6 +110,22 @@ export function parseComposition(
 }
 
 /**
+ * 构建 boss 实体 id 集合（用于目标减自动判定）。逐级 fallback：
+ * type==='Boss' → 名称等于战斗名 → 仅一个敌人 → 按名扩展同名实体（分身/转场）。
+ * 检测失败返回空集，调用方据此降级为不判定。
+ */
+export function buildBossIds(enemies: FFLogsV1Actor[] | undefined, fightName: string): Set<number> {
+  const ids = new Set<number>()
+  if (!enemies?.length) return ids
+  for (const e of enemies) if (e.type === 'Boss') ids.add(e.id)
+  if (ids.size === 0) for (const e of enemies) if (e.name === fightName) ids.add(e.id)
+  if (ids.size === 0 && enemies.length === 1) ids.add(enemies[0].id)
+  const bossNames = new Set([...ids].map(id => enemies.find(e => e.id === id)?.name))
+  for (const e of enemies) if (bossNames.has(e.name)) ids.add(e.id)
+  return ids
+}
+
+/**
  * 解析伤害事件（只保留 Boss 技能）
  *
  * V2 事件字段：abilityGameID, packetID, sourceID, targetID, amount, unmitigatedAmount, absorbed
@@ -118,7 +140,8 @@ export function parseDamageEvents(
   fightStartTime: number,
   playerMap: Map<number, { id: number; name: string; type: string }>,
   abilityMap?: Map<number, FFLogsAbility>,
-  composition?: Composition
+  composition?: Composition,
+  bossIds?: Set<number>
 ): DamageEvent[] {
   const TANK_JOBS = getTankJobs()
 
@@ -365,6 +388,10 @@ export function parseDamageEvents(
     const name = detailSkillNames.get(firstDetail) ?? ''
     const isAutoAttack = detailIsAutoAttack.get(firstDetail) ?? false
 
+    const sourceId = detailSourceIds.get(firstDetail) ?? 0
+    const targetMitigationDisabled =
+      bossIds && bossIds.size > 0 && sourceId !== 0 && !bossIds.has(sourceId) ? true : undefined
+
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstAbilityId}`,
       name,
@@ -375,6 +402,7 @@ export function parseDamageEvents(
       playerDamageDetails: details,
       packetId: detailPacketIds.get(firstDetail),
       snapshotTime,
+      ...(targetMitigationDisabled && { targetMitigationDisabled }),
     })
   }
 

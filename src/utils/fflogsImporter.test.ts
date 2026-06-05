@@ -12,6 +12,7 @@ import {
   extractHealData,
   extractMaxHPData,
   parseStatData,
+  buildBossIds,
 } from './fflogsImporter'
 import type { FFLogsAbility } from '@/types/fflogs'
 import type { Composition } from '@/types/timeline'
@@ -2008,5 +2009,106 @@ describe('parseStatData', () => {
     expect(result).toBeDefined()
     expect(result!.healByAbility[37013]).toBe(30000) // p50
     expect(result!.critHealByAbility[37013]).toBe(46000) // p90
+  })
+})
+
+describe('buildBossIds', () => {
+  it('type==="Boss" 为主信号', () => {
+    const enemies = [
+      { id: 100, guid: 1, name: 'Boss A', type: 'Boss' },
+      { id: 101, guid: 2, name: 'Add', type: 'NPC' },
+    ]
+    expect([...buildBossIds(enemies, 'Boss A')]).toEqual([100])
+  })
+
+  it('无 Boss 类型时按名匹配 fightName', () => {
+    const enemies = [
+      { id: 100, guid: 1, name: 'Golbez', type: 'NPC' },
+      { id: 101, guid: 2, name: 'Shadow', type: 'NPC' },
+    ]
+    expect([...buildBossIds(enemies, 'Golbez')]).toEqual([100])
+  })
+
+  it('仅一个敌人时回退取它', () => {
+    const enemies = [{ id: 100, guid: 1, name: 'X', type: 'NPC' }]
+    expect([...buildBossIds(enemies, 'Y')]).toEqual([100])
+  })
+
+  it('按名扩展同名实体（分身/转场）', () => {
+    const enemies = [
+      { id: 100, guid: 1, name: 'Boss A', type: 'Boss' },
+      { id: 200, guid: 1, name: 'Boss A', type: 'NPC' },
+      { id: 300, guid: 2, name: 'Add', type: 'NPC' },
+    ]
+    expect([...buildBossIds(enemies, 'Boss A')].sort((a, b) => a - b)).toEqual([100, 200])
+  })
+
+  it('空 enemies 返回空集', () => {
+    expect(buildBossIds(undefined, 'X').size).toBe(0)
+    expect(buildBossIds([], 'X').size).toBe(0)
+  })
+
+  it('全部 fallback 失败时返回空集（降级不判定）', () => {
+    const enemies = [
+      { id: 100, guid: 1, name: 'X', type: 'NPC' },
+      { id: 200, guid: 2, name: 'Y', type: 'NPC' },
+    ]
+    expect(buildBossIds(enemies, 'Z').size).toBe(0)
+  })
+})
+
+describe('parseDamageEvents 目标减自动判定', () => {
+  const fightStartTime = 1000000
+  const withCalc = (evs: Record<string, unknown>[]) => [
+    ...evs.filter(e => e.type === 'damage').map(e => ({ ...e, type: 'calculateddamage' })),
+    ...evs,
+  ]
+  const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'T', type: 'Paladin' }]])
+  const abilityMap = new Map<number, FFLogsAbility>([
+    [999999, { gameID: 999999, name: 'Atk', type: 1024 }],
+  ])
+  const events = [
+    {
+      type: 'damage',
+      packetID: 1,
+      abilityGameID: 999999,
+      targetID: 1,
+      unmitigatedAmount: 10000,
+      absorbed: 0,
+      amount: 10000,
+      timestamp: fightStartTime + 5000,
+      sourceID: 500, // boss
+    },
+    {
+      type: 'damage',
+      packetID: 2,
+      abilityGameID: 999999,
+      targetID: 1,
+      unmitigatedAmount: 8000,
+      absorbed: 0,
+      amount: 8000,
+      timestamp: fightStartTime + 9000,
+      sourceID: 700, // 小怪
+    },
+  ]
+
+  it('非 boss 来源标记 disabled，boss 来源不标记', () => {
+    const result = parseDamageEvents(
+      withCalc(events),
+      fightStartTime,
+      playerMap,
+      abilityMap,
+      undefined,
+      new Set([500])
+    )
+    const fromBoss = result.find(e => Math.abs(e.time - 5) < 0.6)
+    const fromAdd = result.find(e => Math.abs(e.time - 9) < 0.6)
+    expect(fromBoss?.targetMitigationDisabled).toBeUndefined()
+    expect(fromAdd?.targetMitigationDisabled).toBe(true)
+  })
+
+  it('未传 bossIds 时全部默认生效（回归）', () => {
+    const result = parseDamageEvents(withCalc(events), fightStartTime, playerMap, abilityMap)
+    expect(result.every(e => e.targetMitigationDisabled === undefined)).toBe(true)
   })
 })
