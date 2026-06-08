@@ -1615,6 +1615,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (e.button !== 0) return
     const container = timelineContainerRef.current
     if (!container) return
+    // 右键菜单等被 portal 到 body 的浮层，其指针事件仍会经 React 树冒泡到这里，
+    // 但真实 DOM target 不在时间轴容器内。若不拦截，点击「删除全部」会先触发一个
+    // 零尺寸框选，pointerup 提交空选区清掉多选，导致菜单项 onClick 读到空选区而无反应。
+    if (e.target instanceof Node && !container.contains(e.target)) return
     const rect = container.getBoundingClientRect()
     const localY = e.clientY - rect.top
     // 落在底部 minimap 区：交给 minimap 自身交互，不启动框选
