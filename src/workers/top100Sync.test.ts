@@ -252,6 +252,109 @@ describe('buildEncounterTemplate (single-fight)', () => {
     expect(result).not.toBeNull()
     expect(result!.events).toHaveLength(0)
   })
+
+  it('产出 template 带 kill 字段（默认 false）', () => {
+    const wipe = buildEncounterTemplate({
+      fightDurationMs: 100,
+      fightEvents: [makeSlim(1, 1)],
+      p50Map: {},
+      oldTemplate: null,
+    })
+    expect(wipe!.kill).toBe(false)
+
+    const kill = buildEncounterTemplate({
+      fightDurationMs: 100,
+      fightEvents: [makeSlim(1, 1)],
+      p50Map: {},
+      oldTemplate: null,
+      fightKill: true,
+    })
+    expect(kill!.kill).toBe(true)
+  })
+
+  it('kill 顶掉更长的 wipe（无视时长）', () => {
+    const oldTemplate = {
+      encounterId: 1,
+      events: [],
+      templateSourceDurationMs: 900_000,
+      kill: false,
+      updatedAt: 'x',
+    }
+    const result = buildEncounterTemplate({
+      fightDurationMs: 500_000, // 比旧 wipe 短
+      fightEvents: [makeSlim(1, 1)],
+      p50Map: {},
+      oldTemplate,
+      fightKill: true,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.kill).toBe(true)
+    expect(result!.templateSourceDurationMs).toBe(500_000)
+  })
+
+  it('更长的 wipe 不顶掉已有 kill', () => {
+    const oldTemplate = {
+      encounterId: 1,
+      events: [],
+      templateSourceDurationMs: 500_000,
+      kill: true,
+      updatedAt: 'x',
+    }
+    const result = buildEncounterTemplate({
+      fightDurationMs: 900_000, // 更长，但 wipe
+      fightEvents: [makeSlim(1, 1)],
+      p50Map: {},
+      oldTemplate,
+      fightKill: false,
+    })
+    expect(result).toBeNull()
+  })
+
+  it('都是 kill → 本场更长才覆盖', () => {
+    const oldTemplate = {
+      encounterId: 1,
+      events: [],
+      templateSourceDurationMs: 500_000,
+      kill: true,
+      updatedAt: 'x',
+    }
+    expect(
+      buildEncounterTemplate({
+        fightDurationMs: 500_001,
+        fightEvents: [makeSlim(1, 1)],
+        p50Map: {},
+        oldTemplate,
+        fightKill: true,
+      })
+    ).not.toBeNull()
+    expect(
+      buildEncounterTemplate({
+        fightDurationMs: 400_000,
+        fightEvents: [makeSlim(1, 1)],
+        p50Map: {},
+        oldTemplate,
+        fightKill: true,
+      })
+    ).toBeNull()
+  })
+
+  it('旧 template 无 kill 字段 → 按 wipe 处理，kill 仍可顶掉', () => {
+    const legacyOld = {
+      encounterId: 1,
+      events: [],
+      templateSourceDurationMs: 900_000,
+      updatedAt: 'x',
+    }
+    const result = buildEncounterTemplate({
+      fightDurationMs: 300_000,
+      fightEvents: [makeSlim(1, 1)],
+      p50Map: {},
+      oldTemplate: legacyOld,
+      fightKill: true,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.kill).toBe(true)
+  })
 })
 
 // 轻量 in-memory KV mock（只覆盖 get/put/delete）— 模块级，供后续 describes 复用
@@ -290,13 +393,15 @@ describe('handleGetEncounterTemplate', () => {
       events: unknown[]
       updatedAt: string | null
       templateSourceDurationMs: number | null
+      kill: boolean
     }
     expect(body.events).toEqual([])
     expect(body.updatedAt).toBeNull()
     expect(body.templateSourceDurationMs).toBeNull()
+    expect(body.kill).toBe(false)
   })
 
-  it('KV 有数据 → 返回 events + updatedAt', async () => {
+  it('KV 有数据 → 返回 events + updatedAt + kill', async () => {
     const kv = createMockKV()
     const template: EncounterTemplate = {
       encounterId: 1234,
@@ -312,6 +417,7 @@ describe('handleGetEncounterTemplate', () => {
         },
       ],
       templateSourceDurationMs: 500_000,
+      kill: true,
       updatedAt: '2026-04-14T00:00:00.000Z',
     }
     await kv.put(getEncounterTemplateKVKey(1234), JSON.stringify(template))
@@ -322,11 +428,29 @@ describe('handleGetEncounterTemplate', () => {
       events: Array<{ id: string }>
       updatedAt: string | null
       templateSourceDurationMs: number | null
+      kill: boolean
     }
     expect(body.events).toHaveLength(1)
     expect(body.events[0].id).toBe('e1')
     expect(body.updatedAt).toBe('2026-04-14T00:00:00.000Z')
     expect(body.templateSourceDurationMs).toBe(500_000)
+    expect(body.kill).toBe(true)
+  })
+
+  it('KV 旧数据无 kill 字段 → 默认返回 false', async () => {
+    const kv = createMockKV()
+    await kv.put(
+      getEncounterTemplateKVKey(1235),
+      JSON.stringify({
+        encounterId: 1235,
+        events: [],
+        templateSourceDurationMs: 100_000,
+        updatedAt: '2026-04-14T00:00:00.000Z',
+      })
+    )
+    const res = await handleGetEncounterTemplate(1235, kv)
+    const body = (await res.json()) as { kill: boolean }
+    expect(body.kill).toBe(false)
   })
 })
 
@@ -382,9 +506,36 @@ describe('extractFightStats', () => {
     expect(out.healByAbility[50]).toEqual([1000])
     expect(out.shieldByAbility[2613]).toEqual([3000])
     expect(Object.values(out.maxHPByJob).flat()).toContain(80000)
+    expect(out.kill).toBe(false)
     if (out.damageEvents.length > 0) {
       expect(typeof out.damageEvents[0].abilityId).toBe('number')
     }
+  })
+
+  it('fight.kill=true → out.kill=true', () => {
+    const fight = {
+      id: 5,
+      startTime: 1000,
+      endTime: 121000,
+      kill: true,
+    } as FFLogsReport['fights'][number]
+    const report = {
+      fights: [fight],
+      friendlies: [],
+      abilities: [],
+      enemies: [],
+      enemyPets: [],
+      friendlyPets: [],
+      lang: 'en',
+      title: 't',
+      owner: 'o',
+      start: 0,
+      end: 1,
+      zone: 0,
+    } as unknown as FFLogsReport
+
+    const out = extractFightStats(report, fight, [])
+    expect(out.kill).toBe(true)
   })
 })
 
@@ -426,6 +577,7 @@ describe('processOneSample', () => {
       maxHPByJob: { WHM: [80_000] } as Record<Job, number[]>,
       healByAbility: { 50: [1000, 1500] },
       durationMs: 120_000,
+      kill: false,
       damageEvents: [
         {
           name: 'a-9999',
@@ -475,6 +627,60 @@ describe('processOneSample', () => {
     const tpl = (await kv.get(getEncounterTemplateKVKey(encounterId), 'json')) as EncounterTemplate
     expect(tpl.templateSourceDurationMs).toBe(120_000)
     expect(tpl.events.length).toBeGreaterThan(0)
+    expect(tpl.kill).toBe(false)
+  })
+
+  it('kill 场：template.kill=true，且更短的 kill 也能顶掉更长的旧 wipe', async () => {
+    const kv = createMockKV()
+    await kv.put(
+      getEncounterTemplateKVKey(encounterId),
+      JSON.stringify({
+        encounterId,
+        events: [],
+        templateSourceDurationMs: 900_000,
+        kill: false,
+        updatedAt: 'old',
+      } satisfies EncounterTemplate)
+    )
+    const db = makeMockD1WithRow({
+      id: 9,
+      encounter_id: encounterId,
+      report_code: 'K',
+      fight_id: 1,
+      duration_ms: 300_000,
+      sampled: 0,
+      sampled_at: null,
+      created_at: 0,
+      updated_at: 0,
+    })
+
+    await processOneSample({
+      db,
+      kv,
+      fetchExtracted: async () => ({
+        damageByAbility: { 9999: [50_000] },
+        shieldByAbility: {},
+        maxHPByJob: {} as Record<Job, number[]>,
+        healByAbility: {},
+        durationMs: 300_000, // 比旧 wipe 短
+        kill: true,
+        damageEvents: [
+          {
+            name: 'a-9999',
+            time: 1,
+            damage: 50_000,
+            type: 'aoe',
+            damageType: 'magical',
+            abilityId: 9999,
+          },
+        ],
+      }),
+      lookupEncounterName: () => encounterName,
+    })
+
+    const tpl = (await kv.get(getEncounterTemplateKVKey(encounterId), 'json')) as EncounterTemplate
+    expect(tpl.kill).toBe(true)
+    expect(tpl.templateSourceDurationMs).toBe(300_000)
   })
 
   it('第二次采样：abilityFightCount/totalFightsSampled 累加，旧字段不丢', async () => {
@@ -525,6 +731,7 @@ describe('processOneSample', () => {
       maxHPByJob: {} as Record<Job, number[]>,
       healByAbility: {},
       durationMs: 100_000,
+      kill: false,
       damageEvents: [
         {
           name: 'a-9999',
@@ -592,6 +799,7 @@ describe('processOneSample', () => {
         maxHPByJob: {} as Record<Job, number[]>,
         healByAbility: {},
         durationMs: 100_000,
+        kill: false,
         damageEvents: [],
       }),
       lookupEncounterName: () => encounterName,

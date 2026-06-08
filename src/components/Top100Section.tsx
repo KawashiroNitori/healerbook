@@ -15,6 +15,7 @@ import {
   Filter,
   Eraser,
   ExternalLink,
+  CheckCircle2,
 } from 'lucide-react'
 import { RAID_TIERS, type RaidEncounter, type RaidTier } from '@/data/raidEncounters'
 import { useEncounterTemplate } from '@/hooks/useEncounterTemplate'
@@ -381,29 +382,50 @@ function EncounterTable({
   )
 }
 
-// 进度战面板：用于尚无通关榜单、仍在追进度的副本（如绝境战首周）。
-// 渲染跑马灯横条 + mogtalk 进度榜单链接 + 后端定时任务获取到的"最长进度时间轴"元信息卡片。
-function ProgressEncounterPanel({ tier }: { tier: RaidTier }) {
+// 进度战面板：用于仍在追进度 / 刚通关的绝境战（如绝境战首周）。
+// 渲染跑马灯横条 + mogtalk 进度榜单链接 + 后端定时任务获取到的"最长进度/通关时间轴"元信息卡片，
+// 并在 TOP100 榜单非空时把通关榜单展示在进度卡片下方。
+// 一旦模板来源是击杀（kill），隐藏跑马灯并把时长进度条替换为"已更新完成"。
+function ProgressEncounterPanel({
+  tier,
+  top100Data,
+  filterMitigationKey,
+  isFiltered,
+  importedSources,
+  onImport,
+}: {
+  tier: RaidTier
+  top100Data: Record<string, Top100Data | null> | undefined
+  filterMitigationKey: number[] | null
+  isFiltered: boolean
+  importedSources: Set<string>
+  onImport: (url: string) => void
+}) {
   const encounter = tier.encounters[0]
   const { data, isLoading } = useEncounterTemplate(encounter?.id ?? 0)
+  const isKilled = data?.kill === true
+  const rankingData = encounter ? top100Data?.[encounter.id] : undefined
+  const hasRanking = (rankingData?.entries.length ?? 0) > 0
 
   return (
     <div className="space-y-4">
-      {/* 跑马灯横条（文字无缝循环滚动）。渲染多份铺满容器，位移 -50% 循环无缝 */}
-      <div className="rounded-lg border bg-muted/30 px-4 py-1.5 overflow-hidden whitespace-nowrap">
-        <div className="marquee-track">
-          {Array.from({ length: 16 }).map((_, i) => (
-            <span
-              key={i}
-              className="text-sm text-muted-foreground inline-flex items-center"
-              aria-hidden={i > 0}
-            >
-              🤡 最新进度绝赞更新中 🤡
-              <span className="mx-6 opacity-50">•</span>
-            </span>
-          ))}
+      {/* 跑马灯横条（文字无缝循环滚动）。渲染多份铺满容器，位移 -50% 循环无缝。已通关后不再展示 */}
+      {!isKilled && (
+        <div className="rounded-lg border bg-muted/30 px-4 py-1.5 overflow-hidden whitespace-nowrap">
+          <div className="marquee-track">
+            {Array.from({ length: 16 }).map((_, i) => (
+              <span
+                key={i}
+                className="text-sm text-muted-foreground inline-flex items-center"
+                aria-hidden={i > 0}
+              >
+                🤡 最新进度绝赞更新中 🤡
+                <span className="mx-6 opacity-50">•</span>
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* mogtalk 进度榜单链接 */}
       {tier.mogtalkUrl && (
@@ -432,7 +454,23 @@ function ProgressEncounterPanel({ tier }: { tier: RaidTier }) {
           <div className="text-sm text-muted-foreground">加载中...</div>
         </div>
       )}
-      {!isLoading && data && data.templateSourceDurationMs != null && (
+      {/* 已通关：不显示时长进度条，直接显示"已更新完成" */}
+      {!isLoading && isKilled && data && (
+        <div className="rounded-lg border px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span className="font-medium text-sm">伤害时间轴已更新完成</span>
+            </div>
+            <span className="text-xs text-muted-foreground font-mono">
+              更新于 {formatUpdatedAt(data.updatedAt)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 追进度中：显示当前最长进度时长进度条 */}
+      {!isLoading && !isKilled && data && data.templateSourceDurationMs != null && (
         <div className="rounded-lg border px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
@@ -458,6 +496,18 @@ function ProgressEncounterPanel({ tier }: { tier: RaidTier }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 通关榜单：TOP100 数据非空时展示在进度卡片下方（复用阵容过滤） */}
+      {hasRanking && encounter && (
+        <EncounterTable
+          encounter={encounter}
+          data={rankingData}
+          filterMitigationKey={filterMitigationKey}
+          isFiltered={isFiltered}
+          importedSources={importedSources}
+          onImport={onImport}
+        />
       )}
     </div>
   )
@@ -584,7 +634,14 @@ export default function Top100Section() {
           <span className="rainbow-marquee text-2xl font-bold tracking-wider">敬请期待！</span>
         </div>
       ) : activeTier.mogtalkUrl ? (
-        <ProgressEncounterPanel tier={activeTier} />
+        <ProgressEncounterPanel
+          tier={activeTier}
+          top100Data={data}
+          filterMitigationKey={filterMitigationKey}
+          isFiltered={filterMitigationKey !== null}
+          importedSources={importedSources}
+          onImport={setImportUrl}
+        />
       ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
           <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
