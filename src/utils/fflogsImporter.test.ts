@@ -13,8 +13,9 @@ import {
   extractMaxHPData,
   parseStatData,
   buildBossIds,
+  parseFightImport,
 } from './fflogsImporter'
-import type { FFLogsAbility } from '@/types/fflogs'
+import type { FFLogsAbility, FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 import type { Composition } from '@/types/timeline'
 
 type V2Actor = { id: number; name: string; type: string }
@@ -199,6 +200,26 @@ describe('parseFFLogsUrl', () => {
         isLastFight: true,
       })
     })
+  })
+})
+
+describe('parseFightImport 时间基准', () => {
+  const report = { fights: [], friendlies: [] } as unknown as FFLogsReport
+  const fight = { id: 1, name: 'Boss', startTime: 0, endTime: 20000 }
+
+  it('优先以首个 limitbreakupdate 事件作为零时间', () => {
+    const events: FFLogsEvent[] = [
+      { type: 'limitbreakupdate', timestamp: 2000 },
+      { type: 'damage', timestamp: 5000, targetID: 1 },
+    ]
+    const result = parseFightImport(report, fight, events)
+    expect(result.fightStartTime).toBe(2000)
+  })
+
+  it('无 limitbreakupdate 时回退到首次伤害时间', () => {
+    const events: FFLogsEvent[] = [{ type: 'damage', timestamp: 5000, targetID: 1 }]
+    const result = parseFightImport(report, fight, events)
+    expect(result.fightStartTime).toBe(5000)
   })
 })
 

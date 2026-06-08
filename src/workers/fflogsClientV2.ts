@@ -450,6 +450,12 @@ export class FFLogsClientV2 {
       dataType: string
       hostilityType?: 'Friendlies' | 'Enemies'
       includeResources?: boolean
+      /** 单页请求条数，默认 10000 */
+      limit?: number
+      /** 只取首页、不翻页（用于锚点类小请求） */
+      singlePage?: boolean
+      /** 仅保留该 type 的事件（其余丢弃，避免与其他 spec 重复） */
+      filterType?: string
     }
     const fetchSpecs: FetchSpec[] = [
       { dataType: 'Casts' },
@@ -459,6 +465,9 @@ export class FFLogsClientV2 {
       { dataType: 'CombatantInfo' },
       { dataType: 'Debuffs' },
       { dataType: 'Buffs' },
+      // 全类型首页（limit 200）只挑 limitbreakupdate：作为导入零时间锚点（极限技能槽在
+      // 战斗起点瞬间产生首条更新）。取不到则导入侧回退首次伤害，不阻断导入。
+      { dataType: 'All', limit: 200, singlePage: true, filterType: 'limitbreakupdate' },
     ]
 
     const query = `
@@ -496,7 +505,7 @@ export class FFLogsClientV2 {
           dataType: spec.dataType,
           hostilityType: spec.hostilityType ?? 'Friendlies',
           includeResources: spec.includeResources ?? false,
-          limit: 10000,
+          limit: spec.limit ?? 10000,
         })) as {
           reportData: {
             report: {
@@ -511,18 +520,22 @@ export class FFLogsClientV2 {
         const eventsData = result.reportData.report.events
         events.push(...eventsData.data)
 
-        // 检查是否有下一页
-        if (eventsData.nextPageTimestamp && eventsData.nextPageTimestamp < end) {
+        // 检查是否有下一页（singlePage 锚点请求只取首页）
+        if (
+          !spec.singlePage &&
+          eventsData.nextPageTimestamp &&
+          eventsData.nextPageTimestamp < end
+        ) {
           currentStart = eventsData.nextPageTimestamp
         } else {
           hasMore = false
         }
       }
 
-      return events
+      return spec.filterType ? events.filter(e => e.type === spec.filterType) : events
     }
 
-    // 并行获取所有类型的事件
+    // 并行获取所有 spec 的事件（含 limitbreakupdate 锚点）
     const results = await Promise.all(fetchSpecs.map(fetchAllEventsForSpec))
 
     // 合并所有事件

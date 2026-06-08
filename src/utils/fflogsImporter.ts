@@ -46,13 +46,34 @@ function getActionChinese(actionId: number): string | undefined {
  * 从事件列表中找到第一个 calculateddamage 事件的时间戳，作为战斗零时间
  * 如果没有 calculateddamage，回退到第一个 damage 事件，最后回退到 fallback
  */
-export function findFirstDamageTimestamp(events: FFLogsEvent[], fallback: number): number {
+function findFirstDamageTimestamp(events: FFLogsEvent[], fallback: number): number {
   let firstDamage: number | undefined
   for (const event of events) {
     if (event.type === 'calculateddamage') return event.timestamp
     if (event.type === 'damage' && firstDamage === undefined) firstDamage = event.timestamp
   }
   return firstDamage ?? fallback
+}
+
+/**
+ * 从事件列表中找到第一个 limitbreakupdate 事件的时间戳。
+ * 极限技能槽在战斗真正开始（boss 可攻击）瞬间即产生首条更新，比"首次伤害落地"
+ * 更贴近战斗起点，用作导入时间轴的零时间锚点。无此类事件时返回 undefined，
+ * 内聚由 resolveFightStartTime 回退到 findFirstDamageTimestamp。
+ */
+function findLimitBreakTimestamp(events: FFLogsEvent[]): number | undefined {
+  for (const event of events) {
+    if (event.type === 'limitbreakupdate') return event.timestamp
+  }
+  return undefined
+}
+
+/**
+ * 决定单场战斗的零时间：优先首个 limitbreakupdate（贴近战斗起点），
+ * 无则回退首次伤害时间。limitbreakupdate 事件由 getEvents 在抓取阶段并入 events。
+ */
+function resolveFightStartTime(events: FFLogsEvent[], fallback: number): number {
+  return findLimitBreakTimestamp(events) ?? findFirstDamageTimestamp(events, fallback)
 }
 
 /**
@@ -811,7 +832,7 @@ export function parseStatData(
  */
 export interface FightImportResult {
   composition: Composition
-  /** 战斗零时间（首个 damage 事件时间戳，毫秒） */
+  /** 战斗零时间（首个 limitbreakupdate，无则回退首次伤害时间戳，毫秒） */
   fightStartTime: number
   /** playerId → 基本信息，供调用方进一步提取 statData */
   playerMap: Map<number, { id: number; name: string; type: string }>
@@ -848,7 +869,7 @@ export function parseFightImport(
   }
 
   const composition = parseComposition(report, fight.id, participantIds)
-  const fightStartTime = findFirstDamageTimestamp(events, fight.startTime)
+  const fightStartTime = resolveFightStartTime(events, fight.startTime)
   const bossIds = buildBossIds(report.enemies, fight.name)
   const damageEvents = parseDamageEvents(
     events,
