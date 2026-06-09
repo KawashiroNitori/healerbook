@@ -64,15 +64,23 @@ export function effectsForAction(action: MitigationAction): ResourceEffect[] {
  * - ResourceEffect.required 未声明默认 true；派生到 ResourceEvent.required
  * - 传入 statusTimelineByPlayer 时，带 `suppressedByStatus` 的消费者在该 status 激活的 cast 上被豁免
  *   （不派生该消耗事件）；不传则永不豁免
+ * - cast 只存 trackGroup 父 id；传入 resolvedVariantByCastId 时用 simulate 因果推导好的
+ *   具体变体（如「收回」型 8324 星体爆轰 cd0、不占地星 7439 的 60s CD），用变体自身的
+ *   resourceEffects / cd。不传或某 cast 未命中则退回父 id（向后兼容）。
+ *   注：不在此重新按 timeline 解析——cast 自身产生的 buff 会进时间线、且在区间边界处
+ *   `not(whileStatus)` 与 `whileStatus` 会同时判合法（歧义 fallback 回父），破坏因果。
+ *   simulate 的 resolvedVariantByCastId 用 cast 执行前的状态推导，无此问题。
  */
 export function deriveResourceEvents(
   castEvents: CastEvent[],
   actions: Map<number, MitigationAction>,
-  statusTimelineByPlayer?: StatusTimelineByPlayer
+  statusTimelineByPlayer?: StatusTimelineByPlayer,
+  resolvedVariantByCastId?: Map<string, number>
 ): Map<string, ResourceEvent[]> {
   const grouped = new Map<string, ResourceEvent[]>()
   castEvents.forEach((ce, orderIndex) => {
-    const action = actions.get(ce.actionId)
+    const resolvedId = resolvedVariantByCastId?.get(ce.id) ?? ce.actionId
+    const action = actions.get(resolvedId)
     if (!action) return
     for (const eff of effectsForAction(action)) {
       // 条件消耗：声明了 suppressedByStatus 的消费者，若该 cast 时刻该 status 激活则跳过本次消耗。
@@ -91,7 +99,7 @@ export function deriveResourceEvents(
         timestamp: ce.timestamp,
         delta: eff.delta,
         castEventId: ce.id,
-        actionId: ce.actionId,
+        actionId: action.id,
         playerId: ce.playerId,
         resourceId: eff.resourceId,
         required: eff.required ?? true,

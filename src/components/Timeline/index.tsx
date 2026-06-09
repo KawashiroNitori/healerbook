@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import {
   useDamageCalculationResults,
   useRemovalTimelinesByExcludeId,
+  useResolvedVariantByCastId,
   useHpTimeline,
   useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
@@ -225,6 +226,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const calculationResults = useDamageCalculationResults()
   const removalTimelinesByExcludeId = useRemovalTimelinesByExcludeId()
   const statusTimelineByPlayer = useStatusTimelineByPlayer()
+  const resolvedVariantByCastId = useResolvedVariantByCastId()
   const hpTimeline = useHpTimeline()
 
   const actionMap = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
@@ -236,8 +238,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       actions: actionMap,
       statusTimelineByPlayer,
       removalTimelinesByExcludeId,
+      resolvedVariantByCastId,
     })
-  }, [timeline, actionMap, statusTimelineByPlayer, removalTimelinesByExcludeId])
+  }, [
+    timeline,
+    actionMap,
+    statusTimelineByPlayer,
+    removalTimelinesByExcludeId,
+    resolvedVariantByCastId,
+  ])
 
   const draggingId = useUIStore(s => s.draggingId)
   const setDraggingId = useUIStore(s => s.setDraggingId)

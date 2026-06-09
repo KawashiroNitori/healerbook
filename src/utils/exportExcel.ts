@@ -185,7 +185,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     timeline.damageEvents,
     timeline.castEvents,
     actionsById,
-    castEffectiveEnd
+    castEffectiveEnd,
+    resolvedVariantByCastId
   )
   const castMarkerCells = computeCastMarkerCells(
     timeline.damageEvents,

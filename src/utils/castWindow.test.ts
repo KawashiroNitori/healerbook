@@ -139,6 +139,24 @@ describe('computeLitCellsByEvent', () => {
     expect(result.get('d2')).toEqual(new Set())
   })
 
+  it('收回型变体：castEffectiveEnd 缺失时回退按「解析后变体」duration（duration0 → 不点亮父列）', () => {
+    // 父 100 duration=20；变体 101(trackGroup 100) duration=0（收回，只移除 buff 不附着）。
+    // cast 持久化父 100、resolved 为 101，castEffectiveEnd 缺失 → 回退应按变体 0 → 窗口 [0,0) 不点亮。
+    const actionsById = new Map<number, MitigationAction>([
+      [100, action(100, 20)],
+      [101, { ...action(101, 0), trackGroup: 100 } as MitigationAction],
+    ])
+    const resolved = new Map<string, number>([['c1', 101]])
+    const result = computeLitCellsByEvent(
+      [damage('d1', 5)],
+      [cast('c1', 1, 100, 0)],
+      actionsById,
+      noEff,
+      resolved
+    )
+    expect(result.get('d1')?.has(cellKey(1, 100))).toBe(false)
+  })
+
   it('castEffectiveEnd 覆盖静态 duration：buff 被延长后绿格延长（与时间轴一致）', () => {
     const actionsById = new Map([[100, action(100, 10)]]) // 静态窗口 [0,10)
     const casts = [cast('c1', 1, 100, 0)]

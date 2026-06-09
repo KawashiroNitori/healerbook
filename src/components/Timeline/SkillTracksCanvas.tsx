@@ -196,8 +196,9 @@ export default function SkillTracksCanvas({
         const ce = arr[i]
         const other = actionMap.get(ce.actionId)
         if (!other) continue
-        // 绿条末端：来自 simulate；缺失则回退 action.duration
-        const fallbackEnd = ce.timestamp + other.duration
+        // 绿条末端：来自 simulate；缺失则回退「解析后变体」的 duration（收回型变体 duration0 → 无绿条）
+        const variant = actionMap.get(resolvedVariantByCastId.get(ce.id) ?? ce.actionId) ?? other
+        const fallbackEnd = ce.timestamp + variant.duration
         const greenEnd = castEffectiveEnd.get(ce.id) ?? fallbackEnd
         // cdBar 末端：直接信任 engine.cdBarEndFor（资源池），与 CastEventIcon 一致；
         // 不再用 nextCastTime 钳制（参见 CastEventIcon 中的注释）。
@@ -215,7 +216,7 @@ export default function SkillTracksCanvas({
       merged.set(k, mergeOverlapping(sortIntervals(arr)))
     }
     return merged
-  }, [timeline.castEvents, actionMap, engine, maxTime, castEffectiveEnd])
+  }, [timeline.castEvents, actionMap, engine, maxTime, castEffectiveEnd, resolvedVariantByCastId])
 
   return (
     <>
@@ -635,7 +636,10 @@ export default function SkillTracksCanvas({
           }
           const invalidEntry = invalidCastEventMap?.get(castEvent.id) ?? null
 
-          const fallbackEnd = castEvent.timestamp + action.duration
+          // 绿条回退时长按「解析后变体」：收回型变体（如星体爆轰 8324，duration0、只移除 buff
+          // 不附着）无 castEffectiveEnd → 回退到变体 duration0 → 无绿条；归轨 / CD 仍按父 action。
+          const variantAction = actionMap?.get(variantId) ?? action
+          const fallbackEnd = castEvent.timestamp + variantAction.duration
           const effectiveEndSec = castEffectiveEnd.get(castEvent.id) ?? fallbackEnd
 
           return (

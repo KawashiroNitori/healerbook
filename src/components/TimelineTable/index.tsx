@@ -89,8 +89,15 @@ export default function TimelineTableView() {
       actions: actionsById,
       statusTimelineByPlayer,
       removalTimelinesByExcludeId,
+      resolvedVariantByCastId,
     })
-  }, [timeline, actionsById, statusTimelineByPlayer, removalTimelinesByExcludeId])
+  }, [
+    timeline,
+    actionsById,
+    statusTimelineByPlayer,
+    removalTimelinesByExcludeId,
+    resolvedVariantByCastId,
+  ])
 
   const litCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Set<string>>()
@@ -98,9 +105,17 @@ export default function TimelineTableView() {
       filteredDamageEvents,
       filteredCastEvents,
       actionsById,
-      castEffectiveEnd
+      castEffectiveEnd,
+      resolvedVariantByCastId
     )
-  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById, castEffectiveEnd])
+  }, [
+    timeline,
+    filteredDamageEvents,
+    filteredCastEvents,
+    actionsById,
+    castEffectiveEnd,
+    resolvedVariantByCastId,
+  ])
 
   const markerCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Map<string, number>>()
@@ -119,9 +134,18 @@ export default function TimelineTableView() {
       filteredCastEvents,
       actionsById,
       engine.cdBarEndFor,
-      castEffectiveEnd
+      castEffectiveEnd,
+      resolvedVariantByCastId
     )
-  }, [timeline, engine, filteredDamageEvents, filteredCastEvents, actionsById, castEffectiveEnd])
+  }, [
+    timeline,
+    engine,
+    filteredDamageEvents,
+    filteredCastEvents,
+    actionsById,
+    castEffectiveEnd,
+    resolvedVariantByCastId,
+  ])
 
   const shadowCellsByEvent = useMemo(() => {
     if (!timeline || !engine || isReadOnly) return new Map<string, Set<string>>()

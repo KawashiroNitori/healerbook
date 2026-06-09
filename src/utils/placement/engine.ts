@@ -33,6 +33,12 @@ export interface PlacementEngineInput {
    * 不传 = engine 内所有带 excludeId 查询走过滤降级。EditorPage 自动重分类即此路径。
    */
   removalTimelinesByExcludeId?: Map<string, StatusTimelineByPlayer>
+  /**
+   * simulate 因果推导的 cast→具体变体 id 映射。资源 / CD 层按变体（而非持久化的
+   * trackGroup 父 id）算 cd 与池消耗——「收回」型变体（如星体爆轰 8324，cd0）不再
+   * 误占父技能（地星 7439，cd60）的 CD。缺省则退回父 id。
+   */
+  resolvedVariantByCastId?: Map<string, number>
 }
 
 export function createPlacementEngine(input: PlacementEngineInput): PlacementEngine {
@@ -41,8 +47,14 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     actions,
     statusTimelineByPlayer: defaultTimeline,
     removalTimelinesByExcludeId,
+    resolvedVariantByCastId,
   } = input
-  const resourceEventsByKey = deriveResourceEvents(castEvents, actions, defaultTimeline)
+  const resourceEventsByKey = deriveResourceEvents(
+    castEvents,
+    actions,
+    defaultTimeline,
+    resolvedVariantByCastId
+  )
 
   function effectiveCastEvents(excludeId?: string): CastEvent[] {
     return excludeId ? castEvents.filter(e => e.id !== excludeId) : castEvents
@@ -106,7 +118,8 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       ? deriveResourceEvents(
           castEvents.filter(e => e.id !== excludeId),
           actions,
-          timelineExcluding(excludeId)
+          timelineExcluding(excludeId),
+          resolvedVariantByCastId
         )
       : resourceEventsByKey
     const resourceIntervals = resourceLegalIntervals(
@@ -129,7 +142,8 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       cdBarEndCache.set(castEventId, null)
       return null
     }
-    const action = actions.get(ce.actionId)
+    // CD 条按解析后的具体变体算：「收回」型变体（cd0）不画父技能的 CD 条。
+    const action = actions.get(resolvedVariantByCastId?.get(ce.id) ?? ce.actionId)
     if (!action) {
       cdBarEndCache.set(castEventId, null)
       return null
@@ -287,7 +301,8 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
       actions,
       RESOURCE_REGISTRY,
       removeCastEventId,
-      placementTimeline
+      placementTimeline,
+      resolvedVariantByCastId
     )
     const exhaustedMap = new Map<string, string>()
     for (const ex of resourceExhausted) {

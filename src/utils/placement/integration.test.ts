@@ -41,6 +41,7 @@ function makeEngine(castEvents: CastEvent[]) {
     actions,
     statusTimelineByPlayer: full.statusTimelineByPlayer,
     removalTimelinesByExcludeId,
+    resolvedVariantByCastId: full.resolvedVariantByCastId,
   })
 }
 
@@ -76,10 +77,24 @@ describe('placement 集成', () => {
     const engine = makeEngine([SERAPHISM_CAST, INTUITION])
 
     // 组内任一变体在 t 合法即整组合法：buff 期内 37016 合法 → 不标 placement_lost。
+    // （变体解析正确性见上一个用例与 resolveVariant 单测；此处只验不误红框。）
     const invalid = engine.findInvalidCastEvents()
     expect(invalid.some(r => r.castEvent.id === 'intu')).toBe(false)
-    // 且该时刻解析出的变体确为降临之章。
-    expect(engine.pickUniqueMember(37013, 1, 20)?.id).toBe(37016)
+  })
+
+  it('地星(place)+ 收回(星体爆轰) 都存父 id 7439：收回不因地星 CD 被误判 resource_exhausted', () => {
+    // place 7439 在 t=10（无 buff → 地星，attach 1224 10s，cd 60）
+    // recall 在 t=14（buff 1224 在 → 解析为 8324 星体爆轰，cd 0，消费 buff）
+    // 两者都存父 id 7439。recall 落在地星 60s CD 内，但它实为 cd0 的爆轰 → 不该红框。
+    const PLACE = { id: 'p', actionId: 7439, playerId: 1, timestamp: 10 } as unknown as CastEvent
+    const RECALL = { id: 'r', actionId: 7439, playerId: 1, timestamp: 14 } as unknown as CastEvent
+    const engine = makeEngine([PLACE, RECALL])
+
+    // recall 解析为 8324（buff 期内）
+    expect(engine.pickUniqueMember(7439, 1, 14)?.id).toBe(8324)
+    // 资源层按解析变体：8324 cd0 不占 __cd__:7439 → recall 不红框
+    const invalid = engine.findInvalidCastEvents()
+    expect(invalid.some(r => r.castEvent.id === 'r')).toBe(false)
   })
 
   it('拖拽 37014 预览移除 buff：cast 自动跟随回 37013，仍合法不红框', () => {

@@ -52,7 +52,8 @@ export function computeLitCellsByEvent(
   damageEvents: DamageEvent[],
   castEvents: CastEvent[],
   actionsById: Map<number, MitigationAction>,
-  castEffectiveEnd: Map<string, number>
+  castEffectiveEnd: Map<string, number>,
+  resolvedVariantByCastId: Map<string, number> = new Map()
 ): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>()
   for (const event of damageEvents) {
@@ -60,7 +61,10 @@ export function computeLitCellsByEvent(
     for (const castEvent of castEvents) {
       const action = actionsById.get(castEvent.actionId)
       if (!action) continue
-      const greenEnd = greenEndOf(castEvent, action, castEffectiveEnd)
+      // 绿条回退时长按「解析后变体」：收回型变体 duration0 → 窗口零宽 → 不点亮。归列仍按父。
+      const variant =
+        actionsById.get(resolvedVariantByCastId.get(castEvent.id) ?? castEvent.actionId) ?? action
+      const greenEnd = greenEndOf(castEvent, variant, castEffectiveEnd)
       if (castEvent.timestamp <= event.time && event.time < greenEnd) {
         lit.add(castCellKey(castEvent, actionsById))
       }
@@ -128,7 +132,8 @@ export function computeCdCellsByEvent(
   castEvents: CastEvent[],
   actionsById: Map<number, MitigationAction>,
   cdBarEndFor: (castEventId: string) => number | null,
-  castEffectiveEnd: Map<string, number>
+  castEffectiveEnd: Map<string, number>,
+  resolvedVariantByCastId: Map<string, number> = new Map()
 ): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>()
   for (const event of damageEvents) result.set(event.id, new Set<string>())
@@ -138,7 +143,10 @@ export function computeCdCellsByEvent(
     if (!action) continue
     const rawEnd = cdBarEndFor(castEvent.id)
     if (rawEnd === null) continue
-    const greenEnd = greenEndOf(castEvent, action, castEffectiveEnd)
+    // 蓝条起点 greenEnd 与绿条同源，按「解析后变体」duration 回退（收回型 duration0）。
+    const variant =
+      actionsById.get(resolvedVariantByCastId.get(castEvent.id) ?? castEvent.actionId) ?? action
+    const greenEnd = greenEndOf(castEvent, variant, castEffectiveEnd)
     const key = castCellKey(castEvent, actionsById)
     for (const event of damageEvents) {
       if (greenEnd <= event.time && event.time < rawEnd) {

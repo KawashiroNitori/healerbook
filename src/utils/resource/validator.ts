@@ -15,16 +15,23 @@ import { computeResourceTrace, deriveResourceEvents, syntheticCdDef } from './co
  *
  * @param excludeId 拖拽预览：排除正被拖动的 cast 重算。
  * @param statusTimelineByPlayer 供 `suppressedByStatus` 条件消耗判定；省略则不豁免。
+ * @param resolvedVariantByCastId simulate 因果推导的 cast→变体 id；按变体的 cd/资源算。
  */
 export function findResourceExhaustedCasts(
   castEvents: CastEvent[],
   actions: Map<number, MitigationAction>,
   registry: Record<string, ResourceDefinition>,
   excludeId?: string,
-  statusTimelineByPlayer?: StatusTimelineByPlayer
+  statusTimelineByPlayer?: StatusTimelineByPlayer,
+  resolvedVariantByCastId?: Map<string, number>
 ): ResourceExhaustion[] {
   const filteredCasts = excludeId ? castEvents.filter(ce => ce.id !== excludeId) : castEvents
-  const grouped = deriveResourceEvents(filteredCasts, actions, statusTimelineByPlayer)
+  const grouped = deriveResourceEvents(
+    filteredCasts,
+    actions,
+    statusTimelineByPlayer,
+    resolvedVariantByCastId
+  )
   const exhaustions: ResourceExhaustion[] = []
 
   for (const [resourceKey, events] of grouped.entries()) {
