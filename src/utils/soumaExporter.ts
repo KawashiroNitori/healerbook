@@ -38,7 +38,8 @@ export function buildSoumaTimelineText(
   timeline: Timeline,
   playerId: number,
   selectedActionIds: number[],
-  ttsEnabled: boolean
+  ttsEnabled: boolean,
+  resolvedVariantByCastId: Map<string, number> = new Map()
 ): string {
   const selectedSet = new Set(selectedActionIds)
 
@@ -64,16 +65,23 @@ export function buildSoumaTimelineText(
   if (selectedActionIds.length > 0) {
     for (const cast of timeline.castEvents) {
       if (cast.playerId !== playerId) continue
+      // 归轨/勾选过滤仍按持久化的父 actionId（trackGroup ?? id）——勾父隐式含全部变体。
       const action = MITIGATION_DATA.actions.find(a => a.id === cast.actionId)
       if (!action) continue
       const groupId = action.trackGroup ?? action.id
       if (!selectedSet.has(groupId)) continue
+      // 导出名按 simulate 推导出的具体变体（cast 持久化的是父 id）；缺失时回退父 action。
+      const variantId = resolvedVariantByCastId.get(cast.id) ?? cast.actionId
+      const variantAction =
+        variantId === cast.actionId
+          ? action
+          : (MITIGATION_DATA.actions.find(a => a.id === variantId) ?? action)
       const time = formatSoumaTime(cast.timestamp)
       const tts = ttsEnabled ? ' tts' : ''
       entries.push({
         time: cast.timestamp,
         order: 1,
-        text: `${time} "<${action.name}>~"${tts}`,
+        text: `${time} "<${variantAction.name}>~"${tts}`,
       })
     }
   }
@@ -150,6 +158,8 @@ export interface SoumaExportParams {
   playerId: number
   selectedActionIds: number[]
   ttsEnabled: boolean
+  /** 各 cast 的实际变体 id（来自 simulate 的 resolvedVariantByCastId）；缺省回退父 actionId。 */
+  resolvedVariantByCastId?: Map<string, number>
 }
 
 /**
@@ -157,8 +167,20 @@ export interface SoumaExportParams {
  * 输出格式：`LZString.compressToBase64(JSON.stringify([ITimeline]))`
  */
 export function exportSoumaTimeline(params: SoumaExportParams): string {
-  const { timeline, playerId, selectedActionIds, ttsEnabled } = params
-  const text = buildSoumaTimelineText(timeline, playerId, selectedActionIds, ttsEnabled)
+  const {
+    timeline,
+    playerId,
+    selectedActionIds,
+    ttsEnabled,
+    resolvedVariantByCastId = new Map(),
+  } = params
+  const text = buildSoumaTimelineText(
+    timeline,
+    playerId,
+    selectedActionIds,
+    ttsEnabled,
+    resolvedVariantByCastId
+  )
   const wrapped = wrapAsSoumaITimeline(timeline, playerId, text)
   return LZString.compressToBase64(JSON.stringify([wrapped]))
 }

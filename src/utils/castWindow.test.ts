@@ -3,6 +3,7 @@ import {
   computeLitCellsByEvent,
   computeCdCellsByEvent,
   computeShadowCellsByEvent,
+  computeCastMarkerCells,
   cellKey,
 } from './castWindow'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
@@ -396,5 +397,31 @@ describe('computeShadowCellsByEvent', () => {
 describe('cellKey', () => {
   it('格式为 playerId:actionId', () => {
     expect(cellKey(1, 100)).toBe('1:100')
+  })
+})
+
+describe('computeCastMarkerCells', () => {
+  // 父 100 / 变体 101（trackGroup: 100），归列按 trackGroup（100），value 存显示变体 id
+  const variantAction = (id: number, trackGroup?: number): MitigationAction =>
+    ({ ...action(id, 10), trackGroup }) as MitigationAction
+  const actionsById = new Map<number, MitigationAction>([
+    [100, variantAction(100)],
+    [101, variantAction(101, 100)],
+  ])
+
+  it('cast 持久化父 id，value 按 resolvedVariantByCastId 存变体 id；归列仍按 trackGroup', () => {
+    const events = [damage('d1', 30)]
+    const casts = [cast('c1', 1, 100, 20)] // 持久化父 100
+    const resolved = new Map<string, number>([['c1', 101]]) // 推导为变体 101
+    const result = computeCastMarkerCells(events, casts, actionsById, resolved)
+    // 归列 key 仍是 trackGroup(100)，但 value 是变体 101
+    expect(result.get('d1')?.get(cellKey(1, 100))).toBe(101)
+  })
+
+  it('resolvedVariantByCastId 缺失该 cast 时回退父 actionId', () => {
+    const events = [damage('d1', 30)]
+    const casts = [cast('c1', 1, 100, 20)]
+    const result = computeCastMarkerCells(events, casts, actionsById, new Map())
+    expect(result.get('d1')?.get(cellKey(1, 100))).toBe(100)
   })
 })

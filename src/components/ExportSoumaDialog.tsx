@@ -22,6 +22,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useResolvedVariantByCastId } from '@/contexts/DamageCalculationContext'
 import { useTooltipStore } from '@/store/tooltipStore'
 import { useSoumaExportStore } from '@/store/soumaExportStore'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
@@ -215,6 +216,7 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
   const ttsEnabled = useSoumaExportStore(s => s.ttsEnabled)
   const setTtsEnabled = useSoumaExportStore(s => s.setTtsEnabled)
   const setActionIdsForJob = useSoumaExportStore(s => s.setActionIdsForJob)
+  const resolvedVariantByCastId = useResolvedVariantByCastId()
 
   const [selected, setSelected] = useState<Set<number>>(() => {
     const persisted = useSoumaExportStore.getState().actionIdsByJob[currentJob]
@@ -231,8 +233,9 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
       playerId,
       selectedActionIds: Array.from(selected),
       ttsEnabled,
+      resolvedVariantByCastId,
     })
-  }, [timeline, playerId, selected, ttsEnabled, hasSelection])
+  }, [timeline, playerId, selected, ttsEnabled, hasSelection, resolvedVariantByCastId])
 
   const toggleAction = (actionId: number) => {
     const next = new Set(selected)

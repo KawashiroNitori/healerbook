@@ -26,6 +26,11 @@ export interface ExportExcelOptions {
    * 缺省时绿格回退到静态 action.duration。
    */
   castEffectiveEnd?: Map<string, number>
+  /**
+   * 各 cast 的实际变体 id（来自 simulate 的 resolvedVariantByCastId）。cast 持久化的是父 id，
+   * marker 单元格的图标按变体 id 显示；缺省时回退父 actionId。
+   */
+  resolvedVariantByCastId?: Map<string, number>
 }
 
 // 颜色常量
@@ -55,6 +60,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
     showActualDamage,
     fileName,
     castEffectiveEnd = new Map<string, number>(),
+    resolvedVariantByCastId = new Map<string, number>(),
   } = options
 
   const wb = new ExcelJS.Workbook()
@@ -184,7 +190,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
   const castMarkerCells = computeCastMarkerCells(
     timeline.damageEvents,
     timeline.castEvents,
-    actionsById
+    actionsById,
+    resolvedVariantByCastId
   )
 
   // ---- Row 3+: 数据行 ----

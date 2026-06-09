@@ -111,6 +111,29 @@ describe('buildSoumaTimelineText', () => {
     expect(lines).toEqual(['00:10.0 "<意气轩昂之策>~"', '00:20.0 "<降临之章>~"'])
   })
 
+  it('cast 持久化父 id，按 resolvedVariantByCastId 导出具体变体名', () => {
+    // 新模型：cast 持久化父 id 37013，simulate 推导出该 cast 实际是变体 37016（降临之章）。
+    const cast = makeCast({ actionId: 37013, timestamp: 20, playerId: 1, job: 'SCH' })
+    const timeline = makeTimeline({
+      composition: { players: [{ id: 1, job: 'SCH' }] },
+      castEvents: [cast],
+    })
+    const resolved = new Map<string, number>([[cast.id, 37016]])
+    const text = buildSoumaTimelineText(timeline, 1, [37013], false, resolved)
+    expect(text).toBe('00:20.0 "<降临之章>~"')
+  })
+
+  it('resolvedVariantByCastId 缺失该 cast 时回退父 action 名', () => {
+    const cast = makeCast({ actionId: 37013, timestamp: 20, playerId: 1, job: 'SCH' })
+    const timeline = makeTimeline({
+      composition: { players: [{ id: 1, job: 'SCH' }] },
+      castEvents: [cast],
+    })
+    // 空 map：无推导变体 → 回退父 id 37013（意气轩昂之策）
+    const text = buildSoumaTimelineText(timeline, 1, [37013], false, new Map())
+    expect(text).toBe('00:20.0 "<意气轩昂之策>~"')
+  })
+
   it('未勾父时变体 cast 不导出', () => {
     const timeline = makeTimeline({
       composition: { players: [{ id: 1, job: 'SCH' }] },

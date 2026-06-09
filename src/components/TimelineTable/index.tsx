@@ -23,6 +23,7 @@ import {
   useCastEffectiveEnd,
   useDamageCalculationResults,
   useRemovalTimelinesByExcludeId,
+  useResolvedVariantByCastId,
   useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
@@ -69,6 +70,7 @@ export default function TimelineTableView() {
   const removalTimelinesByExcludeId = useRemovalTimelinesByExcludeId()
   const statusTimelineByPlayer = useStatusTimelineByPlayer()
   const castEffectiveEnd = useCastEffectiveEnd()
+  const resolvedVariantByCastId = useResolvedVariantByCastId()
   const isReadOnly = useEditorReadOnly()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
@@ -102,8 +104,13 @@ export default function TimelineTableView() {
 
   const markerCellsByEvent = useMemo(() => {
     if (!timeline) return new Map<string, Map<string, number>>()
-    return computeCastMarkerCells(filteredDamageEvents, filteredCastEvents, actionsById)
-  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById])
+    return computeCastMarkerCells(
+      filteredDamageEvents,
+      filteredCastEvents,
+      actionsById,
+      resolvedVariantByCastId
+    )
+  }, [timeline, filteredDamageEvents, filteredCastEvents, actionsById, resolvedVariantByCastId])
 
   const cdCellsByEvent = useMemo(() => {
     if (!timeline || !engine) return new Map<string, Set<string>>()

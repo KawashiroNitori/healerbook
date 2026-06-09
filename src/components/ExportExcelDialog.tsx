@@ -15,6 +15,7 @@ import { useMitigationStore } from '@/store/mitigationStore'
 import {
   useCastEffectiveEnd,
   useDamageCalculationResults,
+  useResolvedVariantByCastId,
 } from '@/contexts/DamageCalculationContext'
 import { deriveSkillTracks } from '@/utils/skillTracks'
 import { sortJobsByOrder, getJobName } from '@/data/jobs'
@@ -34,6 +35,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
   const actions = useMitigationStore(s => s.actions)
   const calculationResults = useDamageCalculationResults()
   const castEffectiveEnd = useCastEffectiveEnd()
+  const resolvedVariantByCastId = useResolvedVariantByCastId()
 
   const [fileName, setFileName] = useState('')
   const [hiddenPlayerIds, setHiddenPlayerIds] = useState<Set<number>>(new Set())
@@ -94,6 +96,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
         showActualDamage,
         fileName,
         castEffectiveEnd,
+        resolvedVariantByCastId,
       })
 
       const blob = new Blob([buffer as BlobPart], {

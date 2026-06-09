@@ -22,7 +22,10 @@ import { TIME_EPS } from '@/utils/placement/types'
 import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
 import { effectiveTrackGroup } from '@/types/mitigation'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
-import { useCastEffectiveEnd } from '@/contexts/DamageCalculationContext'
+import {
+  useCastEffectiveEnd,
+  useResolvedVariantByCastId,
+} from '@/contexts/DamageCalculationContext'
 import { useUIStore } from '@/store/uiStore'
 
 interface SkillTracksCanvasProps {
@@ -150,6 +153,8 @@ export default function SkillTracksCanvas({
   const skillTracksHeight = skillTracks.length * trackHeight
   const { filteredDamageEvents } = useFilteredTimelineView()
   const castEffectiveEnd = useCastEffectiveEnd()
+  // simulate 推导出的每个 cast 的实际变体 id（cast 持久化的是父 id，具体变体显示要查这个 map）。
+  const resolvedVariantByCastId = useResolvedVariantByCastId()
 
   // 视口裁剪：只渲染可见范围内的元素（含 1 个 viewport 宽度的 buffer）
   const buffer = viewportWidth
@@ -580,7 +585,14 @@ export default function SkillTracksCanvas({
           const trackY = trackIndex * trackHeight + trackHeight / 2
           const isSelected = selectedCastEventIds.includes(castEvent.id)
 
-          const displayAction = displayActionOverrides.get(castEvent.id)
+          // 显示用的具体变体（仅图标 + 悬浮窗，不影响 duration / CD / 归轨）：
+          // 优先用 simulate 推导出的变体 id（cast 持久化的是父 id），缺失时回退父 id。
+          // 仅当变体 id 与父 actionId 不同时才查 override，避免无谓的 actions.find。
+          const variantId = resolvedVariantByCastId.get(castEvent.id) ?? castEvent.actionId
+          const displayAction =
+            variantId !== castEvent.actionId
+              ? (actionMap?.get(variantId) ?? actions.find(a => a.id === variantId))
+              : displayActionOverrides.get(castEvent.id)
 
           // engine 给出"整条轨道（同 trackGroup）所有成员合法区间的 union"，作为拖拽边界。
           // 只约束到"落到任何成员合法的地方"而不是"只能落到当前 actionId 合法的地方"——
