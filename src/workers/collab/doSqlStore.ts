@@ -1,5 +1,5 @@
 /// <reference types="@cloudflare/workers-types" />
-import { mergeUpdates } from 'yjs'
+import { mergeUpdates, applyUpdate, encodeStateAsUpdate, Doc } from 'yjs'
 
 /** BLOB 列读出来是 ArrayBuffer；统一转 Uint8Array */
 function toU8(v: ArrayBuffer | Uint8Array): Uint8Array {
@@ -55,13 +55,25 @@ export class DoSqlStore {
     return Number(row.n) === 0
   }
 
-  /** 合并出新 snapshot、清空 updates */
+  /**
+   * 合并出新 snapshot、清空 updates。
+   *
+   * 把合并结果过一遍 gc 开启的 Y.Doc 再重新编码:Yjs GC 会丢弃已删除内容的具体
+   * 数据、只留压缩删除标记,从而把反复增删 / 重导入累积的墓碑清掉。这是规避 DO
+   * SQLite 单 BLOB 2MB 上限(超限抛 SQLITE_TOOBIG)的关键 —— 不 GC 时 snapshot.bin
+   * 会随历史单调增长。GC 后的 update 仍是合法 Yjs 状态,客户端 apply 后可见内容一致。
+   */
   squash(): void {
     const merged = this.getMergedDoc()
+    const doc = new Doc()
+    applyUpdate(doc, merged)
+    const compacted = encodeStateAsUpdate(doc)
+    doc.destroy()
+    console.log(`[squash] gc ${merged.byteLength} -> ${compacted.byteLength} bytes`)
     this.sql.exec(
       'INSERT INTO snapshot (id, bin, updated_at) VALUES (1, ?, ?) ' +
         'ON CONFLICT(id) DO UPDATE SET bin = excluded.bin, updated_at = excluded.updated_at',
-      merged,
+      compacted,
       Date.now()
     )
     this.sql.exec('DELETE FROM updates')

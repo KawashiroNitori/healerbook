@@ -40,6 +40,39 @@ describe('DoSqlStore', () => {
     })
   })
 
+  it('squash 经 GC 丢弃删除墓碑,显著缩小 snapshot 体积、内容一致', async () => {
+    const id = env.TIMELINE_DOC.idFromName('t-sqlstore-gc')
+    const stub = env.TIMELINE_DOC.get(id)
+    await runInDurableObject(stub, async (_instance, state) => {
+      const store = new DoSqlStore(state.storage.sql)
+      store.init()
+
+      // 制造大量内容,再整体删除 —— 模拟反复重导入留下的墓碑
+      const d = new Y.Doc()
+      const arr = d.getArray('big')
+      d.transact(() => {
+        for (let i = 0; i < 2000; i++) arr.push(['x'.repeat(50)])
+      })
+      store.appendUpdate(Y.encodeStateAsUpdate(d))
+      const svAfterAdd = Y.encodeStateVector(d)
+      d.transact(() => arr.delete(0, arr.length))
+      store.appendUpdate(Y.encodeStateAsUpdate(d, svAfterAdd)) // 删除增量
+
+      // squash 前:mergeUpdates 保留墓碑内容,体积大
+      const beforeBytes = store.getMergedDoc().byteLength
+      store.squash()
+      // squash 后:snapshot 已 GC,墓碑内容被丢弃
+      const afterBytes = store.getMergedDoc().byteLength
+
+      expect(afterBytes).toBeLessThan(beforeBytes / 2)
+      // 可见内容一致:数组已空
+      const check = new Y.Doc()
+      Y.applyUpdate(check, store.getMergedDoc())
+      expect(check.getArray('big').length).toBe(0)
+      expect(store.countUpdates()).toBe(0)
+    })
+  })
+
   it('isEmpty 在 init 后为 true、appendUpdate 后为 false', async () => {
     const id = env.TIMELINE_DOC.idFromName('t-sqlstore-3')
     const stub = env.TIMELINE_DOC.get(id)
