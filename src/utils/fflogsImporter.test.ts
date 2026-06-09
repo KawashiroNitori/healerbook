@@ -275,7 +275,7 @@ describe('parseCastEvents', () => {
     expect(result[0].timestamp).toBe(5)
   })
 
-  it('应该保留 37016（降临之章）的原始 abilityGameID（由 trackGroup 在渲染层挂到 37013 轨道）', () => {
+  it('应该把 37016（降临之章）导入即归一为 trackGroup 父 id 37013（变体运行时推导）', () => {
     const mockPlayerMapSCH = new Map<number, V2Actor>([
       [3, { id: 3, name: 'Scholar', type: 'Scholar' }],
     ])
@@ -286,7 +286,7 @@ describe('parseCastEvents', () => {
     const result = parseCastEvents(events, fightStartTime, mockPlayerMapSCH)
 
     expect(result).toHaveLength(1)
-    expect(result[0].actionId).toBe(37016)
+    expect(result[0].actionId).toBe(37013) // 归一为 trackGroup 父 id（变体运行时推导）
     expect(result[0].timestamp).toBe(5)
   })
 })

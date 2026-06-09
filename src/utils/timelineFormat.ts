@@ -37,6 +37,7 @@ import type {
 } from '@/types/timelineV2'
 import { getEncounterById } from '@/data/raidEncounters'
 import { generateId } from '@/utils/id'
+import { normalizeActionId } from './normalizeActionId'
 import { generateObjectId } from '@/utils/shortId'
 
 // ──────────────────────────────────────────────────────────────
@@ -291,7 +292,8 @@ function fromV2CastEvents(ce: V2CastEvents): CastEvent[] {
   for (let i = 0; i < len; i++) {
     out[i] = {
       id: generateObjectId(),
-      actionId: ce.a[i],
+      // 读取归一：旧文档持久化的子变体 id 读入即归一为 trackGroup 父 id（变体运行时推导）
+      actionId: normalizeActionId(ce.a[i]),
       timestamp: ce.t[i],
       playerId: ce.p[i],
     }
@@ -314,7 +316,8 @@ function fromV2SyncEvent(e: V2SyncEvent): SyncEvent {
   return {
     time: e.t,
     type: NUM_TO_SYNC_TYPE[e.ty],
-    actionId: e.a,
+    // 读取归一（与 cast 一致）；SyncEvent 多为 boss 招式 id，不在减伤注册表内时为 no-op
+    actionId: normalizeActionId(e.a),
     actionName: e.nm ?? `unknown_${e.a.toString(16)}`,
     window: e.w,
     syncOnce: e.so === 1,

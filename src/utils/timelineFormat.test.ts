@@ -705,4 +705,23 @@ describe('parseFromAny', () => {
     expect(() => parseFromAny([1, 2])).toThrow('Invalid timeline: not a plain object')
     expect(() => parseFromAny(42)).toThrow('Invalid timeline: not a plain object')
   })
+
+  it('V2 读取把子变体 actionId 归一为 trackGroup 父 id', () => {
+    const tl = makeEditorTimeline()
+    // 把 SCH 的 cast 设为子变体「降临之章」37016（trackGroup 父 id 为 37013）
+    tl.castEvents[1] = { id: 'e3', actionId: 37016, timestamp: 8, playerId: 3 }
+    const v2 = toV2(tl)
+    const result = parseFromAny(v2, { id: 'tl_variant' })
+    const cast = result.castEvents.find(c => c.timestamp === 8)!
+    expect(cast.actionId).toBe(37013) // 归一为 trackGroup 父 id（变体运行时推导）
+  })
+
+  it('V1 迁移读取也把子变体 actionId 归一为父 id', () => {
+    const v1 = makeV1EditorTimeline()
+    // makeV1EditorTimeline 的第一个 cast 改为 37016
+    ;(v1 as { castEvents: { actionId: number }[] }).castEvents[0].actionId = 37016
+    const result = parseFromAny(v1, { id: 'tl_v1_variant' })
+    expect(result.castEvents.some(c => c.actionId === 37013)).toBe(true)
+    expect(result.castEvents.some(c => c.actionId === 37016)).toBe(false)
+  })
 })

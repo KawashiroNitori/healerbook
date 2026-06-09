@@ -2,6 +2,7 @@ import * as Y from 'yjs'
 import { Y_MAP, LOCAL_ORIGIN, EXIT_REPLAY_ORIGIN } from './constants'
 import type { TimelineContent } from './types'
 import type { DamageEvent, CastEvent, Annotation, Timeline, Composition } from '@/types/timeline'
+import { normalizeActionId } from '@/utils/normalizeActionId'
 
 /** meta Map 里存放的标量字段名 */
 const META_KEYS = [
@@ -280,6 +281,12 @@ export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
     indexById(prev?.castEvents)
   )
     .filter(c => playerIds.has(c.playerId)) // sanitizer:丢孤儿 cast
+    // 读取归一:旧 doc 持久化的子变体 id 投影即归一为 trackGroup 父 id(变体运行时推导)。
+    // actionId 不变时保持引用,以兼容 projectCollection 的引用保持语义。
+    .map(c => {
+      const parentId = normalizeActionId(c.actionId)
+      return parentId === c.actionId ? c : { ...c, actionId: parentId }
+    })
     .sort((a, b) => a.timestamp - b.timestamp)
 
   const annotations = projectCollection<Annotation>(

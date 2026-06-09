@@ -21,6 +21,7 @@ import actionExtraRaw from '@/data/action.json'
 import { JOB_MAP } from '@/data/jobMap'
 import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
 import { calculatePercentile } from './stats'
+import { normalizeActionId } from './normalizeActionId'
 import { classifyPartialAOE } from './partialAoeClassifier'
 import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
 import { getEncounterWithTier } from '@/data/raidEncounters'
@@ -622,7 +623,8 @@ export function parseCastEvents(
 
     castEventsResult.push({
       id: `cast-${castEventsResult.length}`,
-      actionId: abilityGameID,
+      // 导入即归一:子变体 id 归一为 trackGroup 父 id(变体运行时推导)
+      actionId: normalizeActionId(abilityGameID),
       timestamp: (event.timestamp - fightStartTime) / 1000,
       playerId: event.sourceID,
     })
