@@ -79,6 +79,10 @@ interface TimelineContextMenuProps {
   onPasteSelection?: (time: number) => void
   /** 全选时间轴所有对象（空白处菜单项） */
   onSelectAll?: () => void
+  /** 全选当前过滤器下可见的所有伤害事件（伤害区菜单项） */
+  onSelectAllDamageEvents?: () => void
+  /** 全选当前过滤器下可见的所有技能 cast（技能区菜单项） */
+  onSelectAllCasts?: () => void
 }
 
 export default function TimelineContextMenu({
@@ -99,6 +103,8 @@ export default function TimelineContextMenu({
   pasteAvailable,
   onPasteSelection,
   onSelectAll,
+  onSelectAllDamageEvents,
+  onSelectAllCasts,
 }: TimelineContextMenuProps) {
   if (!menu) return null
 
@@ -206,6 +212,16 @@ export default function TimelineContextMenu({
                   全选
                   <DropdownMenuShortcut>{modKey}A</DropdownMenuShortcut>
                 </DropdownMenuItem>
+                {onSelectAllCasts && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onSelectAllCasts()
+                      onClose()
+                    }}
+                  >
+                    全选技能
+                  </DropdownMenuItem>
+                )}
               </>
             )}
           </>
@@ -294,6 +310,16 @@ export default function TimelineContextMenu({
                   全选
                   <DropdownMenuShortcut>{modKey}A</DropdownMenuShortcut>
                 </DropdownMenuItem>
+                {onSelectAllDamageEvents && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onSelectAllDamageEvents()
+                      onClose()
+                    }}
+                  >
+                    全选伤害事件
+                  </DropdownMenuItem>
+                )}
               </>
             )}
           </>

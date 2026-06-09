@@ -97,6 +97,8 @@ interface TimelineState {
   selectedCastEventIds: string[]
   /** 选中的注释 ID 列表 */
   selectedAnnotationIds: string[]
+  /** 当前选择是否由「全选 / 全选技能 / 全选伤害事件」操作产生（决定复制后粘贴用绝对时间） */
+  selectionFromSelectAll: boolean
   /** 当前播放时间 (秒) */
   currentTime: number
   /** 缩放级别 (像素/秒) */
@@ -149,8 +151,8 @@ interface TimelineState {
   selectEvent: (eventId: string | null) => void
   /** 选择技能使用事件 */
   selectCastEvent: (castEventId: string | null) => void
-  /** 整组替换选择 */
-  setSelection: (sel: SelectionPatch) => void
+  /** 整组替换选择；opts.fromSelectAll 标记本次选择来自全选类操作 */
+  setSelection: (sel: SelectionPatch, opts?: { fromSelectAll?: boolean }) => void
   /** 与现有选择求并集（Shift 框选） */
   addToSelection: (sel: SelectionPatch) => void
   /** 切换单个对象选中态（Ctrl/Cmd 点击） */
@@ -236,6 +238,7 @@ const initialUiState = {
   selectedEventIds: [],
   selectedCastEventIds: [],
   selectedAnnotationIds: [],
+  selectionFromSelectAll: false,
   currentTime: 0,
   zoomLevel: 30, // xx 像素 / 秒
   pendingScrollProgress: null,
@@ -422,6 +425,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         selectedEventIds: [],
         selectedCastEventIds: [],
         selectedAnnotationIds: [],
+        selectionFromSelectAll: false,
         canUndo: false,
         canRedo: false,
         connectionStatus: 'disconnected',
@@ -519,6 +523,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         selectedEventIds: [],
         selectedCastEventIds: [],
         selectedAnnotationIds: [],
+        selectionFromSelectAll: false,
         peers: [],
       })
       recomputeTimeline()
@@ -599,7 +604,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       set({ partyState: newPartyState })
     },
 
-    setSelection: sel => {
+    setSelection: (sel, opts) => {
       const next = {
         eventIds: sel.eventIds ?? [],
         castEventIds: sel.castEventIds ?? [],
@@ -609,6 +614,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         selectedEventIds: next.eventIds,
         selectedCastEventIds: next.castEventIds,
         selectedAnnotationIds: next.annotationIds,
+        // 默认重置；仅全选类操作显式置 true。任何手动改选（框选/点选/删除清理）都会归 false
+        selectionFromSelectAll: opts?.fromSelectAll ?? false,
         ...deriveSingle(next),
       })
       get().engine?.awareness.setLocalStateField('selection', next)

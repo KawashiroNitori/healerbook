@@ -279,7 +279,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
   const isReadOnly = useEditorReadOnly()
   const skillTracks = useSkillTracks()
-  const { filteredDamageEvents } = useFilteredTimelineView()
+  const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
   // 平移/缩放交互 Hook 的共享 refs
   const panZoomRefs: PanZoomRefs = {
@@ -751,11 +751,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const total =
       s.selectedEventIds.length + s.selectedCastEventIds.length + s.selectedAnnotationIds.length
     if (total === 0) return
-    const payload = buildClipboardPayload(s.timeline, {
-      eventIds: s.selectedEventIds,
-      castEventIds: s.selectedCastEventIds,
-      annotationIds: s.selectedAnnotationIds,
-    })
+    const payload = buildClipboardPayload(
+      s.timeline,
+      {
+        eventIds: s.selectedEventIds,
+        castEventIds: s.selectedCastEventIds,
+        annotationIds: s.selectedAnnotationIds,
+      },
+      // 全选类操作产生的选择：粘贴时用绝对时间
+      s.selectionFromSelectAll
+    )
     try {
       const blob = new Blob([JSON.stringify(payload)], { type: CLIPBOARD_MIME })
       await navigator.clipboard.write([new ClipboardItem({ [CLIPBOARD_MIME]: blob })])
@@ -844,14 +849,29 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const s = useTimelineStore.getState()
     const tl = s.timeline
     if (!tl) return
-    s.setSelection({
-      eventIds: tl.damageEvents.map(e => e.id),
-      castEventIds: tl.castEvents.map(c => c.id),
-      annotationIds: (tl.annotations ?? []).map(a => a.id),
-    })
+    s.setSelection(
+      {
+        eventIds: tl.damageEvents.map(e => e.id),
+        castEventIds: tl.castEvents.map(c => c.id),
+        annotationIds: (tl.annotations ?? []).map(a => a.id),
+      },
+      { fromSelectAll: true }
+    )
   }, [])
   // 全选只读取选择状态，只读/回放模式也允许
   useHotkeys('mod+a', selectAll, { enabled: true, preventDefault: true }, [selectAll])
+
+  // 全选伤害事件 / 技能：仅选中当前过滤器下可见（未被过滤）的对象（区域右键菜单项，无快捷键）
+  const selectAllDamageEvents = useCallback(() => {
+    useTimelineStore
+      .getState()
+      .setSelection({ eventIds: filteredDamageEvents.map(e => e.id) }, { fromSelectAll: true })
+  }, [filteredDamageEvents])
+  const selectAllCasts = useCallback(() => {
+    useTimelineStore
+      .getState()
+      .setSelection({ castEventIds: filteredCastEvents.map(c => c.id) }, { fromSelectAll: true })
+  }, [filteredCastEvents])
 
   // 删除：多选时批量删除，否则删单个选中项或固定注释
   useHotkeys(
@@ -2101,6 +2121,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         pasteAvailable={pasteAvailable}
         onPasteSelection={t => void pasteAtTime(t)}
         onSelectAll={selectAll}
+        onSelectAllDamageEvents={selectAllDamageEvents}
+        onSelectAllCasts={selectAllCasts}
       />
 
       <PasteConfirmDialog

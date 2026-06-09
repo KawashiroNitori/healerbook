@@ -15,6 +15,8 @@ export interface TimelineClipboard {
   __healerbook__: 'timeline-clipboard'
   version: 1
   v2: V2Timeline
+  /** 复制来源为全选类操作：粘贴时保留对象原始绝对时间，忽略目标位置。缺省/false 为相对鼠标位置粘贴 */
+  absolute?: boolean
 }
 
 export interface ClipboardSelection {
@@ -23,10 +25,11 @@ export interface ClipboardSelection {
   annotationIds: string[]
 }
 
-/** 用选中子集拼一个合成 Timeline 并序列化为载荷 */
+/** 用选中子集拼一个合成 Timeline 并序列化为载荷；absolute 标记粘贴时是否用绝对时间 */
 export function buildClipboardPayload(
   timeline: Timeline,
-  sel: ClipboardSelection
+  sel: ClipboardSelection,
+  absolute = false
 ): TimelineClipboard {
   const eventSet = new Set(sel.eventIds)
   const castSet = new Set(sel.castEventIds)
@@ -38,7 +41,7 @@ export function buildClipboardPayload(
     annotations: (timeline.annotations ?? []).filter(a => annSet.has(a.id)),
     syncEvents: [],
   }
-  return { __healerbook__: 'timeline-clipboard', version: 1, v2: toV2(subset) }
+  return { __healerbook__: 'timeline-clipboard', version: 1, v2: toV2(subset), absolute }
 }
 
 /** 解析并校验剪贴板文本；非本格式返回 null */
@@ -84,8 +87,9 @@ export function remapClipboardForPaste(
   if (allTimes.length === 0) {
     return { damageEvents: [], castEvents: [], annotations: [], skipped: 0 }
   }
+  // absolute（全选来源）：保留原始绝对时间；否则把最早对象对齐到 targetTime，其余按相对偏移
   const baseTime = Math.min(...allTimes)
-  const shift = (t: number) => targetTime + (t - baseTime)
+  const shift = payload.absolute ? (t: number) => t : (t: number) => targetTime + (t - baseTime)
 
   let skipped = 0
 

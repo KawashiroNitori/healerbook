@@ -84,6 +84,29 @@ describe('remapClipboardForPaste', () => {
     expect(out.skipped).toBe(0)
   })
 
+  it('absolute=true（全选来源）：保留原始绝对时间，忽略 targetTime', () => {
+    const p = buildClipboardPayload(
+      timeline,
+      { eventIds: ['d1', 'd2'], castEventIds: ['c1'], annotationIds: ['a1'] },
+      true
+    )
+    expect(p.absolute).toBe(true)
+    const cur: Composition = {
+      players: [
+        { id: 7, job: 'PLD' },
+        { id: 9, job: 'WHM' },
+      ],
+    }
+    const out = remapClipboardForPaste(p, {
+      currentComposition: cur,
+      targetTime: 100, // 应被忽略
+      validActionIds,
+    })
+    // 原始绝对时间保留：d1=10, d2=20, cast=12
+    expect(out.damageEvents.map(e => e.time).sort((a, b) => a - b)).toEqual([10, 20])
+    expect(out.castEvents[0].timestamp).toBe(12)
+  })
+
   it('目标缺职业：该 cast 跳过并计数；伤害事件仍保留', () => {
     const p = buildClipboardPayload(timeline, {
       eventIds: ['d1'],
