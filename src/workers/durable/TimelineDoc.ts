@@ -11,6 +11,7 @@ import {
   MSG,
 } from '@/collab/syncProtocol'
 import { displayName } from '@/collab/awarenessIdentity'
+import { toBase64 } from 'lib0/buffer'
 import * as Y from 'yjs'
 import { encodeStateVectorFromUpdate, diffUpdate } from 'yjs'
 import { verifyToken } from '../jwt'
@@ -121,10 +122,25 @@ export class TimelineDoc extends DurableObject<Env> {
     }
     if (type === MSG.AWARENESS) {
       // 客户端上行不带 user;服务端按本连接 JWT 身份注入可信 user 后再广播(防伪 + 省上行)。
-      const injected = injectAwarenessUser(payload, {
-        id: att.userId ?? '',
-        name: displayName(att.name, att.userId ?? ''),
-      })
+      // injectAwarenessUser 解码的是不可信客户端字节:格式不自洽的帧(如部署前长期未刷新的
+      // 标签页按过期 wire 格式上行)会让解码器错位抛错。不容错就会冒泡成 webSocketMessage
+      // 未捕获错误,污染日志、甚至打断该连接。这里 dump 原始帧供取证(离线还原其真实格式以
+      // 确认来源),并丢弃坏帧、保住连接 —— 客户端刷新后即自愈。
+      let injected: Uint8Array
+      try {
+        injected = injectAwarenessUser(payload, {
+          id: att.userId ?? '',
+          name: displayName(att.name, att.userId ?? ''),
+        })
+      } catch (err) {
+        console.error('[awareness] decode failed, dropping frame', {
+          userId: att.userId,
+          payloadLen: payload.length,
+          payloadB64: toBase64(payload),
+          error: err instanceof Error ? err.message : String(err),
+        })
+        return
+      }
       // 广播是关键路径,必须先发:大 selection(如全选)注入后可能 >2KB,
       // 会让下面的 serializeAttachment 抛错;若先持久化再广播,异常会吞掉本次广播。
       this.broadcast(ws, encodeMessage(MSG.AWARENESS, injected))

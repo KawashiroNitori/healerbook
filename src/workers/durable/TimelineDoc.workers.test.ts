@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
 import * as Y from 'yjs'
+import * as encoding from 'lib0/encoding'
 import { signAccessToken } from '@/workers/jwt'
 import { Awareness } from 'y-protocols/awareness'
 import {
@@ -360,6 +361,70 @@ describe('TimelineDoc WebSocket 接入', () => {
         | undefined
       expect(peer?.user?.id).toBe('ua-large')
       expect(peer?.selection?.eventIds).toHaveLength(400)
+    })
+
+    it('畸形/异格式 awareness 帧被丢弃:不崩连接、不广播,后续合法帧仍正常', async () => {
+      const docName = 't-aware-malformed'
+      const wsA = await authConnect(docName, 'ua-mal')
+      const wsB = await authConnect(docName, 'ub-mal')
+
+      // 构造一帧 ac44397 之前的"旧 wire 格式":selection 走单个 varString 而非 varString[]。
+      // 当前 decodeAwarenessState 按 varString[] 解读 → 把字符串内部字节误当成长度 →
+      // new Uint8Array(越界长度) 抛 RangeError,精确复现生产栈
+      // (_readVarStringNative → readVarUint8Array → readUint8Array → new Uint8Array)。
+      const staleClientId = 987654
+      const stateEnc = encoding.createEncoder()
+      encoding.writeUint8(stateEnc, 1 << 1) // 仅置 B_SEL_EVENT
+      encoding.writeVarString(stateEnc, 'cast-event-id-that-is-fairly-long-0123456789')
+      const stateBytes = encoding.toUint8Array(stateEnc)
+      const envEnc = encoding.createEncoder()
+      encoding.writeVarUint(envEnc, 1) // numClients
+      encoding.writeVarUint(envEnc, staleClientId)
+      encoding.writeVarUint(envEnc, 0) // clock
+      encoding.writeVarUint8Array(envEnc, stateBytes)
+      const malformed = encoding.toUint8Array(envEnc)
+
+      const awarenessToB: Uint8Array[] = []
+      wsB.addEventListener('message', e => {
+        const f = decodeMessage(new Uint8Array((e as MessageEvent).data as ArrayBuffer))
+        if (f.type === MSG.AWARENESS) awarenessToB.push(f.payload)
+      })
+
+      // 取证日志:坏帧应被 catch 并 dump 原始字节(测试与 DO 同 isolate,console 共享可拦截)
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      // A 发畸形帧:DO 应丢弃(不抛、不广播),连接保持可用
+      wsA.send(encodeMessage(MSG.AWARENESS, malformed))
+      await new Promise(r => setTimeout(r, 50))
+
+      // 坏帧被取证 dump:含 base64 原始字节,供离线还原其真实格式
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[awareness] decode failed, dropping frame',
+        expect.objectContaining({ userId: 'ua-mal', payloadB64: expect.any(String) })
+      )
+      errorSpy.mockRestore()
+
+      // 连接仍健康:A 发一帧合法 awareness,B 应能收到并解出 peer
+      const docA = new Y.Doc()
+      const awA = new Awareness(docA)
+      awA.setLocalStateField('cursorTime', 7.5)
+      wsA.send(encodeMessage(MSG.AWARENESS, encodeAwarenessBinary(awA, [awA.clientID])))
+
+      await vi.waitFor(
+        () => {
+          if (awarenessToB.length === 0) throw new Error('waiting for valid frame')
+        },
+        { timeout: 2000 }
+      )
+
+      const docB = new Y.Doc()
+      const awB = new Awareness(docB)
+      for (const p of awarenessToB) applyAwarenessBinary(awB, p, 'remote')
+      // 合法帧解出
+      const peer = awB.getStates().get(awA.clientID) as { cursorTime?: number } | undefined
+      expect(peer?.cursorTime).toBe(7.5)
+      // 畸形帧从未广播 → staleClientId 不会成为有效 peer
+      expect(awB.getStates().has(staleClientId)).toBe(false)
     })
   })
 
