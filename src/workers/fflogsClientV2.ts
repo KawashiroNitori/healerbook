@@ -175,6 +175,41 @@ export const EVENT_FETCH_SPECS: FetchSpec[] = [
   },
 ]
 
+/**
+ * getEvents 抓取各 spec 时的最大在途 FFLogs 请求数。
+ *
+ * 此前 getEvents 用 Promise.all 一次性并发全部 EVENT_FETCH_SPECS（9 条），单场导入瞬时
+ * 打满 9 路 GraphQL 请求，易触发 FFLogs 点数限流（429）。改用有界并发池后峰值锁定在此值。
+ */
+export const EVENT_FETCH_CONCURRENCY = 4
+
+/**
+ * 有界并发 map：对 items 逐个跑 fn，任意时刻在途任务数不超过 limit，结果按输入顺序返回。
+ *
+ * worker 池共享一个递增游标，空出 slot 立刻领取下一个 item，因此快慢任务混合时利用率高于
+ * 固定分批。limit 会被夹到 [1, items.length]，空数组直接返回空数组。
+ */
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const i = nextIndex++
+      if (i >= items.length) return
+      results[i] = await fn(items[i], i)
+    }
+  }
+
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
 export class FFLogsClientV2 {
   private clientId: string
   private clientSecret: string
@@ -555,8 +590,13 @@ export class FFLogsClientV2 {
       return spec.filterType ? events.filter(e => e.type === spec.filterType) : events
     }
 
-    // 并行获取所有 spec 的事件（含 limitbreakupdate 锚点）
-    const results = await Promise.all(EVENT_FETCH_SPECS.map(fetchAllEventsForSpec))
+    // 有界并发抓取所有 spec 的事件（含 limitbreakupdate 锚点）。
+    // 限制在途请求数，避免单场导入瞬时打满 9 路 GraphQL 触发 FFLogs 限流。
+    const results = await mapWithConcurrency(
+      EVENT_FETCH_SPECS,
+      EVENT_FETCH_CONCURRENCY,
+      fetchAllEventsForSpec
+    )
 
     // 合并所有事件
     const allEvents = results.flat()

@@ -6,8 +6,51 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { mapV2ReportToReport, EVENT_FETCH_SPECS } from './fflogsClientV2'
+import { mapV2ReportToReport, EVENT_FETCH_SPECS, mapWithConcurrency } from './fflogsClientV2'
 import { buildBossIds } from '@/utils/fflogsImporter'
+
+describe('mapWithConcurrency', () => {
+  it('保持结果与输入同序', async () => {
+    const out = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async n => n * 10)
+    expect(out).toEqual([10, 20, 30, 40, 50])
+  })
+
+  it('在途任务数不超过 limit（其余排队）', async () => {
+    const N = 9
+    const LIMIT = 4
+    let active = 0
+    let peak = 0
+    const release: Array<() => void> = []
+    const gates = Array.from({ length: N }, () => new Promise<void>(res => release.push(res)))
+
+    const promise = mapWithConcurrency(gates, LIMIT, async (gate, i) => {
+      active++
+      peak = Math.max(peak, active)
+      await gate
+      active--
+      return i
+    })
+
+    // 让 worker 池跑完同步前缀后停在各自的 gate 上
+    await new Promise(res => setTimeout(res, 0))
+    expect(active).toBe(LIMIT)
+
+    release.forEach(r => r())
+    const out = await promise
+    expect(peak).toBe(LIMIT)
+    expect(out).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
+  })
+
+  it('items 少于 limit 时不抛错且全部执行', async () => {
+    const out = await mapWithConcurrency([1, 2], 4, async n => n + 1)
+    expect(out).toEqual([2, 3])
+  })
+
+  it('空数组返回空数组', async () => {
+    const out = await mapWithConcurrency([], 4, async n => n)
+    expect(out).toEqual([])
+  })
+})
 
 describe('EVENT_FETCH_SPECS', () => {
   it('包含 targetabilityupdate 抓取条目（服务端 filterExpression 过滤）', () => {
