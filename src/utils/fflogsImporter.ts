@@ -86,37 +86,75 @@ export interface TargetabilityToggle {
 }
 
 /**
- * 由 targetabilityupdate 事件重建每个敌方 actor 的可选中状态切换点。
- * 按 targetID 分组（sourceID===targetID，忽略 instance——boss 单实例、多实例的是小怪，
- * 后者本就被非-boss 规则无条件判无效），按 timestamp 升序。
- * 首切换点之前由 isTargetableAt 约定为"默认可选中"。无此类事件的 actor 不入表。
+ * 可选中区间索引：按 actor 自身切换点 + 按名归并两套视图。
+ *
+ * 背景：FFLogs 会把同一个 boss 拆成多个同名 actor（真实实体 + gameID 2000000+ 系列的合成
+ * "影子"）。boss 不可选中阶段的团伤常被记在没有自身 targetabilityupdate 的合成 actor 上，
+ * 只按 actor id 查就查不到真实实体的不可选中区间 → 目标减误判有效。
+ */
+export interface TargetabilityIntervals {
+  /** actorId → 自身切换点（仅含真正出现过 targetabilityupdate 的 actor），升序 */
+  byActor: Map<number, TargetabilityToggle[]>
+  /** name → 同名所有 actor 的切换点合并，升序（供无自身事件的合成 actor 回退） */
+  byName: Map<string, TargetabilityToggle[]>
+  /** actorId → name（全量 enemy，用于无自身事件时回退到 byName） */
+  idToName: Map<number, string>
+}
+
+/**
+ * 由 targetabilityupdate 事件重建敌方可选中区间。
+ * 按 targetID 分组（sourceID===targetID，忽略 instance），按 timestamp 升序填 byActor。
+ * 首切换点之前由 isTargetableAt 约定为"默认可选中"。无此类事件的 actor 不入 byActor。
+ *
+ * 传入 enemyNames（id→name）时额外构建按名归并视图：仅供**自身无任何 targetabilityupdate**
+ * 的合成 actor 借用同名兄弟的区间（见 isTargetableAt）；自身有事件的 actor 始终信自己的。
  */
 export function buildTargetabilityIntervals(
-  events: FFLogsEvent[]
-): Map<number, TargetabilityToggle[]> {
-  const map = new Map<number, TargetabilityToggle[]>()
+  events: FFLogsEvent[],
+  enemyNames?: Map<number, string>
+): TargetabilityIntervals {
+  const byActor = new Map<number, TargetabilityToggle[]>()
   for (const e of events) {
     if (e.type !== 'targetabilityupdate' || e.targetID === undefined) continue
-    const list = map.get(e.targetID) ?? []
+    const list = byActor.get(e.targetID) ?? []
     list.push({ timestamp: e.timestamp, targetable: e.targetable === 1 })
-    map.set(e.targetID, list)
+    byActor.set(e.targetID, list)
   }
-  for (const list of map.values()) list.sort((a, b) => a.timestamp - b.timestamp)
-  return map
+  for (const list of byActor.values()) list.sort((a, b) => a.timestamp - b.timestamp)
+
+  const idToName = enemyNames ? new Map(enemyNames) : new Map<number, string>()
+  const byName = new Map<string, TargetabilityToggle[]>()
+  // byName 仅从 byActor（有事件的 actor）合并：无事件的合成 actor 不贡献切换点，
+  // 但能通过 idToName → byName 借到同名兄弟的区间。
+  for (const [id, list] of byActor) {
+    const name = idToName.get(id)
+    if (name === undefined) continue
+    const merged = byName.get(name) ?? []
+    merged.push(...list)
+    byName.set(name, merged)
+  }
+  for (const list of byName.values()) list.sort((a, b) => a.timestamp - b.timestamp)
+
+  return { byActor, byName, idToName }
 }
 
 /**
  * 查询 actor 在某时刻（报告相对毫秒）是否可选中。
- * - 未跟踪的 actor（无 targetabilityupdate 事件）→ 默认可选中（向后兼容）。
- * - 早于首切换点 → 默认可选中（boss 开场可选中）。
- * - 否则取最后一个 timestamp <= ts 的切换点状态。
+ * - 自身出现过 targetabilityupdate → 取自身区间最后一个 timestamp <= ts 的状态（信自己，
+ *   不被同名兄弟污染）。
+ * - 自身无任何切换点 → 回退到同名归并区间（合成 actor 借真实实体的不可选中区间）。
+ * - 仍无可用区间（未跟踪 / 早于首切换点 / 无名字映射）→ 默认可选中。
  */
 export function isTargetableAt(
-  intervals: Map<number, TargetabilityToggle[]>,
+  intervals: TargetabilityIntervals,
   actorId: number,
   timestamp: number
 ): boolean {
-  const list = intervals.get(actorId)
+  let list = intervals.byActor.get(actorId)
+  if (!list || list.length === 0) {
+    const name = intervals.idToName.get(actorId)
+    list = name !== undefined ? intervals.byName.get(name) : undefined
+  }
   if (!list || list.length === 0) return true
   let state = true
   for (const toggle of list) {
@@ -187,8 +225,8 @@ export function parseDamageEvents(
   bossIds?: Set<number>,
   /** sourceID → actor 名映射，编排层用 report.enemies 建好传入；仅用于填 damageSource */
   sourceNames?: Map<number, string>,
-  /** actorId → 可选中切换点；来源在伤害时刻不可选中时，目标减判无效 */
-  targetability?: Map<number, TargetabilityToggle[]>
+  /** 可选中区间索引；来源在伤害时刻不可选中时，目标减判无效 */
+  targetability?: TargetabilityIntervals
 ): DamageEvent[] {
   const TANK_JOBS = getTankJobs()
 
@@ -936,7 +974,7 @@ export function parseFightImport(
   const bossIds = buildBossIds(report.enemies, fight.name)
   const enemyNames = new Map<number, string>()
   report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
-  const targetability = buildTargetabilityIntervals(events)
+  const targetability = buildTargetabilityIntervals(events, enemyNames)
   const damageEvents = parseDamageEvents(
     events,
     fightStartTime,

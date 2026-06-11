@@ -2225,9 +2225,9 @@ describe('buildTargetabilityIntervals / isTargetableAt', () => {
 
   it('按 targetID 分组并按时间升序', () => {
     const m = buildTargetabilityIntervals([ev(200, 11, 1), ev(100, 11, 0), ev(150, 21, 0)])
-    expect(m.get(11)?.map(t => t.timestamp)).toEqual([100, 200])
-    expect(m.get(11)?.map(t => t.targetable)).toEqual([false, true])
-    expect(m.get(21)?.length).toBe(1)
+    expect(m.byActor.get(11)?.map(t => t.timestamp)).toEqual([100, 200])
+    expect(m.byActor.get(11)?.map(t => t.targetable)).toEqual([false, true])
+    expect(m.byActor.get(21)?.length).toBe(1)
   })
 
   it('未跟踪 actor 默认可选中', () => {
@@ -2263,14 +2263,60 @@ describe('buildTargetabilityIntervals / isTargetableAt', () => {
         targetable: 0,
       } as FFLogsEvent,
     ])
-    expect(m.get(31)?.length).toBe(2)
+    expect(m.byActor.get(31)?.length).toBe(2)
   })
 
   it('非 targetabilityupdate 事件被忽略', () => {
     const m = buildTargetabilityIntervals([
       { type: 'damage', timestamp: 100, targetID: 11 } as FFLogsEvent,
     ])
-    expect(m.size).toBe(0)
+    expect(m.byActor.size).toBe(0)
+  })
+
+  it('合成同名 actor（自身无 targetabilityupdate）继承同名兄弟的不可选中区间', () => {
+    const names = new Map([
+      [21, 'Usurper of Frost'],
+      [22, 'Usurper of Frost'],
+    ])
+    // id=21 真实实体在 300~320 不可选中；id=22 是同名合成 actor，自身无任何切换点
+    const m = buildTargetabilityIntervals([ev(300, 21, 0), ev(320, 21, 1)], names)
+    expect(isTargetableAt(m, 22, 310)).toBe(false) // 借 id=21 的不可选中区间
+    expect(isTargetableAt(m, 22, 350)).toBe(true) // 恢复后
+    expect(isTargetableAt(m, 22, 250)).toBe(true) // 早于首切换点
+  })
+
+  it('自身有 targetabilityupdate 的 actor 不被同名兄弟污染', () => {
+    const names = new Map([
+      [21, 'Usurper of Frost'],
+      [38, 'Usurper of Frost'],
+    ])
+    // id=21 在 100 不可选中；id=38 自身直到 500 才不可选中
+    const m = buildTargetabilityIntervals([ev(100, 21, 0), ev(500, 38, 0)], names)
+    expect(isTargetableAt(m, 38, 200)).toBe(true) // 信自身：200 时仍可选中，不借 21 的 100-off
+    expect(isTargetableAt(m, 38, 600)).toBe(false) // 自身 500 之后不可选中
+  })
+
+  it('两个同名真实 actor 串行开关时，合成 actor 按时间就近落位', () => {
+    const names = new Map([
+      [21, 'Usurper of Frost'],
+      [22, 'Usurper of Frost'],
+      [38, 'Usurper of Frost'],
+    ])
+    // 21(P2) 与 38(P5) 串行、各自开关；22 自身无事件，借同名归并区间
+    const m = buildTargetabilityIntervals(
+      [ev(300, 21, 0), ev(320, 21, 1), ev(600, 38, 0), ev(620, 38, 1)],
+      names
+    )
+    expect(isTargetableAt(m, 22, 310)).toBe(false) // 落到同期的 21
+    expect(isTargetableAt(m, 22, 350)).toBe(true)
+    expect(isTargetableAt(m, 22, 610)).toBe(false) // 落到 38，不被 21 早期区间干扰
+    expect(isTargetableAt(m, 22, 650)).toBe(true)
+  })
+
+  it('未传 enemyNames：无自身事件的 actor 无法归并，默认可选中', () => {
+    const m = buildTargetabilityIntervals([ev(100, 21, 0)])
+    expect(isTargetableAt(m, 21, 150)).toBe(false) // 自身有事件
+    expect(isTargetableAt(m, 22, 150)).toBe(true) // 无名字映射，不归并
   })
 })
 
