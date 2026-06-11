@@ -18,6 +18,8 @@ import {
   FileOutput,
   Hand,
   BoxSelect,
+  MoreHorizontal,
+  Copy,
 } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -115,6 +117,8 @@ export default function EditorToolbar({
   const [viewTooltipOpen, setViewTooltipOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exportTooltipOpen, setExportTooltipOpen] = useState(false)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
+  const [moreTooltipOpen, setMoreTooltipOpen] = useState(false)
 
   const canUndo = useTimelineStore(s => s.canUndo)
   const canRedo = useTimelineStore(s => s.canRedo)
@@ -179,6 +183,29 @@ export default function EditorToolbar({
               />
               <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
             </div>
+
+            {/* 更多操作菜单（对所有身份可用，不与已有同功能按钮做互斥） */}
+            <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
+              <Tooltip
+                open={moreMenuOpen ? false : moreTooltipOpen}
+                onOpenChange={setMoreTooltipOpen}
+              >
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">更多</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
+                <DropdownMenuItem onSelect={() => onCreateCopy()}>
+                  <Copy className="w-4 h-4" />
+                  创建副本
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* 平移 / 框选 工具切换（仅时间轴视图；只读/回放也可切换以便选中、复制） */}
             {viewMode !== 'table' && (
