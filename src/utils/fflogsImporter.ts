@@ -135,7 +135,9 @@ export function parseDamageEvents(
   playerMap: Map<number, { id: number; name: string; type: string }>,
   abilityMap?: Map<number, FFLogsAbility>,
   composition?: Composition,
-  bossIds?: Set<number>
+  bossIds?: Set<number>,
+  /** sourceID → actor 名映射，编排层用 report.enemies 建好传入；仅用于填 damageSource */
+  sourceNames?: Map<number, string>
 ): DamageEvent[] {
   const TANK_JOBS = getTankJobs()
 
@@ -385,6 +387,7 @@ export function parseDamageEvents(
     const sourceId = detailSourceIds.get(firstDetail) ?? 0
     const targetMitigationDisabled =
       bossIds && bossIds.size > 0 && sourceId !== 0 && !bossIds.has(sourceId) ? true : undefined
+    const damageSource = sourceId !== 0 ? sourceNames?.get(sourceId) : undefined
 
     damageEvents.push({
       id: `event-${firstDetail.timestamp}-${firstAbilityId}`,
@@ -397,6 +400,7 @@ export function parseDamageEvents(
       packetId: detailPacketIds.get(firstDetail),
       snapshotTime,
       ...(targetMitigationDisabled && { targetMitigationDisabled }),
+      ...(damageSource && { damageSource }),
     })
   }
 
@@ -873,13 +877,16 @@ export function parseFightImport(
   const composition = parseComposition(report, fight.id, participantIds)
   const fightStartTime = resolveFightStartTime(events, fight.startTime)
   const bossIds = buildBossIds(report.enemies, fight.name)
+  const enemyNames = new Map<number, string>()
+  report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
   const damageEvents = parseDamageEvents(
     events,
     fightStartTime,
     playerMap,
     abilityMap,
     composition,
-    bossIds
+    bossIds,
+    enemyNames
   )
   const castEvents = parseCastEvents(events, fightStartTime, playerMap)
   const syncEvents = parseSyncEvents(events, fightStartTime, playerMap, abilityMap)

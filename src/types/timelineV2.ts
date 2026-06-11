@@ -70,6 +70,8 @@ export interface V2DamageEvent {
   tm?: V2TempMitigation[]
   /** 目标减无效（省略=生效） */
   tmd?: boolean
+  /** 伤害来源标记（actor 名）；仅人工核对用，不参与计算 */
+  ds?: string
 }
 
 export interface V2CastEvents {

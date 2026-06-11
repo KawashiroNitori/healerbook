@@ -216,6 +216,11 @@ export interface DamageEvent {
    * 仅在关闭时存 true，存量事件无此字段。
    */
   targetMitigationDisabled?: boolean
+  /**
+   * 伤害来源标记（actor 名）。导入 / 模板生成时填入 source 对应的 enemy 名，
+   * 仅供人工核对 AOE 释放范围异常，对减伤计算无任何影响。可手动编辑。
+   */
+  damageSource?: string
 }
 
 /**

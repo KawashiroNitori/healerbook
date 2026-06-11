@@ -628,6 +628,20 @@ export default function PropertyPanel() {
             disabled={isReadOnly}
           />
           <span className="text-xs text-muted-foreground shrink-0">目标减有效</span>
+          {!event.targetMitigationDisabled && (
+            <>
+              <span className="text-xs text-muted-foreground shrink-0 ml-auto">伤害来源</span>
+              <input
+                type="text"
+                value={event.damageSource ?? ''}
+                onChange={e =>
+                  updateDamageEvent(event.id, { damageSource: e.target.value || undefined })
+                }
+                disabled={isReadOnly}
+                className="w-[calc(50%-6px)] h-7 rounded-md border border-input bg-transparent px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </>
+          )}
         </div>
 
         {/* 部分 AOE 伤害详情（仅编辑模式 + HP 模拟开 + partial AOE + 有段快照） */}

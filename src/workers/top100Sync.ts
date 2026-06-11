@@ -52,6 +52,7 @@ export function slimDamageEvents(full: DamageEvent[]): StoredDamageEvent[] {
     damageType: e.damageType,
     packetId: e.packetId,
     snapshotTime: e.snapshotTime,
+    damageSource: e.damageSource,
     abilityId: e.playerDamageDetails?.[0]?.abilityId ?? 0,
   }))
 }
@@ -103,12 +104,16 @@ export function extractFightStats(
     if (event.targetID && playerMap.has(event.targetID)) participantIds.add(event.targetID)
   }
   const composition = parseComposition(report, fight.id, participantIds)
+  const enemyNames = new Map<number, string>()
+  report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
   const fullDamageEvents = parseDamageEvents(
     events,
     fight.startTime,
     playerMap,
     abilityMap,
-    composition
+    composition,
+    undefined,
+    enemyNames
   )
   const damageEvents = slimDamageEvents(fullDamageEvents)
   const durationMs = fight.endTime - fight.startTime
@@ -208,6 +213,7 @@ export function buildEncounterTemplate(input: BuildEncounterTemplateInput): {
     damageType: e.damageType,
     packetId: e.packetId,
     snapshotTime: e.snapshotTime,
+    damageSource: e.damageSource,
     abilityId: e.abilityId,
   }))
 
