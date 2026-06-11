@@ -163,6 +163,9 @@ export const EVENT_FETCH_SPECS: FetchSpec[] = [
   { dataType: 'Buffs' },
   { dataType: 'All', limit: 200, singlePage: true, filterType: 'limitbreakupdate' },
   {
+    // 不设 hostilityType：dataType:'All' + filterExpression 下，targetabilityupdate 事件不受
+    // hostilityType 影响——默认 'Friendlies' 与 'Enemies' 均返回全量敌方可选中事件（已对真实
+    // 报告核验：Friendlies/Enemies/省略三者条数一致），故沿用默认即可，勿改成 'Enemies'。
     dataType: 'All',
     filterExpression: 'type="targetabilityupdate"',
     filterType: 'targetabilityupdate',
