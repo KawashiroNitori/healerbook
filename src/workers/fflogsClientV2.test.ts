@@ -53,11 +53,11 @@ describe('mapWithConcurrency', () => {
 })
 
 describe('EVENT_FETCH_SPECS', () => {
-  it('包含 targetabilityupdate 抓取条目（服务端 filterExpression 过滤）', () => {
+  // 【临时屏蔽】targetabilityupdate 抓取已暂时停用（避免 dataType:'All' 全程分页触发大量
+  // 429）。恢复 EVENT_FETCH_SPECS 中该条目时，把本用例改回断言 spec 存在即可。
+  it('暂不包含 targetabilityupdate 抓取条目（已临时屏蔽以规避 429）', () => {
     const spec = EVENT_FETCH_SPECS.find(s => s.filterType === 'targetabilityupdate')
-    expect(spec).toBeDefined()
-    expect(spec?.dataType).toBe('All')
-    expect(spec?.filterExpression).toBe('type="targetabilityupdate"')
+    expect(spec).toBeUndefined()
   })
 
   it('既有抓取条目不带 filterExpression（不破坏既有抓取）', () => {
