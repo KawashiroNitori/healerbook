@@ -1103,6 +1103,79 @@ describe('多坦 per-victim 路径', () => {
     }
   })
 
+  it('共享 status 跟随产出 action：勇猛(16464)→目标吃，血气(25751)→施法者吃', () => {
+    // 2679(原初的血潮) 在 statusExtras 默认是 self；但作用域应跟随产出它的 action：
+    //   - 由"原初的勇猛"(16464, category target) 产出 → 归目标队友
+    //   - 由"原初的血气"(25751, category self) 产出 → 归施法者本人
+    const spy = vi.spyOn(registry, 'getStatusById').mockImplementation((id: number) => {
+      if (id === 2679) {
+        return {
+          id: 2679,
+          name: '原初的血潮',
+          type: 'multiplier',
+          performance: { physics: 0.9, magic: 0.9, darkness: 0.9 },
+          isFriendly: true,
+          isTankOnly: true,
+          category: ['self', 'percentage'], // statusExtras 默认（self），应被 action 覆盖
+        } as unknown as MitigationStatusMetadata
+      }
+      return undefined
+    })
+    try {
+      // tank1 施放。case A：勇猛 → tank2(目标) 吃 10%，tank1 不吃
+      const fromNascentFlash: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'nf-1',
+            statusId: 2679,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 1,
+            sourceActionId: 16464,
+          },
+        ],
+      }
+      const a = calculator.calculate(
+        makeEvent(10000, 5, 'physical', 'tankbuster'),
+        fromNascentFlash,
+        {
+          tankPlayerIds: [1, 2],
+          baseReferenceMaxHP: 100000,
+        }
+      )
+      // perVictim 按 finalDamage 升序排，故按 playerId 反查而非按下标
+      const aByPlayer = new Map(a.perVictim!.map(v => [v.playerId, v.finalDamage]))
+      expect(aByPlayer.get(1)).toBe(10000) // 施法者不吃
+      expect(aByPlayer.get(2)).toBe(9000) // 目标吃 10%
+
+      // case B：血气 → tank1(施法者) 吃 10%，tank2 不吃
+      const fromBloodwhetting: PartyState = {
+        ...basePartyState,
+        statuses: [
+          {
+            instanceId: 'bw-1',
+            statusId: 2679,
+            startTime: 0,
+            endTime: 10,
+            sourcePlayerId: 1,
+            sourceActionId: 25751,
+          },
+        ],
+      }
+      const b = calculator.calculate(
+        makeEvent(10000, 5, 'physical', 'tankbuster'),
+        fromBloodwhetting,
+        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
+      )
+      const bByPlayer = new Map(b.perVictim!.map(v => [v.playerId, v.finalDamage]))
+      expect(bByPlayer.get(1)).toBe(9000) // 施法者吃 10%
+      expect(bByPlayer.get(2)).toBe(10000) // 对方不吃
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('最优减伤分支 state 持久化：OT 自盾让 OT 分支胜出', () => {
     // OT 持有一块 self-only 盾（category 不含 target），MT 毫无防御。
     // → MT 分支因不满足 target 要求被过滤，吃满伤害；OT 分支吸收完全伤害。

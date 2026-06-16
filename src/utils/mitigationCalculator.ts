@@ -29,6 +29,20 @@ import { formatTimeWithDecimal } from '@/utils/formatters'
 import { resolveVariant } from './placement/resolveVariant'
 
 /**
+ * actionId → action.category 映射（模块级构建一次）。
+ * 多坦过滤时用 status.sourceActionId 反查产出它的 action 的 category，
+ * 优先于 statusExtras 的 statusId 默认值（见 isStatusValidForTank）。
+ */
+const ACTION_CATEGORY_BY_ID = new Map(MITIGATION_DATA.actions.map(a => [a.id, a.category]))
+
+/** 解析 status 产出 action 的 category；无可靠归属时返回 undefined 以回落 meta。 */
+function actionCategoryOf(status: MitigationStatus) {
+  return status.sourceActionId != null
+    ? ACTION_CATEGORY_BY_ID.get(status.sourceActionId)
+    : undefined
+}
+
+/**
  * 多坦路径单坦克的计算结果
  */
 export interface PerTankResult {
@@ -245,7 +259,7 @@ export class MitigationCalculator {
 
       const perVictimRaw = tankIds.map(tankId => {
         const tankFilter = (meta: MitigationStatusMetadata, status: MitigationStatus) =>
-          isStatusValidForTank(meta, status, tankId)
+          isStatusValidForTank(meta, status, tankId, actionCategoryOf(status))
         // 盾值过滤在 tankFilter 基础上叠加 `meta.isTankOnly`（坦专路径
         // includeTankOnly 恒为 true），复刻旧版 `isTankOnly === includeTankOnly`
         // 口径——一份 partywide 盾代表单玩家份额，不该被坦专事件消耗。

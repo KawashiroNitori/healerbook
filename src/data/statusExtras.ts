@@ -221,7 +221,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   },
 
   735: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的直觉
-  1858: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的武猛
+  1858: { isTankOnly: true, category: ['target', 'percentage'] }, // 原初的武猛（仅由"原初的勇猛"给目标产出）
   2678: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的血气
   2679: { isTankOnly: true, category: ['self', 'percentage'] }, // 原初的血潮
   2680: { isTankOnly: true, category: ['self', 'shield'] }, // 原初的血烟
