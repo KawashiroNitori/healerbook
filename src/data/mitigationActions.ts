@@ -211,7 +211,9 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '原初的勇猛',
       icon: '/i/002000/002567.png',
       jobs: ['WAR'],
-      category: ['self', 'percentage', 'shield'],
+      // 对指定队友释放：10% 减伤(原初的武猛)、血潮、血烟(盾) 全部归目标，施法者本人
+      // 只得命中回血（未建模为减伤）。故为 target，而非 self。
+      category: ['target', 'percentage', 'shield'],
       duration: 8,
       cooldown: 25,
       executor: ctx => {

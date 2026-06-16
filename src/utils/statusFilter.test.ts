@@ -61,4 +61,31 @@ describe('isStatusValidForTank', () => {
     expect(isStatusValidForTank(meta, makeStatus(1), 1)).toBe(true)
     expect(isStatusValidForTank(meta, makeStatus(1), 2)).toBe(true)
   })
+
+  describe('actionCategory 覆盖', () => {
+    it('提供 actionCategory 时优先于 meta.category', () => {
+      // meta 说 self，但产出它的 action 说 target → 以 action 为准
+      const meta = makeMeta(['self', 'percentage'])
+      // 持有者（caster）：要求 self，但有效 category 是 target → 不通过
+      expect(isStatusValidForTank(meta, makeStatus(1), 1, ['target', 'percentage'])).toBe(false)
+      // 非持有者（目标）：要求 target，有效 category 是 target → 通过
+      expect(isStatusValidForTank(meta, makeStatus(1), 2, ['target', 'percentage'])).toBe(true)
+    })
+
+    it('actionCategory 为 undefined 时回落 meta.category', () => {
+      const meta = makeMeta(['self', 'percentage'])
+      expect(isStatusValidForTank(meta, makeStatus(1), 1, undefined)).toBe(true)
+      expect(isStatusValidForTank(meta, makeStatus(1), 2, undefined)).toBe(false)
+    })
+
+    it('共享 status：同一 statusId 由不同 action 产出 → 各自跟随 action', () => {
+      const meta = makeMeta(['self', 'percentage']) // 共享 status 的 statusExtras 默认（self）
+      // 自身技能产出（actionCategory=self）：持有者吃、对方不吃
+      expect(isStatusValidForTank(meta, makeStatus(1), 1, ['self', 'percentage'])).toBe(true)
+      expect(isStatusValidForTank(meta, makeStatus(1), 2, ['self', 'percentage'])).toBe(false)
+      // 目标技能产出（actionCategory=target）：持有者不吃、对方吃
+      expect(isStatusValidForTank(meta, makeStatus(1), 1, ['target', 'percentage'])).toBe(false)
+      expect(isStatusValidForTank(meta, makeStatus(1), 2, ['target', 'percentage'])).toBe(true)
+    })
+  })
 })
