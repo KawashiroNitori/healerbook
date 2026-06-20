@@ -659,7 +659,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       icon: '/i/002000/002881.png',
       jobs: ['SCH'],
       category: ['partywide', 'percentage', 'shield'],
-      duration: 30,
+      duration: 20,
       cooldown: 180,
       placement: not(whileStatus(791)),
       executor: createRegenExecutor(3885, 30),
