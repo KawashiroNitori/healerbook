@@ -577,6 +577,12 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     executor: regenStatusExecutor,
     selfHeal: 1.2,
   },
+  24317: {
+    name: '混合',
+    category: ['self', 'target'],
+    isFriendly: true,
+    selfHeal: 1.2,
+  },
 
   // 泛输血：自然到期时把剩余层数转换为直接回血，每层 = shieldByAbility[2613] / 2，
   // 与礼仪之铃 onExpire 的"剩余层数 → 回血"同款语义（仅数值源换成盾量）。

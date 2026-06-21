@@ -1367,6 +1367,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       statDataEntries: [{ type: 'heal', key: 1003899, label: '幸福' }],
     },
     {
+      id: 24317,
+      name: '混合',
+      icon: '/i/003000/003685.png',
+      jobs: ['SGE'],
+      category: ['self', 'target'],
+      duration: 10,
+      cooldown: 60,
+      executor: createBuffExecutor(24317, 10),
+    },
+    {
       id: 24303,
       name: '白牛清汁',
       icon: '/i/003000/003671.png',
