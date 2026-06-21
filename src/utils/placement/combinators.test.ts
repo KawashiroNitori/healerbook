@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { whileStatus, anyOf, allOf, not, difference } from './combinators'
+import { whileStatus, timeRange, anyOf, allOf, not, difference } from './combinators'
 import type { PlacementContext, StatusTimelineByPlayer } from './types'
 
 function buildCtx(overrides: Partial<PlacementContext> = {}): PlacementContext {
@@ -37,6 +37,43 @@ describe('whileStatus', () => {
 
   it('无匹配条目返回空数组', () => {
     expect(whileStatus(9999).validIntervals(buildCtx())).toEqual([])
+  })
+})
+
+describe('timeRange', () => {
+  const INF = Number.POSITIVE_INFINITY
+  const NEG_INF = Number.NEGATIVE_INFINITY
+
+  it('两端均指定：返回单个常量区间', () => {
+    expect(timeRange(0, 60).validIntervals(buildCtx())).toEqual([{ from: 0, to: 60 }])
+  })
+
+  it('省略 to：默认 +∞', () => {
+    expect(timeRange(30).validIntervals(buildCtx())).toEqual([{ from: 30, to: INF }])
+  })
+
+  it('省略 from：默认 -∞（含 prepull 段）', () => {
+    expect(timeRange(undefined, 60).validIntervals(buildCtx())).toEqual([{ from: NEG_INF, to: 60 }])
+  })
+
+  it('两端均省略：全时间轴', () => {
+    expect(timeRange().validIntervals(buildCtx())).toEqual([{ from: NEG_INF, to: INF }])
+  })
+
+  it('可显式传入 ±∞', () => {
+    expect(timeRange(NEG_INF, INF).validIntervals(buildCtx())).toEqual([{ from: NEG_INF, to: INF }])
+  })
+
+  it('退化区间（from >= to）返回空数组', () => {
+    expect(timeRange(60, 60).validIntervals(buildCtx())).toEqual([])
+    expect(timeRange(60, 30).validIntervals(buildCtx())).toEqual([])
+  })
+
+  it('配合 allOf 把规则限制在绝对时间窗内', () => {
+    const status = { validIntervals: () => [{ from: 0, to: 100 }] }
+    expect(allOf(status, timeRange(30, 60)).validIntervals(buildCtx())).toEqual([
+      { from: 30, to: 60 },
+    ])
   })
 })
 

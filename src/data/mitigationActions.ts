@@ -9,7 +9,7 @@ import {
   removeStatus,
 } from '@/executors'
 import type { ActionExecutionContext } from '@/types/mitigation'
-import { whileStatus, not, anyOf } from '@/utils/placement/combinators'
+import { whileStatus, not, anyOf, timeRange } from '@/utils/placement/combinators'
 
 /**
  * 治疗 action executor 接入进度
@@ -54,6 +54,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
       cooldown: 60,
+      placement: timeRange(0),
       executor: createBuffExecutor(1193, 15),
     },
     {
@@ -1401,6 +1402,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
       cooldown: 90,
+      placement: timeRange(0),
       executor: createBuffExecutor(1195, 15),
     },
     {
@@ -1472,6 +1474,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 10,
       cooldown: 120,
+      placement: timeRange(0),
       executor: createBuffExecutor(860, 10),
     },
 
@@ -1556,6 +1559,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
       cooldown: 90,
+      placement: timeRange(0),
       executor: createBuffExecutor(1203, 15),
     },
 

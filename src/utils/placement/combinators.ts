@@ -17,6 +17,27 @@ export function whileStatus(statusId: number): Placement {
   }
 }
 
+/**
+ * 指定（绝对）时间区间算子。返回与上下文无关的常量区间 `[from, to)`，单位秒。
+ *
+ * 两端均可省略以表达半开窗口：`from` 默认 `-∞`（含 prepull 段，与 `complement`
+ * 的下界语义一致），`to` 默认 `+∞`。也可显式传入 `Number.NEGATIVE_INFINITY` /
+ * `Number.POSITIVE_INFINITY`。
+ *
+ * 典型用法是配合 `allOf` 把其他规则限制在某个绝对时间窗内：
+ *   `allOf(whileStatus(123), timeRange(60))`  // 仅 60s 之后的 buff 窗口
+ *
+ * 退化区间（`from >= to`）返回空数组（永不可放）。
+ */
+export function timeRange(
+  from: number = Number.NEGATIVE_INFINITY,
+  to: number = Number.POSITIVE_INFINITY
+): Placement {
+  return {
+    validIntervals: () => (from < to ? [{ from, to }] : []),
+  }
+}
+
 export function anyOf(...rules: Placement[]): Placement {
   return {
     validIntervals: ctx => mergeOverlapping(rules.flatMap(r => r.validIntervals(ctx))),
