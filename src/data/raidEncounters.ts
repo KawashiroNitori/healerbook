@@ -52,7 +52,6 @@ export const RAID_TIERS: RaidTier[] = [
     zone: 73,
     patch: '7.5',
     encounters: [{ id: 1085, name: '妖星乱舞绝境战', shortName: 'DMU', gameZoneId: 1363 }],
-    mogtalkUrl: 'https://mogtalk.com/leaderboard/5N0D8KmZNT90RVEmnwAk',
   },
 ]
 
