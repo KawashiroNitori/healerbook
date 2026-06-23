@@ -4,6 +4,8 @@
  */
 
 import { useState } from 'react'
+import * as Y from 'yjs'
+import { toBase64 } from 'lib0/buffer'
 import { Copy, Check, Loader2, Globe, Upload, CloudUpload, Lock, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -116,7 +118,11 @@ export default function SharePopover({
       const engine = useTimelineStore.getState().engine
       if (!engine) throw new Error('引擎未就绪')
       await engine.flush()
-      const { id: newId } = await publishTimeline(timeline.id, timeline.name)
+      // 一并上传本地 Y.Doc 全量 update:服务端据此 seed DO + 预写 KV 快照,
+      // 使公开读(含匿名 viewer)发布后立即可见。seed 的就是本地 doc 本身,
+      // client id 一致,作者随后 /connect 时增量同步无分叉、不重复。
+      const content = toBase64(Y.encodeStateAsUpdate(engine.doc))
+      const { id: newId } = await publishTimeline(timeline.id, timeline.name, content)
       const store = new IndexedDBDocStore()
       await store.open()
       if (newId !== timeline.id) {

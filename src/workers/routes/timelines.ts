@@ -7,11 +7,15 @@ import { requireAuth } from '../middleware/requireAuth'
 import { tryReadAuth } from '../middleware/tryReadAuth'
 import * as sensitiveWordFilter from '../sensitiveWordFilter'
 import { generateId } from '@/utils/id'
+import { fromBase64 } from 'lib0/buffer'
 import type { TimelineDoc } from '../durable/TimelineDoc'
 
 const PublishTimelineRequestSchema = v.object({
   id: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
   name: v.pipe(v.string(), v.maxLength(200)),
+  // 发布时一并上传本地 Y.Doc 的全量 update（base64）。携带时服务端 seed DO + 预写
+  // KV 快照，使公开读（含匿名 viewer）发布后立即可见，无需等作者首次 /connect。
+  content: v.optional(v.pipe(v.string(), v.maxLength(2_000_000))),
 })
 
 const ID_GEN_MAX_ATTEMPTS = 32
@@ -42,7 +46,7 @@ const app = new Hono<AppEnv>()
 // 发布:把一条本地时间轴注册为云端时间轴
 app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), async c => {
   const auth = c.get('auth')!
-  const { id: requestedId, name } = c.req.valid('json')
+  const { id: requestedId, name, content } = c.req.valid('json')
 
   // 客户端给的 id 命中敏感词时,服务端换发一个干净 id;
   // 前端 handlePublish 据返回的(可能变更过的)id 做 rekey。
@@ -72,6 +76,23 @@ app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), asy
     )
     .bind(id, auth.userId, Date.now())
     .run()
+
+  // 携带初始内容时:把本地 Y.Doc seed 进 DO,并预写 KV 快照,
+  // 使公开读(含匿名 viewer)发布后立即可见,无需等作者首次 /connect。
+  // best-effort:seed/KV 失败不阻断发布,公开读会回退唤醒 DO 实时投影。
+  if (content) {
+    try {
+      const stub = docStub(c.env, id)
+      await stub.seed(fromBase64(content))
+      const snapshot = await stub.getSnapshotJson()
+      if (snapshot) {
+        await c.env.healerbook_snapshots.put(`tl-snapshot:${id}`, JSON.stringify(snapshot))
+      }
+    } catch {
+      // 忽略:不影响发布成功语义
+    }
+  }
+
   return c.json({ id, publishedAt: now }, 201)
 })
 

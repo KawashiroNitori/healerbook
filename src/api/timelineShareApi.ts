@@ -28,9 +28,15 @@ export interface SharedTimelineResponse {
  * 发布:把一条本地时间轴注册为云端时间轴。
  * 服务端可能清洗 id(敏感词),返回(可能变更过的)id。
  */
-export async function publishTimeline(id: string, name: string): Promise<PublishResult> {
+export async function publishTimeline(
+  id: string,
+  name: string,
+  content?: string
+): Promise<PublishResult> {
   try {
-    return await apiClient.post('timelines', { json: { id, name } }).json<PublishResult>()
+    return await apiClient
+      .post('timelines', { json: content ? { id, name, content } : { id, name } })
+      .json<PublishResult>()
   } catch (err) {
     if (err instanceof HTTPError) throw new Error(err.message)
     throw err

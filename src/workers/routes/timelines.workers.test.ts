@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { env, SELF } from 'cloudflare:test'
 import * as Y from 'yjs'
+import { toBase64 } from 'lib0/buffer'
 import { signAccessToken } from '@/workers/jwt'
 
 // 作者固定 userId，与发布时一致（发布后自动入 timeline_editors）
@@ -26,6 +27,45 @@ async function publishOne(id: string, name: string): Promise<string> {
 async function authorJwt(): Promise<string> {
   return signAccessToken(AUTHOR_USER_ID, AUTHOR_USERNAME, JWT_SECRET)
 }
+
+describe('POST /api/timelines 携带初始内容', () => {
+  it('携带 content 时 seed DO 并写 KV，匿名 viewer 立即拿到 snapshot', async () => {
+    const id = 'publishWithContent0001'
+    const doc = new Y.Doc()
+    doc.getMap('meta').set('name', '带内容发布')
+    const contentB64 = toBase64(Y.encodeStateAsUpdate(doc))
+
+    const jwt = await authorJwt()
+    const res = await SELF.fetch('https://app/api/timelines', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name: '带内容发布', content: contentB64 }),
+    })
+    expect(res.status).toBe(201)
+
+    // KV 快照已写入，使后续公开读无需唤醒 DO
+    const kv = await env.healerbook_snapshots.get(`tl-snapshot:${id}`)
+    expect(kv).not.toBeNull()
+
+    // 匿名 viewer 立即 200 且带内容
+    const get = await SELF.fetch(`https://app/api/timelines/${id}`)
+    expect(get.status).toBe(200)
+    const body = (await get.json()) as { role: string; snapshot?: { name?: string } }
+    expect(body.role).toBe('viewer')
+    expect(body.snapshot?.name).toBe('带内容发布')
+  })
+
+  it('不携带 content 时不写 KV，匿名 viewer 仍 404（维持原行为）', async () => {
+    const id = 'publishNoContent00001'
+    await publishOne(id, 'T')
+
+    const kv = await env.healerbook_snapshots.get(`tl-snapshot:${id}`)
+    expect(kv).toBeNull()
+
+    const get = await SELF.fetch(`https://app/api/timelines/${id}`)
+    expect(get.status).toBe(404)
+  })
+})
 
 describe('timelines 路由', () => {
   it('POST /api/timelines 发布:建行 + 作者入白名单', async () => {
