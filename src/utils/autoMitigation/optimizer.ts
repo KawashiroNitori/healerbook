@@ -127,3 +127,33 @@ function probe(ctx: OptimizerContext, c: Candidate): EvalResult | null {
   if (!engine.canPlaceCastEvent(c.action, c.playerId, c.start).ok) return null
   return ctx.evaluator([...allCasts(ctx), trialCast(c)])
 }
+
+/**
+ * 阶段 2：边际贪心最小化总伤。每轮在保持可行下选 ΔTotal 最大的候选加入，
+ * 直到无正收益。朴素全量评估（计划二用 CELF 惰性贪心加速）。
+ */
+export function phase2Minimize(ctx: OptimizerContext): void {
+  const placed = new Set<string>() // 已加入的候选 key，避免重复放同点同技能
+  const keyOf = (c: Candidate) => `${c.action.id}@${c.start}#${c.playerId}`
+  for (;;) {
+    let best: { c: Candidate; next: EvalResult; gain: number } | null = null
+    for (const c of ctx.cands) {
+      if (placed.has(keyOf(c))) continue
+      const next = probe(ctx, c)
+      if (!next) continue
+      // 可行性单调：不新增致死
+      let ok = true
+      for (const id of next.lethal)
+        if (!ctx.evalState.lethal.has(id)) {
+          ok = false
+          break
+        }
+      if (!ok) continue
+      const gain = ctx.evalState.total - next.total
+      if (gain > (best?.gain ?? TIME_EPS)) best = { c, next, gain }
+    }
+    if (!best || best.gain <= TIME_EPS) break
+    if (tryAccept(ctx, best.c)) placed.add(keyOf(best.c))
+    else placed.add(keyOf(best.c)) // 复查失败也标记，避免死循环
+  }
+}
