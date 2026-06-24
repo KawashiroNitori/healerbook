@@ -186,11 +186,12 @@ describe('handleFFLogsImport', () => {
       expect(timeline.ua).toBeTypeOf('number')
 
       // 验证调用参数
-      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'ABC123' })
+      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'ABC123', lang: 'zh-CN' })
       expect(mockGetEvents).toHaveBeenCalledWith({
         reportCode: 'ABC123',
         start: 0,
         end: 300000,
+        lang: 'zh-CN',
       })
     })
 
@@ -278,7 +279,7 @@ describe('handleFFLogsImport', () => {
       const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(200)
-      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'a:ABC123' })
+      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'a:ABC123', lang: 'zh-CN' })
     })
   })
 
