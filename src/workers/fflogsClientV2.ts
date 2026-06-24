@@ -165,18 +165,14 @@ export const EVENT_FETCH_SPECS: FetchSpec[] = [
   { dataType: 'Debuffs' },
   { dataType: 'Buffs' },
   { dataType: 'All', limit: 200, singlePage: true, filterType: 'limitbreakupdate' },
-  // 【临时屏蔽】targetabilityupdate 抓取（dataType:'All' 全程分页）。实测此条 spec 会让
-  // 单场导入的 FFLogs 请求数显著增多，触发大量 429 限流。在限流方案落地前先停掉——下游
-  // buildTargetabilityIntervals 拿不到此类事件时区间为空、isTargetableAt 默认可选中，目标减
-  // 无效判定优雅退化为仅按"来源非 Boss"判断，不会报错。恢复时取消下面整段注释即可。
-  // {
-  //   // 不设 hostilityType：dataType:'All' + filterExpression 下，targetabilityupdate 事件不受
-  //   // hostilityType 影响——默认 'Friendlies' 与 'Enemies' 均返回全量敌方可选中事件（已对真实
-  //   // 报告核验：Friendlies/Enemies/省略三者条数一致），故沿用默认即可，勿改成 'Enemies'。
-  //   dataType: 'All',
-  //   filterExpression: 'type="targetabilityupdate"',
-  //   filterType: 'targetabilityupdate',
-  // },
+  {
+    // 不设 hostilityType：dataType:'All' + filterExpression 下，targetabilityupdate 事件不受
+    // hostilityType 影响——默认 'Friendlies' 与 'Enemies' 均返回全量敌方可选中事件（已对真实
+    // 报告核验：Friendlies/Enemies/省略三者条数一致），故沿用默认即可，勿改成 'Enemies'。
+    dataType: 'All',
+    filterExpression: 'type="targetabilityupdate"',
+    filterType: 'targetabilityupdate',
+  },
 ]
 
 /**
