@@ -44,9 +44,9 @@ describe('runOptimize（集成）', () => {
     })
     expect(engine.findInvalidCastEvents()).toEqual([])
 
-    // 软断言：若有技能被成功加入则总伤应该降低；若无候选合法窗口（全部挡掉）则放宽为 <=
-    expect(out.summary.totalDamageAfter).toBeLessThanOrEqual(out.summary.totalDamageBefore)
-    expect(out.summary.castsAdded).toBeGreaterThanOrEqual(0)
+    // 覆盖语义修正后，有效候选被正确识别，总伤严格降低（硬断言）
+    expect(out.summary.totalDamageAfter).toBeLessThan(out.summary.totalDamageBefore)
+    expect(out.summary.castsAdded).toBeGreaterThan(0)
   })
 
   it('确定性：同 seed 同结果（硬断言）', () => {

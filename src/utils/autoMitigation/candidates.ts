@@ -46,7 +46,7 @@ export function generateCandidates(input: OptimizeInput, engine: PlacementEngine
       const starts = new Set<number>()
       for (const e of inScopeEvents) {
         if (inSomeLegal(e.time, legal)) starts.add(e.time) // 左沿对齐事件
-        const late = e.time - d + TIME_EPS // 尽量晚放仍罩住 e
+        const late = e.time - d // 尽量晚放仍罩住 e
         if (inSomeLegal(late, legal)) starts.add(late)
       }
       for (const iv of legal) starts.add(iv.from) // 合法窗口左端
@@ -55,7 +55,7 @@ export function generateCandidates(input: OptimizeInput, engine: PlacementEngine
       for (const start of starts) {
         const covers = new Set<string>()
         for (const e of inScopeEvents) {
-          if (e.time >= start - TIME_EPS && e.time < start + d - TIME_EPS) covers.add(e.id)
+          if (e.time - start > TIME_EPS && e.time <= start + d + TIME_EPS) covers.add(e.id)
         }
         if (covers.size === 0) continue // A2 零贡献剪枝
         perAction.push({ action, playerId: player.id, start, covers })
