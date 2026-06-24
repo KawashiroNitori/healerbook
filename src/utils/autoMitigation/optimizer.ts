@@ -1,6 +1,7 @@
 import { TIME_EPS } from '@/utils/placement/types'
 import type { CastEvent } from '@/types/timeline'
 import type { OptimizeInput, OptimizeDeps, Candidate, EvalResult, InfeasibleEvent } from './types'
+import { applyMove, proposeMove } from './moves'
 
 export interface OptimizerContext {
   input: OptimizeInput
@@ -156,4 +157,28 @@ export function phase2Minimize(ctx: OptimizerContext): void {
     if (tryAccept(ctx, best.c)) placed.add(keyOf(best.c))
     else placed.add(keyOf(best.c)) // 复查失败也标记，避免死循环
   }
+}
+
+/**
+ * 阶段 3：局部搜索精修，吃满 deadline 前的预算。维护 best 快照，
+ * 预算到点回退到 best（不退化）。本版只接受严格改进的 move。
+ */
+export function phase3LocalSearch(
+  ctx: OptimizerContext,
+  rng: () => number,
+  deadline: number
+): void {
+  let bestAdded = [...ctx.added]
+  let bestEval = ctx.evalState
+  while (ctx.deps.now() < deadline) {
+    const mv = proposeMove(ctx, rng)
+    if (!mv) break
+    applyMove(ctx, mv, rng)
+    if (ctx.evalState.total < bestEval.total) {
+      bestAdded = [...ctx.added]
+      bestEval = ctx.evalState
+    }
+  }
+  ctx.added = bestAdded
+  ctx.evalState = bestEval
 }
