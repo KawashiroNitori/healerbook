@@ -355,6 +355,7 @@ export class FFLogsClientV2 {
   async getReport(params: GetReportParams): Promise<FFLogsReport> {
     const { reportCode } = params
 
+    // i18n 扩展点：本查询内 translate: false 为 i18n 扩展点，未来可依据 params.lang 切换；当前保持 false 不改变输出。
     const query = `
       query GetReport($code: String!) {
         reportData {
@@ -375,8 +376,6 @@ export class FFLogsClientV2 {
                 id
               }
             }
-            // i18n 扩展点：未来可依据 params.lang 切换 translate / 数据源语言；
-            // 当前阶段保持 translate: false 不改变输出。
             masterData(translate: false) {
               abilities {
                 gameID
@@ -527,6 +526,7 @@ export class FFLogsClientV2 {
   async getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse> {
     const { reportCode, start, end } = params
 
+    // i18n 扩展点：本查询内 translate: false 为 i18n 扩展点，未来可依据 lang 切换；当前保持 false 不改变输出。
     const query = `
       query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $hostilityType: HostilityType, $includeResources: Boolean, $limit: Int, $filterExpression: String) {
         reportData {
@@ -536,7 +536,6 @@ export class FFLogsClientV2 {
               endTime: $endTime
               dataType: $dataType
               hostilityType: $hostilityType
-              // i18n 扩展点：未来可依据 lang 切换 translate；当前保持 false。
               translate: false
               includeResources: $includeResources
               limit: $limit
