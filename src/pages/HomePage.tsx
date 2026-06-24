@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Download, CircleHelp, Info } from 'lucide-react'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
@@ -28,6 +29,7 @@ const AboutDialog = lazy(() => import('@/components/AboutDialog'))
 
 export default function HomePage() {
   useChangelogToast()
+  const { t } = useTranslation(['home', 'common'])
   const navigate = useNavigate()
 
   const { isLoggedIn } = useAuth()
@@ -98,7 +100,11 @@ export default function HomePage() {
       )
       setPendingDelete(null)
     } catch (err) {
-      toast.error(`操作失败：${err instanceof Error ? err.message : '未知错误'}`)
+      toast.error(
+        t('common:operationFailed', {
+          message: err instanceof Error ? err.message : t('common:unknownError'),
+        })
+      )
     }
   }
 
@@ -112,7 +118,7 @@ export default function HomePage() {
             <img src="/icon.png" alt="Healerbook" className="w-10 h-10" />
             <div>
               <h1 className="text-2xl font-bold">{APP_NAME}</h1>
-              <p className="hidden sm:block text-sm text-muted-foreground">FF14 减伤规划工具</p>
+              <p className="hidden sm:block text-sm text-muted-foreground">{t('home:subtitle')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -124,7 +130,7 @@ export default function HomePage() {
               onClick={() => track('help-click')}
             >
               <CircleHelp className="w-4 h-4" />
-              <span className="hidden sm:inline">帮助</span>
+              <span className="hidden sm:inline">{t('home:help')}</span>
             </a>
             <button
               onClick={() => {
@@ -138,7 +144,7 @@ export default function HomePage() {
               className="relative inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <Info className="w-4 h-4" />
-              <span className="hidden sm:inline">关于</span>
+              <span className="hidden sm:inline">{t('home:about')}</span>
               {showAboutTip && (
                 <div className="absolute top-full right-0 mt-2 w-48 rounded-md border border-foreground/20 bg-popover p-3 text-xs text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95">
                   <div className="absolute -top-1.5 right-4 h-3 w-3 rotate-45 border-l border-t border-foreground/20 bg-popover" />
