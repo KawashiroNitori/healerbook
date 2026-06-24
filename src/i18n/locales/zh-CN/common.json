@@ -1,0 +1,4 @@
+{
+  "operationFailed": "操作失败：{message}",
+  "unknownError": "未知错误"
+}
