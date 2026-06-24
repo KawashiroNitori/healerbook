@@ -21,7 +21,8 @@
     "prepare": "husky",
     "docs:dev": "vitepress dev docs --port 5174",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "i18n:extract": "i18next"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
