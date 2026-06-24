@@ -1,0 +1,29 @@
+name: Crowdin Sync
+
+on:
+  push:
+    branches: [main, feat/i18n]
+    paths:
+      - "src/i18n/locales/zh-CN/**"
+  workflow_dispatch:
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Crowdin push & pull
+        uses: crowdin/github-action@v2
+        with:
+          upload_sources: true
+          upload_translations: false
+          download_translations: true
+          localization_branch_name: l10n/crowdin
+          create_pull_request: true
+          pull_request_title: "chore(i18n): 回流 Crowdin 译文"
+          pull_request_base_branch_name: "main"
+        env:
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+          CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
