@@ -14,13 +14,6 @@ export default defineConfig({
         find: '@ff14-overlay',
         replacement: path.resolve(__dirname, './3rdparty/ff14-overlay-vue/src'),
       },
-      // jsdom 环境下用简化 stub 替换 Radix DropdownMenu，
-      // 使 fireEvent.click 可以正常触发菜单打开（Radix 只监听 pointerdown）。
-      // 注意：必须在 @/ 通配别名之前声明，否则 @/ 先匹配后此条永远不会生效。
-      {
-        find: '@/components/ui/dropdown-menu',
-        replacement: path.resolve(__dirname, './src/components/ui/__mocks__/dropdown-menu.tsx'),
-      },
       {
         find: '@',
         replacement: path.resolve(__dirname, './src'),
