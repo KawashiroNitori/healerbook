@@ -4,6 +4,8 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import i18n, { getInitialLocale } from '@/i18n'
+import type { AppLanguage } from '@/types/i18n'
 
 interface UIState {
   /** 是否显示网格 */
@@ -14,6 +16,8 @@ interface UIState {
   showCooldownIndicators: boolean
   /** 主题模式 */
   theme: 'light' | 'dark'
+  /** 当前界面语言 */
+  locale: AppLanguage
   /** 用户手动锁定编辑 */
   manualLock: boolean
   /** 伤害事件轨道是否折叠 */
@@ -43,6 +47,8 @@ interface UIState {
   toggleCooldownIndicators: () => void
   /** 设置主题 */
   setTheme: (theme: 'light' | 'dark') => void
+  /** 设置界面语言 */
+  setLocale: (locale: AppLanguage) => void
   /** 切换手动锁定 */
   toggleManualLock: () => void
   /** 切换伤害事件轨道折叠 */
@@ -82,6 +88,15 @@ function getInitialTheme(): 'light' | 'dark' {
 const initialTheme = getInitialTheme()
 applyTheme(initialTheme)
 
+function applyLocale(locale: AppLanguage) {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('locale', locale)
+  }
+  void i18n.changeLanguage(locale)
+}
+
+const initialLocale = getInitialLocale()
+
 export const useUIStore = create<UIState>()(
   persist(
     set => ({
@@ -89,6 +104,7 @@ export const useUIStore = create<UIState>()(
       showTimeRuler: true,
       showCooldownIndicators: true,
       theme: initialTheme,
+      locale: initialLocale,
       manualLock: false,
       isDamageTrackCollapsed: false,
       showActualDamage: true,
@@ -115,6 +131,11 @@ export const useUIStore = create<UIState>()(
       setTheme: theme => {
         applyTheme(theme)
         set({ theme })
+      },
+
+      setLocale: locale => {
+        applyLocale(locale)
+        set({ locale })
       },
 
       toggleManualLock: () =>
@@ -149,7 +170,7 @@ export const useUIStore = create<UIState>()(
     {
       name: 'ui-store',
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      partialize: ({ theme, draggingId, manualLock, ...rest }) => rest,
+      partialize: ({ theme, locale, draggingId, manualLock, ...rest }) => rest,
     }
   )
 )
