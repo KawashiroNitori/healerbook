@@ -6,8 +6,14 @@
  * beforeError hook：把后端错误响应预解析挂到 error.message 与 error.parsedBody，统一前端 catch 处理。
  */
 
-import ky, { type AfterResponseHook, type BeforeErrorHook, HTTPError } from 'ky'
+import ky, {
+  type AfterResponseHook,
+  type BeforeErrorHook,
+  type BeforeRequestHook,
+  HTTPError,
+} from 'ky'
 import { useAuthStore } from '@/store/authStore'
+import { useUIStore } from '@/store/uiStore'
 import { parseApiError } from './parseApiError'
 
 export type ParsedHTTPError = HTTPError & { parsedBody?: unknown }
@@ -20,6 +26,11 @@ const handleUnauthorized: AfterResponseHook = async (request, _options, response
 
   request.headers.set('Authorization', `Bearer ${newToken}`)
   return fetch(request)
+}
+
+/** 用站内选定 locale 覆盖浏览器默认 Accept-Language，供后端按用户真实选择取数 */
+export const attachAcceptLanguage: BeforeRequestHook = request => {
+  request.headers.set('Accept-Language', useUIStore.getState().locale)
 }
 
 const attachParsedError: BeforeErrorHook = async error => {
@@ -42,6 +53,7 @@ export const apiClient = ky.create({
           request.headers.set('Authorization', `Bearer ${token}`)
         }
       },
+      attachAcceptLanguage,
     ],
     afterResponse: [handleUnauthorized],
     beforeError: [attachParsedError],
