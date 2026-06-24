@@ -27,6 +27,7 @@ import {
   useResolvedVariantByCastId,
 } from '@/contexts/DamageCalculationContext'
 import { useUIStore } from '@/store/uiStore'
+import i18n, { getKonvaFontFamily } from '@/i18n'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
@@ -149,6 +150,8 @@ export default function SkillTracksCanvas({
 }: SkillTracksCanvasProps) {
   const draggingId = useUIStore(s => s.draggingId)
   const setDraggingId = useUIStore(s => s.setDraggingId)
+  const locale = useUIStore(s => s.locale)
+  const konvaFont = getKonvaFontFamily(locale)
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
   const { filteredDamageEvents } = useFilteredTimelineView()
@@ -479,11 +482,11 @@ export default function SkillTracksCanvas({
                   <Text
                     x={centerX}
                     y={trackY - 6}
-                    text={`空转 ${firstIdleTime.toFixed(1)}s`}
+                    text={i18n.t('editor:idle', { sec: firstIdleTime.toFixed(1) })}
                     fontSize={11}
                     fill="#f59e0b"
                     fontStyle="bold"
-                    fontFamily="Arial, sans-serif"
+                    fontFamily={konvaFont}
                     align="center"
                     offsetX={30}
                     perfectDrawEnabled={false}
@@ -542,11 +545,11 @@ export default function SkillTracksCanvas({
                 <Text
                   x={centerX}
                   y={trackY - 6}
-                  text={`空转 ${idleTime.toFixed(1)}s`}
+                  text={i18n.t('editor:idle', { sec: idleTime.toFixed(1) })}
                   fontSize={11}
                   fill="#f59e0b"
                   fontStyle="bold"
-                  fontFamily="Arial, sans-serif"
+                  fontFamily={konvaFont}
                   align="center"
                   offsetX={30}
                   perfectDrawEnabled={false}
