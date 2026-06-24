@@ -1,0 +1,129 @@
+import { TIME_EPS } from '@/utils/placement/types'
+import type { CastEvent } from '@/types/timeline'
+import type { OptimizeInput, OptimizeDeps, Candidate, EvalResult, InfeasibleEvent } from './types'
+
+export interface OptimizerContext {
+  input: OptimizeInput
+  deps: OptimizeDeps
+  evaluator: (casts: CastEvent[]) => EvalResult
+  cands: Candidate[]
+  added: CastEvent[]
+  evalState: EvalResult
+  infeasible: Map<string, InfeasibleEvent>
+}
+
+export function makeContext(
+  input: OptimizeInput,
+  deps: OptimizeDeps,
+  cands: Candidate[]
+): OptimizerContext {
+  const evaluator = deps.createEvaluator(input)
+  const evalState = evaluator(input.lockedCastEvents)
+  return { input, deps, evaluator, cands, added: [], evalState, infeasible: new Map() }
+}
+
+export function makeCast(ctx: OptimizerContext, c: Candidate): CastEvent {
+  return {
+    id: ctx.deps.generateId(),
+    actionId: c.action.id,
+    timestamp: c.start,
+    playerId: c.playerId,
+  }
+}
+
+/** 当前 cast 全集 = locked + added。 */
+function allCasts(ctx: OptimizerContext): CastEvent[] {
+  return [...ctx.input.lockedCastEvents, ...ctx.added]
+}
+
+/**
+ * 只读试探用的占位 cast id。probe 是纯只读探测，phase1/2/3 探测量极大，
+ * 不能每次消耗 generateId。同一次 evaluate 只并入一个试探 cast，固定 id 不冲突；
+ * 真实 id（nanoid，21 位随机）不会撞 '__probe__'。
+ */
+const PROBE_CAST_ID = '__probe__'
+function trialCast(c: Candidate): CastEvent {
+  return { id: PROBE_CAST_ID, actionId: c.action.id, timestamp: c.start, playerId: c.playerId }
+}
+
+/**
+ * 试探接受一个候选：合法性闸 → 评估 → 可行性单调（不新增致死）→ 整体合法复查。
+ * 通过则提交并返回新 EvalResult；否则不改状态返回 null。
+ */
+export function tryAccept(ctx: OptimizerContext, c: Candidate): EvalResult | null {
+  const engine = ctx.deps.buildPlacementEngine(ctx.input, allCasts(ctx), ctx.evalState)
+  if (!engine.canPlaceCastEvent(c.action, c.playerId, c.start).ok) return null
+
+  const cast = makeCast(ctx, c)
+  const next = ctx.evaluator([...allCasts(ctx), cast])
+
+  // I2 可行性单调：不得新增致死事件
+  for (const id of next.lethal) if (!ctx.evalState.lethal.has(id)) return null
+
+  // I1 合法：加入后整组仍合法（资源争用复查）
+  const engine2 = ctx.deps.buildPlacementEngine(ctx.input, [...allCasts(ctx), cast], next)
+  if (engine2.findInvalidCastEvents().length > 0) return null
+
+  ctx.added.push(cast)
+  ctx.evalState = next
+  return next
+}
+
+/** 阶段 1：消解致死事件（条件性，无致死 / 无 refHP 时整体跳过）。 */
+export function phase1Feasibility(ctx: OptimizerContext): void {
+  const shelved = new Set<string>()
+  for (;;) {
+    // 最致死优先（finalDamage / refHP 比值最大），跳过已 shelve
+    let target: string | null = null
+    let worst = -Infinity
+    for (const id of ctx.evalState.lethal) {
+      if (shelved.has(id)) continue
+      const pe = ctx.evalState.perEvent.get(id)!
+      const ratio = pe.referenceMaxHP ? pe.finalDamage / pe.referenceMaxHP : Infinity
+      if (ratio > worst) {
+        worst = ratio
+        target = id
+      }
+    }
+    if (target === null) break
+
+    // 在覆盖 target 的候选里，选对 target 降伤最大者
+    let best: { c: Candidate; next: EvalResult } | null = null
+    for (const c of ctx.cands) {
+      if (!c.covers.has(target)) continue
+      const before = ctx.evalState.perEvent.get(target)!.finalDamage
+      const next = probe(ctx, c)
+      if (!next) continue
+      const after = next.perEvent.get(target)!.finalDamage
+      if (
+        after < before - TIME_EPS &&
+        (!best || after < best.next.perEvent.get(target)!.finalDamage)
+      ) {
+        best = { c, next }
+      }
+    }
+
+    if (!best) {
+      const pe = ctx.evalState.perEvent.get(target)!
+      const orig = ctx.input.damageEvents.find(e => e.id === target)!.damage
+      ctx.infeasible.set(target, {
+        eventId: target,
+        originalDamage: orig,
+        bestAchievedFinalDamage: pe.finalDamage,
+      })
+      shelved.add(target)
+      continue
+    }
+    // 真正接受（tryAccept 复查合法/可行并提交）
+    if (!tryAccept(ctx, best.c)) {
+      shelved.add(target)
+    }
+  }
+}
+
+/** 只读试探：返回若接受 c 后的 EvalResult，不改 ctx（用于打分）。 */
+function probe(ctx: OptimizerContext, c: Candidate): EvalResult | null {
+  const engine = ctx.deps.buildPlacementEngine(ctx.input, allCasts(ctx), ctx.evalState)
+  if (!engine.canPlaceCastEvent(c.action, c.playerId, c.start).ok) return null
+  return ctx.evaluator([...allCasts(ctx), trialCast(c)])
+}
