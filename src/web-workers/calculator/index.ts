@@ -2,11 +2,14 @@
 
 import { MitigationCalculator } from '@/utils/mitigationCalculator'
 import type { SimulateOutput } from '@/utils/mitigationCalculator'
+import { runOptimize } from '@/utils/autoMitigation'
+import { MITIGATION_DATA } from '@/data/mitigationActions'
 import type {
   SimulateBundle,
   SimulateRequest,
   SimulateResponse,
   StatusTimelineByPlayer,
+  OptimizeRequest,
 } from './types'
 
 /**
@@ -24,8 +27,29 @@ const cache: {
   byExcludeId: new Map(),
 }
 
-self.onmessage = (e: MessageEvent<SimulateRequest>) => {
-  const { requestId, version, input, extraExcludeIds } = e.data
+self.onmessage = (e: MessageEvent<SimulateRequest | OptimizeRequest>) => {
+  if ((e.data as OptimizeRequest).kind === 'optimize') {
+    const { requestId, input } = e.data as OptimizeRequest
+    try {
+      const actions = new Map(MITIGATION_DATA.actions.map(a => [a.id, a]))
+      const output = runOptimize({ ...input, actions })
+      self.postMessage({ requestId, kind: 'optimize', ok: true, output })
+    } catch (err) {
+      self.postMessage({
+        requestId,
+        kind: 'optimize',
+        ok: false,
+        error: {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        },
+      })
+    }
+    return
+  }
+
+  // —— 既有 simulate 路径 ——
+  const { requestId, version, input, extraExcludeIds } = e.data as SimulateRequest
 
   if (version > lastVersion) {
     cache.main = null
@@ -58,13 +82,14 @@ self.onmessage = (e: MessageEvent<SimulateRequest>) => {
       main: cache.main,
       removalTimelinesByExcludeId,
     }
-    const resp: SimulateResponse = { requestId, ok: true, bundle }
+    const resp: SimulateResponse = { requestId, kind: 'simulate', ok: true, bundle }
     self.postMessage(resp)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     const stack = err instanceof Error ? err.stack : undefined
     const resp: SimulateResponse = {
       requestId,
+      kind: 'simulate',
       ok: false,
       error: { message, stack },
     }

@@ -4,11 +4,13 @@
 
 import type { SimulateInput, SimulateOutput } from '@/utils/mitigationCalculator'
 import type { StatusInterval } from '@/types/status'
+import type { OptimizeInput, OptimizeOutput } from '@/utils/autoMitigation'
 
 export type StatusTimelineByPlayer = Map<number, Map<number, StatusInterval[]>>
 
 export interface SimulateRequest {
   requestId: string
+  kind?: 'simulate'
   /** 主线程单调递增，用于 worker 决定缓存失效。 */
   version: number
   input: SimulateInput
@@ -24,5 +26,18 @@ export interface SimulateBundle {
 }
 
 export type SimulateResponse =
-  | { requestId: string; ok: true; bundle: SimulateBundle }
-  | { requestId: string; ok: false; error: { message: string; stack?: string } }
+  | { requestId: string; kind?: 'simulate'; ok: true; bundle: SimulateBundle }
+  | { requestId: string; kind?: 'simulate'; ok: false; error: { message: string; stack?: string } }
+
+/** actions 含 executor 等函数，不可 structured-clone，故 worker 消息剔除它，worker 内自建。 */
+export type OptimizeWireInput = Omit<OptimizeInput, 'actions'>
+
+export interface OptimizeRequest {
+  requestId: string
+  kind: 'optimize'
+  input: OptimizeWireInput
+}
+
+export type OptimizeResponse =
+  | { requestId: string; kind: 'optimize'; ok: true; output: OptimizeOutput }
+  | { requestId: string; kind: 'optimize'; ok: false; error: { message: string; stack?: string } }
