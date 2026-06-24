@@ -10,6 +10,7 @@ import type {
   FFLogsEvent,
 } from '@/types/fflogs'
 import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from '@/types/fflogs'
+import type { AppLanguage } from '@/types/i18n'
 import { buildComposition } from '@/utils/rosterUtils'
 
 export interface FFLogsV2Config {
@@ -23,6 +24,7 @@ export interface FFLogsV2Config {
  */
 export interface GetReportParams {
   reportCode: string
+  lang?: AppLanguage
 }
 
 /**
@@ -32,7 +34,7 @@ export interface GetEventsParams {
   reportCode: string
   start: number
   end: number
-  lang?: string
+  lang?: AppLanguage
   dataType?: FFLogsEventDataType[]
 }
 
@@ -373,6 +375,8 @@ export class FFLogsClientV2 {
                 id
               }
             }
+            // i18n 扩展点：未来可依据 params.lang 切换 translate / 数据源语言；
+            // 当前阶段保持 translate: false 不改变输出。
             masterData(translate: false) {
               abilities {
                 gameID
@@ -532,6 +536,7 @@ export class FFLogsClientV2 {
               endTime: $endTime
               dataType: $dataType
               hostilityType: $hostilityType
+              // i18n 扩展点：未来可依据 lang 切换 translate；当前保持 false。
               translate: false
               includeResources: $includeResources
               limit: $limit

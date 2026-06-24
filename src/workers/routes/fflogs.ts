@@ -3,6 +3,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../env'
 import { createClient } from '../env'
+import { readLanguage } from '../middleware/readLanguage'
 import { parseFightImport, resolveImportTimelineName, parseStatData } from '@/utils/fflogsImporter'
 import { getStatisticsKVKey } from '../top100Sync'
 import type { Timeline } from '@/types/timeline'
@@ -11,11 +12,13 @@ import { serializeForServer } from '@/utils/timelineFormat'
 
 const app = new Hono<AppEnv>()
 
+app.use('*', readLanguage)
+
 app.get('/report/:reportCode', async c => {
   const reportCode = c.req.param('reportCode')
   try {
     const client = createClient(c.env)
-    const data = await client.getReport({ reportCode })
+    const data = await client.getReport({ reportCode, lang: c.get('lang') })
     return c.json(data)
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
@@ -26,7 +29,7 @@ app.get('/events/:reportCode', async c => {
   const reportCode = c.req.param('reportCode')
   const start = c.req.query('start')
   const end = c.req.query('end')
-  const lang = c.req.query('lang') || undefined
+  const lang = c.get('lang')
 
   if (!start || !end) {
     return c.json({ error: 'Missing start or end parameter' }, 400)
@@ -56,7 +59,7 @@ app.get('/import', async c => {
 
   try {
     const client = createClient(c.env)
-    const report = await client.getReport({ reportCode })
+    const report = await client.getReport({ reportCode, lang: c.get('lang') })
 
     let fightId: number
     if (fightIdParam) {
@@ -80,6 +83,7 @@ app.get('/import', async c => {
       reportCode,
       start: fight.startTime,
       end: fight.endTime,
+      lang: c.get('lang'),
     })
     const events = eventsData.events || []
 
