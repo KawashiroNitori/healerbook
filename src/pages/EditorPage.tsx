@@ -35,6 +35,7 @@ import FullScreenLoader from '@/components/FullScreenLoader'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
 import ThemeToggle from '@/components/ThemeToggle'
+import LanguageToggle from '@/components/LanguageToggle'
 import PresenceAvatars from '@/components/PresenceAvatars'
 import { track } from '@/utils/analytics'
 import { decideOpen, type ServerOutcome } from './editorOpenDecision'
@@ -383,6 +384,7 @@ export default function EditorPage() {
           <div className="ml-auto flex items-center gap-3">
             <PresenceAvatars />
             <ThemeToggle />
+            <LanguageToggle />
           </div>
         </div>
       </header>
