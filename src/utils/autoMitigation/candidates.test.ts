@@ -88,12 +88,12 @@ describe('generateCandidates', () => {
     expect(cands.length).toBe(0)
   })
 
-  it('isGcdMit：短CD(<5)的减伤/盾算 GCD 减伤；纯治疗与长CD不算', () => {
-    expect(isGcdMit(action({ cooldown: 1, category: ['partywide', 'percentage'] }))).toBe(true)
-    expect(isGcdMit(action({ cooldown: 2.5, category: ['partywide', 'shield'] }))).toBe(true)
-    expect(isGcdMit(action({ cooldown: 2, category: ['partywide', 'heal'] }))).toBe(false) // 纯治疗
-    expect(isGcdMit(action({ cooldown: 60, category: ['partywide', 'percentage'] }))).toBe(false) // 长CD
-    expect(isGcdMit(action({ cooldown: 5, category: ['partywide', 'shield'] }))).toBe(false) // 边界:5 不算
+  it('isGcdMit：由 category 含 gcd 显式标记，与 cooldown 无关', () => {
+    expect(isGcdMit(action({ category: ['partywide', 'shield', 'gcd'] }))).toBe(true)
+    expect(isGcdMit(action({ category: ['partywide', 'percentage', 'gcd'] }))).toBe(true)
+    // 免费赠送技（cd 短但无 gcd 标签）不算 → 主池贪心放置
+    expect(isGcdMit(action({ cooldown: 1, category: ['partywide', 'shield'] }))).toBe(false)
+    expect(isGcdMit(action({ cooldown: 60, category: ['partywide', 'percentage'] }))).toBe(false)
   })
 
   it('partywide 的 action 正常产候选', () => {

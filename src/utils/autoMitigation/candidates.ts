@@ -6,15 +6,12 @@ import { isInScope } from './scope'
 import type { OptimizeInput, Candidate } from './types'
 
 /**
- * GCD 减伤技：短 CD（<5s，即 GCD 量级）且提供减伤/盾（category 含 percentage 或 shield）。
- * 纯 GCD 治疗（仅 heal）不算——它不进伤害公式、本就零增益。
+ * GCD 减伤技：由数据显式标 `category: 'gcd'`（占 GCD、有真实机会成本）。
  * 这类技能在排布上被降优先级：仅在非 GCD 减伤都生效后事件仍危险时作兜底（见 optimizer.gcdFallback）。
+ * 父技能免费触发的赠送技（如节制→神爱抚）不打此标签，照常进主池贪心放置——否则不放等于浪费免费盾。
  */
 export function isGcdMit(action: MitigationAction): boolean {
-  return (
-    action.cooldown < 5 &&
-    (action.category.includes('percentage') || action.category.includes('shield'))
-  )
+  return action.category.includes('gcd')
 }
 
 function inSomeLegal(t: number, legal: Interval[]): boolean {

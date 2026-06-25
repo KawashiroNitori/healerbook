@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { runOptimize, defaultDeps } from './optimizer'
 import { createEvaluator } from './evaluate'
+import { generateCandidates } from './candidates'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import type { OptimizeInput } from './types'
@@ -71,6 +72,39 @@ describe('runOptimize（集成）', () => {
     for (const c of out.addedCastEvents) {
       expect(input.actions.has(c.actionId)).toBe(true)
     }
+  })
+
+  it('依赖子技能解锁：放置节制(16536)后，神爱抚(37011)进入候选；不放则无候选', () => {
+    const whm = 1
+    const buildEngine = (input: OptimizeInput) => {
+      const ev = createEvaluator(input)(input.lockedCastEvents)
+      return createPlacementEngine({
+        castEvents: input.lockedCastEvents,
+        actions: input.actions,
+        statusTimelineByPlayer: ev.statusTimelineByPlayer,
+        resolvedVariantByCastId: ev.resolvedVariantByCastId,
+      })
+    }
+    const base = {
+      damageEvents: [dmg('a', 15, 90000), dmg('b', 25, 90000), dmg('c', 35, 90000)],
+      composition: { players: [{ id: whm, job: 'WHM' as const }] },
+      actions: actionsMap(),
+      initialState: { statuses: [], timestamp: 0 } as PartyState,
+      baseReferenceMaxHPForAoe: 200000,
+    }
+    // 放了节制 → 其施加的 3881「神爱抚预备」buff 存在 → 神爱抚 whileStatus(3881) 有合法窗口
+    const withParent: OptimizeInput = {
+      ...base,
+      lockedCastEvents: [{ id: 'lock-temperance', actionId: 16536, timestamp: 10, playerId: whm }],
+    }
+    expect(
+      generateCandidates(withParent, buildEngine(withParent)).some(c => c.action.id === 37011)
+    ).toBe(true)
+    // 不放节制 → 无 3881 → 神爱抚无候选（这正是修复前整段缺失的原因）
+    const noParent: OptimizeInput = { ...base, lockedCastEvents: [] }
+    expect(
+      generateCandidates(noParent, buildEngine(noParent)).some(c => c.action.id === 37011)
+    ).toBe(false)
   })
 
   it('defaultDeps 返回完整依赖对象', () => {

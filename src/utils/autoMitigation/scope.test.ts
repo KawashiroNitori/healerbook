@@ -27,7 +27,7 @@ describe('isInScope', () => {
     expect(isInScope(base({ damage: 1_000_000 }))).toBe(false)
     expect(isInScope(base({ damage: 1_500_000 }))).toBe(false)
   })
-  it('排除已禁用减伤的事件', () => {
-    expect(isInScope(base({ targetMitigationDisabled: true }))).toBe(false)
+  it('targetMitigationDisabled 事件仍 in-scope（目标减无效≠队友减伤无效，需被保命）', () => {
+    expect(isInScope(base({ targetMitigationDisabled: true }))).toBe(true)
   })
 })

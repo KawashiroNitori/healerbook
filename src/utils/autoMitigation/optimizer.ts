@@ -270,6 +270,17 @@ export function defaultDeps(): OptimizeDeps {
   }
 }
 
+/** 依赖子技能可能链式解锁，但实际深度极浅；上限 3 轮足够且防御无限循环。 */
+const MAX_FIXPOINT_ROUNDS = 3
+
+/** 候选集稳定指纹（不动点判定用）。 */
+function candidateKeys(cands: Candidate[]): string {
+  return cands
+    .map(c => `${c.action.id}@${c.start}#${c.playerId}`)
+    .sort()
+    .join('|')
+}
+
 /** 顶层编排：候选生成 → 阶段 1 → 阶段 2 → 阶段 3 → 汇总。 */
 export function runOptimize(
   input: OptimizeInput,
@@ -279,23 +290,40 @@ export function runOptimize(
   const budget = input.options?.timeBudgetMs ?? 3000
   const rng = deps.makeRandom(input.options?.seed ?? 1)
 
-  // 候选基于 locked-only 基线的 status 时间线生成（起点固定，合法性后续动态复查）
+  // 候选基于当前 status 时间线生成（起点固定，合法性后续动态复查）
   const evaluator = deps.createEvaluator(input)
   const baseEval = evaluator(input.lockedCastEvents)
   const baseEngine = deps.buildPlacementEngine(input, input.lockedCastEvents, baseEval)
-  const cands = generateCandidates(input, baseEngine)
+  let cands = generateCandidates(input, baseEngine)
 
-  // 规则一：GCD 减伤降优先级——主阶段只用非 GCD 候选，GCD 留作兜底
-  const gcdCands = cands.filter(c => isGcdMit(c.action))
-  const mainCands = cands.filter(c => !isGcdMit(c.action))
-
-  const ctx = makeContext(input, deps, mainCands)
+  const ctx = makeContext(
+    input,
+    deps,
+    cands.filter(c => !isGcdMit(c.action))
+  )
   const totalBefore = ctx.evalState.total
 
-  phase1Feasibility(ctx)
-  phase2Minimize(ctx)
+  // 多轮：放完父技能后从当前时间线重生成候选，纳入被解锁的依赖子技能（如节制→神爱抚），
+  // 直到候选集稳定（不动点）。规则一：主阶段只用非 GCD 候选。
+  let prevKeys = candidateKeys(cands)
+  for (let round = 0; round < MAX_FIXPOINT_ROUNDS; round++) {
+    if (round > 0) {
+      const engine = deps.buildPlacementEngine(input, allCasts(ctx), ctx.evalState)
+      cands = generateCandidates(input, engine)
+      const keys = candidateKeys(cands)
+      if (keys === prevKeys) break // 无新解锁候选 → 不动点
+      prevKeys = keys
+      ctx.cands = cands.filter(c => !isGcdMit(c.action))
+    }
+    phase1Feasibility(ctx)
+    phase2Minimize(ctx)
+  }
+
   phase3LocalSearch(ctx, rng, start + budget)
-  gcdFallback(ctx, gcdCands) // 非 GCD 都生效后，对仍危险事件才动用 GCD 减伤
+  gcdFallback(
+    ctx,
+    cands.filter(c => isGcdMit(c.action))
+  ) // 非 GCD 都生效后，对仍危险事件才动用 GCD 减伤（含被解锁的 GCD 子技能）
 
   return {
     addedCastEvents: ctx.added,

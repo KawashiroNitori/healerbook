@@ -12,8 +12,8 @@ const gcdAct = (id: number): MitigationAction =>
     icon: '',
     jobs: ['WHM'],
     duration: 30,
-    cooldown: 1, // GCD
-    category: ['partywide', 'percentage'],
+    cooldown: 1,
+    category: ['partywide', 'percentage', 'gcd'], // 显式 gcd 标签 → 走兜底
   }) as MitigationAction
 const dmg = (id: string, damage: number): DamageEvent =>
   ({ id, name: id, time: 10, damage, type: 'aoe', damageType: 'magical' }) as DamageEvent
