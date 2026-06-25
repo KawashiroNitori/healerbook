@@ -25,6 +25,8 @@ export interface ResourceWidget {
   countdownSec?: number
   /** 仅 amount<max 且有 regen：下一充能积累进度 [0,1] */
   nextChargeProgress?: number
+  /** cooldown 部件专用：对应技能 id，供 React key 稳定化 */
+  actionId?: number
 }
 
 export interface MemberResourceSnapshot {
@@ -85,6 +87,15 @@ export function computeResourceSnapshots(
     e.tracks.push(t)
   }
 
+  // 变身组父 id 集合：某 action 有 trackGroup 指向另一个 action → 被指向者是父。
+  // 父轨道的 CD 事件键入了变体 id，状态不可靠；产品决策：悬浮窗不展示变身组父轨道的 CD。
+  const variantParentIds = new Set<number>()
+  for (const a of actionsById.values()) {
+    if (a.trackGroup != null && a.trackGroup !== a.id) {
+      variantParentIds.add(a.trackGroup)
+    }
+  }
+
   const result: MemberResourceSnapshot[] = []
   for (const playerId of order) {
     const { job, tracks: playerTracks } = byPlayer.get(playerId)!
@@ -93,6 +104,10 @@ export function computeResourceSnapshots(
     for (const tr of playerTracks) {
       const action = actionsById.get(tr.actionId)
       if (!action) continue
+      // 变身组父轨道：CD 事件键入了变体 id，状态不可靠，跳过
+      if (variantParentIds.has(tr.actionId)) continue
+      // 低CD技能（< 30s）不在悬浮窗展示
+      if (action.cooldown < 30) continue
       const consumes = effectsForAction(action).filter(e => e.delta < 0)
       // 代表消耗：优先自身 __cd__，否则首个 delta<0
       const consume = consumes.find(e => e.resourceId.startsWith('__cd__:')) ?? consumes[0]
@@ -100,7 +115,8 @@ export function computeResourceSnapshots(
       const def = resolveDef(consume.resourceId, registry, action)
       if (!def || def.style !== 'cooldown') continue // 多档共享池由 pools 表达
       const events = resourceEventsByKey.get(`${playerId}:${consume.resourceId}`) ?? []
-      cooldowns.push(buildWidget(def, events, time, { name: action.name, icon: action.icon }))
+      const w = buildWidget(def, events, time, { name: action.name, icon: action.icon })
+      cooldowns.push({ ...w, actionId: action.id })
     }
 
     const pools: ResourceWidget[] = []

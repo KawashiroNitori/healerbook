@@ -22,7 +22,7 @@ export default function CooldownWidget({ widget }: { widget: ResourceWidget }) {
           }}
         />
       )}
-      {v.countdownLabel && (
+      {v.countdownLabel !== null && (
         <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
           {v.countdownLabel}
         </span>

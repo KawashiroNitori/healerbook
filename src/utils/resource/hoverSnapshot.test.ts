@@ -108,4 +108,85 @@ describe('computeResourcesnapshots', () => {
     const [m] = computeResourceSnapshots(input(casts), 12)
     expect(m.pools[0].amount).toBe(2) // aetherflow 3 → 2
   })
+
+  it('变身组父轨道排除在 cooldowns 之外', () => {
+    // parent (id 200) 被 variant (id 201, trackGroup: 200) 指向 → 是变身组父
+    const parent = makeAction({ id: 200, name: '父技能', jobs: ['SCH'], cooldown: 60 })
+    const variant = makeAction({
+      id: 201,
+      name: '变体技能',
+      jobs: ['SCH'],
+      cooldown: 30,
+      trackGroup: 200,
+    })
+    const localActionsById = new Map([parent, variant].map(a => [a.id, a]))
+    const localTracks: SkillTrack[] = [
+      { job: 'SCH', playerId: 20, actionId: 200, actionName: '父技能', actionIcon: '' },
+    ]
+    const snap = computeResourceSnapshots(
+      {
+        tracks: localTracks,
+        actionsById: localActionsById,
+        registry: {},
+        resourceEventsByKey: new Map(),
+      },
+      0
+    )
+    expect(snap[0].cooldowns.map(c => c.actionId)).not.toContain(200)
+  })
+
+  it('cooldown < 30s 的技能排除在 cooldowns 之外；cooldown >= 30s 的保留', () => {
+    const shortCd = makeAction({ id: 300, name: '短CD', jobs: ['SCH'], cooldown: 20 })
+    const longCd = makeAction({ id: 301, name: '长CD', jobs: ['SCH'], cooldown: 30 })
+    const localActionsById = new Map([shortCd, longCd].map(a => [a.id, a]))
+    const localTracks: SkillTrack[] = [
+      { job: 'SCH', playerId: 30, actionId: 300, actionName: '短CD', actionIcon: '' },
+      { job: 'SCH', playerId: 30, actionId: 301, actionName: '长CD', actionIcon: '' },
+    ]
+    const snap = computeResourceSnapshots(
+      {
+        tracks: localTracks,
+        actionsById: localActionsById,
+        registry: {},
+        resourceEventsByKey: new Map(),
+      },
+      0
+    )
+    const cdActionIds = snap[0].cooldowns.map(c => c.actionId)
+    expect(cdActionIds).not.toContain(300) // 20s < 30 → 排除
+    expect(cdActionIds).toContain(301) // 30s ≥ 30 → 保留
+  })
+
+  it('多成员排序与 tracks 顺序一致', () => {
+    const a1 = makeAction({ id: 400, name: 'A', jobs: ['SCH'], cooldown: 60 })
+    const a2 = makeAction({ id: 401, name: 'B', jobs: ['SCH'], cooldown: 60 })
+    const localActionsById = new Map([a1, a2].map(a => [a.id, a]))
+    const localTracks: SkillTrack[] = [
+      { job: 'SCH', playerId: 40, actionId: 400, actionName: 'A', actionIcon: '' },
+      { job: 'SCH', playerId: 41, actionId: 401, actionName: 'B', actionIcon: '' },
+    ]
+    const snap = computeResourceSnapshots(
+      {
+        tracks: localTracks,
+        actionsById: localActionsById,
+        registry: {},
+        resourceEventsByKey: new Map(),
+      },
+      0
+    )
+    expect(snap.map(m => m.playerId)).toEqual([40, 41])
+  })
+
+  it('cooldown 部件携带 actionId', () => {
+    const [m] = computeResourceSnapshots(input(), 0)
+    // 所有 cooldown 部件均有 actionId
+    for (const c of m.cooldowns) {
+      expect(c.actionId).toBeDefined()
+      expect(typeof c.actionId).toBe('number')
+    }
+    // 具体映射：慰藉→16547 / 野战→188 / 转化→99
+    expect(m.cooldowns.find(c => c.resourceId === 'sch:consolation')?.actionId).toBe(16547)
+    expect(m.cooldowns.find(c => c.resourceId === '__cd__:188')?.actionId).toBe(188)
+    expect(m.cooldowns.find(c => c.resourceId === '__cd__:99')?.actionId).toBe(99)
+  })
 })

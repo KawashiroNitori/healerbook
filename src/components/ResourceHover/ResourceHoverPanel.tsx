@@ -20,6 +20,8 @@ function renderWidget(w: ResourceWidget) {
       return <LightsWidget widget={w} />
     case 'lightsWithBar':
       return <LightsWithBarWidget widget={w} />
+    default:
+      return null
   }
 }
 
@@ -65,7 +67,7 @@ export default function ResourceHoverPanel() {
             {m.cooldowns.length > 0 && (
               <span className="flex flex-wrap items-center gap-0.5 pl-1 border-l border-border/60">
                 {m.cooldowns.map(c => (
-                  <span key={c.resourceId}>{renderWidget(c)}</span>
+                  <span key={c.actionId ?? c.resourceId}>{renderWidget(c)}</span>
                 ))}
               </span>
             )}
