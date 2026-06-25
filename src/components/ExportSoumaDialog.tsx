@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Copy, HelpCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
@@ -40,6 +41,7 @@ interface ExportSoumaDialogProps {
 }
 
 export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const lastJob = useSoumaExportStore(s => s.lastJob)
   const setLastJob = useSoumaExportStore(s => s.setLastJob)
@@ -108,29 +110,26 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
         <button
           type="button"
           onClick={onClose}
-          aria-label="关闭"
+          aria-label={t('common:close')}
           className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
         <ModalHeader>
           <ModalTitle className="flex items-center gap-1.5">
-            导出 Souma 时间轴
+            {t('editor:exportSouma.title')}
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  aria-label="关于 Souma 时间轴"
+                  aria-label={t('editor:exportSouma.aboutAriaLabel')}
                   className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <HelpCircle className="h-4 w-4" />
                 </button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-80 text-xs leading-relaxed">
-                <p>
-                  Souma 治疗/减伤时间轴是由 Souma 制作的 ACT
-                  悬浮窗，可以根据自定义的时间轴在副本进程中对技能进行实时提醒。
-                </p>
+                <p>{t('editor:exportSouma.aboutDescription')}</p>
                 <p className="mt-2">
                   <a
                     href="https://souma.diemoe.net/ff14-overlay-vue/#/timelineSettings"
@@ -138,9 +137,9 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
                     rel="noopener noreferrer"
                     className="text-primary underline underline-offset-2 hover:opacity-80"
                   >
-                    点击这里
+                    {t('editor:exportSouma.aboutLinkText')}
                   </a>{' '}
-                  将导出的数据导入到悬浮窗中进行使用。
+                  {t('editor:exportSouma.aboutImportHint')}
                 </p>
               </PopoverContent>
             </Popover>
@@ -149,13 +148,13 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
 
         {!hasCasts ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
-            当前时间轴无可导出的技能使用事件
+            {t('editor:exportSouma.noExportableCasts')}
           </div>
         ) : (
           <div className="space-y-4 py-2">
             {/* 玩家选择 */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">玩家</label>
+              <label className="text-sm font-medium">{t('editor:exportSouma.playerLabel')}</label>
               <Select
                 value={playerId?.toString() ?? ''}
                 onValueChange={v => {
@@ -166,7 +165,7 @@ export default function ExportSoumaDialog({ open, onClose }: ExportSoumaDialogPr
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="选择玩家" />
+                  <SelectValue placeholder={t('editor:exportSouma.playerPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent position="item-aligned">
                   {playerOptions.map(p => (
@@ -211,6 +210,7 @@ interface SkillSectionProps {
  * 从 store 读取一次并与 usedActionIds 取交集；后续 toggle 直接更新本地 state 并写回 store。
  */
 function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSectionProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const showTooltip = useTooltipStore(s => s.showTooltip)
   const hideTooltip = useTooltipStore(s => s.hideTooltip)
   const ttsEnabled = useSoumaExportStore(s => s.ttsEnabled)
@@ -227,7 +227,7 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
   const hasSelection = selected.size > 0
 
   const exportString = useMemo(() => {
-    if (!hasSelection) return '请至少选择一个技能'
+    if (!hasSelection) return t('editor:exportSouma.selectAtLeastOne')
     return exportSoumaTimeline({
       timeline,
       playerId,
@@ -235,7 +235,7 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
       ttsEnabled,
       resolvedVariantByCastId,
     })
-  }, [timeline, playerId, selected, ttsEnabled, hasSelection, resolvedVariantByCastId])
+  }, [timeline, playerId, selected, ttsEnabled, hasSelection, resolvedVariantByCastId, t])
 
   const toggleAction = (actionId: number) => {
     const next = new Set(selected)
@@ -273,7 +273,7 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
         ttsEnabled,
       })
     } catch {
-      toast.error('复制失败，请手动选中文本')
+      toast.error(t('editor:exportSouma.copyFailed'))
     }
   }
 
@@ -285,10 +285,15 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium leading-none">技能</label>
+            <label className="text-sm font-medium leading-none">
+              {t('editor:exportSouma.actionsLabel')}
+            </label>
             {actions.length > 0 && (
               <span className="text-xs leading-none text-muted-foreground">
-                已选 {selected.size} / {actions.length}
+                {t('editor:exportSouma.selectedCount', {
+                  selected: selected.size,
+                  total: actions.length,
+                })}
               </span>
             )}
           </div>
@@ -300,12 +305,16 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
               className="h-6 px-2 text-xs"
               onClick={toggleSelectAll}
             >
-              {allSelected ? '取消全选' : '全选'}
+              {allSelected
+                ? t('editor:exportSouma.deselectAll')
+                : t('editor:exportSouma.selectAll')}
             </Button>
           )}
         </div>
         {actions.length === 0 ? (
-          <div className="text-xs text-muted-foreground">该玩家未使用任何技能</div>
+          <div className="text-xs text-muted-foreground">
+            {t('editor:exportSouma.noActionsUsed')}
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {actions.map(action => {
@@ -351,14 +360,14 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
       {/* TTS 开关 */}
       <div className="flex items-center justify-between pt-1">
         <label htmlFor="souma-tts-switch" className="text-sm font-medium">
-          TTS 播报
+          {t('editor:exportSouma.ttsLabel')}
         </label>
         <Switch id="souma-tts-switch" checked={ttsEnabled} onCheckedChange={setTtsEnabled} />
       </div>
 
       {/* 实时预览 + 复制 */}
       <div className="space-y-1.5 pt-1">
-        <label className="text-sm font-medium">导出结果</label>
+        <label className="text-sm font-medium">{t('editor:exportSouma.resultLabel')}</label>
         <ButtonGroup className="w-full">
           <Input
             type="text"
@@ -371,7 +380,7 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
           <Button
             variant="outline"
             size="icon"
-            aria-label="复制"
+            aria-label={t('common:copy')}
             onClick={handleCopy}
             disabled={!hasSelection}
           >

@@ -1,5 +1,13 @@
 {
   "about": "关于",
+  "aboutDialog": {
+    "authorLabel": "作者：",
+    "authorName": "间宫羽咲@沃仙曦染",
+    "feedbackLabel": "反馈 & 建议 & 交流 & 分享减伤轴：",
+    "joinQQGroup": "加入 QQ 群",
+    "qrcodeAlt": "QQ 群二维码",
+    "title": "关于"
+  },
   "help": "帮助",
   "subtitle": "FF14 减伤规划工具"
 }

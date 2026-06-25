@@ -1,3 +1,38 @@
 {
+  "addEvent": {
+    "addSuccess": "事件已添加",
+    "attackTypeLabel": "攻击类型",
+    "damageLabel": "伤害值",
+    "damageTypeLabel": "伤害类型",
+    "damageTypeMagical": "魔法",
+    "damageTypePhysical": "物理",
+    "damageTypeSpecial": "特殊",
+    "nameLabel": "事件名称",
+    "namePlaceholder": "例如: 全屏 AOE",
+    "nameRequired": "请输入事件名称",
+    "snapshotTime": "快照时刻",
+    "submit": "添加",
+    "timeLabel": "时间",
+    "title": "添加伤害事件"
+  },
+  "exportSouma": {
+    "aboutAriaLabel": "关于 Souma 时间轴",
+    "aboutDescription": "Souma 治疗/减伤时间轴是由 Souma 制作的 ACT 悬浮窗，可以根据自定义的时间轴在副本进程中对技能进行实时提醒。",
+    "aboutImportHint": "将导出的数据导入到悬浮窗中进行使用。",
+    "aboutLinkText": "点击这里",
+    "actionsLabel": "技能",
+    "copyFailed": "复制失败，请手动选中文本",
+    "deselectAll": "取消全选",
+    "noActionsUsed": "该玩家未使用任何技能",
+    "noExportableCasts": "当前时间轴无可导出的技能使用事件",
+    "playerLabel": "玩家",
+    "playerPlaceholder": "选择玩家",
+    "resultLabel": "导出结果",
+    "selectAll": "全选",
+    "selectAtLeastOne": "请至少选择一个技能",
+    "selectedCount": "已选 {{selected}} / {{total}}",
+    "title": "导出 Souma 时间轴",
+    "ttsLabel": "TTS 播报"
+  },
   "idle": "空转 {sec}s"
 }

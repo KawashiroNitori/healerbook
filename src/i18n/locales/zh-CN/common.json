@@ -1,4 +1,7 @@
 {
+  "cancel": "取消",
+  "close": "关闭",
+  "copy": "复制",
   "operationFailed": "操作失败：{message}",
   "unknownError": "未知错误"
 }
