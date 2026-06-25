@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { CalculatorWorkerClient } from './client'
-import type { SimulateRequest, SimulateResponse } from './types'
+import { CalculatorWorkerClient, OptimizeCancelledError } from './client'
+import type { SimulateRequest, SimulateResponse, OptimizeRequest, OptimizeResponse } from './types'
+import type { OptimizeWireInput, OptimizeProgressMessage } from './types'
 
 // Worker Client 是纯逻辑（无 DOM 依赖），保持 node 环境跑得更快。
 // 不用 `// @vitest-environment jsdom`（项目其他 DOM 测试的惯用做法）是为了避免引入整套
@@ -19,15 +20,20 @@ if (typeof globalThis.ErrorEvent === 'undefined') {
 }
 
 class FakeWorker implements Partial<Worker> {
-  onmessage: ((e: MessageEvent<SimulateResponse>) => void) | null = null
+  onmessage:
+    | ((e: MessageEvent<SimulateResponse | OptimizeResponse | OptimizeProgressMessage>) => void)
+    | null = null
   onerror: ((e: ErrorEvent) => void) | null = null
-  postedMessages: SimulateRequest[] = []
-  postMessage(msg: SimulateRequest) {
+  postedMessages: (SimulateRequest | OptimizeRequest)[] = []
+  terminated = 0
+  postMessage(msg: SimulateRequest | OptimizeRequest) {
     this.postedMessages.push(msg)
   }
-  terminate() {}
+  terminate() {
+    this.terminated++
+  }
   /** 测试辅助：模拟 worker 回包 */
-  emit(resp: SimulateResponse) {
+  emit(resp: SimulateResponse | OptimizeResponse | OptimizeProgressMessage) {
     this.onmessage?.(new MessageEvent('message', { data: resp }))
   }
   emitError(message: string) {
@@ -46,6 +52,28 @@ const MINIMAL_INPUT = {
   damageEvents: [],
   initialState: { players: [], statuses: [] },
 } as never
+
+const MINIMAL_OPTIMIZE_INPUT: OptimizeWireInput = {
+  damageEvents: [],
+  lockedCastEvents: [],
+  composition: { players: [] },
+  initialState: { statuses: [], timestamp: 0 },
+}
+
+const FAKE_OPTIMIZE_OUTPUT = {
+  addedCastEvents: [],
+  infeasibleEvents: [],
+  summary: {
+    totalDamageBefore: 0,
+    totalDamageAfter: 0,
+    castsAdded: 0,
+    elapsedMs: 0,
+    inScopeEventCount: 0,
+    candidateCount: 0,
+    simulateCalls: 0,
+    rounds: 0,
+  },
+}
 
 const MINIMAL_BUNDLE = {
   main: {
@@ -157,7 +185,100 @@ describe('CalculatorWorkerClient', () => {
     client.simulate(MINIMAL_INPUT, [])
     client.simulate(MINIMAL_INPUT, [])
     client.simulate(MINIMAL_INPUT, [])
-    const versions = fake.postedMessages.map(m => m.version)
+    const versions = fake.postedMessages.map(m => (m as SimulateRequest).version)
     expect(versions).toEqual([1, 2, 3])
+  })
+})
+
+describe('CalculatorWorkerClient - optimize', () => {
+  it('optimize 按 requestId resolve，且不被后续 simulate 抢占（不 silent-drop）', async () => {
+    const { fake, client } = makeClient()
+    const p = client.optimize(MINIMAL_OPTIMIZE_INPUT)
+
+    // 获取 optimize 请求的 requestId
+    const optimizeMsg = fake.postedMessages[0] as OptimizeRequest
+    expect(optimizeMsg.kind).toBe('optimize')
+    const optimizeRequestId = optimizeMsg.requestId
+
+    // 模拟用户在 optimize 飞行中又触发 simulate（改写 currentRequestId）
+    client.simulate(MINIMAL_INPUT, [])
+
+    // worker 回 optimize 响应
+    fake.emit({
+      requestId: optimizeRequestId,
+      kind: 'optimize',
+      ok: true,
+      output: FAKE_OPTIMIZE_OUTPUT,
+    })
+    await expect(p).resolves.toEqual(FAKE_OPTIMIZE_OUTPUT)
+  })
+
+  it('worker 崩溃时 reject 飞行中的 optimize', async () => {
+    const { fake, client } = makeClient()
+    const p = client.optimize(MINIMAL_OPTIMIZE_INPUT)
+    fake.emitError('segfault')
+    await expect(p).rejects.toThrow()
+  })
+
+  it('optimize error 响应时 reject promise', async () => {
+    const { fake, client } = makeClient()
+    const p = client.optimize(MINIMAL_OPTIMIZE_INPUT)
+    const optimizeMsg = fake.postedMessages[0] as OptimizeRequest
+    fake.emit({
+      requestId: optimizeMsg.requestId,
+      kind: 'optimize',
+      ok: false,
+      error: { message: 'optimize failed' },
+    })
+    await expect(p).rejects.toThrow('optimize failed')
+  })
+
+  it('optimize-progress 消息转给 onProgress，不 resolve', async () => {
+    const { fake, client } = makeClient()
+    const seen: number[] = []
+    const p = client.optimize(MINIMAL_OPTIMIZE_INPUT, prog => seen.push(prog.simulateCalls))
+    const reqId = (fake.postedMessages[0] as OptimizeRequest).requestId
+    const progress: OptimizeProgressMessage = {
+      requestId: reqId,
+      kind: 'optimize-progress',
+      progress: {
+        phase: 'minimize',
+        round: 1,
+        inScopeEventCount: 3,
+        candidateCount: 10,
+        simulateCalls: 42,
+        castsPlaced: 2,
+        elapsedMs: 5,
+      },
+    }
+    fake.emit(progress)
+    expect(seen).toEqual([42])
+    // 进度消息不应 resolve；随后真正结果才 resolve
+    fake.emit({ requestId: reqId, kind: 'optimize', ok: true, output: FAKE_OPTIMIZE_OUTPUT })
+    await expect(p).resolves.toEqual(FAKE_OPTIMIZE_OUTPUT)
+  })
+
+  it('cancelOptimize 用 OptimizeCancelledError reject 并 terminate worker', async () => {
+    const { fake, client } = makeClient()
+    const p = client.optimize(MINIMAL_OPTIMIZE_INPUT)
+    client.cancelOptimize()
+    await expect(p).rejects.toBeInstanceOf(OptimizeCancelledError)
+    expect(fake.terminated).toBe(1)
+  })
+
+  it('optimize lazy spawns worker on first call', () => {
+    const factory = vi.fn(() => new FakeWorker() as unknown as Worker)
+    const client = new CalculatorWorkerClient(factory)
+    expect(factory).not.toHaveBeenCalled()
+    client.optimize(MINIMAL_OPTIMIZE_INPUT)
+    expect(factory).toHaveBeenCalledTimes(1)
+  })
+
+  it('optimize reuses same worker as simulate', () => {
+    const factory = vi.fn(() => new FakeWorker() as unknown as Worker)
+    const client = new CalculatorWorkerClient(factory)
+    client.simulate(MINIMAL_INPUT, [])
+    client.optimize(MINIMAL_OPTIMIZE_INPUT)
+    expect(factory).toHaveBeenCalledTimes(1)
   })
 })

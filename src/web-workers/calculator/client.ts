@@ -1,10 +1,27 @@
 import { nanoid } from 'nanoid'
 import type { SimulateInput } from '@/utils/mitigationCalculator'
-import type { SimulateBundle, SimulateRequest, SimulateResponse } from './types'
+import type { OptimizeOutput, OptimizeProgress } from '@/utils/autoMitigation'
+import type {
+  SimulateBundle,
+  SimulateRequest,
+  SimulateResponse,
+  OptimizeWireInput,
+  OptimizeRequest,
+  OptimizeResponse,
+  OptimizeProgressMessage,
+} from './types'
 
 type Pending = {
   resolve: (bundle: SimulateBundle) => void
   reject: (err: Error) => void
+}
+
+/** optimize 被用户取消时 reject 的错误，调用方据此区分取消与真实失败。 */
+export class OptimizeCancelledError extends Error {
+  constructor() {
+    super('optimize cancelled')
+    this.name = 'OptimizeCancelledError'
+  }
 }
 
 /**
@@ -19,6 +36,14 @@ export class CalculatorWorkerClient {
   private pending = new Map<string, Pending>()
   private currentRequestId: string | null = null
   private workerFactory: WorkerFactory
+  private pendingOptimize = new Map<
+    string,
+    {
+      resolve: (o: OptimizeOutput) => void
+      reject: (e: Error) => void
+      onProgress?: (p: OptimizeProgress) => void
+    }
+  >()
 
   constructor(workerFactory: WorkerFactory) {
     this.workerFactory = workerFactory
@@ -41,6 +66,36 @@ export class CalculatorWorkerClient {
     return promise
   }
 
+  optimize(
+    input: OptimizeWireInput,
+    onProgress?: (p: OptimizeProgress) => void
+  ): Promise<OptimizeOutput> {
+    this.ensureWorker()
+    const requestId = nanoid()
+    return new Promise<OptimizeOutput>((resolve, reject) => {
+      this.pendingOptimize.set(requestId, { resolve, reject, onProgress })
+      this.worker!.postMessage({ requestId, kind: 'optimize', input } satisfies OptimizeRequest)
+    })
+  }
+
+  /**
+   * 取消进行中的 optimize：worker 同步阻塞期间无法处理 cancel 消息，故直接 terminate
+   * worker（下次调用重新 spawn），并 reject 所有飞行中的 optimize/simulate。
+   */
+  cancelOptimize(): void {
+    for (const { reject } of this.pendingOptimize.values()) {
+      reject(new OptimizeCancelledError())
+    }
+    this.pendingOptimize.clear()
+    for (const entry of this.pending.values()) {
+      entry.reject(new Error('worker terminated by cancel'))
+    }
+    this.pending.clear()
+    this.currentRequestId = null
+    this.worker?.terminate()
+    this.worker = null
+  }
+
   /** 测试用：观察 internal state。 */
   get pendingCount(): number {
     return this.pending.size
@@ -53,22 +108,46 @@ export class CalculatorWorkerClient {
     this.worker.onerror = this.onError
   }
 
-  private onMessage = (e: MessageEvent<SimulateResponse>) => {
+  private onMessage = (
+    e: MessageEvent<SimulateResponse | OptimizeResponse | OptimizeProgressMessage>
+  ) => {
+    const data = e.data as SimulateResponse | OptimizeResponse | OptimizeProgressMessage
+
+    // optimize 实时进度：转给该请求的 onProgress，不 resolve、不删 pending
+    if ((data as OptimizeProgressMessage).kind === 'optimize-progress') {
+      const msg = data as OptimizeProgressMessage
+      this.pendingOptimize.get(msg.requestId)?.onProgress?.(msg.progress)
+      return
+    }
+
+    // optimize 响应先于 currentRequestId 检查处理，绕开 simulate silent-drop
+    if ((data as OptimizeResponse).kind === 'optimize') {
+      const resp = data as OptimizeResponse
+      const p = this.pendingOptimize.get(resp.requestId)
+      if (!p) return
+      this.pendingOptimize.delete(resp.requestId)
+      if (resp.ok) p.resolve(resp.output)
+      else p.reject(new Error(resp.error.message))
+      return
+    }
+
+    // —— 既有 simulate 分支（currentRequestId silent-drop 原样）——
     // Spec: 过期响应（requestId 不是最新一次 simulate）silent drop——不 resolve / 不 reject，
     // 调用方 hook 用 cancelled flag 防御 stale state。
     // 但需要清理 pending Map 里的 stale entry——module-level singleton 长期运行下，
     // 不清理会让旧 entry 永久累积（Map 强引用 + Promise resolver 持有）。
-    if (e.data.requestId !== this.currentRequestId) {
-      this.pending.delete(e.data.requestId)
+    if (data.requestId !== this.currentRequestId) {
+      this.pending.delete(data.requestId)
       return
     }
-    const entry = this.pending.get(e.data.requestId)
+    const entry = this.pending.get(data.requestId)
     if (!entry) return
-    this.pending.delete(e.data.requestId)
-    if (e.data.ok) {
-      entry.resolve(e.data.bundle)
+    this.pending.delete(data.requestId)
+    const simResp = data as SimulateResponse
+    if (simResp.ok) {
+      entry.resolve((simResp as Extract<SimulateResponse, { ok: true }>).bundle)
     } else {
-      entry.reject(new Error(e.data.error.message))
+      entry.reject(new Error((simResp as Extract<SimulateResponse, { ok: false }>).error.message))
     }
   }
 
@@ -78,6 +157,10 @@ export class CalculatorWorkerClient {
       entry.reject(new Error(`calculator worker crashed: ${e.message}`))
     }
     this.pending.clear()
+    for (const { reject } of this.pendingOptimize.values()) {
+      reject(new Error('worker crashed'))
+    }
+    this.pendingOptimize.clear()
     this.currentRequestId = null
     this.worker?.terminate()
     this.worker = null

@@ -33,6 +33,7 @@ export type MitigationCategory =
   | 'self'
   | 'target'
   | 'boss'
+  | 'gcd'
 
 /**
  * 副本统计数据

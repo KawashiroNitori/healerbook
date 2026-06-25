@@ -20,6 +20,8 @@ import {
   BoxSelect,
   MoreHorizontal,
   Copy,
+  Wand2,
+  Loader2,
 } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -62,6 +64,9 @@ const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
 const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
 const ImportIntoTimelineDialog = lazy(() => import('./ImportIntoTimelineDialog'))
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
+import { useAutoMitigate } from '@/hooks/useAutoMitigate'
+import { AutoMitigateProgressModal } from '@/components/AutoMitigateProgressModal'
+import { AutoMitigateDisclaimerModal } from '@/components/AutoMitigateDisclaimerModal'
 import { track } from '@/utils/analytics'
 
 interface ShareRole {
@@ -113,6 +118,7 @@ export default function EditorToolbar({
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSoumaDialog, setShowSoumaDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
+  const [showAutoMitigateDisclaimer, setShowAutoMitigateDisclaimer] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [viewTooltipOpen, setViewTooltipOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
@@ -131,6 +137,13 @@ export default function EditorToolbar({
   const contentReason = editLock.reasonOf('content')
   /** 系统强制只读（非用户手动锁）时，锁按钮不可由用户切换 */
   const lockForced = contentReason !== null && contentReason !== 'manual'
+
+  const {
+    isOptimizing,
+    progress: optimizeProgress,
+    run: runAutoMitigate,
+    cancel: cancelAutoMitigate,
+  } = useAutoMitigate()
 
   const encounterId = timeline?.encounter?.id
   const statisticsQuery = useEncounterStatistics(encounterId)
@@ -167,6 +180,19 @@ export default function EditorToolbar({
 
   return (
     <>
+      <AutoMitigateDisclaimerModal
+        open={showAutoMitigateDisclaimer}
+        onOpenChange={setShowAutoMitigateDisclaimer}
+        onConfirm={() => {
+          setShowAutoMitigateDisclaimer(false)
+          runAutoMitigate()
+        }}
+      />
+      <AutoMitigateProgressModal
+        open={isOptimizing}
+        progress={optimizeProgress}
+        onCancel={cancelAutoMitigate}
+      />
       <TooltipProvider>
         <div className="h-12 border-b bg-background overflow-x-auto scrollbar-hide">
           <div className="h-full w-max flex items-center px-4 gap-2">
@@ -466,6 +492,25 @@ export default function EditorToolbar({
             {!isReplayMode && sessionRole !== 'viewer' && (
               <>
                 <div className="w-px h-6 bg-border mx-1" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={!editLock.can('content') || isOptimizing}
+                      onClick={() => setShowAutoMitigateDisclaimer(true)}
+                      aria-label="自动减伤"
+                    >
+                      {isOptimizing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">自动减伤规划（实验性）</TooltipContent>
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>

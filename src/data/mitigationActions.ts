@@ -459,7 +459,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '医治',
       icon: '/i/000000/000408.png',
       jobs: ['WHM'],
-      category: ['partywide', 'heal'],
+      category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
       executor: ctx => {
@@ -480,7 +480,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '医养',
       icon: '/i/002000/002127.png',
       jobs: ['WHM'],
-      category: ['partywide', 'heal'],
+      category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
       executor: ctx => {
@@ -505,7 +505,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '愈疗',
       icon: '/i/000000/000407.png',
       jobs: ['WHM'],
-      category: ['partywide', 'heal'],
+      category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
       executor: ctx => {
@@ -642,7 +642,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '意气轩昂之策',
       icon: '/i/002000/002880.png',
       jobs: ['SCH'],
-      category: ['partywide', 'shield'],
+      category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
@@ -701,7 +701,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '降临之章',
       icon: '/i/002000/002883.png',
       jobs: ['SCH'],
-      category: ['partywide', 'shield'],
+      category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 2,
       trackGroup: 37013,
@@ -981,7 +981,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '阳星合相',
       icon: '/i/003000/003567.png',
       jobs: ['AST'],
-      category: ['partywide', 'shield'],
+      category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
@@ -1024,7 +1024,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '阳星',
       icon: '/i/003000/003129.png',
       jobs: ['AST'],
-      category: ['partywide', 'heal'],
+      category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
       executor: createHealExecutor(),
@@ -1289,7 +1289,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '预后',
       icon: '/i/003000/003654.png',
       jobs: ['SGE'],
-      category: ['partywide', 'heal'],
+      category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
       executor: (ctx: ActionExecutionContext) => {
@@ -1310,7 +1310,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       name: '均衡预后II',
       icon: '/i/003000/003689.png',
       jobs: ['SGE'],
-      category: ['partywide', 'shield'],
+      category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 1.4,
       executor: (ctx: ActionExecutionContext) => {

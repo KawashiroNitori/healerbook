@@ -209,6 +209,8 @@ interface TimelineState {
     castEvents: Omit<CastEvent, 'id'>[]
     annotations: Omit<Annotation, 'id'>[]
   }) => void
+  /** 批量写入 castEvents（单 Y.Doc 事务，UndoManager 视为一步） */
+  addCastEventsBatch: (casts: Omit<CastEvent, 'id'>[]) => void
   /** 解除回放模式（不可撤销） */
   exitReplayMode: () => void
   /** 更新时间轴统计数据 */
@@ -894,6 +896,16 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
           const existing = get().timeline?.syncEvents ?? []
           const merged = [...existing, ...syncEvents].sort((a, b) => a.time - b.time)
           ySetMeta(engine.doc, { syncEvents: merged })
+        }
+      }, LOCAL_ORIGIN)
+    },
+
+    addCastEventsBatch: casts => {
+      const engine = get().engine
+      if (!engine || casts.length === 0) return
+      engine.doc.transact(() => {
+        for (const c of casts) {
+          yAddCastEvent(engine.doc, { ...c, id: generateObjectId() })
         }
       }, LOCAL_ORIGIN)
     },

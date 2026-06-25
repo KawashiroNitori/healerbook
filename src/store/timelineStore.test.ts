@@ -295,6 +295,21 @@ describe('undo/redo - Y.UndoManager', () => {
     expect(useTimelineStore.getState().canUndo).toBe(false)
   })
 
+  it('addCastEventsBatch 批量加 = 单步 undo', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('test-batch-cast', { role: 'local', seedContent: baseContent })
+    const store = useTimelineStore.getState()
+    const before = useTimelineStore.getState().timeline!.castEvents.length
+    store.addCastEventsBatch([
+      { actionId: 7535, timestamp: 10, playerId: 1 },
+      { actionId: 3540, timestamp: 20, playerId: 2 },
+    ])
+    expect(useTimelineStore.getState().timeline!.castEvents.length).toBe(before + 2)
+    store.undo()
+    expect(useTimelineStore.getState().timeline!.castEvents.length).toBe(before) // 一步全撤
+  })
+
   it('历史栈应该在 openTimeline 时清空', async () => {
     await useTimelineStore
       .getState()
