@@ -484,6 +484,25 @@ export default function EditorToolbar({
                 <div className="w-px h-6 bg-border mx-1" />
                 <Tooltip>
                   <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={!editLock.can('content') || isOptimizing}
+                      onClick={runAutoMitigate}
+                      aria-label="自动减伤"
+                    >
+                      {isOptimizing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">自动减伤规划（实验性）</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <span>
                       <Button
                         variant="ghost"
@@ -505,25 +524,6 @@ export default function EditorToolbar({
                           ? '只读 · 连接中断'
                           : '只读'}
                   </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      disabled={!editLock.can('content') || isOptimizing}
-                      onClick={runAutoMitigate}
-                      aria-label="自动减伤"
-                    >
-                      {isOptimizing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Wand2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">自动减伤规划（实验性）</TooltipContent>
                 </Tooltip>
               </>
             )}
