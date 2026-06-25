@@ -32,7 +32,10 @@ self.onmessage = (e: MessageEvent<SimulateRequest | OptimizeRequest>) => {
     const { requestId, input } = e.data as OptimizeRequest
     try {
       const actions = new Map(MITIGATION_DATA.actions.map(a => [a.id, a]))
-      const output = runOptimize({ ...input, actions })
+      // 实时进度：worker 阻塞执行中仍可 postMessage（主线程即时收到）
+      const output = runOptimize({ ...input, actions }, undefined, progress =>
+        self.postMessage({ requestId, kind: 'optimize-progress', progress })
+      )
       self.postMessage({ requestId, kind: 'optimize', ok: true, output })
     } catch (err) {
       self.postMessage({

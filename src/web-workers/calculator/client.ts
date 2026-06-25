@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { SimulateInput } from '@/utils/mitigationCalculator'
-import type { OptimizeOutput } from '@/utils/autoMitigation'
+import type { OptimizeOutput, OptimizeProgress } from '@/utils/autoMitigation'
 import type {
   SimulateBundle,
   SimulateRequest,
@@ -8,11 +8,20 @@ import type {
   OptimizeWireInput,
   OptimizeRequest,
   OptimizeResponse,
+  OptimizeProgressMessage,
 } from './types'
 
 type Pending = {
   resolve: (bundle: SimulateBundle) => void
   reject: (err: Error) => void
+}
+
+/** optimize 被用户取消时 reject 的错误，调用方据此区分取消与真实失败。 */
+export class OptimizeCancelledError extends Error {
+  constructor() {
+    super('optimize cancelled')
+    this.name = 'OptimizeCancelledError'
+  }
 }
 
 /**
@@ -29,7 +38,11 @@ export class CalculatorWorkerClient {
   private workerFactory: WorkerFactory
   private pendingOptimize = new Map<
     string,
-    { resolve: (o: OptimizeOutput) => void; reject: (e: Error) => void }
+    {
+      resolve: (o: OptimizeOutput) => void
+      reject: (e: Error) => void
+      onProgress?: (p: OptimizeProgress) => void
+    }
   >()
 
   constructor(workerFactory: WorkerFactory) {
@@ -53,13 +66,34 @@ export class CalculatorWorkerClient {
     return promise
   }
 
-  optimize(input: OptimizeWireInput): Promise<OptimizeOutput> {
+  optimize(
+    input: OptimizeWireInput,
+    onProgress?: (p: OptimizeProgress) => void
+  ): Promise<OptimizeOutput> {
     this.ensureWorker()
     const requestId = nanoid()
     return new Promise<OptimizeOutput>((resolve, reject) => {
-      this.pendingOptimize.set(requestId, { resolve, reject })
+      this.pendingOptimize.set(requestId, { resolve, reject, onProgress })
       this.worker!.postMessage({ requestId, kind: 'optimize', input } satisfies OptimizeRequest)
     })
+  }
+
+  /**
+   * 取消进行中的 optimize：worker 同步阻塞期间无法处理 cancel 消息，故直接 terminate
+   * worker（下次调用重新 spawn），并 reject 所有飞行中的 optimize/simulate。
+   */
+  cancelOptimize(): void {
+    for (const { reject } of this.pendingOptimize.values()) {
+      reject(new OptimizeCancelledError())
+    }
+    this.pendingOptimize.clear()
+    for (const entry of this.pending.values()) {
+      entry.reject(new Error('worker terminated by cancel'))
+    }
+    this.pending.clear()
+    this.currentRequestId = null
+    this.worker?.terminate()
+    this.worker = null
   }
 
   /** 测试用：观察 internal state。 */
@@ -74,8 +108,17 @@ export class CalculatorWorkerClient {
     this.worker.onerror = this.onError
   }
 
-  private onMessage = (e: MessageEvent<SimulateResponse | OptimizeResponse>) => {
-    const data = e.data as SimulateResponse | OptimizeResponse
+  private onMessage = (
+    e: MessageEvent<SimulateResponse | OptimizeResponse | OptimizeProgressMessage>
+  ) => {
+    const data = e.data as SimulateResponse | OptimizeResponse | OptimizeProgressMessage
+
+    // optimize 实时进度：转给该请求的 onProgress，不 resolve、不删 pending
+    if ((data as OptimizeProgressMessage).kind === 'optimize-progress') {
+      const msg = data as OptimizeProgressMessage
+      this.pendingOptimize.get(msg.requestId)?.onProgress?.(msg.progress)
+      return
+    }
 
     // optimize 响应先于 currentRequestId 检查处理，绕开 simulate silent-drop
     if ((data as OptimizeResponse).kind === 'optimize') {

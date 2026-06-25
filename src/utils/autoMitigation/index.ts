@@ -5,4 +5,7 @@ export type {
   OptimizeOptions,
   InfeasibleEvent,
   OptimizeSummary,
+  OptimizeProgress,
+  OptimizePhase,
+  OptimizeProgressCallback,
 } from './types'

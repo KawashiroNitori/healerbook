@@ -107,6 +107,25 @@ describe('runOptimize（集成）', () => {
     ).toBe(false)
   })
 
+  it('进度回调 + 规模指标：onProgress 收到阶段进度，summary 含规模', () => {
+    const seen: string[] = []
+    let lastSim = 0
+    const out = runOptimize(input, defaultDeps(), p => {
+      seen.push(p.phase)
+      expect(p.simulateCalls).toBeGreaterThanOrEqual(lastSim) // 单调非减
+      lastSim = p.simulateCalls
+      expect(p.inScopeEventCount).toBe(3)
+    })
+    expect(seen).toContain('feasibility')
+    expect(seen).toContain('minimize')
+    expect(seen[seen.length - 1]).toBe('done') // 最后一帧是 done
+    // 规模指标
+    expect(out.summary.inScopeEventCount).toBe(3)
+    expect(out.summary.candidateCount).toBeGreaterThan(0)
+    expect(out.summary.simulateCalls).toBeGreaterThan(0)
+    expect(out.summary.rounds).toBeGreaterThanOrEqual(1)
+  })
+
   it('defaultDeps 返回完整依赖对象', () => {
     const deps = defaultDeps()
     expect(typeof deps.createEvaluator).toBe('function')

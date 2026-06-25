@@ -7,6 +7,8 @@ import type {
   Candidate,
   EvalResult,
   InfeasibleEvent,
+  OptimizePhase,
+  OptimizeProgressCallback,
 } from './types'
 import { applyMove, proposeMove } from './moves'
 import { createPlacementEngine } from '@/utils/placement/engine'
@@ -14,6 +16,7 @@ import { generateId } from '@/utils/id'
 import { mulberry32 } from './prng'
 import { createEvaluator } from './evaluate'
 import { generateCandidates, isGcdMit } from './candidates'
+import { isInScope } from './scope'
 
 export interface OptimizerContext {
   input: OptimizeInput
@@ -281,49 +284,103 @@ function candidateKeys(cands: Candidate[]): string {
     .join('|')
 }
 
-/** 顶层编排：候选生成 → 阶段 1 → 阶段 2 → 阶段 3 → 汇总。 */
+/** 每多少次 simulate 评估回报一次实时进度（throttle，避免回调过密）。 */
+const PROGRESS_EMIT_EVERY = 150
+
+/** 顶层编排：候选生成 → 阶段 1 → 阶段 2 → 阶段 3 → 汇总。第三参 onProgress 实时回显进度。 */
 export function runOptimize(
   input: OptimizeInput,
-  deps: OptimizeDeps = defaultDeps()
+  deps: OptimizeDeps = defaultDeps(),
+  onProgress?: OptimizeProgressCallback
 ): OptimizeOutput {
   const start = deps.now()
   const budget = input.options?.timeBudgetMs ?? 3000
   const rng = deps.makeRandom(input.options?.seed ?? 1)
 
+  // —— 规模/进度埋点 ——
+  const inScopeEventCount = input.damageEvents.filter(isInScope).length
+  let simulateCalls = 0
+  let candidateCount = 0
+  let curPhase: OptimizePhase = 'feasibility'
+  let curRound = 1
+  let lastEmit = 0
+  let ctxRef: OptimizerContext | null = null
+  const emit = () =>
+    onProgress?.({
+      phase: curPhase,
+      round: curRound,
+      inScopeEventCount,
+      candidateCount,
+      simulateCalls,
+      castsPlaced: ctxRef?.added.length ?? 0,
+      elapsedMs: deps.now() - start,
+    })
+  // 计数并 throttle 回报：包裹 createEvaluator，使每次 simulate 都计数（probe/tryAccept 都走它）
+  const countingDeps: OptimizeDeps = {
+    ...deps,
+    createEvaluator: inp => {
+      const ev = deps.createEvaluator(inp)
+      return casts => {
+        simulateCalls++
+        if (onProgress && simulateCalls - lastEmit >= PROGRESS_EMIT_EVERY) {
+          lastEmit = simulateCalls
+          emit()
+        }
+        return ev(casts)
+      }
+    },
+  }
+
   // 候选基于当前 status 时间线生成（起点固定，合法性后续动态复查）
-  const evaluator = deps.createEvaluator(input)
+  const evaluator = countingDeps.createEvaluator(input)
   const baseEval = evaluator(input.lockedCastEvents)
-  const baseEngine = deps.buildPlacementEngine(input, input.lockedCastEvents, baseEval)
+  const baseEngine = countingDeps.buildPlacementEngine(input, input.lockedCastEvents, baseEval)
   let cands = generateCandidates(input, baseEngine)
+  candidateCount = Math.max(candidateCount, cands.length)
 
   const ctx = makeContext(
     input,
-    deps,
+    countingDeps,
     cands.filter(c => !isGcdMit(c.action))
   )
+  ctxRef = ctx
   const totalBefore = ctx.evalState.total
 
   // 多轮：放完父技能后从当前时间线重生成候选，纳入被解锁的依赖子技能（如节制→神爱抚），
   // 直到候选集稳定（不动点）。规则一：主阶段只用非 GCD 候选。
   let prevKeys = candidateKeys(cands)
+  let rounds = 0
   for (let round = 0; round < MAX_FIXPOINT_ROUNDS; round++) {
+    curRound = round + 1
     if (round > 0) {
-      const engine = deps.buildPlacementEngine(input, allCasts(ctx), ctx.evalState)
+      const engine = countingDeps.buildPlacementEngine(input, allCasts(ctx), ctx.evalState)
       cands = generateCandidates(input, engine)
+      candidateCount = Math.max(candidateCount, cands.length)
       const keys = candidateKeys(cands)
       if (keys === prevKeys) break // 无新解锁候选 → 不动点
       prevKeys = keys
       ctx.cands = cands.filter(c => !isGcdMit(c.action))
     }
+    rounds = round + 1
+    curPhase = 'feasibility'
+    emit()
     phase1Feasibility(ctx)
+    curPhase = 'minimize'
+    emit()
     phase2Minimize(ctx)
   }
 
+  curPhase = 'localSearch'
+  emit()
   phase3LocalSearch(ctx, rng, start + budget)
+  curPhase = 'gcdFallback'
+  emit()
   gcdFallback(
     ctx,
     cands.filter(c => isGcdMit(c.action))
   ) // 非 GCD 都生效后，对仍危险事件才动用 GCD 减伤（含被解锁的 GCD 子技能）
+  curPhase = 'done'
+  emit()
 
   return {
     addedCastEvents: ctx.added,
@@ -333,6 +390,10 @@ export function runOptimize(
       totalDamageAfter: ctx.evalState.total,
       castsAdded: ctx.added.length,
       elapsedMs: deps.now() - start,
+      inScopeEventCount,
+      candidateCount,
+      simulateCalls,
+      rounds,
     },
   }
 }

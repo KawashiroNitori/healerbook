@@ -34,6 +34,11 @@ export interface OptimizeSummary {
   totalDamageAfter: number
   castsAdded: number
   elapsedMs: number
+  // 计算规模
+  inScopeEventCount: number // in-scope 伤害事件数
+  candidateCount: number // 候选放置点数（多轮取最大）
+  simulateCalls: number // simulate 评估调用总数
+  rounds: number // 候选重生成轮数
 }
 
 export interface OptimizeOutput {
@@ -41,6 +46,23 @@ export interface OptimizeOutput {
   infeasibleEvents: InfeasibleEvent[]
   summary: OptimizeSummary
 }
+
+/** 优化阶段标识（用于进度回显）。 */
+export type OptimizePhase = 'feasibility' | 'minimize' | 'localSearch' | 'gcdFallback' | 'done'
+
+/** 实时进度快照（worker 流式回传）。 */
+export interface OptimizeProgress {
+  phase: OptimizePhase
+  round: number // 当前候选重生成轮（从 1 起）
+  inScopeEventCount: number
+  candidateCount: number
+  simulateCalls: number
+  castsPlaced: number
+  elapsedMs: number
+}
+
+/** 进度回调（runOptimize 第三参数）。 */
+export type OptimizeProgressCallback = (p: OptimizeProgress) => void
 
 export interface PerEventEval {
   time: number

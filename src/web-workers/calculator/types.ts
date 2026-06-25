@@ -4,7 +4,7 @@
 
 import type { SimulateInput, SimulateOutput } from '@/utils/mitigationCalculator'
 import type { StatusInterval } from '@/types/status'
-import type { OptimizeInput, OptimizeOutput } from '@/utils/autoMitigation'
+import type { OptimizeInput, OptimizeOutput, OptimizeProgress } from '@/utils/autoMitigation'
 
 export type StatusTimelineByPlayer = Map<number, Map<number, StatusInterval[]>>
 
@@ -41,3 +41,10 @@ export interface OptimizeRequest {
 export type OptimizeResponse =
   | { requestId: string; kind: 'optimize'; ok: true; output: OptimizeOutput }
   | { requestId: string; kind: 'optimize'; ok: false; error: { message: string; stack?: string } }
+
+/** 优化过程中的实时进度（worker 流式回传，不 resolve promise）。 */
+export interface OptimizeProgressMessage {
+  requestId: string
+  kind: 'optimize-progress'
+  progress: OptimizeProgress
+}

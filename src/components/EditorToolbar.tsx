@@ -65,6 +65,7 @@ const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
 const ImportIntoTimelineDialog = lazy(() => import('./ImportIntoTimelineDialog'))
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useAutoMitigate } from '@/hooks/useAutoMitigate'
+import { AutoMitigateProgressModal } from '@/components/AutoMitigateProgressModal'
 import { track } from '@/utils/analytics'
 
 interface ShareRole {
@@ -135,7 +136,12 @@ export default function EditorToolbar({
   /** 系统强制只读（非用户手动锁）时，锁按钮不可由用户切换 */
   const lockForced = contentReason !== null && contentReason !== 'manual'
 
-  const { isOptimizing, run: runAutoMitigate } = useAutoMitigate()
+  const {
+    isOptimizing,
+    progress: optimizeProgress,
+    run: runAutoMitigate,
+    cancel: cancelAutoMitigate,
+  } = useAutoMitigate()
 
   const encounterId = timeline?.encounter?.id
   const statisticsQuery = useEncounterStatistics(encounterId)
@@ -172,6 +178,11 @@ export default function EditorToolbar({
 
   return (
     <>
+      <AutoMitigateProgressModal
+        open={isOptimizing}
+        progress={optimizeProgress}
+        onCancel={cancelAutoMitigate}
+      />
       <TooltipProvider>
         <div className="h-12 border-b bg-background overflow-x-auto scrollbar-hide">
           <div className="h-full w-max flex items-center px-4 gap-2">
@@ -512,7 +523,7 @@ export default function EditorToolbar({
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">自动放置减伤（最小化承受总伤）</TooltipContent>
+                  <TooltipContent side="bottom">自动减伤规划（实验性）</TooltipContent>
                 </Tooltip>
               </>
             )}
