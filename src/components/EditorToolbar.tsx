@@ -66,6 +66,7 @@ const ImportIntoTimelineDialog = lazy(() => import('./ImportIntoTimelineDialog')
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
 import { useAutoMitigate } from '@/hooks/useAutoMitigate'
 import { AutoMitigateProgressModal } from '@/components/AutoMitigateProgressModal'
+import { AutoMitigateDisclaimerModal } from '@/components/AutoMitigateDisclaimerModal'
 import { track } from '@/utils/analytics'
 
 interface ShareRole {
@@ -117,6 +118,7 @@ export default function EditorToolbar({
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSoumaDialog, setShowSoumaDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
+  const [showAutoMitigateDisclaimer, setShowAutoMitigateDisclaimer] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [viewTooltipOpen, setViewTooltipOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
@@ -178,6 +180,14 @@ export default function EditorToolbar({
 
   return (
     <>
+      <AutoMitigateDisclaimerModal
+        open={showAutoMitigateDisclaimer}
+        onOpenChange={setShowAutoMitigateDisclaimer}
+        onConfirm={() => {
+          setShowAutoMitigateDisclaimer(false)
+          runAutoMitigate()
+        }}
+      />
       <AutoMitigateProgressModal
         open={isOptimizing}
         progress={optimizeProgress}
@@ -489,7 +499,7 @@ export default function EditorToolbar({
                       size="icon"
                       className="h-7 w-7"
                       disabled={!editLock.can('content') || isOptimizing}
-                      onClick={runAutoMitigate}
+                      onClick={() => setShowAutoMitigateDisclaimer(true)}
                       aria-label="自动减伤"
                     >
                       {isOptimizing ? (
