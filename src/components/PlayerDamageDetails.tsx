@@ -3,6 +3,7 @@
  * 在回放模式下展示每个玩家的详细伤害信息
  */
 
+import { useTranslation } from 'react-i18next'
 import type { DamageEvent } from '@/types/timeline'
 import { getStatusById } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
@@ -15,8 +16,10 @@ interface PlayerDamageDetailsProps {
 }
 
 export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps) {
+  const { t } = useTranslation(['editor', 'common'])
+
   if (!event.playerDamageDetails || event.playerDamageDetails.length === 0) {
-    return <div className="text-sm text-muted-foreground">没有玩家伤害详情数据</div>
+    return <div className="text-sm text-muted-foreground">{t('editor:playerDamage.noData')}</div>
   }
 
   // 按照职业顺序排序玩家伤害详情
@@ -24,7 +27,7 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold">玩家伤害详情</h3>
+      <h3 className="text-sm font-semibold">{t('editor:playerDamage.title')}</h3>
 
       {sortedDetails.map((detail, i) => {
         // 直接使用 detail.statuses（来自 PlayerDamageDetail）
@@ -48,7 +51,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
               <JobIcon job={detail.job} size="sm" />
               <span className="text-sm font-medium">{getJobName(detail.job)}</span>
               {(detail.overkill ?? 0) > 0 && !detail.statuses.some(s => s.statusId === 810) && (
-                <span className="ml-auto text-xs text-gray-500 font-medium">💀 死亡</span>
+                <span className="ml-auto text-xs text-gray-500 font-medium">
+                  {t('editor:playerDamage.death')}
+                </span>
               )}
             </div>
 
@@ -107,7 +112,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
               return (
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">减伤构成</span>
+                    <span className="text-muted-foreground">
+                      {t('editor:playerDamage.mitigationBreakdown')}
+                    </span>
                     <span className="tabular-nums">
                       <span className="font-medium text-red-500">
                         {detail.finalDamage.toLocaleString()}
@@ -129,24 +136,36 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                                 {
                                   pct: overkillPct,
                                   color: 'rgb(55, 55, 55)',
-                                  label: `溢出伤害 ${overkill.toLocaleString()} (${overkillPct.toFixed(1)}%)`,
+                                  label: t('editor:playerDamage.overkillSegment', {
+                                    value: overkill.toLocaleString(),
+                                    pct: overkillPct.toFixed(1),
+                                  }),
                                 },
                               ]
                             : []),
                           {
                             pct: finalPct,
                             color: 'rgb(239, 68, 68)',
-                            label: `真实伤害 ${detail.finalDamage.toLocaleString()} (${finalPct.toFixed(1)}%)`,
+                            label: t('editor:playerDamage.realDamageSegment', {
+                              value: detail.finalDamage.toLocaleString(),
+                              pct: finalPct.toFixed(1),
+                            }),
                           },
                           {
                             pct: shieldPct,
                             color: 'rgb(234, 179, 8)',
-                            label: `护盾减免 ${shieldAbsorb.toLocaleString()} (${shieldPct.toFixed(1)}%)`,
+                            label: t('editor:playerDamage.shieldSegment', {
+                              value: shieldAbsorb.toLocaleString(),
+                              pct: shieldPct.toFixed(1),
+                            }),
                           },
                           {
                             pct: multiplierPct,
                             color: 'rgb(59, 130, 246)',
-                            label: `百分比减免 ${pctMitigation.toLocaleString()} (${multiplierPct.toFixed(1)}%)`,
+                            label: t('editor:playerDamage.percentSegment', {
+                              value: pctMitigation.toLocaleString(),
+                              pct: multiplierPct.toFixed(1),
+                            }),
                           },
                         ].filter(s => s.pct > 0)
                         return segments.map((seg, i) => (
@@ -203,7 +222,10 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                 const renderIcon = (status: (typeof activeStatuses)[0], index: number) => {
                   const meta = getStatusById(status.statusId)
                   const iconUrl = getStatusIconUrl(status.statusId)
-                  const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
+                  const statusName =
+                    getStatusName(status.statusId) ||
+                    meta?.name ||
+                    t('editor:playerDamage.unknownStatus')
                   let mitigationText = ''
                   if (meta?.type === 'multiplier') {
                     const multiplier =
@@ -214,7 +236,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                           : meta.performance.darkness
                     mitigationText = `${((1 - multiplier) * 100).toFixed(1)}%`
                   } else if (meta?.type === 'absorbed') {
-                    mitigationText = `盾: ${(status.absorb || 0).toLocaleString()}`
+                    mitigationText = t('editor:playerDamage.shieldTooltip', {
+                      value: (status.absorb || 0).toLocaleString(),
+                    })
                   }
                   return (
                     <Tooltip key={`${status.statusId}-${index}`} delayDuration={0}>
@@ -245,7 +269,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                       {multiplierStatuses.length > 0 && (
                         <div className="space-y-0.5">
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">百分比</span>
+                            <span className="text-muted-foreground">
+                              {t('editor:playerDamage.percentLabel')}
+                            </span>
                             <span className="text-green-500 font-medium tabular-nums">
                               -{pctReduction}%
                               <span className="text-muted-foreground ml-1">
@@ -265,7 +291,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                       {shieldStatuses.length > 0 && (
                         <div className="space-y-0.5">
                           <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">盾</span>
+                            <span className="text-muted-foreground">
+                              {t('editor:playerDamage.shieldLabel')}
+                            </span>
                             <span className="text-yellow-500 font-medium tabular-nums">
                               {totalShield.toLocaleString()}
                               <span className="text-muted-foreground ml-1">

@@ -3,6 +3,7 @@
  */
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import type Konva from 'konva'
@@ -103,6 +104,7 @@ function AnnotationBubble({
 }
 
 export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const canvasColors = useCanvasColors()
   const stageRef = useRef<Konva.Stage | null>(null)
   const fixedStageRef = useRef<Konva.Stage | null>(null)
@@ -764,23 +766,27 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     try {
       const blob = new Blob([JSON.stringify(payload)], { type: CLIPBOARD_MIME })
       await navigator.clipboard.write([new ClipboardItem({ [CLIPBOARD_MIME]: blob })])
-      toast.success(`已复制 ${total} 个对象`)
+      toast.success(t('editor:timeline.copiedObjects', { count: total }))
     } catch {
-      toast.error('复制失败：当前浏览器不支持写入剪贴板')
+      toast.error(t('editor:timeline.copyClipboardUnsupported'))
     }
-  }, [])
+  }, [t])
 
   // 从系统剪贴板粘贴时间轴对象，锚定到目标时间
   // 把 remap 结果写入时间轴并选中
-  const commitPaste = useCallback((result: PasteResult) => {
-    useTimelineStore.getState().pasteObjects({
-      damageEvents: result.damageEvents,
-      castEvents: result.castEvents,
-      annotations: result.annotations,
-    })
-    if (result.skipped > 0) toast.warning(`已粘贴，跳过 ${result.skipped} 个无法落位的对象`)
-    else toast.success('已粘贴')
-  }, [])
+  const commitPaste = useCallback(
+    (result: PasteResult) => {
+      useTimelineStore.getState().pasteObjects({
+        damageEvents: result.damageEvents,
+        castEvents: result.castEvents,
+        annotations: result.annotations,
+      })
+      if (result.skipped > 0)
+        toast.warning(t('editor:timeline.pastedWithSkipped', { count: result.skipped }))
+      else toast.success(t('editor:timeline.pasted'))
+    },
+    [t]
+  )
 
   const pasteAtTime = useCallback(
     async (targetTime: number) => {
@@ -806,7 +812,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       // 有对象无法映射：全被跳过则直接报错；否则弹确认框让用户决定是否粘贴其余
       if (result.skipped > 0) {
         if (kept === 0) {
-          toast.error(`无法粘贴：${result.skipped} 个对象都无法映射到当前时间轴轨道`)
+          toast.error(t('editor:timeline.pasteAllUnmappable', { count: result.skipped }))
           return
         }
         setPendingPaste(result)
@@ -814,7 +820,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
       commitPaste(result)
     },
-    [commitPaste]
+    [commitPaste, t]
   )
 
   // 探测系统剪贴板是否含有时间轴数据（用于右键空白菜单显示粘贴项）
@@ -966,7 +972,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const member = engine.pickUniqueMember(groupId, playerId, time)
       if (!member) {
         const unmetMsg = engine.getResourceUnmetMessageAt(parent, playerId, time)
-        toast.error('无法添加技能', { description: unmetMsg ?? '此时刻不满足发动条件' })
+        toast.error(t('editor:timeline.addActionFailed'), {
+          description: unmetMsg ?? t('editor:timeline.addActionConditionUnmet'),
+        })
         return
       }
     }
@@ -1240,7 +1248,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           const dead = (detail.overkill ?? 0) > 0 && !detail.statuses.some(s => s.statusId === 810)
           const hpText =
             detail.maxHitPoints != null
-              ? `HP: ${detail.maxHitPoints.toLocaleString()} → ${dead ? `${(detail.hitPoints ?? 0).toLocaleString()} (死亡)` : (detail.hitPoints ?? 0).toLocaleString()}`
+              ? `HP: ${detail.maxHitPoints.toLocaleString()} → ${dead ? `${(detail.hitPoints ?? 0).toLocaleString()} (${t('editor:timeline.copyDead')})` : (detail.hitPoints ?? 0).toLocaleString()}`
               : ''
           lines.push(
             `  ${getJobName(detail.job)}: ${detail.unmitigatedDamage.toLocaleString()} → ${detail.finalDamage.toLocaleString()}${hpText ? `  ${hpText}` : ''}`
@@ -1275,20 +1283,22 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                     : meta.performance.darkness
               return acc * perf
             }, 1)
-            lines.push(`    减伤: ${parts.join(' + ')} = ${((1 - totalMult) * 100).toFixed(1)}%`)
+            lines.push(
+              `    ${t('editor:timeline.copyMitigation')}: ${parts.join(' + ')} = ${((1 - totalMult) * 100).toFixed(1)}%`
+            )
           }
           if (shields.length > 0) {
             const shieldParts = shields.map(
               s =>
                 `${getStatusName(s.statusId) || getStatusById(s.statusId)?.name || ''}(${(s.absorb || 0).toLocaleString()})`
             )
-            lines.push(`    盾值: ${shieldParts.join(' + ')}`)
+            lines.push(`    ${t('editor:timeline.copyShield')}: ${shieldParts.join(' + ')}`)
           }
         }
       } else if (calc) {
         // 编辑模式
         lines.push(
-          `${header} 原始伤害: ${calc.originalDamage.toLocaleString()} → 最终伤害: ${calc.finalDamage.toLocaleString()}`
+          `${header} ${t('editor:timeline.copyOriginalDamage')}: ${calc.originalDamage.toLocaleString()} → ${t('editor:timeline.copyFinalDamage')}: ${calc.finalDamage.toLocaleString()}`
         )
 
         const damageType = event.damageType || 'physical'
@@ -1306,7 +1316,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   : meta.performance.darkness
             return `${getStatusName(s.statusId) || meta.name}(${((1 - perf) * 100).toFixed(0)}%)`
           })
-          lines.push(`  减伤: ${parts.join(' + ')} = ${calc.mitigationPercentage.toFixed(1)}%`)
+          lines.push(
+            `  ${t('editor:timeline.copyMitigation')}: ${parts.join(' + ')} = ${calc.mitigationPercentage.toFixed(1)}%`
+          )
         }
 
         // 盾值：从 appliedStatuses 中找 absorbed 类型
@@ -1318,25 +1330,25 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             const name = getStatusName(s.statusId) || getStatusById(s.statusId)?.name || ''
             return `${name}(${(s.initialBarrier ?? 0).toLocaleString()})`
           })
-          lines.push(`  盾值: ${shieldParts.join(' + ')}`)
+          lines.push(`  ${t('editor:timeline.copyShield')}: ${shieldParts.join(' + ')}`)
         }
 
         if (calc.referenceMaxHP != null) {
           const afterHP = calc.referenceMaxHP - calc.finalDamage
           const dead = afterHP <= 0
           lines.push(
-            `  HP: ${calc.referenceMaxHP.toLocaleString()} → ${dead ? `${afterHP.toLocaleString()} (会死)` : afterHP.toLocaleString()}`
+            `  HP: ${calc.referenceMaxHP.toLocaleString()} → ${dead ? `${afterHP.toLocaleString()} (${t('editor:timeline.copyWillDie')})` : afterHP.toLocaleString()}`
           )
         }
       } else {
-        lines.push(`${header} 伤害: ${event.damage.toLocaleString()}`)
+        lines.push(`${header} ${t('editor:timeline.copyDamage')}: ${event.damage.toLocaleString()}`)
       }
 
       const text = lines.join('\n')
       navigator.clipboard.writeText(text)
-      toast.success('已复制伤害事件文本')
+      toast.success(t('editor:timeline.copiedDamageEventText'))
     },
-    [timeline, calculationResults]
+    [timeline, calculationResults, t]
   )
 
   const handleContextMenuAddDamageEvent = useCallback((time: number) => {
@@ -1471,7 +1483,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   if (!timeline || !layoutData) {
     return (
       <div className="flex items-center justify-center bg-muted/20" style={{ width, height }}>
-        <p className="text-muted-foreground">未加载时间轴</p>
+        <p className="text-muted-foreground">{t('editor:timeline.notLoaded')}</p>
       </div>
     )
   }
@@ -1802,7 +1814,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             style={{ height: timeRulerHeight }}
             className="border-b bg-muted/30 flex items-center justify-end px-2"
           >
-            <span className="text-xs text-muted-foreground">时间</span>
+            <span className="text-xs text-muted-foreground">{t('editor:timeline.colTime')}</span>
           </div>
 
           <div
@@ -1812,7 +1824,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             <button
               className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded hover:bg-muted"
               onClick={toggleDamageTrackCollapsed}
-              title={isDamageTrackCollapsed ? '展开伤害轨道' : '折叠伤害轨道'}
+              title={
+                isDamageTrackCollapsed
+                  ? t('editor:timeline.expandDamageTrack')
+                  : t('editor:timeline.collapseDamageTrack')
+              }
             >
               {isDamageTrackCollapsed ? (
                 <ChevronsUpDown className="w-3.5 h-3.5" />
@@ -1820,7 +1836,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 <ChevronsDownUp className="w-3.5 h-3.5" />
               )}
             </button>
-            <span className="text-xs text-muted-foreground">伤害</span>
+            <span className="text-xs text-muted-foreground">{t('editor:timeline.colDamage')}</span>
           </div>
 
           {hpTrackHeight > 0 && (
@@ -1956,10 +1972,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       {skillTracks.length === 0 ? (
         <div className="flex flex-1 items-center justify-center select-none bg-background">
           <div className="text-center text-sm text-muted-foreground">
-            <p>尚未设置小队阵容</p>
-            <p className="mt-1 text-xs">
-              点击顶部工具栏「小队阵容」添加玩家，即可在此处规划减伤技能
-            </p>
+            <p>{t('editor:timeline.noCompositionTitle')}</p>
+            <p className="mt-1 text-xs">{t('editor:timeline.noCompositionHint')}</p>
           </div>
         </div>
       ) : (

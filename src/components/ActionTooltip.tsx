@@ -4,6 +4,7 @@
  */
 
 import { useLayoutEffect, useRef, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ export default function ActionTooltip({
   onMouseEnter,
   onMouseLeave,
 }: ActionTooltipProps) {
+  const { t } = useTranslation(['editor', 'common'])
   // 保留上一次非 null 的数据，用于退出动画期间继续渲染
   const [displayedData, setDisplayedData] = useState<{
     action: MitigationAction
@@ -221,7 +223,7 @@ export default function ActionTooltip({
         {isLoading ? (
           <div className="p-3 flex items-center justify-center gap-2 text-sm text-gray-400">
             <Loader2 className="w-4 h-4 animate-spin" />
-            加载中...
+            {t('editor:actionTooltip.loading')}
           </div>
         ) : apiData ? (
           <div className="p-3 space-y-3">
@@ -242,7 +244,7 @@ export default function ActionTooltip({
                   {apiData.Name || displayedAction.name}
                 </div>
                 <div className="text-xs text-gray-400">
-                  {apiData.ActionCategory?.Name || '能力'}
+                  {apiData.ActionCategory?.Name || t('editor:actionTooltip.categoryAbility')}
                 </div>
               </div>
 
@@ -250,14 +252,18 @@ export default function ActionTooltip({
               <div className="grid grid-cols-[auto_auto] gap-x-1 text-xs flex-shrink-0 self-start">
                 {apiData.Range > 0 && (
                   <>
-                    <span className="text-gray-400">距离</span>
-                    <span className="text-white text-right">{apiData.Range}米</span>
+                    <span className="text-gray-400">{t('editor:actionTooltip.range')}</span>
+                    <span className="text-white text-right">
+                      {t('editor:actionTooltip.meters', { value: apiData.Range })}
+                    </span>
                   </>
                 )}
                 {apiData.EffectRange > 0 && (
                   <>
-                    <span className="text-gray-400">范围</span>
-                    <span className="text-white text-right">{apiData.EffectRange}米</span>
+                    <span className="text-gray-400">{t('editor:actionTooltip.effectRange')}</span>
+                    <span className="text-white text-right">
+                      {t('editor:actionTooltip.meters', { value: apiData.EffectRange })}
+                    </span>
                   </>
                 )}
               </div>
@@ -266,23 +272,33 @@ export default function ActionTooltip({
             {/* 第三行：咏唱时间 CD 耗魔（均匀分布占满整行） */}
             <div className="flex text-right gap-3">
               <div className="flex-1">
-                <div className="text-[10px] text-gray-400">咏唱时间</div>
+                <div className="text-[10px] text-gray-400">
+                  {t('editor:actionTooltip.castTime')}
+                </div>
                 <div className="text-base text-white font-medium pr-1">
-                  {apiData.Cast100ms === 0 ? '即时' : `${apiData.Cast100ms / 10}s`}
+                  {apiData.Cast100ms === 0
+                    ? t('editor:actionTooltip.instant')
+                    : t('editor:actionTooltip.seconds', { value: apiData.Cast100ms / 10 })}
                 </div>
                 <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
               </div>
               <div className="flex-1">
-                <div className="text-[10px] text-gray-400">复唱时间</div>
+                <div className="text-[10px] text-gray-400">
+                  {t('editor:actionTooltip.recastTime')}
+                </div>
                 <div className="text-base text-white font-medium pr-1">
-                  {localCooldown ?? apiData.Recast100ms / 10}s
+                  {t('editor:actionTooltip.seconds', {
+                    value: localCooldown ?? apiData.Recast100ms / 10,
+                  })}
                 </div>
                 <div className="h-1 rounded-full bg-[#3a3a3a] -mt-2" />
               </div>
               <div className="flex-1">
                 {apiData.PrimaryCostType === 3 && apiData.PrimaryCostValue > 0 && (
                   <>
-                    <div className="text-[10px] text-gray-400">消耗魔力</div>
+                    <div className="text-[10px] text-gray-400">
+                      {t('editor:actionTooltip.mpCost')}
+                    </div>
                     <div className="text-base text-white font-medium pr-1">
                       {apiData.PrimaryCostValue * 100}
                     </div>
@@ -307,9 +323,11 @@ export default function ActionTooltip({
             {/* 习得条件 + 适用职业 */}
             <div className="pt-2 border-t border-[#3a3a3a] space-y-1">
               <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-xs items-center">
-                <span className="text-gray-400">习得条件</span>
-                <span className="text-white">{apiData.ClassJobLevel}级</span>
-                <span className="text-gray-400">适用职业</span>
+                <span className="text-gray-400">{t('editor:actionTooltip.unlockCondition')}</span>
+                <span className="text-white">
+                  {t('editor:actionTooltip.level', { value: apiData.ClassJobLevel })}
+                </span>
+                <span className="text-gray-400">{t('editor:actionTooltip.applicableJobs')}</span>
                 <div className="flex flex-wrap gap-1">
                   {displayedAction.jobs.map(job => (
                     <JobIcon key={job} job={job} size="sm" />
@@ -319,7 +337,9 @@ export default function ActionTooltip({
             </div>
           </div>
         ) : (
-          <div className="p-3 text-center text-sm text-gray-400">加载失败</div>
+          <div className="p-3 text-center text-sm text-gray-400">
+            {t('editor:actionTooltip.loadFailed')}
+          </div>
         )}
       </div>
     </div>

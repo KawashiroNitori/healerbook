@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Users, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
@@ -21,15 +22,16 @@ interface CompositionDialogProps {
 }
 
 const dpsJobs = getDPSJobs()
-const JOB_ROWS: Array<{ label: string; jobs: Job[] }> = [
-  { label: '坦克', jobs: getTankJobs() },
-  { label: '治疗', jobs: getHealerJobs() },
-  { label: '近战', jobs: dpsJobs.filter(j => getJobRole(j) === 'melee') },
-  { label: '远敏', jobs: dpsJobs.filter(j => getJobRole(j) === 'ranged') },
-  { label: '法系', jobs: dpsJobs.filter(j => getJobRole(j) === 'caster') },
+const JOB_ROWS: Array<{ labelKey: string; jobs: Job[] }> = [
+  { labelKey: 'composition.roleTank', jobs: getTankJobs() },
+  { labelKey: 'composition.roleHealer', jobs: getHealerJobs() },
+  { labelKey: 'composition.roleMelee', jobs: dpsJobs.filter(j => getJobRole(j) === 'melee') },
+  { labelKey: 'composition.roleRanged', jobs: dpsJobs.filter(j => getJobRole(j) === 'ranged') },
+  { labelKey: 'composition.roleCaster', jobs: dpsJobs.filter(j => getJobRole(j) === 'caster') },
 ]
 
 export default function CompositionDialog({ composition, onSave }: CompositionDialogProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const [open, setOpen] = useState(false)
   const [localPlayers, setLocalPlayers] = useState(composition.players)
 
@@ -65,13 +67,13 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
         }}
       >
         <Users className="w-4 h-4 mr-2" />
-        调整阵容
+        {t('editor:composition.title')}
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)}>
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>调整阵容</ModalTitle>
+            <ModalTitle>{t('editor:composition.title')}</ModalTitle>
           </ModalHeader>
 
           <TooltipProvider>
@@ -79,13 +81,17 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
               {/* 当前阵容 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-medium text-muted-foreground">当前阵容</h4>
+                  <h4 className="text-xs font-medium text-muted-foreground">
+                    {t('editor:composition.currentParty')}
+                  </h4>
                   <span className="text-xs text-muted-foreground">
                     {localPlayers.length}/{MAX_PARTY_SIZE}
                   </span>
                 </div>
                 {sortedLocalPlayers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2 text-center">暂无队员</p>
+                  <p className="text-xs text-muted-foreground py-2 text-center">
+                    {t('editor:composition.empty')}
+                  </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {sortedLocalPlayers.map(player => (
@@ -101,7 +107,9 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
                             </span>
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent>{getJobName(player.job)}（点击移除）</TooltipContent>
+                        <TooltipContent>
+                          {t('editor:composition.removeHint', { name: getJobName(player.job) })}
+                        </TooltipContent>
                       </Tooltip>
                     ))}
                   </div>
@@ -112,11 +120,15 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
 
               {/* 添加职业 */}
               <div>
-                <h4 className="text-xs font-medium text-muted-foreground mb-3">添加职业</h4>
+                <h4 className="text-xs font-medium text-muted-foreground mb-3">
+                  {t('editor:composition.addJob')}
+                </h4>
                 <div className="space-y-2">
-                  {JOB_ROWS.map(({ label, jobs }) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-8 shrink-0">{label}</span>
+                  {JOB_ROWS.map(({ labelKey, jobs }) => (
+                    <div key={labelKey} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-8 shrink-0">
+                        {t(`editor:${labelKey}`)}
+                      </span>
                       <div className="flex flex-wrap gap-1.5">
                         {jobs.map(job => (
                           <Tooltip key={job}>
@@ -146,11 +158,11 @@ export default function CompositionDialog({ composition, onSave }: CompositionDi
 
           <ModalFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              取消
+              {t('common:cancel')}
             </Button>
             <Button onClick={handleConfirm}>
               <Check className="w-4 h-4 mr-1" />
-              完成
+              {t('editor:composition.confirm')}
             </Button>
           </ModalFooter>
         </ModalContent>

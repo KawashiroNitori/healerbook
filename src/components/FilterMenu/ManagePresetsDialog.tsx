@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import {
   DndContext,
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export default function ManagePresetsDialog({ open, onClose }: Props) {
+  const { t } = useTranslation(['editor', 'common'])
   const customPresets = useFilterStore(s => s.customPresets)
   const reorderPresets = useFilterStore(s => s.reorderPresets)
   const deletePreset = useFilterStore(s => s.deletePreset)
@@ -75,7 +77,7 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
       <Modal open={open} onClose={onClose}>
         <ModalContent>
           <ModalHeader className="mb-4 flex items-center justify-between">
-            <ModalTitle>管理预设</ModalTitle>
+            <ModalTitle>{t('editor:managePresets.title')}</ModalTitle>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -83,18 +85,20 @@ export default function ManagePresetsDialog({ open, onClose }: Props) {
                   variant="ghost"
                   className="h-7 w-7"
                   onClick={openNew}
-                  aria-label="新增预设"
+                  aria-label={t('editor:managePresets.addPreset')}
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">新增预设</TooltipContent>
+              <TooltipContent side="bottom">{t('editor:managePresets.addPreset')}</TooltipContent>
             </Tooltip>
           </ModalHeader>
 
           <div className="space-y-2">
             {customPresets.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">暂无自定义预设</div>
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {t('editor:managePresets.empty')}
+              </div>
             ) : (
               <DndContext
                 sensors={sensors}
