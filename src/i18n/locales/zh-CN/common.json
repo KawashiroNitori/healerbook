@@ -3,6 +3,10 @@
     "clientIdMissing": "FFLogs Client ID 未配置，请联系开发者",
     "loggedOut": "已退出登录"
   },
+  "authButton": {
+    "login": "登录 FFLogs",
+    "logout": "退出"
+  },
   "callback": {
     "completing": "正在完成登录...",
     "loginFailed": "登录失败：{{message}}",
@@ -11,6 +15,7 @@
   },
   "cancel": "取消",
   "close": "关闭",
+  "confirm": "确定",
   "copy": "复制",
   "errorBoundary": {
     "renderError": "渲染错误：{{message}}（详情见控制台）"

@@ -7,6 +7,7 @@
  */
 
 import { Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { ROW_HEIGHT } from './constants'
 
 interface AddDamageRowProps {
@@ -25,6 +26,7 @@ export default function AddDamageRow({
   tableWidth,
   onClick,
 }: AddDamageRowProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const innerWidth = Math.max(0, Math.min(tableWidth, wrapperWidth))
 
   return (
@@ -46,7 +48,7 @@ export default function AddDamageRow({
           }}
         >
           <Plus className="w-3.5 h-3.5" />
-          添加伤害事件
+          {t('addDamageRow.add')}
         </div>
       </td>
     </tr>

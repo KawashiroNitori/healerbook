@@ -15,6 +15,9 @@
     "seconds": "{{value}}s",
     "unlockCondition": "习得条件"
   },
+  "addDamageRow": {
+    "add": "添加伤害事件"
+  },
   "addEvent": {
     "addSuccess": "事件已添加",
     "attackTypeLabel": "攻击类型",
@@ -30,6 +33,9 @@
     "submit": "添加",
     "timeLabel": "时间",
     "title": "添加伤害事件"
+  },
+  "annotationPopover": {
+    "placeholder": "输入注释..."
   },
   "composition": {
     "addJob": "添加职业",
@@ -47,6 +53,19 @@
   "compositionPopover": {
     "empty": "暂无队员",
     "title": "小队阵容"
+  },
+  "contextMenu": {
+    "add": "添加",
+    "addAnnotation": "添加注释",
+    "copyAll": "复制全部",
+    "copyText": "复制文本",
+    "delete": "删除",
+    "deleteAll": "删除全部",
+    "edit": "编辑",
+    "paste": "粘贴",
+    "selectAll": "全选",
+    "selectAllCasts": "全选技能",
+    "selectAllDamageEvents": "全选伤害事件"
   },
   "editPreset": {
     "actionsLabel": "技能选择",
@@ -237,6 +256,12 @@
     "save": "保存",
     "tankMinHp": "坦克职业最低 HP",
     "title": "数值设置"
+  },
+  "tableHeader": {
+    "actualDamage": "实际伤害",
+    "damageEvent": "伤害事件",
+    "originalDamage": "原始伤害",
+    "time": "时间"
   },
   "tempMitigation": {
     "addAriaLabel": "添加临时减伤",

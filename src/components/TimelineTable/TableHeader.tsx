@@ -7,6 +7,7 @@
  * - 技能列头显示职业图标 + 技能图标，hover/click 触发 tooltip
  */
 
+import { useTranslation } from 'react-i18next'
 import JobIcon from '../JobIcon'
 import { getIconUrl } from '@/utils/iconUtils'
 import { useTooltipStore } from '@/store/tooltipStore'
@@ -34,6 +35,7 @@ export default function TableHeader({
   showOriginalDamage,
   showActualDamage,
 }: TableHeaderProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
 
   // 计算粘性左侧列的累积 left 值
@@ -59,13 +61,13 @@ export default function TableHeader({
           className={`${stickyCellClass} top-0 z-30 text-right px-2`}
           style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH, left: timeLeft }}
         >
-          时间
+          {t('tableHeader.time')}
         </th>
         <th
           className={`${stickyCellClass} top-0 z-30 text-left px-2`}
           style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH, left: nameLeft }}
         >
-          伤害事件
+          {t('tableHeader.damageEvent')}
         </th>
         {showOriginalDamage && (
           <th
@@ -76,7 +78,7 @@ export default function TableHeader({
               left: origLeft,
             }}
           >
-            原始伤害
+            {t('tableHeader.originalDamage')}
           </th>
         )}
         {showActualDamage && (
@@ -88,7 +90,7 @@ export default function TableHeader({
               left: actualLeft,
             }}
           >
-            实际伤害
+            {t('tableHeader.actualDamage')}
           </th>
         )}
         {skillTracks.map((track, index) => {

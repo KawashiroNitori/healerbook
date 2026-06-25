@@ -3,6 +3,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ANNOTATION_TEXT_MAX_LENGTH } from '@/constants/limits'
 
 interface AnnotationPopoverProps {
@@ -22,6 +23,7 @@ export default function AnnotationPopover({
   onConfirm,
   onClose,
 }: AnnotationPopoverProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const [editText, setEditText] = useState(text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -85,7 +87,7 @@ export default function AnnotationPopover({
             value={editText}
             onChange={e => setEditText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入注释..."
+            placeholder={t('annotationPopover.placeholder')}
           />
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground">
@@ -96,14 +98,14 @@ export default function AnnotationPopover({
                 className="px-2 py-0.5 text-[11px] rounded border hover:bg-muted"
                 onClick={onClose}
               >
-                取消
+                {t('common:cancel')}
               </button>
               <button
                 className="px-2 py-0.5 text-[11px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 disabled={!editText.trim()}
                 onClick={handleConfirm}
               >
-                确定
+                {t('common:confirm')}
               </button>
             </div>
           </div>
