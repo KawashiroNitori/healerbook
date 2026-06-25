@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { deriveResourceEvents, computeResourceTrace, computeResourceAmount } from './compute'
+import {
+  deriveResourceEvents,
+  computeResourceTrace,
+  computeResourceAmount,
+  computeResourceStateAt,
+} from './compute'
 import type { ResourceDefinition } from '@/types/resource'
 import { makeAction, makeCast } from './__tests__/helpers'
 
@@ -376,5 +381,43 @@ describe('合成 __cd__: 资源与 cooldown 语义等价', () => {
     expect(computeResourceAmount(def, events, 30)).toBe(-1)
     expect(computeResourceAmount(def, events, 60)).toBe(0) // refill@60 来了，-1+1=0
     expect(computeResourceAmount(def, events, 90)).toBe(1) // refill@90 来了，满
+  })
+})
+
+describe('computeResourceStateAt', () => {
+  const def: ResourceDefinition = {
+    id: 'p',
+    name: 'p',
+    job: 'SCH',
+    initial: 3,
+    max: 3,
+    regen: { interval: 20, amount: 1 },
+    style: 'lightsWithBar',
+  }
+  const events = deriveResourceEvents(
+    [makeCast({ id: 'c1', actionId: 1, timestamp: 10 })],
+    new Map([
+      [1, makeAction({ id: 1, cooldown: 20, resourceEffects: [{ resourceId: 'p', delta: -1 }] })],
+    ])
+  ).get('10:p')!
+
+  it('消耗后 amount 减 1，pending 含 +interval refill', () => {
+    const s = computeResourceStateAt(def, events, 15)
+    expect(s.amount).toBe(2)
+    expect(s.pending).toEqual([30]) // 10 + 20
+  })
+
+  it('refill 时刻到点后 amount 恢复、pending 清空', () => {
+    const s = computeResourceStateAt(def, events, 30)
+    expect(s.amount).toBe(3)
+    expect(s.pending).toEqual([])
+  })
+
+  it('amount 与 computeResourceAmount 一致', () => {
+    for (const t of [0, 5, 10, 15, 25, 30, 40]) {
+      expect(computeResourceStateAt(def, events, t).amount).toBe(
+        computeResourceAmount(def, events, t)
+      )
+    }
   })
 })

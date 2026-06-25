@@ -159,36 +159,44 @@ export function computeResourceTrace(
   return result
 }
 
-export function computeResourceAmount(
+export interface ResourceStateAt {
+  amount: number
+  /** atTime 之后仍挂着的 refill 时刻（升序）；pending[0] = 最早一次回充 */
+  pending: number[]
+}
+
+export function computeResourceStateAt(
   def: ResourceDefinition,
   events: ResourceEvent[],
   atTime: number
-): number {
+): ResourceStateAt {
   let amount = def.initial
   const pending: number[] = []
-
   const firePendingUpTo = (t: number) => {
-    // 不变量：pending 非空 ⇒ def.regen 存在（由 push 条件保证）
     while (pending.length > 0 && pending[0] <= t) {
       pending.shift()
       amount = Math.min(amount + def.regen!.amount, def.max)
     }
   }
-
   for (const ev of events) {
     if (ev.timestamp > atTime) break
     firePendingUpTo(ev.timestamp)
     amount = Math.min(amount + ev.delta, def.max)
     if (ev.delta < 0 && def.regen) {
       const count = -ev.delta
-      for (let k = 0; k < count; k++) {
-        pending.push(ev.timestamp + def.regen.interval)
-      }
+      for (let k = 0; k < count; k++) pending.push(ev.timestamp + def.regen.interval)
     }
   }
-  // 触发 atTime 及以前剩余的 pending
   firePendingUpTo(atTime)
-  return amount
+  return { amount, pending }
+}
+
+export function computeResourceAmount(
+  def: ResourceDefinition,
+  events: ResourceEvent[],
+  atTime: number
+): number {
+  return computeResourceStateAt(def, events, atTime).amount
 }
 
 /**
