@@ -110,6 +110,13 @@ const resourceEventsByKey = useMemo(
 - **显式共享池**：仅当该成员在当前过滤器下**有任意技能可见**（存在某 action 满足 `action.jobs.includes(job) && matchSingleAction(action, job, preset)`）才纳入。
 - 成员若无任何可见池 → 不出现在面板。
 
+#### 3.3.1 CD section 额外排除（实现期补充）
+
+`cooldowns` 段对每条 track 再施加两条排除（仅作用于 CD 段，不影响 `pools`）：
+
+1. **变身 trackGroup 排除**：`deriveResourceEvents` 把合成 CD 事件按**解析后的变体 id** 入键（`__cd__:${variantId}`），而快照按**父轨 id** 查 `__cd__:${parentId}`，对变体 id 漂移的组会漏读、误显示为"就绪"。为避免错误数据，凡父轨属于多成员 trackGroup（存在某 action `a` 满足 `a.trackGroup != null && a.trackGroup !== a.id` 且 `a.trackGroup === 该父轨 id`）一律不出 CD 部件。涉及 6 组：意气轩昂(37013/37016)、地星/星体爆轰(7439/8324)、25862/28509、16557/16558、25874/25875、16014/25789。
+2. **低 CD 排除**：`action.cooldown < 30`（严格小于 30s）的技能不出 CD 部件，过滤掉 GCD 级 / 短 CD 噪音。`cooldown === 30` 仍显示。
+
 ### 3.4 快照接口
 
 ```ts
