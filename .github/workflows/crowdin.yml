@@ -10,6 +10,9 @@ on:
 jobs:
   synchronize:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 推 l10n/crowdin 分支
+      pull-requests: write # 开回流译文 PR
     steps:
       - name: Checkout
         uses: actions/checkout@v4
