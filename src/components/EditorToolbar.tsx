@@ -512,7 +512,7 @@ export default function EditorToolbar({
                       className="h-7 w-7"
                       disabled={!editLock.can('content') || isOptimizing}
                       onClick={() => setShowAutoMitigateDisclaimer(true)}
-                      aria-label="自动减伤"
+                      aria-label={t('editor:editorToolbar.autoMitigate')}
                     >
                       {isOptimizing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -521,7 +521,9 @@ export default function EditorToolbar({
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">自动减伤规划（实验性）</TooltipContent>
+                  <TooltipContent side="bottom">
+                    {t('editor:editorToolbar.autoMitigateExperimental')}
+                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>

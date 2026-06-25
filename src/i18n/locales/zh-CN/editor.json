@@ -37,6 +37,28 @@
   "annotationPopover": {
     "placeholder": "输入注释..."
   },
+  "autoMitigate": {
+    "failed": "自动减伤失败：{{message}}",
+    "noEvents": "当前时间轴没有伤害事件，无法自动规划减伤",
+    "noImprovement": "未找到可进一步降低伤害的方案",
+    "placed": "已自动放置 {{count}} 个减伤"
+  },
+  "autoMitigateDisclaimer": {
+    "description": "本功能仅试图实现理论上的减伤可行解，并未充分考虑实际可执行性、回复量与现实机制差异，自动规划结果仅供参考，请务必不要无脑照搬。",
+    "promptPrefix": "请输入「",
+    "promptSuffix": "」以继续：",
+    "title": "自动减伤规划"
+  },
+  "autoMitigateProgress": {
+    "calculating": "计算中…",
+    "candidateScale": "候选规模",
+    "elapsed": "计算耗时",
+    "evaluations": "评估次数",
+    "inScopeEvents": "范围内事件",
+    "placed": "已放置",
+    "round": "（第 {{round}} 轮）",
+    "title": "正在自动规划减伤…"
+  },
   "composition": {
     "addJob": "添加职业",
     "confirm": "完成",
@@ -104,6 +126,8 @@
   },
   "editorToolbar": {
     "actualDamage": "实际伤害",
+    "autoMitigate": "自动减伤",
+    "autoMitigateExperimental": "自动减伤规划（实验性）",
     "createCopy": "创建副本",
     "damageEvents": "伤害事件",
     "exitReplayConfirm": "确认解除",

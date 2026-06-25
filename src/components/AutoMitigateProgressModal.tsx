@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ interface Props {
  * 可取消；点击空白处 / Esc 不关闭（避免误关），仅「取消」按钮可中止。
  */
 export function AutoMitigateProgressModal({ open, progress, onCancel }: Props) {
+  const { t } = useTranslation(['editor', 'common'])
   return (
     <Dialog open={open}>
       <DialogContent
@@ -31,28 +33,42 @@ export function AutoMitigateProgressModal({ open, progress, onCancel }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            正在自动规划减伤…
+            {t('editor:autoMitigateProgress.title')}
           </DialogTitle>
           <DialogDescription>
-            计算中…
-            {progress && progress.round > 1 ? `（第 ${progress.round} 轮）` : ''}
+            {t('editor:autoMitigateProgress.calculating')}
+            {progress && progress.round > 1
+              ? t('editor:autoMitigateProgress.round', { round: progress.round })
+              : ''}
           </DialogDescription>
         </DialogHeader>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
           <Stat
-            label="计算耗时"
+            label={t('editor:autoMitigateProgress.elapsed')}
             value={progress ? `${(progress.elapsedMs / 1000).toFixed(1)}s` : '—'}
           />
-          <Stat label="已放置" value={progress ? `${progress.castsPlaced}` : '—'} />
-          <Stat label="评估次数" value={progress ? progress.simulateCalls.toLocaleString() : '—'} />
-          <Stat label="候选规模" value={progress ? `${progress.candidateCount}` : '—'} />
-          <Stat label="范围内事件" value={progress ? `${progress.inScopeEventCount}` : '—'} />
+          <Stat
+            label={t('editor:autoMitigateProgress.placed')}
+            value={progress ? `${progress.castsPlaced}` : '—'}
+          />
+          <Stat
+            label={t('editor:autoMitigateProgress.evaluations')}
+            value={progress ? progress.simulateCalls.toLocaleString() : '—'}
+          />
+          <Stat
+            label={t('editor:autoMitigateProgress.candidateScale')}
+            value={progress ? `${progress.candidateCount}` : '—'}
+          />
+          <Stat
+            label={t('editor:autoMitigateProgress.inScopeEvents')}
+            value={progress ? `${progress.inScopeEventCount}` : '—'}
+          />
         </dl>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onCancel}>
-            取消
+            {t('common:cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { workerClient } from '@/hooks/useDamageCalculation'
@@ -44,6 +45,7 @@ export interface UseAutoMitigate {
 }
 
 export function useAutoMitigate(): UseAutoMitigate {
+  const { t } = useTranslation(['editor', 'common'])
   const [isOptimizing, setOptimizing] = useState(false)
   const [progress, setProgress] = useState<OptimizeProgress | null>(null)
   const cancelledRef = useRef(false)
@@ -63,7 +65,7 @@ export function useAutoMitigate(): UseAutoMitigate {
     if (!timeline || !partyState) return
 
     if (timeline.damageEvents.length === 0) {
-      toast.info('当前时间轴没有伤害事件，无法自动规划减伤')
+      toast.info(t('editor:autoMitigate.noEvents'))
       return
     }
 
@@ -76,24 +78,28 @@ export function useAutoMitigate(): UseAutoMitigate {
       const out = await workerClient.optimize(wire, setProgress)
 
       if (out.addedCastEvents.length === 0) {
-        toast.info('未找到可进一步降低伤害的方案')
+        toast.info(t('editor:autoMitigate.noImprovement'))
         return
       }
 
       // strip id — addCastEventsBatch 会重新生成
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       state.addCastEventsBatch(out.addedCastEvents.map(({ id: _, ...rest }) => rest))
-      toast.success(`已自动放置 ${out.summary.castsAdded} 个减伤`)
+      toast.success(t('editor:autoMitigate.placed', { count: out.summary.castsAdded }))
     } catch (e) {
       // 用户取消：静默（不弹 toast）；仅真实失败才提示
       if (!(e instanceof OptimizeCancelledError) && !cancelledRef.current) {
-        toast.error('自动减伤失败：' + (e instanceof Error ? e.message : '未知错误'))
+        toast.error(
+          t('editor:autoMitigate.failed', {
+            message: e instanceof Error ? e.message : t('common:unknownError'),
+          })
+        )
       }
     } finally {
       setOptimizing(false)
       setProgress(null)
     }
-  }, [])
+  }, [t])
 
   return { isOptimizing, progress, run, cancel }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ interface Props {
  * 确认后才真正发起优化。
  */
 export function AutoMitigateDisclaimerModal({ open, onOpenChange, onConfirm }: Props) {
+  const { t } = useTranslation(['editor', 'common'])
   const [text, setText] = useState('')
   const matched = text.trim() === CONFIRM_PHRASE
 
@@ -41,15 +43,17 @@ export function AutoMitigateDisclaimerModal({ open, onOpenChange, onConfirm }: P
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>自动减伤规划</DialogTitle>
+          <DialogTitle>{t('editor:autoMitigateDisclaimer.title')}</DialogTitle>
           <DialogDescription className="leading-relaxed">
-            本功能仅试图实现理论上的减伤可行解，并未充分考虑实际可执行性、回复量与现实机制差异，自动规划结果仅供参考，请务必不要无脑照搬。
+            {t('editor:autoMitigateDisclaimer.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            请输入「<span className="font-medium text-foreground">{CONFIRM_PHRASE}</span>」以继续：
+            {t('editor:autoMitigateDisclaimer.promptPrefix')}
+            <span className="font-medium text-foreground">{CONFIRM_PHRASE}</span>
+            {t('editor:autoMitigateDisclaimer.promptSuffix')}
           </p>
           <Input
             value={text}
@@ -64,10 +68,10 @@ export function AutoMitigateDisclaimerModal({ open, onOpenChange, onConfirm }: P
 
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => handleOpenChange(false)}>
-            取消
+            {t('common:cancel')}
           </Button>
           <Button size="sm" disabled={!matched} onClick={handleConfirm}>
-            确认
+            {t('common:confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
