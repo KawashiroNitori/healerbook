@@ -1,5 +1,6 @@
 {
   "importFflogs": {
+    "apiFailed": "FFLogs API 调用失败",
     "connectionConfigError": "FFLogs 连接配置错误，请联系开发者",
     "duplicateNotice": "该战斗记录已经导入过",
     "fightNotFound": "战斗 #{{fightId}} 不存在",

@@ -69,14 +69,17 @@ app.get('/import', async c => {
       }
     } else {
       if (!report.fights || report.fights.length === 0) {
-        return c.json({ error: '报告中没有战斗记录' }, 404)
+        return c.json({ error: '报告中没有战斗记录', code: 'fflogs.noFights' }, 404)
       }
       fightId = report.fights[report.fights.length - 1].id
     }
 
     const fight = report.fights?.find(f => f.id === fightId)
     if (!fight) {
-      return c.json({ error: `战斗 #${fightId} 不存在` }, 404)
+      return c.json(
+        { error: `战斗 #${fightId} 不存在`, code: 'fflogs.fightNotFound', fightId },
+        404
+      )
     }
 
     const eventsData = await client.getEvents({
@@ -136,7 +139,13 @@ app.get('/import', async c => {
     return c.json(serializeForServer(timeline))
   } catch (error) {
     console.error('[FFLogs Import] Error:', error)
-    return c.json({ error: error instanceof Error ? error.message : 'FFLogs API 调用失败' }, 502)
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'FFLogs API 调用失败',
+        code: 'fflogs.apiFailed',
+      },
+      502
+    )
   }
 })
 

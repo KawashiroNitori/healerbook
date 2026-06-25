@@ -20,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { apiClient } from '@/api/apiClient'
 import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { parseFromAny } from '@/utils/timelineFormat'
-import { parseApiError } from '@/api/parseApiError'
+import { resolveApiError } from '@/api/parseApiError'
 import { generateId } from '@/utils/id'
 import {
   extractImportableFromTimeline,
@@ -281,7 +281,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
         })
         if (!response.ok) {
           const body = (await response.json().catch(() => null)) as unknown
-          throw new Error(parseApiError(body, response.status))
+          throw new Error(resolveApiError(body, response.status, t))
         }
         const raw = await response.json()
         const fullTimeline = parseFromAny(raw, { id: generateId() })
