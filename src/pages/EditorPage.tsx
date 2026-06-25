@@ -28,6 +28,7 @@ import EditorToolbar from '@/components/EditorToolbar'
 import PropertyPanel from '@/components/PropertyPanel'
 import TimelineCanvas from '@/components/Timeline'
 import TimelineTableView from '@/components/TimelineTable'
+import ResourceHoverPanel from '@/components/ResourceHover/ResourceHoverPanel'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import EditableTitle from '@/components/EditableTitle'
 import EditableDescription from '@/components/EditableDescription'
@@ -416,6 +417,7 @@ export default function EditorPage() {
           </div>
         </div>
         <PropertyPanel />
+        <ResourceHoverPanel />
       </DamageCalculationContext.Provider>
     </div>
   )

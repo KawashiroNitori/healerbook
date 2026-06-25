@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import { useUIStore } from '@/store/uiStore'
@@ -494,6 +495,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         const xPx = time * zoomLevel
 
         hoverTimeRef.current = time
+        useResourceHoverStore.getState().setHover(time, { x: e.clientX, y: e.clientY })
 
         // 光标提示：当一次拖拽会触发框选时给 crosshair（框选模式整片画布，或鼠标在时间标尺带内）
         const overRuler = hasRuler && e.clientY - rect.top <= timeRulerHeight
@@ -581,6 +583,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         return
       }
       hoverTimeRef.current = null
+      useResourceHoverStore.getState().clearHover()
       hoverTrackIndexRef.current = null
       hideCrosshair()
       // 立即清除本地光标（抑制节流，防止后续 stale mousemove 重发）

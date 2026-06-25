@@ -13,6 +13,7 @@ import { GameIcon } from '@/components/GameIcon'
 import { cellKey } from '@/utils/castWindow'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useUIStore } from '@/store/uiStore'
+import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
@@ -153,7 +154,14 @@ export default function TableDataRow({
   const hoverClass = 'group-hover:bg-muted/50'
 
   return (
-    <tr className="group" style={{ height: ROW_HEIGHT }}>
+    <tr
+      className="group"
+      style={{ height: ROW_HEIGHT }}
+      onMouseMove={e =>
+        useResourceHoverStore.getState().setHover(event.time, { x: e.clientX, y: e.clientY })
+      }
+      onMouseLeave={() => useResourceHoverStore.getState().clearHover()}
+    >
       {showCastStartTime && (
         <td
           className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
