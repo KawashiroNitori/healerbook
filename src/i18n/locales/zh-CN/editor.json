@@ -15,6 +15,20 @@
     "timeLabel": "时间",
     "title": "添加伤害事件"
   },
+  "exportExcel": {
+    "actualDamage": "实际伤害",
+    "columnsLabel": "显示列",
+    "compositionLabel": "导出阵容",
+    "defaultFileName": "减伤表",
+    "exportButton": "导出",
+    "exportFailed": "导出失败，请重试",
+    "exportSuccess": "导出成功",
+    "exporting": "导出中…",
+    "fileNameLabel": "文件名",
+    "fileNamePlaceholder": "减伤表",
+    "originalDamage": "原始伤害",
+    "title": "导出 Excel"
+  },
   "exportSouma": {
     "aboutAriaLabel": "关于 Souma 时间轴",
     "aboutDescription": "Souma 治疗/减伤时间轴是由 Souma 制作的 ACT 悬浮窗，可以根据自定义的时间轴在副本进程中对技能进行实时提醒。",
@@ -34,5 +48,18 @@
     "title": "导出 Souma 时间轴",
     "ttsLabel": "TTS 播报"
   },
-  "idle": "空转 {sec}s"
+  "idle": "空转 {sec}s",
+  "statData": {
+    "actionValuesTitle": "技能数值",
+    "entryCritHeal": "暴击治疗量",
+    "entryCritShield": "暴击盾量",
+    "entryHeal": "治疗量",
+    "entryShield": "盾量",
+    "noActions": "当前阵容中没有需要指定数值的技能",
+    "nonTankMinHp": "非坦职业最低 HP",
+    "safeHpTitle": "安全血量",
+    "save": "保存",
+    "tankMinHp": "坦克职业最低 HP",
+    "title": "数值设置"
+  }
 }

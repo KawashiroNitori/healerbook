@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, Check, Loader2, Trash2, X, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ interface SharePopoverAuthorProps {
 }
 
 export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopoverAuthorProps) {
+  const { t } = useTranslation(['share', 'common'])
   const [state, setState] = useState<ShareState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -61,7 +63,7 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('复制失败，请手动复制链接')
+      toast.error(t('share:sharePopoverAuthor.copyFailed'))
     }
   }
 
@@ -73,7 +75,7 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
       await setAllowEditRequests(timelineId, next)
     } catch {
       setState(cur => (cur ? { ...cur, allowEditRequests: prev } : cur))
-      toast.error('设置失败')
+      toast.error(t('share:sharePopoverAuthor.setFailed'))
     }
   }
 
@@ -88,7 +90,7 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
         applicants: state.applicants.filter(a => a.userId !== userId),
       })
     } catch {
-      toast.error('操作失败')
+      toast.error(t('share:sharePopoverAuthor.actionFailed'))
     } finally {
       setBusyUserId(null)
     }
@@ -101,7 +103,7 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
       await rejectEditRequest(timelineId, userId)
       setState({ ...state, applicants: state.applicants.filter(a => a.userId !== userId) })
     } catch {
-      toast.error('操作失败')
+      toast.error(t('share:sharePopoverAuthor.actionFailed'))
     } finally {
       setBusyUserId(null)
     }
@@ -114,7 +116,7 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
       await removeEditor(timelineId, userId)
       setState({ ...state, editors: state.editors.filter(e => e.userId !== userId) })
     } catch {
-      toast.error('移除失败')
+      toast.error(t('share:sharePopoverAuthor.removeFailed'))
     } finally {
       setBusyUserId(null)
     }
@@ -139,28 +141,30 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
         </div>
       ) : error || !state ? (
         <div className="flex flex-col items-center gap-2 py-4">
-          <p className="text-xs text-muted-foreground">加载共享设置失败</p>
+          <p className="text-xs text-muted-foreground">
+            {t('share:sharePopoverAuthor.loadFailed')}
+          </p>
           <Button variant="outline" size="sm" onClick={() => setReloadKey(k => k + 1)}>
-            重试
+            {t('share:sharePopoverAuthor.retry')}
           </Button>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <span className="text-sm">允许申请编辑权限</span>
+              <span className="text-sm">{t('share:sharePopoverAuthor.allowEditRequests')}</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-foreground"
-                    aria-label="什么是允许申请编辑权限"
+                    aria-label={t('share:sharePopoverAuthor.allowEditRequestsHelpLabel')}
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[220px]">
-                  开启后，其他人可以申请成为该时间轴的编辑者
+                  {t('share:sharePopoverAuthor.allowEditRequestsHelp')}
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -169,7 +173,9 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
 
           {state.editors.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">编辑者</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                {t('share:sharePopoverAuthor.editors')}
+              </p>
               {state.editors.map(e => (
                 <div key={e.userId} className="flex items-center justify-between">
                   <span className="text-sm truncate">{e.userName}</span>
@@ -189,7 +195,9 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
 
           {state.applicants.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">申请编辑权限</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                {t('share:sharePopoverAuthor.applicants')}
+              </p>
               {state.applicants.map(a => (
                 <div key={a.userId} className="flex items-center justify-between">
                   <span className="text-sm truncate">{a.userName}</span>

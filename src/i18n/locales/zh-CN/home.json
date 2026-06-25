@@ -8,6 +8,49 @@
     "qrcodeAlt": "QQ 群二维码",
     "title": "关于"
   },
+  "createTimeline": {
+    "encounterLabel": "副本",
+    "encounterNone": "其他（不指定副本）",
+    "encounterPlaceholder": "选择副本",
+    "nameLabel": "时间轴名称",
+    "nameRequired": "请输入时间轴名称",
+    "submit": "创建",
+    "title": "新建时间轴"
+  },
   "help": "帮助",
-  "subtitle": "FF14 减伤规划工具"
+  "subtitle": "FF14 减伤规划工具",
+  "top100": {
+    "clear": "清空",
+    "colAction": "操作",
+    "colComposition": "阵容",
+    "colDuration": "时长",
+    "colHealers": "治疗组合",
+    "colTotalRDps": "合计 rDPS",
+    "collapse": "收起（显示前 10 条）",
+    "comingSoon": "敬请期待！",
+    "duration": "时长",
+    "expandAll": "展开全部 {{count}} 条",
+    "filterDescription": "只看你们小队有的减伤",
+    "filterTitle": "阵容过滤",
+    "import": "导入",
+    "imported": "已导入",
+    "loadFailed": "加载失败",
+    "loading": "加载中...",
+    "marquee": "🤡 最新进度绝赞更新中 🤡",
+    "mogtalkDescription": "查看全球小队最新进度排名",
+    "mogtalkTitle": "MogTalk 进度榜单",
+    "noData": "暂无数据",
+    "role": {
+      "caster": "法系",
+      "healer": "治疗",
+      "melee": "近战",
+      "ranged": "远敏",
+      "tank": "坦克"
+    },
+    "subtitle": "拿不定主意？看看别人怎么做的",
+    "timelineProgress": "伤害时间轴更新进度",
+    "timelineUpdated": "伤害时间轴已更新完成",
+    "title": "TOP100 参考方案",
+    "updatedAt": "更新于 {{time}}"
+  }
 }

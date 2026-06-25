@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { toast } from 'sonner'
@@ -47,6 +48,7 @@ export default function CreateTimelineDialog({
   onClose,
   onCreated,
 }: CreateTimelineDialogProps) {
+  const { t } = useTranslation(['home', 'common'])
   const [name, setName] = useState('')
   const [encounterId, setEncounterId] = useState(
     VISIBLE_TIERS[0]?.encounters[0]?.id.toString() || ''
@@ -70,7 +72,7 @@ export default function CreateTimelineDialog({
     e.preventDefault()
 
     if (!name.trim()) {
-      toast.error('请输入时间轴名称')
+      toast.error(t('home:createTimeline.nameRequired'))
       return
     }
 
@@ -107,13 +109,13 @@ export default function CreateTimelineDialog({
     <Modal open={open} onClose={onClose}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>新建时间轴</ModalTitle>
+          <ModalTitle>{t('home:createTimeline.title')}</ModalTitle>
         </ModalHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              时间轴名称 <span className="text-destructive">*</span>
+              {t('home:createTimeline.nameLabel')} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -128,10 +130,12 @@ export default function CreateTimelineDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">副本</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('home:createTimeline.encounterLabel')}
+            </label>
             <Select value={encounterId} onValueChange={setEncounterId}>
               <SelectTrigger>
-                <SelectValue placeholder="选择副本" />
+                <SelectValue placeholder={t('home:createTimeline.encounterPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {VISIBLE_TIERS.map(tier => (
@@ -146,7 +150,7 @@ export default function CreateTimelineDialog({
                     ))}
                   </SelectGroup>
                 ))}
-                <SelectItem value="0">其他（不指定副本）</SelectItem>
+                <SelectItem value="0">{t('home:createTimeline.encounterNone')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -157,13 +161,13 @@ export default function CreateTimelineDialog({
               onClick={onClose}
               className="px-4 py-2 border rounded-md hover:bg-accent transition-colors"
             >
-              取消
+              {t('common:cancel')}
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
             >
-              创建
+              {t('home:createTimeline.submit')}
             </button>
           </ModalFooter>
         </form>
