@@ -2,7 +2,7 @@ name: Crowdin Sync
 
 on:
   push:
-    branches: [main, feat/i18n]
+    branches: [main]
     paths:
       - "src/i18n/locales/zh-CN/**"
   workflow_dispatch:
