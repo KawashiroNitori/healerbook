@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { PeerState } from '@/collab/awarenessTypes'
 
@@ -9,6 +10,7 @@ function dedupeByUser(peers: PeerState[]): PeerState[] {
 }
 
 export default function PresenceAvatars() {
+  const { t } = useTranslation(['editor', 'common'])
   const peers = useTimelineStore(s => s.peers)
   const connectionStatus = useTimelineStore(s => s.connectionStatus)
   const isPublished = useTimelineStore(s => s.isPublished)
@@ -21,7 +23,10 @@ export default function PresenceAvatars() {
   const reconnecting = connectionStatus !== 'connected'
 
   return (
-    <div className="flex items-center gap-1.5" title={reconnecting ? '重连中…' : undefined}>
+    <div
+      className="flex items-center gap-1.5"
+      title={reconnecting ? t('presence.reconnecting') : undefined}
+    >
       <div className={`flex -space-x-1.5 ${reconnecting ? 'opacity-50' : ''}`}>
         {people.map(p => (
           <div
@@ -37,7 +42,7 @@ export default function PresenceAvatars() {
       {reconnecting && (
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-          重连中…
+          {t('presence.reconnecting')}
         </span>
       )}
     </div>

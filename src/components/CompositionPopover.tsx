@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -9,6 +10,7 @@ import { MAX_PARTY_SIZE } from '@/types/timeline'
 import type { Composition } from '@/types/timeline'
 
 export default function CompositionPopover() {
+  const { t } = useTranslation(['editor', 'common'])
   const { timeline, updateComposition } = useTimelineStore()
   const isReadOnly = useEditorReadOnly()
 
@@ -24,7 +26,7 @@ export default function CompositionPopover() {
       <PopoverTrigger asChild>
         <button className="flex shrink-0 items-center gap-2 h-7 px-2 py-1 text-xs border rounded hover:bg-accent transition-colors whitespace-nowrap">
           <Users className="w-4 h-4 shrink-0" />
-          <span className="hidden lg:inline">小队阵容</span>
+          <span className="hidden lg:inline">{t('compositionPopover.title')}</span>
           <span className="text-xs text-muted-foreground">
             {sortedPlayers.length}/{MAX_PARTY_SIZE}
           </span>
@@ -33,7 +35,9 @@ export default function CompositionPopover() {
       <PopoverContent className="w-56 p-2" align="start">
         <div className="space-y-1 mb-2">
           {sortedPlayers.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-2">暂无队员</p>
+            <p className="text-sm text-muted-foreground text-center py-2">
+              {t('compositionPopover.empty')}
+            </p>
           ) : (
             sortedPlayers.map(player => (
               <div

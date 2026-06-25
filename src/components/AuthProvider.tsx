@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { nanoid } from 'nanoid'
@@ -10,10 +11,11 @@ const FFLOGS_AUTH_URL = 'https://www.fflogs.com/oauth/authorize'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { username, accessToken, clearTokens } = useAuthStore()
+  const { t } = useTranslation(['common'])
 
   function login() {
     if (!FFLOGS_OAUTH_CLIENT_ID) {
-      toast.error('FFLogs Client ID 未配置，请联系开发者')
+      toast.error(t('auth.clientIdMissing'))
       return
     }
     const redirectUri = `${window.location.origin}/callback`
@@ -37,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     clearTokens()
-    toast.success('已退出登录')
+    toast.success(t('auth.loggedOut'))
   }
 
   const value: AuthContextValue = {

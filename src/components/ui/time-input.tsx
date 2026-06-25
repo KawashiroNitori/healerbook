@@ -8,6 +8,7 @@
  */
 
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   formatTenths,
@@ -48,6 +49,7 @@ function TimeInput({
   className,
   'aria-label': ariaLabel,
 }: TimeInputProps) {
+  const { t } = useTranslation(['common'])
   const cfg: TimeInputConfig = React.useMemo(
     () => ({
       min: min === undefined ? -DEFAULT_MAX_TENTHS : secondsToTenths(min),
@@ -214,7 +216,7 @@ function TimeInput({
         disabled && 'cursor-not-allowed bg-muted opacity-70',
         className
       )}
-      aria-label={ariaLabel ?? '时间'}
+      aria-label={ariaLabel ?? t('timeInput.label')}
     >
       {/* 符号位：负数时显示，正数不占位 */}
       {formatted.sign === '-' && <span aria-hidden>-</span>}
@@ -223,11 +225,11 @@ function TimeInput({
         ref={segmentRefs.mm}
         role="spinbutton"
         tabIndex={disabled ? -1 : 0}
-        aria-label="分钟"
+        aria-label={t('timeInput.minutes')}
         aria-valuenow={currentMinutes}
         aria-valuemin={mmAriaMin}
         aria-valuemax={mmAriaMax}
-        aria-valuetext={`${currentMinutes} 分`}
+        aria-valuetext={t('timeInput.minutesValue', { value: currentMinutes })}
         className={segmentClass}
         onKeyDown={handleKeyDown('mm')}
         onFocus={handleFocus('mm')}
@@ -241,11 +243,11 @@ function TimeInput({
         ref={segmentRefs.ss}
         role="spinbutton"
         tabIndex={disabled ? -1 : 0}
-        aria-label="秒"
+        aria-label={t('timeInput.seconds')}
         aria-valuenow={currentSeconds}
         aria-valuemin={0}
         aria-valuemax={59}
-        aria-valuetext={`${currentSeconds} 秒`}
+        aria-valuetext={t('timeInput.secondsValue', { value: currentSeconds })}
         className={segmentClass}
         onKeyDown={handleKeyDown('ss')}
         onFocus={handleFocus('ss')}
@@ -259,11 +261,11 @@ function TimeInput({
         ref={segmentRefs.f}
         role="spinbutton"
         tabIndex={disabled ? -1 : 0}
-        aria-label="十分之一秒"
+        aria-label={t('timeInput.tenths')}
         aria-valuenow={currentFracs}
         aria-valuemin={0}
         aria-valuemax={9}
-        aria-valuetext={`${currentFracs} 十分之一秒`}
+        aria-valuetext={t('timeInput.tenthsValue', { value: currentFracs })}
         className={segmentClass}
         onKeyDown={handleKeyDown('f')}
         onFocus={handleFocus('f')}

@@ -18,7 +18,35 @@
     "title": "新建时间轴"
   },
   "help": "帮助",
+  "homePage": {
+    "createNewTimeline": "新建时间轴",
+    "createNewTimelineDesc": "从空白开始",
+    "deleteDescription": "确定要删除这个时间轴吗？",
+    "deleteSuccess": "时间轴已删除",
+    "deleteTitle": "删除时间轴",
+    "importFromFFLogs": "从 FFLogs 导入",
+    "importFromFFLogsDesc": "导入战斗记录",
+    "myTimelines": "我的时间轴",
+    "qqGroupTipPrefix": "我建了一个 QQ 群，欢迎加入反馈意见、关注新功能更新",
+    "qqGroupTipStrike": "催更",
+    "qqGroupTipSuffix": "、以及交流各自的减伤轴~",
+    "removeFromListDescription": "仅从你的本地列表移除该时间轴的记录，不影响原时间轴。",
+    "removeFromListSuccess": "已从列表移除",
+    "removeFromListTitle": "从列表移除",
+    "unpublishDescription": "取消发布后，获得链接的人将无法再访问该时间轴。确定要取消发布吗？",
+    "unpublishSuccess": "已取消发布",
+    "unpublishTitle": "取消发布"
+  },
   "subtitle": "FF14 减伤规划工具",
+  "timelineCard": {
+    "deleteLocal": "删除",
+    "deletePublished": "取消发布并删除",
+    "lastViewed": "最后查看 {{time}}",
+    "local": "本地",
+    "noComposition": "无阵容信息",
+    "published": "已发布",
+    "removeFromList": "从列表移除"
+  },
   "top100": {
     "clear": "清空",
     "colAction": "操作",

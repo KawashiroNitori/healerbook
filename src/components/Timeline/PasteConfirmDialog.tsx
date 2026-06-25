@@ -5,6 +5,8 @@
  * 让用户选择「继续粘贴其余对象」或「放弃粘贴」。无跳过时不渲染。
  */
 
+import { useTranslation } from 'react-i18next'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,20 +33,24 @@ export default function PasteConfirmDialog({
   onConfirm,
   onCancel,
 }: PasteConfirmDialogProps) {
+  const { t } = useTranslation(['editor', 'common'])
+
   if (!pending) return null
 
   return (
     <AlertDialog open={true} onOpenChange={open => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>部分技能无法粘贴</AlertDialogTitle>
-          <AlertDialogDescription>
-            当前阵容与剪贴板中的技能阵容不符，部分技能无法粘贴到当前时间轴，是否要继续粘贴剩余技能？
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t('editor:pasteConfirm.title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('editor:pasteConfirm.description')}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>放弃</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>继续粘贴</AlertDialogAction>
+          <AlertDialogCancel onClick={onCancel}>
+            {t('editor:pasteConfirm.discard')}
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>
+            {t('editor:pasteConfirm.continue')}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -11,6 +11,7 @@ import { TIMELINE_START_TIME, getCanvasColors } from './constants'
 import { useUIStore } from '@/store/uiStore'
 import { getFallbackMaxHP } from '@/utils/statDataUtils'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
+import i18n from '@/i18n'
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -332,7 +333,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         ctx.textAlign = 'left'
         ctx.textBaseline = 'top'
         ctx.fillStyle = 'rgba(220, 38, 38, 0.8)'
-        ctx.fillText('致死', 2, lineY + 3)
+        ctx.fillText(i18n.t('editor:timelineMinimap.fatal'), 2, lineY + 3)
       }
 
       drawParamsRef.current = { minimapScale, timelineOffset, contentY, contentHeight }

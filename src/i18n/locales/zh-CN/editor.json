@@ -44,6 +44,10 @@
     "roleTank": "坦克",
     "title": "调整阵容"
   },
+  "compositionPopover": {
+    "empty": "暂无队员",
+    "title": "小队阵容"
+  },
   "editPreset": {
     "actionsLabel": "技能选择",
     "createTitle": "新建过滤预设",
@@ -56,6 +60,28 @@
     "save": "保存",
     "saved": "已保存",
     "selectAll": "全选"
+  },
+  "editableDescription": {
+    "addHint": "添加说明...",
+    "clickToAdd": "点击添加说明",
+    "placeholder": "为这个时间轴添加说明...",
+    "save": "保存"
+  },
+  "editableTitle": {
+    "edit": "编辑标题",
+    "save": "保存"
+  },
+  "editorPage": {
+    "backHome": "返回首页",
+    "byAuthor": "By {{name}}",
+    "copyName": "{{name}}(副本)",
+    "createCopyFailed": "创建副本失败：{{message}}",
+    "defaultTitle": "时间轴编辑器",
+    "loading": "加载中...",
+    "networkError": "加载失败，请检查网络连接",
+    "notFound": "时间轴不存在或已删除",
+    "retry": "重试",
+    "unpublishedToLocal": "该时间轴已被作者取消发布，已转为本地时间轴"
   },
   "editorToolbar": {
     "actualDamage": "实际伤害",
@@ -123,11 +149,21 @@
     "title": "导出 Souma 时间轴",
     "ttsLabel": "TTS 播报"
   },
+  "filterMenu": {
+    "customize": "自定义…",
+    "tooltip": "过滤"
+  },
   "idle": "空转 {sec}s",
   "managePresets": {
     "addPreset": "新增预设",
     "empty": "暂无自定义预设",
     "title": "管理预设"
+  },
+  "pasteConfirm": {
+    "continue": "继续粘贴",
+    "description": "当前阵容与剪贴板中的技能阵容不符，部分技能无法粘贴到当前时间轴，是否要继续粘贴剩余技能？",
+    "discard": "放弃",
+    "title": "部分技能无法粘贴"
   },
   "playerDamage": {
     "death": "💀 死亡",
@@ -142,6 +178,9 @@
     "shieldTooltip": "盾: {{value}}",
     "title": "玩家伤害详情",
     "unknownStatus": "未知状态"
+  },
+  "presence": {
+    "reconnecting": "重连中…"
   },
   "propertyPanel": {
     "attackType": "攻击类型",
@@ -179,6 +218,12 @@
     "time": "时间",
     "title": "伤害事件",
     "unknownStatus": "未知状态"
+  },
+  "sortablePreset": {
+    "confirmDelete": "确认删除？",
+    "delete": "删除",
+    "drag": "拖动",
+    "edit": "编辑"
   },
   "statData": {
     "actionValuesTitle": "技能数值",
@@ -234,5 +279,12 @@
     "pasteAllUnmappable": "无法粘贴：{{count}} 个对象都无法映射到当前时间轴轨道",
     "pasted": "已粘贴",
     "pastedWithSkipped": "已粘贴，跳过 {{count}} 个无法落位的对象"
+  },
+  "timelineMinimap": {
+    "fatal": "致死"
+  },
+  "timelineTable": {
+    "cannotAddAction": "无法添加技能",
+    "conditionNotMet": "此时刻不满足发动条件"
   }
 }
