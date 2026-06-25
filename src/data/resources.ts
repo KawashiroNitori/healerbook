@@ -15,6 +15,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'SCH',
     initial: 2, // 战斗开始满充能
     max: 2,
+    style: 'cooldown',
     // regen.interval 与 mitigationActions.ts 中慰藉 (16546) 的 cooldown 保持一致（后者含消费者时
     // 仅信息性，两者改动需同步）。
     //
@@ -29,6 +30,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'SCH',
     initial: 3, // 开场满档（等效真实学者起手以太超流可用）
     max: 3,
+    style: 'lights',
     // 「每分钟回 3 档」：每次消耗后 60s 一次性补 3（封顶 3）。注意这套 regen 是「消耗驱动」而非
     // 从 t=0 固定节拍——initial=3 确保开场即可用、用掉后 60s 回满。
     //
@@ -44,6 +46,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'DRK',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     // regen.interval 与 mitigationActions.ts 中献奉 (25754) 的 cooldown 保持一致（后者含消费者时
     // 仅信息性，两者改动需同步）。
     regen: { interval: 60, amount: 1 },
@@ -54,6 +57,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'WHM',
     initial: 3, // 开场满档
     max: 3,
+    style: 'lightsWithBar',
     // 「20s 回 1 档」。注意这套 regen 是「消耗驱动」（每次消耗后 20s 补 1），非真实游戏的自由计时；
     // initial=3 保证开场满、用掉后 20s 回。狂喜之心(16534) 另有自身 2s CD（GCD 级），故在
     // mitigationActions.ts 里同时声明 __cd__ 与本池消费者，形成双门 gating。
@@ -66,6 +70,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'WHM',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     regen: { interval: 30, amount: 1 },
   },
   'ast:intersection': {
@@ -74,6 +79,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'AST',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     regen: { interval: 30, amount: 1 },
   },
   'sge:addersgall': {
@@ -82,6 +88,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     job: 'SGE',
     initial: 3, // 开场满档
     max: 3,
+    style: 'lightsWithBar',
     // 「20s 回 1 档」。同 whm:lily：消耗驱动（每次消耗后 20s 补 1），非 t=0 固定节拍。
     // 寄生清汁(24299) / 坚角清汁(24298) 共享本池，且各自仍保留 30s 自身 CD——故两 action 走
     // 双门 gating（显式声明 __cd__:${id} required + 本池消费者）：蛇胆够也得等 CD，CD 好也得有蛇胆。

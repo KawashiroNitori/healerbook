@@ -194,6 +194,7 @@ describe('computeResourceTrace — 充能计时语义', () => {
       job: 'SCH',
       initial: 2,
       max: 2,
+      style: 'cooldown',
       regen: { interval: 60, amount: 1 },
       ...partial,
     } as ResourceDefinition
@@ -287,6 +288,7 @@ describe('computeResourceAmount', () => {
       job: 'SCH',
       initial: 2,
       max: 2,
+      style: 'cooldown',
       regen: { interval: 60, amount: 1 },
       ...partial,
     } as ResourceDefinition
@@ -339,6 +341,7 @@ describe('合成 __cd__: 资源与 cooldown 语义等价', () => {
       job: 'SCH',
       initial: 1,
       max: 1,
+      style: 'cooldown',
       regen: { interval, amount: 1 },
     }
   }

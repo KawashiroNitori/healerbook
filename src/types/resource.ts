@@ -6,6 +6,13 @@
 
 import type { Job } from '@/data/jobs'
 
+/** 资源在悬浮窗中的渲染样式 */
+export type ResourceStyle =
+  | 'cooldown' // 技能图标 + 时钟 sweep 遮罩 + 倒计时（+ 多充能层数角标）
+  | 'progressBar' // 进度条 + current/max（连续型；当前 registry 无使用，保留扩展）
+  | 'lights' // N 个指示灯，亮 amount 个
+  | 'lightsWithBar' // N 个指示灯 + 下一充能积累进度条
+
 /** 资源池静态声明 */
 export interface ResourceDefinition {
   /** 资源 id，如 'sch:consolation' / 'drk:oblation'。显式 id 不得以 '__cd__:' 开头 */
@@ -17,6 +24,8 @@ export interface ResourceDefinition {
   initial: number
   /** 池子上限 */
   max: number
+  /** 悬浮窗渲染样式（必填） */
+  style: ResourceStyle
   /**
    * 充能回充配置。不声明 = 不随时间恢复（纯事件驱动资源）。
    * 语义：每个消耗事件调度一个 interval 秒后到点的独立 refill，到点时若 amount < max 则 +amount、满则忽略。

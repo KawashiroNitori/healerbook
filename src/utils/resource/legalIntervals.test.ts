@@ -39,6 +39,7 @@ describe('resourceLegalIntervals — 多充能 drk:oblation 场景', () => {
     job: 'DRK',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     regen: { interval: 60, amount: 1 },
   }
   const registry = { 'drk:oblation': oblation }
@@ -85,6 +86,7 @@ describe('resourceLegalIntervals — 无 regen 场景', () => {
     job: 'SCH',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     // 无 regen
   }
   const registry = { 'x:no-regen': customPool }
@@ -119,6 +121,7 @@ describe('resourceLegalIntervals — required=false 软消费者', () => {
       job: 'SCH',
       initial: 0,
       max: 1,
+      style: 'cooldown',
     }
     const registry = { 'x:optional': pool }
     const action = makeAction({
@@ -149,6 +152,7 @@ describe('resourceLegalIntervals — 产出型 action', () => {
       job: 'SCH',
       initial: 0,
       max: 4,
+      style: 'cooldown',
     }
     const events = deriveResourceEvents(
       [makeCast({ id: '1', actionId: 1, timestamp: 10 })],

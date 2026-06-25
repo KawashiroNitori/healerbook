@@ -37,6 +37,7 @@ describe('computeCdBarEnd — 多充能有 regen（献奉）', () => {
     job: 'DRK',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     regen: { interval: 60, amount: 1 },
   }
   const registry = { 'drk:oblation': oblation }
@@ -83,6 +84,7 @@ describe('computeCdBarEnd — 无 regen 后续产出恢复', () => {
     job: 'SCH',
     initial: 0,
     max: 2,
+    style: 'cooldown',
     // 无 regen
   }
   const registry = { 'x:event-driven': pool }

@@ -106,6 +106,7 @@ describe('probeResourceUnmetMessage', () => {
     job: 'SCH',
     initial: 2,
     max: 2,
+    style: 'cooldown',
     regen: { interval: 30, amount: 1 },
     ...(unmetMessage ? { unmetMessage } : {}),
   })

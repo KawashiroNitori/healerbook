@@ -224,6 +224,7 @@ export function syntheticCdDef(resourceId: string, actionCooldown: number): Reso
     job: 'SCH', // 合成池的 job 无实际意义，仅占位
     initial: 1,
     max: 1,
+    style: 'cooldown',
     regen: { interval: actionCooldown, amount: 1 },
   }
 }
