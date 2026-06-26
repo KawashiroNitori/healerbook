@@ -64,16 +64,16 @@ describe('computeCdBarEnd — 多充能有 regen（献奉）', () => {
     expect(computeCdBarEnd(xianfeng, cs[1], events, registry)).toBe(60)
   })
 
-  it('#3 cast 在 refill@60 fire 后打空 → rawEnd 是 refill@90', () => {
-    // 献奉 t=0, t=30, t=70 → 第 3 条 cast 前 refill@60 已 fire (amount 0→1)
-    // #3 消耗 1→0，pending=[90, 130]；rawEnd=90
+  it('#3 cast 在 refill@60 fire 后打空 → rawEnd 是顺序回充的 @120', () => {
+    // 献奉 t=0, t=30, t=70 → 第 3 条 cast 前 refill@60 已 fire (amount 0→1)，下一档计时重置到 120
+    // #3 消耗 1→0；顺序回充 @120 才回到 1（平行模型会是 90）
     const cs = [
       makeCast({ id: '1', actionId: 25754, timestamp: 0 }),
       makeCast({ id: '2', actionId: 25754, timestamp: 30 }),
       makeCast({ id: '3', actionId: 25754, timestamp: 70 }),
     ]
     const events = deriveResourceEvents(cs, new Map([[25754, xianfeng]]))
-    expect(computeCdBarEnd(xianfeng, cs[2], events, registry)).toBe(90)
+    expect(computeCdBarEnd(xianfeng, cs[2], events, registry)).toBe(120)
   })
 })
 

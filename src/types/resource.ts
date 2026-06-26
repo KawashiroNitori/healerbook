@@ -28,8 +28,9 @@ export interface ResourceDefinition {
   style: ResourceStyle
   /**
    * 充能回充配置。不声明 = 不随时间恢复（纯事件驱动资源）。
-   * 语义：每个消耗事件调度一个 interval 秒后到点的独立 refill，到点时若 amount < max 则 +amount、满则忽略。
-   * NOT 从战斗 t=0 固定节拍 tick。
+   * 语义（FF14 充能 / 顺序回充）：维护单一回充时钟——当 amount 从满被消耗跌破时启动，
+   * 未满时每回一档（+amount，clamp 到 max）就把下一档计时 +interval 重置，回满即停摆。
+   * 后续消耗不重置时钟（仅加深亏空）。NOT 每次消耗各自调度独立 refill，也 NOT 从 t=0 固定节拍。
    */
   regen?: {
     interval: number

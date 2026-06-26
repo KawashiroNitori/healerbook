@@ -117,43 +117,77 @@ export function deriveResourceEvents(
   return grouped
 }
 
+/**
+ * 顺序回充时钟状态（FF14 充能语义）。
+ *
+ * 不再为每个消耗调度独立 refill（平行模型），而是维护单一回充时钟：
+ * - `nextRefill` = 下一档回充时刻；`null` = 已满（时钟停摆）。
+ * - 时钟在「amount 从满跌破」的那次消耗启动；未满时每回一档就把下一档计时 +interval 重置。
+ * - 后续消耗不重置时钟（只是加深亏空）；产出事件只 clamp，不启动时钟。
+ *
+ * 设计文档：design/superpowers/specs/2026-04-24-resource-model-design.md（顺序回充修订）。
+ */
+export interface ClockState {
+  amount: number
+  nextRefill: number | null
+}
+
+/** 触发 ≤ t 的所有回充（顺序：每回一档若仍未满则把下一档 +interval）。原地修改 st。 */
+export function advanceRefills(def: ResourceDefinition, st: ClockState, t: number): void {
+  if (!def.regen) return
+  while (st.nextRefill !== null && st.nextRefill <= t) {
+    st.amount = Math.min(st.amount + def.regen.amount, def.max)
+    st.nextRefill = st.amount < def.max ? st.nextRefill + def.regen.interval : null
+  }
+}
+
+/** 在事件时刻应用一个 ResourceEvent（调用方须先 advanceRefills 到 ev.timestamp）。原地修改 st。 */
+export function applyResourceEvent(
+  def: ResourceDefinition,
+  st: ClockState,
+  ev: ResourceEvent
+): void {
+  st.amount = Math.min(st.amount + ev.delta, def.max)
+  if (!def.regen) return
+  if (st.amount >= def.max) {
+    st.nextRefill = null
+  } else if (ev.delta < 0 && st.nextRefill === null) {
+    // 仅「消耗把池跌破满且时钟未运行」时启动时钟；时钟已运行则保持原节拍。
+    st.nextRefill = ev.timestamp + def.regen.interval
+  }
+}
+
+/** 从当前时钟状态推导未来全部回充时刻（升序，直到回满）。 */
+export function futureRefills(def: ResourceDefinition, st: ClockState): number[] {
+  if (!def.regen || st.nextRefill === null) return []
+  const out: number[] = []
+  let amount = st.amount
+  let nr: number | null = st.nextRefill
+  while (nr !== null) {
+    out.push(nr)
+    amount = Math.min(amount + def.regen.amount, def.max)
+    nr = amount < def.max ? nr + def.regen.interval : null
+  }
+  return out
+}
+
 export function computeResourceTrace(
   def: ResourceDefinition,
   events: ResourceEvent[]
 ): ResourceSnapshot[] {
   const result: ResourceSnapshot[] = []
-  let amount = def.initial
-  // pending refills 用升序数组（事件数通常 <20，插入成本可忽略）
-  const pending: number[] = []
-
-  const firePendingUpTo = (t: number) => {
-    // 不变量：pending 非空 ⇒ def.regen 存在（由 push 条件保证）
-    while (pending.length > 0 && pending[0] <= t) {
-      pending.shift()
-      amount = Math.min(amount + def.regen!.amount, def.max)
-    }
-  }
-
+  const st: ClockState = { amount: def.initial, nextRefill: null }
   for (let i = 0; i < events.length; i++) {
     const ev = events[i]
-    firePendingUpTo(ev.timestamp)
-    const amountBefore = amount
-    // 应用 delta；上限 clamp，下限不 clamp
-    amount = Math.min(amount + ev.delta, def.max)
-    // 消耗事件调度 |delta| 个 refill
-    if (ev.delta < 0 && def.regen) {
-      const count = -ev.delta
-      for (let k = 0; k < count; k++) {
-        const refillTime = ev.timestamp + def.regen.interval
-        // 保持 pending 升序（所有新 refill 时刻相同，push 到末尾即可）
-        pending.push(refillTime)
-      }
-    }
+    advanceRefills(def, st, ev.timestamp)
+    const amountBefore = st.amount
+    applyResourceEvent(def, st, ev)
     result.push({
       index: i,
       amountBefore,
-      amountAfter: amount,
-      pendingAfter: [...pending],
+      amountAfter: st.amount,
+      // pendingAfter：此事件后未来将发生的回充时刻（升序，直到回满）。
+      pendingAfter: futureRefills(def, st),
     })
   }
   return result
@@ -161,7 +195,7 @@ export function computeResourceTrace(
 
 export interface ResourceStateAt {
   amount: number
-  /** atTime 之后仍挂着的 refill 时刻（升序）；pending[0] = 最早一次回充 */
+  /** atTime 之后未来全部回充时刻（升序）；pending[0] = 最早一次回充 */
   pending: number[]
 }
 
@@ -170,26 +204,14 @@ export function computeResourceStateAt(
   events: ResourceEvent[],
   atTime: number
 ): ResourceStateAt {
-  let amount = def.initial
-  const pending: number[] = []
-  const firePendingUpTo = (t: number) => {
-    // 不变量：pending 非空 ⇒ def.regen 存在（由 push 条件保证）
-    while (pending.length > 0 && pending[0] <= t) {
-      pending.shift()
-      amount = Math.min(amount + def.regen!.amount, def.max)
-    }
-  }
+  const st: ClockState = { amount: def.initial, nextRefill: null }
   for (const ev of events) {
     if (ev.timestamp > atTime) break
-    firePendingUpTo(ev.timestamp)
-    amount = Math.min(amount + ev.delta, def.max)
-    if (ev.delta < 0 && def.regen) {
-      const count = -ev.delta
-      for (let k = 0; k < count; k++) pending.push(ev.timestamp + def.regen.interval)
-    }
+    advanceRefills(def, st, ev.timestamp)
+    applyResourceEvent(def, st, ev)
   }
-  firePendingUpTo(atTime)
-  return { amount, pending }
+  advanceRefills(def, st, atTime)
+  return { amount: st.amount, pending: futureRefills(def, st) }
 }
 
 export function computeResourceAmount(

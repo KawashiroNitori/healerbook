@@ -159,7 +159,7 @@ buff 的 attach / persist / consume，并据此驱动绿条长度、status inter
 
 - **`ResourceDefinition`** 在 `src/data/resources.ts` 的 `RESOURCE_REGISTRY` 中声明（如 `sch:consolation`、`drk:oblation`）。池按 `(playerId, resourceId)` 懒实例化。
 - **`MitigationAction.resourceEffects`** 声明一次 cast 对资源的影响（`+N` 产出、`-N` 消耗）。含消费者（`delta<0`）时，跳过 `__cd__` 合成；否则合成 `__cd__:${id}` 单充能池强制 `cooldown`。
-- **`regen`** 采用充能计时语义：每次消耗调度 `interval` 秒后的独立 refill，**不**是从 t=0 固定节拍。
+- **`regen`** 采用 FF14 充能 / **顺序回充**语义：单一回充时钟，amount 从满被消耗跌破时启动，未满时每回一档就把下一档计时 `+interval` 重置，回满即停摆；后续消耗只加深亏空、不重置时钟。**不**是"每次消耗各自调度独立 refill"，也**不**是从 t=0 固定节拍。
 - **校验**：`findResourceExhaustedCasts` 判 cast 是否因资源不足非法；shadow 由 `resourceLegalIntervals`（自耗尽段 + 下游透支段）推导。
 - **trackGroup** 与资源模型**完全解耦**，仅用于 UI 渲染轨道归属。
 - **蓝色 CD 条** 的语义是"此 cast 打空池子到恢复的时段"；还有库存时不画。

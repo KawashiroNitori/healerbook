@@ -72,11 +72,18 @@ effect = { resourceId, delta: -1 }
 
 **与 `trackGroup` 完全解耦**：合成键用 `actionId`、**不使用** `effectiveTrackGroup`。`trackGroup` 仅是 UI 渲染概念（哪些 actionId 共用一行），不进入 compute / validator / legalIntervals 层。副作用：现有 `cooldownAvailable` 里"同 trackGroup 跨 actionId 的 CD 冲突"检测随迁移消失（例：意气 37013 @ t=0 + 降临 37016 @ t=1 原被 block，新模型视为合法）。该场景属于 GCD 窗口内连按两个 GCD 技能——现实玩家做不到，由 FF14 常识而非 planner 阻止。不视作 regression。
 
-### D4. 资源 regen = 充能计时（非固定钟）
+### D4. 资源 regen = 充能计时（顺序回充，非固定钟）
 
-FF14 充能类技能语义：**每次消耗调度一个 `interval` 秒后到点的独立 refill**，到点时若未满则 +amount、满则忽略。不是"从战斗 t=0 按 interval 固定 tick"。
+> **修订（2026-06-26，顺序回充）**：原方案为「每次消耗各自调度独立 refill」（平行模型）。该模型在「一个回充周期内连用 2+ 次」时把第二档回充错算成「第二次消耗 +interval」，与 FF14 不符。现改为**顺序回充单时钟**：
+>
+> - amount 从满被消耗跌破时启动时钟；未满时每回一档（+amount，clamp max）就把下一档计时 `+interval` **重置**；回满即停摆。
+> - 后续消耗**不重置**时钟（仅加深亏空）。
+> - 例：献奉 max2 interval60，t=0 与 t=30 连用两次 → 第一档 @60 回，第二档计时自 60 重置 → @120 回满（平行模型会误算成 @90）。
+>   实现：`compute.ts` 的 `advanceRefills` / `applyResourceEvent` / `futureRefills` 单时钟，`computeResourceTrace` / `computeResourceStateAt` / `computeCdBarEnd` 共用。
 
-反例（草案原伪代码）：献奉 `regen:{interval:60}` 初始满 2；t=45 消耗 1 层 → 草案固定钟算法在 t=60 会 tick → 1→2；**实际 FF14** 应当 t=45+60=105 才恢复那层。草案模型在 t≠k·60 用技能的场景系统性低估回充间隔。
+FF14 充能类技能语义（顺序回充）：时钟在跌破满时启动，未满时每 `interval` 回一档并重置下一档计时。单次消耗的恢复时刻仍是 `消耗时刻 + interval`；多次连用则后续档位顺序排队，不并行。
+
+反例（更早草案的固定钟）：献奉 `regen:{interval:60}` 初始满 2；t=45 消耗 1 层 → 固定钟会在 t=60 tick → 1→2；**实际 FF14** 应当 t=45+60=105 才恢复那层。
 
 ### D5. Status onTick 与资源 regen 完全独立
 

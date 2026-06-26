@@ -1,26 +1,19 @@
+import { Progress } from '@/components/ui/progress'
 import type { ResourceWidget } from '@/utils/resource/hoverSnapshot'
 import { lightsView } from './widgetView'
+import LightPips from './LightPips'
 
 export default function LightsWithBarWidget({ widget }: { widget: ResourceWidget }) {
   const { total, lit } = lightsView(widget)
   const progress = widget.nextChargeProgress ?? (widget.amount >= widget.max ? 1 : 0)
   return (
-    <div className="flex flex-col gap-0.5" title={widget.name}>
-      <div className="flex items-center gap-1">
-        {Array.from({ length: total }, (_, i) => (
-          <span
-            key={i}
-            className={`w-2.5 h-2.5 rounded-full border ${
-              i < lit
-                ? 'bg-amber-400 border-amber-500'
-                : 'bg-transparent border-muted-foreground/40'
-            }`}
-          />
-        ))}
-      </div>
-      <div className="h-1 w-full rounded bg-muted overflow-hidden">
-        <div className="h-full bg-sky-400" style={{ width: `${progress * 100}%` }} />
-      </div>
+    <div className="flex items-center gap-2" title={widget.name}>
+      <LightPips total={total} lit={lit} />
+      <Progress
+        value={progress * 100}
+        className="h-2 w-16 border border-amber-400/60 bg-black/50"
+        indicatorClassName="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500"
+      />
     </div>
   )
 }

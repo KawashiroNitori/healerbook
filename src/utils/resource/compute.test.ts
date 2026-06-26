@@ -232,7 +232,7 @@ describe('computeResourceTrace — 充能计时语义', () => {
     expect(trace[0].pendingAfter).toEqual([105])
   })
 
-  it('献奉双 cast @ t=0/30 连环消耗：pendingAfter 各独立调度', () => {
+  it('献奉双 cast @ t=0/30 连环消耗：顺序回充（第二档在第一档恢复后才计时）', () => {
     const def = makeDef({ initial: 2, max: 2, regen: { interval: 60, amount: 1 } })
     const events = [
       makeRe({ timestamp: 0, delta: -1, index: 0 }),
@@ -241,7 +241,8 @@ describe('computeResourceTrace — 充能计时语义', () => {
     const trace = computeResourceTrace(def, events)
     expect(trace).toEqual([
       { index: 0, amountBefore: 2, amountAfter: 1, pendingAfter: [60] },
-      { index: 1, amountBefore: 1, amountAfter: 0, pendingAfter: [60, 90] },
+      // 顺序：第一档 @60 回，回后下一档计时重置 → @120（平行模型会是 90）
+      { index: 1, amountBefore: 1, amountAfter: 0, pendingAfter: [60, 120] },
     ])
   })
 
@@ -277,11 +278,12 @@ describe('computeResourceTrace — 充能计时语义', () => {
     expect(trace[0].pendingAfter).toEqual([])
   })
 
-  it('|delta|=N 的消耗调度 N 个独立 refill（同 timestamp+interval）', () => {
+  it('|delta|=N 的消耗：N 档亏空按 interval 顺序回充', () => {
     const def = makeDef({ initial: 2, max: 2, regen: { interval: 60, amount: 1 } })
     const events = [makeRe({ timestamp: 0, delta: -2, index: 0 })]
     const trace = computeResourceTrace(def, events)
-    expect(trace[0].pendingAfter).toEqual([60, 60])
+    // 一次扣 2 档（amount=0），顺序回充：@60 回 1、@120 回满（平行模型会是 [60,60]）
+    expect(trace[0].pendingAfter).toEqual([60, 120])
   })
 })
 
@@ -319,7 +321,7 @@ describe('computeResourceAmount', () => {
     expect(computeResourceAmount(def, events, 200)).toBe(2)
   })
 
-  it('献奉双 cast 连环：t=30 降 0、t=60 升 1、t=90 升 2', () => {
+  it('献奉双 cast 连环（顺序回充）：t=30 降 0、t=60 升 1、t=120 升 2', () => {
     const def = makeDef({ initial: 2, max: 2, regen: { interval: 60, amount: 1 } })
     const events = [
       makeRe({ timestamp: 0, delta: -1, index: 0 }),
@@ -331,7 +333,10 @@ describe('computeResourceAmount', () => {
     expect(computeResourceAmount(def, events, 59)).toBe(0)
     expect(computeResourceAmount(def, events, 60)).toBe(1)
     expect(computeResourceAmount(def, events, 89)).toBe(1)
-    expect(computeResourceAmount(def, events, 90)).toBe(2)
+    // 顺序：第二档在第一档恢复(60)后才计时 → 120 才回满（平行模型会在 90）
+    expect(computeResourceAmount(def, events, 90)).toBe(1)
+    expect(computeResourceAmount(def, events, 119)).toBe(1)
+    expect(computeResourceAmount(def, events, 120)).toBe(2)
     expect(computeResourceAmount(def, events, 200)).toBe(2)
   })
 })
@@ -379,8 +384,10 @@ describe('合成 __cd__: 资源与 cooldown 语义等价', () => {
     ]
     // t=30 时 amount 已被打到 -1（cd 内 refill 未到、再减 1）——validator 用这个 <0 判非法
     expect(computeResourceAmount(def, events, 30)).toBe(-1)
-    expect(computeResourceAmount(def, events, 60)).toBe(0) // refill@60 来了，-1+1=0
-    expect(computeResourceAmount(def, events, 90)).toBe(1) // refill@90 来了，满
+    // 顺序回充：时钟自 t=0 起，每 60s 回一档。@60 把 -1→0（仍亏空），@120 才回到 1
+    expect(computeResourceAmount(def, events, 60)).toBe(0)
+    expect(computeResourceAmount(def, events, 90)).toBe(0) // 平行模型会是 1
+    expect(computeResourceAmount(def, events, 120)).toBe(1)
   })
 })
 
@@ -419,5 +426,49 @@ describe('computeResourceStateAt', () => {
         computeResourceAmount(def, events, t)
       )
     }
+  })
+})
+
+describe('多充能池顺序回充（FF14 充能语义）', () => {
+  // 神祝祷：max 2、interval 30。在 0s、9s 各消耗一次。
+  const def: ResourceDefinition = {
+    id: 'whm:divine',
+    name: '神祝祷充能',
+    job: 'WHM',
+    initial: 2,
+    max: 2,
+    regen: { interval: 30, amount: 1 },
+    style: 'cooldown',
+  }
+  const events = deriveResourceEvents(
+    [
+      makeCast({ id: 'c1', actionId: 1, timestamp: 0 }),
+      makeCast({ id: 'c2', actionId: 1, timestamp: 9 }),
+    ],
+    new Map([
+      [
+        1,
+        makeAction({
+          id: 1,
+          cooldown: 30,
+          resourceEffects: [{ resourceId: 'whm:divine', delta: -1 }],
+        }),
+      ],
+    ])
+  ).get('10:whm:divine')!
+
+  it('第一档在 30s 恢复后，下一档计时从 30s 重置（→60s），而非平行模型的 39s', () => {
+    const s30 = computeResourceStateAt(def, events, 30)
+    expect(s30.amount).toBe(1)
+    expect(s30.pending[0]).toBe(60) // 顺序：30+30；平行模型会是 39
+  })
+
+  it('59s 仍只有 1 档；60s 回满 2 档', () => {
+    expect(computeResourceStateAt(def, events, 59).amount).toBe(1)
+    expect(computeResourceStateAt(def, events, 60).amount).toBe(2)
+  })
+
+  it('39s（平行模型会误判已回满）顺序模型仍为 1 档', () => {
+    expect(computeResourceStateAt(def, events, 39).amount).toBe(1)
   })
 })
