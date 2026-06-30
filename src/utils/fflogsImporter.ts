@@ -25,6 +25,7 @@ import { normalizeActionId } from './normalizeActionId'
 import { classifyPartialAOE } from './partialAoeClassifier'
 import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
 import { getEncounterWithTier } from '@/data/raidEncounters'
+import { extractBossCasts, attachCastWindows } from './castWindow'
 
 // actionChinese.json 为上游全量映射；action.json 为本地补充的额外 actionId → 中文名
 // （如 RSV 占位 id），后者覆盖前者以便就近修正翻译
@@ -226,7 +227,8 @@ export function parseDamageEvents(
   /** sourceID → actor 名映射，编排层用 report.enemies 建好传入；仅用于填 damageSource */
   sourceNames?: Map<number, string>,
   /** 可选中区间索引；来源在伤害时刻不可选中时，目标减判无效 */
-  targetability?: TargetabilityIntervals
+  targetability?: TargetabilityIntervals,
+  bossCasts?: FFLogsEvent[]
 ): DamageEvent[] {
   const TANK_JOBS = getTankJobs()
 
@@ -513,6 +515,7 @@ export function parseDamageEvents(
   applyActionTypeOverride(damageEvents)
   // type 最终稳定后：把"部分 AOE（结算）"事件时间后移，使其稳定排在同刻全员 AOE 之后
   shiftPartialFinalAoeTime(damageEvents)
+  if (bossCasts) attachCastWindows(damageEvents, bossCasts, fightStartTime)
 
   return damageEvents
 }
@@ -975,6 +978,7 @@ export function parseFightImport(
   const enemyNames = new Map<number, string>()
   report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
   const targetability = buildTargetabilityIntervals(events, enemyNames)
+  const bossCasts = extractBossCasts(events, playerMap)
   const damageEvents = parseDamageEvents(
     events,
     fightStartTime,
@@ -983,7 +987,8 @@ export function parseFightImport(
     composition,
     bossIds,
     enemyNames,
-    targetability
+    targetability,
+    bossCasts
   )
   const castEvents = parseCastEvents(events, fightStartTime, playerMap)
   const syncEvents = parseSyncEvents(events, fightStartTime, playerMap, abilityMap)
