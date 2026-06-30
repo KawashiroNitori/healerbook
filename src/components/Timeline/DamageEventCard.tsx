@@ -3,7 +3,7 @@
  */
 
 import { memo } from 'react'
-import { Group, Rect, Text } from 'react-konva'
+import { Group, Rect, RegularPolygon, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { DamageEvent, DamageType } from '@/types/timeline'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
@@ -11,6 +11,7 @@ import { useUIStore } from '@/store/uiStore'
 import { formatDamageValue } from '@/utils/formatters'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useCanvasColors } from './constants'
+import { computeDamageCardGeometry } from './cardGeometry'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
 function getMeasureCtx(): CanvasRenderingContext2D {
@@ -69,6 +70,7 @@ const DamageEventCard = memo(function DamageEventCard({
   const isTankOnly = event.type === 'tankbuster' || event.type === 'auto'
   const x = event.time * zoomLevel + dragOffsetX
   const y = yOffset + row * rowHeight + rowHeight / 2
+  const geom = computeDamageCardGeometry(event, zoomLevel)
 
   const isDark = colors.cardBg !== '#ffffff'
   const damageTypeColorMap: Record<DamageType, string> = {
@@ -118,7 +120,7 @@ const DamageEventCard = memo(function DamageEventCard({
     ctx.font = '12px Arial, sans-serif'
     return Math.ceil(ctx.measureText(damageText).width) + 5
   })()
-  const nameAreaWidth = 150 - 5 - damageTextWidth
+  const nameAreaWidth = geom.width - 5 - damageTextWidth
   const nameXOffset = hasOverkill || isLethal || isDangerous ? 20 : 5
   const displayName = truncateText(
     event.name,
@@ -164,9 +166,9 @@ const DamageEventCard = memo(function DamageEventCard({
     >
       {/* 背景矩形 */}
       <Rect
-        x={0}
+        x={geom.leftLocal}
         y={-15}
-        width={150}
+        width={geom.width}
         height={30}
         fill={isTankOnly ? colors.cardBgTankbuster : colors.cardBg}
         stroke={isSelected ? '#3b82f6' : isTankOnly ? colors.textSecondary : colors.gridLine}
@@ -180,7 +182,7 @@ const DamageEventCard = memo(function DamageEventCard({
 
       {/* 技能名称 */}
       <Text
-        x={nameXOffset}
+        x={geom.leftLocal + nameXOffset}
         y={-15}
         width={nameAreaWidth}
         height={30}
@@ -198,7 +200,7 @@ const DamageEventCard = memo(function DamageEventCard({
 
       {/* 死亡图标（回放模式） */}
       <Text
-        x={3}
+        x={geom.leftLocal + 3}
         y={-15}
         width={18}
         height={30}
@@ -212,7 +214,7 @@ const DamageEventCard = memo(function DamageEventCard({
 
       {/* 致死警示（编辑模式） */}
       <Text
-        x={3}
+        x={geom.leftLocal + 3}
         y={-15}
         width={18}
         height={30}
@@ -228,7 +230,7 @@ const DamageEventCard = memo(function DamageEventCard({
 
       {/* 危险警示（编辑模式） */}
       <Text
-        x={3}
+        x={geom.leftLocal + 3}
         y={-15}
         width={18}
         height={30}
@@ -244,7 +246,7 @@ const DamageEventCard = memo(function DamageEventCard({
 
       {/* 最终伤害数值 */}
       <Text
-        x={150 - damageTextWidth}
+        x={geom.leftLocal + geom.width - damageTextWidth}
         y={-15}
         width={damageTextWidth - 5}
         height={30}
@@ -258,6 +260,21 @@ const DamageEventCard = memo(function DamageEventCard({
         perfectDrawEnabled={false}
         listening={false}
         visible={!!damageText}
+      />
+
+      {/* 伤害判定菱形：局部 x=0（=判定时间），骑在卡片下沿 */}
+      <RegularPolygon
+        x={0}
+        y={15}
+        sides={4}
+        radius={6}
+        rotation={0}
+        fill="#ef4444"
+        stroke={isSelected ? '#3b82f6' : colors.cardBg}
+        strokeWidth={isSelected ? 2 : 1}
+        shadowEnabled={false}
+        perfectDrawEnabled={false}
+        listening={false}
       />
     </Group>
   )
