@@ -1023,6 +1023,98 @@ git commit -m "test(damage-casting): 读条窗口功能全量回归"
 
 ---
 
+## Task 9: PropertyPanel 读条时间编辑（补充）
+
+**背景**：初版 plan 覆盖了 AddEventDialog（新增事件），漏了选中事件的属性面板 `PropertyPanel.tsx` —— 无法编辑既有事件的读条时间。本任务补上，镜像该文件已有的「DOT 快照」开关块（`Switch` + `TimeInput`）。
+
+**Files:**
+
+- Modify: `src/components/PropertyPanel.tsx`（在「DOT 快照设置」块 `~:590-617` 附近新增「读条」块）
+
+**Interfaces:**
+
+- Consumes: `updateDamageEvent`（store）、`TimeInput`（`@/components/ui/time-input`）、`Switch`；`DamageEvent.castStartTime/castEndTime`。
+
+- [ ] **Step 1: 新增「读条」开关块（both-or-neither）**
+
+在 DOT 快照块之后（`isReadOnly` 一致传入）加一个结构与 DOT 块同构的区块：
+
+```tsx
+{
+  /* 读条窗口设置 */
+}
+;<div className="flex items-center gap-2 h-8">
+  <Switch
+    checked={event.castStartTime != null && event.castEndTime != null}
+    onCheckedChange={checked => {
+      if (checked) {
+        // 开启默认：零宽窗口，起止都取判定时间，用户再编辑时长
+        updateDamageEvent(event.id, { castStartTime: event.time, castEndTime: event.time })
+      } else {
+        updateDamageEvent(event.id, { castStartTime: undefined, castEndTime: undefined })
+      }
+    }}
+    disabled={isReadOnly}
+  />
+  <span className="text-xs text-muted-foreground shrink-0">读条</span>
+  {event.castStartTime != null && event.castEndTime != null && (
+    <>
+      <span className="text-xs text-muted-foreground shrink-0 ml-auto">开始</span>
+      <TimeInput
+        value={event.castStartTime}
+        onChange={v =>
+          updateDamageEvent(event.id, {
+            castStartTime: v,
+            // 保持时长不变：结束随开始平移
+            castEndTime: v + (event.castEndTime! - event.castStartTime!),
+          })
+        }
+        size="sm"
+        disabled={isReadOnly}
+        className="w-[72px]"
+      />
+      <span className="text-xs text-muted-foreground shrink-0">时长</span>
+      <TimeInput
+        value={Math.round((event.castEndTime - event.castStartTime) * 100) / 100}
+        onChange={v =>
+          updateDamageEvent(event.id, {
+            castEndTime: event.castStartTime! + Math.max(0, v),
+          })
+        }
+        min={0}
+        size="sm"
+        disabled={isReadOnly}
+        className="w-[72px]"
+      />
+    </>
+  )}
+</div>
+```
+
+> 要点：both-or-neither —— 开关只在两字段成对写入/清除；「开始」onChange 平移结束以保持时长；「时长」onChange 用 `castStartTime + max(0,v)` 反算结束，保证 `castEndTime ≥ castStartTime`。默认开启为零宽窗口（起止=判定时间），与 DOT 块「默认取 event.time」的既有约定一致。TimeInput 的确切 props（是否支持负值 / `min`）以 `@/components/ui/time-input` 实际实现为准，读它确认。
+
+- [ ] **Step 2: 类型检查 + 目视验证**
+
+```bash
+pnpm exec tsc --noEmit && pnpm lint
+```
+
+目视确认：
+
+1. 选中一个无读条事件 → 「读条」开关关；打开后卡片出现（零宽→随时长变宽），起止字段可编辑。
+2. 编辑「时长」→ 卡片右扩、判定菱形位置不变；编辑「开始」→ 卡片整体平移、时长不变。
+3. 关闭开关 → 卡片回到无读条（左缘=判定、最小宽）。
+4. 导入得到的带读条事件，选中后面板正确回显开始/时长。
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add src/components/PropertyPanel.tsx
+git commit -m "feat(damage-casting): PropertyPanel 支持编辑事件读条开始/时长"
+```
+
+---
+
 ## Self-Review 记录
 
 - **Spec 覆盖**：§2 数据模型→T1；§3 序列化→T1；§4 导入配对（extractBossCasts/buildCastPairs/attachCastWindows/duration 校验/多 boss/中断）→T2；§5 渲染（几何/文字/菱形/最小宽）→T3+T4；§6 交互（整体平移/单选拖菱形）→T5；§7 裁剪+泳道→T6；§8 AddEventDialog→T7；§9 测试→各任务内 + T8。全部有对应任务。
