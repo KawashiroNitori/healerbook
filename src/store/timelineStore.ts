@@ -835,12 +835,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
           const e = dmg.get(id)
           if (e) {
             const newTime = Math.max(0, e.time + delta)
+            const eff = newTime - e.time
             const patch: { time: number; castStartTime?: number; castEndTime?: number } = {
               time: newTime,
             }
             if (e.castStartTime != null && e.castEndTime != null) {
-              patch.castStartTime = e.castStartTime + delta
-              patch.castEndTime = e.castEndTime + delta
+              patch.castStartTime = e.castStartTime + eff
+              patch.castEndTime = e.castEndTime + eff
             }
             yUpdateDamageEvent(engine.doc, id, patch)
           }

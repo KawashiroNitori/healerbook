@@ -95,7 +95,9 @@ describe('attachCastWindows', () => {
     const e1 = dmg('a', 80000, 4100) // 命中 source50 那对 [1000,4000]
     const e2 = dmg('b', 80000, 4300) // 命中 source51 那对 [1200,4200]
     attachCastWindows([e1, e2], boss, FS)
+    expect(e1.castStartTime).toBe(0)
     expect(e1.castEndTime).toBe(3.0) // (4000-1000)/1000
+    expect(e2.castStartTime).toBe(0.2)
     expect(e2.castEndTime).toBe(3.2) // (4200-1000)/1000
   })
 

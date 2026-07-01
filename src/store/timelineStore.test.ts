@@ -942,6 +942,50 @@ describe('bulkMoveSelection', () => {
   })
 })
 
+describe('bulkMoveSelection – 地板 effective delta 保持 castWindow 偏移', () => {
+  const seedWithCastFields: TimelineContent = {
+    ...baseContent,
+    damageEvents: [
+      {
+        id: 'dc',
+        name: 'W',
+        time: 5,
+        damage: 100,
+        type: 'aoe',
+        damageType: 'magical',
+        castStartTime: 3,
+        castEndTime: 8,
+      } as DamageEvent,
+    ],
+    castEvents: [],
+    annotations: [],
+  }
+
+  beforeEach(async () => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    await useTimelineStore
+      .getState()
+      .openTimeline('cast-floor-test', { role: 'local', seedContent: seedWithCastFields })
+  })
+
+  afterEach(() => {
+    useTimelineStore.getState().reset()
+  })
+
+  it('超出地板时 castStartTime/castEndTime 按 effective delta 移动（窗口与菱形保持对齐）', () => {
+    const store = useTimelineStore.getState()
+    store.setSelection({ eventIds: ['dc'] })
+    // delta = -1000: time 从 5 夹紧到 0，eff = -5
+    store.bulkMoveSelection(-1000)
+    const ev = useTimelineStore.getState().timeline!.damageEvents.find(e => e.id === 'dc')!
+    expect(ev.time).toBe(0)
+    // offset (castStart - time) 应保持为 -2，offset (castEnd - time) 保持为 3
+    expect(ev.castStartTime).toBe(3 + (0 - 5)) // = -2
+    expect(ev.castEndTime).toBe(8 + (0 - 5)) // = 3
+  })
+})
+
 describe('bulkDeleteSelection', () => {
   beforeEach(async () => {
     // eslint-disable-next-line no-global-assign
