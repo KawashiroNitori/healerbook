@@ -833,7 +833,17 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       engine.doc.transact(() => {
         for (const id of selectedEventIds) {
           const e = dmg.get(id)
-          if (e) yUpdateDamageEvent(engine.doc, id, { time: Math.max(0, e.time + delta) })
+          if (e) {
+            const newTime = Math.max(0, e.time + delta)
+            const patch: { time: number; castStartTime?: number; castEndTime?: number } = {
+              time: newTime,
+            }
+            if (e.castStartTime != null && e.castEndTime != null) {
+              patch.castStartTime = e.castStartTime + delta
+              patch.castEndTime = e.castEndTime + delta
+            }
+            yUpdateDamageEvent(engine.doc, id, patch)
+          }
         }
         for (const id of selectedCastEventIds) {
           const c = cast.get(id)

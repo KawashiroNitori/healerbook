@@ -41,6 +41,8 @@ interface DamageEventTrackProps {
     time: number
   ) => void
   isReadOnly?: boolean
+  reportDamageDrag?: (eventId: string, x: number) => void
+  onDiamondDragEnd?: (eventId: string, newTime: number) => void
   annotations: Annotation[]
   pinnedAnnotationId: string | null
   onAnnotationHover: (annotation: Annotation, screenX: number, screenY: number) => void
@@ -83,6 +85,8 @@ export default function DamageEventTrack({
   onDblClick,
   onContextMenu,
   isReadOnly = false,
+  reportDamageDrag,
+  onDiamondDragEnd,
   annotations,
   pinnedAnnotationId,
   onAnnotationHover,
@@ -223,6 +227,8 @@ export default function DamageEventTrack({
               onDragMove={x => onDragMove(event.id, x)}
               onDragEnd={x => onDragEnd(event.id, x)}
               isReadOnly={isReadOnly}
+              reportDamageDrag={reportDamageDrag}
+              onDiamondDragEnd={onDiamondDragEnd}
               onContextMenu={e => {
                 e.evt.preventDefault()
                 if (!onContextMenu) return

@@ -10,8 +10,9 @@ import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext
 import { useUIStore } from '@/store/uiStore'
 import { formatDamageValue } from '@/utils/formatters'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
-import { useCanvasColors } from './constants'
+import { useCanvasColors, TIMELINE_START_TIME } from './constants'
 import { computeDamageCardGeometry } from './cardGeometry'
+import { useTimelineStore } from '@/store/timelineStore'
 
 let _measureCtx: CanvasRenderingContext2D | null = null
 function getMeasureCtx(): CanvasRenderingContext2D {
@@ -44,6 +45,8 @@ interface DamageEventCardProps {
   onDragEnd: (x: number) => void
   isReadOnly?: boolean
   onContextMenu?: (e: KonvaEventObject<PointerEvent>) => void
+  reportDamageDrag?: (eventId: string, x: number) => void
+  onDiamondDragEnd?: (eventId: string, newTime: number) => void
 }
 
 const DamageEventCard = memo(function DamageEventCard({
@@ -60,8 +63,17 @@ const DamageEventCard = memo(function DamageEventCard({
   onDragEnd,
   isReadOnly = false,
   onContextMenu,
+  reportDamageDrag,
+  onDiamondDragEnd,
 }: DamageEventCardProps) {
   const colors = useCanvasColors()
+  const soleSelected = useTimelineStore(
+    s =>
+      s.selectedEventIds.length === 1 &&
+      s.selectedCastEventIds.length === 0 &&
+      s.selectedAnnotationIds.length === 0
+  )
+  const diamondDraggable = isSelected && soleSelected && !isReadOnly
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
@@ -270,11 +282,30 @@ const DamageEventCard = memo(function DamageEventCard({
         radius={6}
         rotation={0}
         fill="#ef4444"
-        stroke={isSelected ? '#3b82f6' : colors.cardBg}
-        strokeWidth={isSelected ? 2 : 1}
+        stroke={diamondDraggable ? '#3b82f6' : isSelected ? '#3b82f6' : colors.cardBg}
+        strokeWidth={diamondDraggable ? 2 : isSelected ? 2 : 1}
+        draggable={diamondDraggable}
         shadowEnabled={false}
         perfectDrawEnabled={false}
-        listening={false}
+        onDragStart={e => {
+          e.cancelBubble = true
+        }}
+        onDragMove={e => {
+          e.cancelBubble = true
+          e.target.y(15) // 锁回卡片下沿局部坐标
+          const newTime = (x + e.target.x()) / zoomLevel
+          reportDamageDrag?.(event.id, newTime * zoomLevel)
+          e.target.getStage()?.batchDraw()
+        }}
+        onDragEnd={e => {
+          e.cancelBubble = true
+          const newTime = Math.max(
+            TIMELINE_START_TIME,
+            Math.round(((x + e.target.x()) / zoomLevel) * 10) / 10
+          )
+          onDiamondDragEnd?.(event.id, newTime)
+          e.target.position({ x: 0, y: 15 })
+        }}
       />
     </Group>
   )

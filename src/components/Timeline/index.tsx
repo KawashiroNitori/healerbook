@@ -1058,12 +1058,32 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const orig = timeline?.damageEvents.find(e => e.id === eventId)?.time ?? newTime
       s.bulkMoveSelection(newTime - orig)
     } else {
-      s.updateDamageEvent(eventId, { time: newTime })
+      const cur = timeline?.damageEvents.find(e => e.id === eventId)
+      const patch: { time: number; castStartTime?: number; castEndTime?: number } = {
+        time: newTime,
+      }
+      if (cur?.castStartTime != null && cur?.castEndTime != null) {
+        const delta = newTime - cur.time
+        patch.castStartTime = cur.castStartTime + delta
+        patch.castEndTime = cur.castEndTime + delta
+      }
+      s.updateDamageEvent(eventId, patch)
     }
     s.setLocalDragging(null)
     setDraggingEventPosition(null)
     endGroupDrag()
   }
+
+  // 菱形拖动结束：只更新判定时间，不动读条窗口
+  const handleDiamondDragEnd = useCallback(
+    (id: string, newTime: number) => {
+      if (isReadOnly) return
+      useTimelineStore.getState().updateDamageEvent(id, { time: newTime })
+      useTimelineStore.getState().setLocalDragging(null)
+      setDraggingEventPosition(null)
+    },
+    [isReadOnly]
+  )
 
   // 上报伤害事件拖动 ghost（start 立即, move 节流 ~50ms）
   const reportDamageDrag = useCallback(
@@ -1887,6 +1907,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   updateGroupDrag(x)
                 }}
                 onDragEnd={handleEventDragEnd}
+                reportDamageDrag={reportDamageDrag}
+                onDiamondDragEnd={handleDiamondDragEnd}
                 onAnnotationDragMove={reportAnnotationDrag}
                 peerDraggingIds={peerDraggingIds}
                 onDblClick={time => setAddEventAt(time)}
