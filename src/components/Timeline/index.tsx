@@ -70,6 +70,7 @@ import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useFilterStore } from '@/store/filterStore'
+import { computeDamageCardGeometry } from './cardGeometry'
 
 interface TimelineCanvasProps {
   width: number
@@ -387,7 +388,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     if (!timeline) return null
 
     // 泳道算法：为每个伤害事件分配行
-    const CARD_WIDTH_SECONDS = 150 / zoomLevel // 卡片固定 150px 转换为秒
     const LANE_ROW_HEIGHT = 36 // 每行高度（px）
     const damageEventRowMap = new Map<string, number>()
 
@@ -400,15 +400,19 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       laneCount = 1
     } else {
       const laneEndTimes: number[] = [] // 每个泳道当前最右端的时间（秒）
-      const sortedDamageEvents = [...filteredDamageEvents].sort((a, b) => a.time - b.time)
-      for (const event of sortedDamageEvents) {
-        const laneIndex = laneEndTimes.findIndex(endTime => endTime <= event.time)
+      const sortedDamageEvents = [...filteredDamageEvents]
+        .map(event => ({ event, geom: computeDamageCardGeometry(event, zoomLevel) }))
+        .sort((a, b) => a.geom.rawLeftSec - b.geom.rawLeftSec)
+      for (const { event, geom } of sortedDamageEvents) {
+        const leftSec = geom.rawLeftSec
+        const rightSec = geom.rawLeftSec + geom.width / zoomLevel
+        const laneIndex = laneEndTimes.findIndex(endTime => endTime <= leftSec)
         if (laneIndex !== -1) {
           damageEventRowMap.set(event.id, laneIndex)
-          laneEndTimes[laneIndex] = event.time + CARD_WIDTH_SECONDS
+          laneEndTimes[laneIndex] = rightSec
         } else {
           damageEventRowMap.set(event.id, laneEndTimes.length)
-          laneEndTimes.push(event.time + CARD_WIDTH_SECONDS)
+          laneEndTimes.push(rightSec)
         }
       }
       laneCount = Math.max(1, laneEndTimes.length)

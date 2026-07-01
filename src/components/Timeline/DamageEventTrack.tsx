@@ -7,6 +7,7 @@ import DamageEventCard from './DamageEventCard'
 import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME, useCanvasColors } from './constants'
 import AnnotationIcon from './AnnotationIcon'
 import type { DamageEvent, Annotation } from '@/types/timeline'
+import { computeDamageCardGeometry } from './cardGeometry'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]
@@ -190,15 +191,15 @@ export default function DamageEventTrack({
       {/* 伤害时间指示虚线 */}
       {damageTimeLines}
 
-      {/* 伤害事件（视口裁剪，卡片宽度约 150px；他人拖动中的事件隐藏） */}
+      {/* 伤害事件（视口裁剪，基于实际卡片左缘+宽度；他人拖动中的事件隐藏） */}
       {[...events]
         .filter(event => {
           if (peerDraggingIds?.has(event.id)) return false
-          // 视口裁剪需用群组拖动后的有效 x，否则被拖入视口的选中卡片会被误裁剪
-          const x =
+          const geom = computeDamageCardGeometry(event, zoomLevel)
+          const groupX =
             event.time * zoomLevel + (selectedEventIds.includes(event.id) ? groupDragDelta : 0)
-          const CARD_WIDTH = 150
-          return x + CARD_WIDTH >= visibleMinX && x <= visibleMaxX
+          const leftX = groupX + geom.leftLocal
+          return leftX + geom.width >= visibleMinX && leftX <= visibleMaxX
         })
         .sort((a, b) => {
           // 选中的事件排在最后（渲染在最顶层）
