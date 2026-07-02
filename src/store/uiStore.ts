@@ -4,6 +4,12 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  DEFAULT_ICON_PROVIDER,
+  DEFAULT_API_PROVIDER,
+  type IconProviderId,
+  type ApiProviderId,
+} from '@/api/providers/registry'
 
 interface UIState {
   /** 是否显示网格 */
@@ -35,6 +41,10 @@ interface UIState {
   draggingId: string | null
   /** 画布工具模式：pan=拖动平移（默认），select=矩形框选 */
   canvasTool: 'pan' | 'select'
+  /** 图标源自学习首选（失败驱动，无 UI 选择） */
+  iconLearned: IconProviderId
+  /** API 源自学习首选（失败驱动，无 UI 选择） */
+  apiLearned: ApiProviderId
 
   // Actions
   /** 切换网格显示 */
@@ -61,6 +71,10 @@ interface UIState {
   setDraggingId: (id: string | null) => void
   /** 设置画布工具模式 */
   setCanvasTool: (tool: 'pan' | 'select') => void
+  /** 写回图标自学习首选 */
+  setIconLearned: (id: IconProviderId) => void
+  /** 写回 API 自学习首选 */
+  setApiLearned: (id: ApiProviderId) => void
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -101,6 +115,8 @@ export const useUIStore = create<UIState>()(
       enableHpSimulation: true,
       draggingId: null,
       canvasTool: 'pan',
+      iconLearned: DEFAULT_ICON_PROVIDER,
+      apiLearned: DEFAULT_API_PROVIDER,
 
       toggleGrid: () =>
         set(state => ({
@@ -155,6 +171,10 @@ export const useUIStore = create<UIState>()(
       setDraggingId: id => set({ draggingId: id }),
 
       setCanvasTool: tool => set({ canvasTool: tool }),
+
+      setIconLearned: id => set({ iconLearned: id }),
+
+      setApiLearned: id => set({ apiLearned: id }),
     }),
     {
       name: 'ui-store',

@@ -13,3 +13,22 @@ describe('uiStore - canvasTool', () => {
     expect(useUIStore.getState().canvasTool).toBe('select')
   })
 })
+
+describe('uiStore learned 字段', () => {
+  beforeEach(() => {
+    useUIStore.setState({ iconLearned: 'cafemaker', apiLearned: 'xivcdn' })
+  })
+
+  it('默认 learned 源', () => {
+    expect(useUIStore.getState().iconLearned).toBe('cafemaker')
+    expect(useUIStore.getState().apiLearned).toBe('xivcdn')
+  })
+  it('setIconLearned 更新', () => {
+    useUIStore.getState().setIconLearned('rpglogs')
+    expect(useUIStore.getState().iconLearned).toBe('rpglogs')
+  })
+  it('setApiLearned 更新', () => {
+    useUIStore.getState().setApiLearned('xivapi')
+    expect(useUIStore.getState().apiLearned).toBe('xivapi')
+  })
+})
