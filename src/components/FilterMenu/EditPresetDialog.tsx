@@ -22,7 +22,7 @@ import {
   type Job,
   type JobRole,
 } from '@/data/jobs'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import JobIcon from '../JobIcon'
 import { cn } from '@/lib/utils'
 import type { FilterPreset, CustomFilterRule } from '@/types/filter'
@@ -298,8 +298,8 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                                         : 'border-border opacity-60 saturate-50 hover:opacity-90 hover:saturate-100'
                                     )}
                                   >
-                                    <img
-                                      src={getIconUrl(action.icon)}
+                                    <GameIcon
+                                      input={action.icon}
                                       alt=""
                                       className="h-full w-full object-cover"
                                     />

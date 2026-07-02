@@ -7,7 +7,7 @@ import { useLayoutEffect, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import { getActionById } from '@/api/xivapi'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
@@ -229,8 +229,8 @@ export default function ActionTooltip({
             <div className="flex items-start gap-3">
               {/* 图标自适应右侧内容高度 */}
               <div className="self-stretch aspect-square flex-shrink-0 min-w-[40px] min-h-[40px] rounded overflow-hidden bg-[#2a2a2a] border border-[#4a4a4a]">
-                <img
-                  src={getIconUrl(apiData.Icon || displayedAction.icon)}
+                <GameIcon
+                  input={apiData.Icon || displayedAction.icon}
                   alt={apiData.Name || displayedAction.name}
                   className="w-full h-full object-cover"
                 />

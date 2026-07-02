@@ -19,7 +19,7 @@ import { getFallbackValue, getFallbackMaxHP, getFallbackTankMaxHP } from '@/util
 import type { TimelineStatData, StatDataEntry } from '@/types/statData'
 import type { MitigationAction } from '@/types/mitigation'
 import type { Composition } from '@/types/timeline'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 
 interface StatDataDialogProps {
   open: boolean
@@ -177,8 +177,8 @@ function ActionEntryRow({
   return (
     <div className="flex items-center justify-between py-1.5">
       <div className="flex items-center gap-2">
-        <img
-          src={getIconUrl(action.iconHD || action.icon)}
+        <GameIcon
+          input={action.iconHD || action.icon}
           alt={action.name}
           className="w-7 h-7 rounded"
         />

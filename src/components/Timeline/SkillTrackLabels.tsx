@@ -3,7 +3,7 @@
  */
 
 import JobIcon from '../JobIcon'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import type { SkillTrack } from '@/utils/skillTracks'
 
@@ -46,13 +46,10 @@ export default function SkillTrackLabels({
               <JobIcon job={track.job} size="sm" />
             </div>
             {/* 技能图标 */}
-            <img
-              src={getIconUrl(track.actionIcon)}
+            <GameIcon
+              input={track.actionIcon}
               alt={track.actionName}
               className="w-6 h-6 rounded cursor-pointer"
-              onError={e => {
-                e.currentTarget.style.display = 'none'
-              }}
               onMouseEnter={e => {
                 if (action) onHoverAction(action, e.currentTarget.getBoundingClientRect())
               }}

@@ -8,7 +8,7 @@
  */
 
 import JobIcon from '../JobIcon'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import { useTooltipStore } from '@/store/tooltipStore'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { MitigationAction } from '@/types/mitigation'
@@ -120,13 +120,10 @@ export default function TableHeader({
                 <div className="opacity-60">
                   <JobIcon job={track.job} size="sm" />
                 </div>
-                <img
-                  src={getIconUrl(track.actionIcon)}
+                <GameIcon
+                  input={track.actionIcon}
                   alt={track.actionName}
                   className="w-6 h-6 rounded cursor-pointer"
-                  onError={e => {
-                    e.currentTarget.style.display = 'none'
-                  }}
                   onMouseEnter={e => {
                     if (action)
                       showTooltip(action, e.currentTarget.getBoundingClientRect(), [

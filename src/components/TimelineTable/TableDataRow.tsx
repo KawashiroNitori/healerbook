@@ -9,7 +9,7 @@
  */
 
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import { cellKey } from '@/utils/castWindow'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useUIStore } from '@/store/uiStore'
@@ -242,13 +242,10 @@ export default function TableDataRow({
               <div className="pointer-events-none absolute inset-0 [background-image:repeating-linear-gradient(45deg,transparent_0,transparent_2.714px,rgba(120,120,120,0.22)_2.714px,rgba(120,120,120,0.22)_4.714px)] dark:[background-image:repeating-linear-gradient(45deg,transparent_0,transparent_3.714px,rgba(160,160,160,0.25)_3.714px,rgba(160,160,160,0.25)_4.714px)]" />
             )}
             {isMarker && (
-              <img
-                src={getIconUrl(markerAction?.icon ?? track.actionIcon)}
+              <GameIcon
+                input={markerAction?.icon ?? track.actionIcon}
                 alt={markerAction?.name ?? track.actionName}
                 className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
-                onError={e => {
-                  e.currentTarget.style.display = 'none'
-                }}
               />
             )}
           </td>

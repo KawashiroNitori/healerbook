@@ -28,7 +28,7 @@ import { useSoumaExportStore } from '@/store/soumaExportStore'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
 import JobIcon from './JobIcon'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import { exportSoumaTimeline } from '@/utils/soumaExporter'
 import { track } from '@/utils/analytics'
 import type { Timeline } from '@/types/timeline'
@@ -331,11 +331,7 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
                       : 'border-border opacity-60 saturate-50 hover:opacity-90 hover:saturate-100'
                   )}
                 >
-                  <img
-                    src={getIconUrl(action.icon)}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  <GameIcon input={action.icon} alt="" className="h-full w-full object-cover" />
                   {isSelected && (
                     <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-tr-md rounded-bl-md bg-green-500 text-[10px] font-bold leading-none text-white shadow">
                       ✓
