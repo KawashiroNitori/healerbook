@@ -3,7 +3,8 @@
  * 用于获取状态图标的 URL
  */
 
-import { statusData, completeIcon } from '@/../3rdparty/ff14-overlay-vue/src/resources/logic/status'
+import { statusData } from '@/../3rdparty/ff14-overlay-vue/src/resources/logic/status'
+import { buildIconUrl } from '@/api/providers/iconProvider'
 
 /**
  * 根据状态 ID 获取图标 URL
@@ -13,12 +14,7 @@ import { statusData, completeIcon } from '@/../3rdparty/ff14-overlay-vue/src/res
 export function getStatusIconUrl(statusId: number): string | undefined {
   const statusInfo = statusData[statusId]
   if (!statusInfo) return undefined
-
-  const iconId = statusInfo[1] // 图标 ID
-  const iconPath = completeIcon(iconId)
-
-  // 使用 xivapi 的图标 URL
-  return `https://cafemaker.wakingsands.com/i/${iconPath}.png`
+  return buildIconUrl(statusInfo[1]) // statusInfo[1] = 图标 ID
 }
 
 /**
