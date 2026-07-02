@@ -3,7 +3,7 @@
  * 用于获取 FF14 游戏数据
  */
 
-const XIVAPI_BASE_URL = 'https://xivapi-v2.xivcdn.com/api'
+import { requestWithFallback, onApiSuccess } from './providers/apiProvider'
 
 /**
  * CafeMaker Action 数据结构（保持原有字段格式）
@@ -59,7 +59,8 @@ interface XIVAPIResponse {
 }
 
 function toIconPath(path: string): string {
-  return `https://v2.xivapi.com/api/asset?path=${path}&format=png`
+  // 返回原始路径，交由下游 normalizeIcon 归一 + provider 拼 URL
+  return path
 }
 
 function convertResponse(id: number, data: XIVAPIResponse): CafeMakerAction {
@@ -88,15 +89,13 @@ function convertResponse(id: number, data: XIVAPIResponse): CafeMakerAction {
  */
 export async function getActionById(actionId: number): Promise<CafeMakerAction | null> {
   try {
-    const url = new URL(`${XIVAPI_BASE_URL}/sheet/Action/${actionId}`)
-    url.searchParams.set('fields', ACTION_FIELDS)
-    url.searchParams.set('transient', 'Description@as(html)')
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      console.error(`Failed to fetch action ${actionId}: ${response.status}`)
-      return null
-    }
-    const data: XIVAPIResponse = await response.json()
+    const search = new URLSearchParams({
+      fields: ACTION_FIELDS,
+      transient: 'Description@as(html)',
+    })
+    const path = `/sheet/Action/${actionId}?${search.toString()}`
+    const { data, provider } = await requestWithFallback<XIVAPIResponse>(path)
+    onApiSuccess(provider)
     return convertResponse(actionId, data)
   } catch (error) {
     console.error(`Error fetching action ${actionId}:`, error)
