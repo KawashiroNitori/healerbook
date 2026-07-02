@@ -21,16 +21,17 @@ export async function requestWithFallback<T>(
     ...API_PROVIDERS.filter(p => p.id !== preferred),
   ]
   for (const p of ordered) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
     try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
       const res = await fetch(p.base + path, { signal: controller.signal, cache: 'force-cache' })
-      clearTimeout(timer)
       if (!res.ok) continue
       const data = (await res.json()) as T
       return { data, provider: p.id }
     } catch {
       // 超时 / 网络错误 → 试下一源
+    } finally {
+      clearTimeout(timer)
     }
   }
   throw new Error(`All API providers failed for ${path}`)
