@@ -30,8 +30,7 @@ export function GameIcon({ input, onError, onLoad, ...rest }: GameIconProps) {
   // "adjusting state when a prop changes" 模式），而非 useEffect + setState，
   // 避免 react-hooks/set-state-in-effect 触发的级联渲染问题。
   if (state.iconId !== iconId) {
-    const start = useUIStore.getState().iconLearned
-    setState({ iconId, provider: start, tried: [start], failed: false })
+    setState({ iconId, provider: learned, tried: [learned], failed: false })
   }
 
   const src = iconId > 0 && !state.failed ? buildIconUrl(iconId, state.provider) : EMPTY_IMAGE

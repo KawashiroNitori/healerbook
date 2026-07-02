@@ -11,4 +11,8 @@ describe('normalizeIcon', () => {
   it('无数字 → 0', () => expect(normalizeIcon('abc')).toBe(0))
   it('空串 → 0', () => expect(normalizeIcon('')).toBe(0))
   it('非有限数 → 0', () => expect(normalizeIcon(NaN)).toBe(0))
+  it('完整 asset URL 从 path= 取 iconId', () =>
+    expect(
+      normalizeIcon('https://v2.xivapi.com/api/asset?path=ui/icon/003000/003253.tex&format=png')
+    ).toBe(3253))
 })

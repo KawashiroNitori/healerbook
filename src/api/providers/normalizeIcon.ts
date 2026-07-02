@@ -5,9 +5,17 @@
  */
 export function normalizeIcon(input: string | number): number {
   if (typeof input === 'number') return Number.isFinite(input) ? input : 0
-  // 去掉 query，去掉 _hrN（高清后缀会引入尾部数字，需先剔除）
-  const cleaned = input.split('?')[0].replace(/_hr\d+/gi, '')
-  const groups = cleaned.match(/\d+/g)
+  let s: string
+  // asset URL 把 icon 藏在 path= 查询参数里，优先取它
+  const pathMatch = input.match(/[?&]path=([^&]+)/)
+  if (pathMatch) {
+    s = decodeURIComponent(pathMatch[1])
+  } else {
+    s = input.split('?')[0]
+  }
+  // 去掉 _hrN 高清后缀（会引入尾部数字）
+  s = s.replace(/_hr\d+/gi, '')
+  const groups = s.match(/\d+/g)
   if (!groups || groups.length === 0) return 0
   return Number.parseInt(groups[groups.length - 1], 10)
 }

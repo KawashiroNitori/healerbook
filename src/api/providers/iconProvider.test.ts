@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useUIStore } from '@/store/uiStore'
 import { EMPTY_IMAGE, buildIconUrl, getNextIconProvider, onIconSuccess } from './iconProvider'
 
@@ -34,5 +34,19 @@ describe('iconProvider', () => {
     expect(useUIStore.getState().iconLearned).toBe('cafemaker')
     onIconSuccess('rpglogs')
     expect(useUIStore.getState().iconLearned).toBe('rpglogs')
+  })
+  it('onIconSuccess 相同源不调用 setIconLearned（dedup）', () => {
+    useUIStore.setState({ iconLearned: 'cafemaker' })
+    const spy = vi.spyOn(useUIStore.getState(), 'setIconLearned')
+    onIconSuccess('cafemaker')
+    expect(spy).not.toHaveBeenCalled()
+    onIconSuccess('rpglogs')
+    expect(spy).toHaveBeenCalledWith('rpglogs')
+    spy.mockRestore()
+  })
+  it('未知 provider 回退到 DEFAULT_ICON_PROVIDER', () => {
+    expect(buildIconUrl(3253, 'nope' as never)).toBe(
+      'https://cafemaker.wakingsands.com/i/003000/003253.png'
+    )
   })
 })
