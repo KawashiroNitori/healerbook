@@ -3,7 +3,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { getIconUrl } from './iconUtils'
+import { buildIconUrl, getNextIconProvider, onIconSuccess } from '@/api/providers/iconProvider'
+import { useUIStore } from '@/store/uiStore'
+import type { IconProviderId } from '@/api/providers/registry'
 
 /**
  * 加载图片并返回 HTMLImageElement
@@ -17,23 +19,33 @@ export function useKonvaImage(iconPath: string): HTMLImageElement | null {
   })
 
   useEffect(() => {
-    if (!iconPath) {
-      return
-    }
+    if (!iconPath) return
 
     const img = new window.Image()
-    // 移除 crossOrigin 设置，允许跨域图片但不导出 Canvas
+    const tried: IconProviderId[] = []
+    let current: IconProviderId | undefined
+
+    const loadWith = (provider: IconProviderId) => {
+      current = provider
+      tried.push(provider)
+      img.src = buildIconUrl(iconPath, provider)
+    }
 
     img.onload = () => {
+      if (current) onIconSuccess(current)
       setImage(img)
     }
-
     img.onerror = () => {
-      console.warn(`Failed to load icon: ${iconPath}`)
-      setImage(null)
+      const next = getNextIconProvider(tried)
+      if (next) {
+        loadWith(next)
+      } else {
+        console.warn(`Failed to load icon (all providers): ${iconPath}`)
+        setImage(null)
+      }
     }
 
-    img.src = getIconUrl(iconPath)
+    loadWith(useUIStore.getState().iconLearned)
 
     return () => {
       img.onload = null
@@ -80,7 +92,7 @@ export function preloadIcons(iconPaths: string[]): Promise<Map<string, HTMLImage
         onComplete()
       }
 
-      img.src = getIconUrl(path)
+      img.src = buildIconUrl(path)
     })
   })
 }
