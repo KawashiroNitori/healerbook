@@ -52,7 +52,7 @@ export default function ResourceHoverPanel() {
   return (
     <div
       ref={ref}
-      className="fixed z-50 pointer-events-none max-w-[280px] rounded-lg border border-[hsl(var(--border)/0.4)] bg-[hsl(var(--popover)/0.4)] shadow-xl p-2.5 text-popover-foreground backdrop-blur-2xl"
+      className="fixed z-50 pointer-events-none w-fit rounded-lg border border-[hsl(var(--border)/0.4)] bg-[hsl(var(--popover)/0.4)] shadow-xl p-4 text-popover-foreground backdrop-blur-2xl"
       style={{ left: pos.left, top: pos.top }}
     >
       <div className="mb-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
@@ -60,7 +60,8 @@ export default function ResourceHoverPanel() {
       </div>
       <div className="flex flex-col gap-2.5">
         {members.map(m => (
-          <div key={m.playerId} className="flex flex-col gap-1">
+          // gap-2：菱形指示灯旋转后向上视觉外扩约 2.5px，行距过小会显得贴在一起
+          <div key={m.playerId} className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
               <JobIcon job={m.job} size="sm" />
               <span className="text-xs font-semibold">{getJobName(m.job)}</span>
@@ -72,7 +73,12 @@ export default function ResourceHoverPanel() {
               </div>
             ))}
             {m.cooldowns.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className="grid w-fit gap-1.5"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(m.cooldowns.length, 8)}, auto)`,
+                }}
+              >
                 {m.cooldowns.map(c => (
                   <span key={c.actionId ?? c.resourceId}>{renderWidget(c)}</span>
                 ))}

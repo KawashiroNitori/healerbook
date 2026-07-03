@@ -27,6 +27,13 @@ export interface ResourceDefinition {
   /** 悬浮窗渲染样式（必填） */
   style: ResourceStyle
   /**
+   * 可选：悬浮窗中该资源池指示灯 / 进度条的主色调（任意 CSS 颜色，hex / hsl 均可）。
+   * 提亮、压暗、发光等派生色由 color-mix 自动推导（见 ResourceHover/resourceTint.ts）。
+   * 省略时回退 DEFAULT_RESOURCE_TINT。仅 lights / lightsWithBar / progressBar 样式消费；
+   * cooldown 样式（技能图标遮罩）不读此字段。
+   */
+  tint?: string
+  /**
    * 充能回充配置。不声明 = 不随时间恢复（纯事件驱动资源）。
    * 语义（FF14 充能 / 顺序回充）：维护单一回充时钟——当 amount 从满被消耗跌破时启动，
    * 未满时每回一档（+amount，clamp 到 max）就把下一档计时 +interval 重置，回满即停摆。

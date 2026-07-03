@@ -6,7 +6,7 @@ export default function LightsWidget({ widget }: { widget: ResourceWidget }) {
   const { total, lit } = lightsView(widget)
   return (
     <div title={widget.name}>
-      <LightPips total={total} lit={lit} />
+      <LightPips total={total} lit={lit} tint={widget.tint} />
     </div>
   )
 }

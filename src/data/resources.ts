@@ -38,6 +38,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     // 该池 regen(60s) 并不等于这俩技能的 CD。故这两个技能在 mitigationActions.ts 里**同时**声明了
     // 自身 __cd__ 单充能池消费者（保留 30s 门）和本池消费者（共享 3 档），形成双门 gating。
     regen: { interval: 60, amount: 3 },
+    tint: '#4ade80', // 游戏内以太超流宝石为薄荷绿
     unmetMessage: '以太超流档数不足',
   },
   'drk:oblation': {

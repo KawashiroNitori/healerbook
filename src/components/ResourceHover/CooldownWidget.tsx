@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { getIconUrl } from '@/utils/iconUtils'
+import { GameIcon } from '@/components/GameIcon'
 import type { ResourceWidget } from '@/utils/resource/hoverSnapshot'
 import { cooldownView } from './widgetView'
 
@@ -38,16 +38,11 @@ export default function CooldownWidget({ widget }: { widget: ResourceWidget }) {
 
   return (
     <div
-      className="relative h-10 w-10 overflow-hidden rounded-md bg-muted shadow-md ring-1 ring-black/20"
+      className="relative h-8 w-8 overflow-hidden rounded-md bg-muted shadow-md ring-1 ring-black/20"
       title={widget.name}
     >
       {widget.icon && (
-        <img
-          src={getIconUrl(widget.icon)}
-          alt={widget.name}
-          className="h-full w-full object-cover"
-          onError={e => (e.currentTarget.style.display = 'none')}
-        />
+        <GameIcon input={widget.icon} alt={widget.name} className="h-full w-full object-cover" />
       )}
       {v.showMask && (
         <>
@@ -97,7 +92,7 @@ export default function CooldownWidget({ widget }: { widget: ResourceWidget }) {
       )}
       {v.stackBadge != null && (
         <span
-          className={`absolute bottom-0 right-1 text-base font-extrabold leading-none tabular-nums ${
+          className={`absolute bottom-0 right-0.5 text-sm font-extrabold leading-none tabular-nums ${
             v.stackBadge > 0 ? 'text-white' : 'text-red-500'
           }`}
           style={{

@@ -27,6 +27,8 @@ export interface ResourceWidget {
   nextChargeProgress?: number
   /** cooldown 部件专用：对应技能 id，供 React key 稳定化 */
   actionId?: number
+  /** 指示灯 / 进度条主色调（透传 def.tint，可能 undefined 由视图层兜底）；cooldown 样式不消费 */
+  tint?: string
 }
 
 export interface MemberResourceSnapshot {
@@ -59,6 +61,7 @@ function buildWidget(
     icon: meta.icon,
     amount,
     max: def.max,
+    tint: def.tint,
   }
   if (amount < def.max && def.regen && pending.length > 0) {
     const earliest = pending[0]

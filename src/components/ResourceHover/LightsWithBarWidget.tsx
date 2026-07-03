@@ -1,19 +1,20 @@
-import { Progress } from '@/components/ui/progress'
 import type { ResourceWidget } from '@/utils/resource/hoverSnapshot'
 import { lightsView } from './widgetView'
 import LightPips from './LightPips'
+import { tintStyle } from './resourceTint'
+import MetalBar from './MetalBar'
 
 export default function LightsWithBarWidget({ widget }: { widget: ResourceWidget }) {
   const { total, lit } = lightsView(widget)
   const progress = widget.nextChargeProgress ?? (widget.amount >= widget.max ? 1 : 0)
+  // 还原游戏内仪表盘布局：指示灯一排在上、整体右移一段，菱形下尖角
+  // （rotate-45 视觉外扩约 2.5px）轻微叠压进度条顶缘，z-10 保证压在条上方。
   return (
-    <div className="flex items-center gap-2" title={widget.name}>
-      <LightPips total={total} lit={lit} />
-      <Progress
-        value={progress * 100}
-        className="h-2 w-16 border border-amber-400/60 bg-black/50"
-        indicatorClassName="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500"
-      />
+    <div className="flex flex-col items-start" title={widget.name} style={tintStyle(widget.tint)}>
+      <div className="relative z-10 pl-1.5">
+        <LightPips total={total} lit={lit} tint={widget.tint} />
+      </div>
+      <MetalBar fraction={progress} className="w-32" />
     </div>
   )
 }
