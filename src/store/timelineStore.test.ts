@@ -90,74 +90,6 @@ describe('timelineStore - 状态管理', () => {
       expect(useTimelineStore.getState().statistics).toBeNull()
     })
   })
-
-  describe('executeAction', () => {
-    it('应该执行技能并更新小队状态', () => {
-      const store = useTimelineStore.getState()
-      store.initializePartyState(mockComposition)
-
-      // 执行节制 (16536) - 群体减伤
-      store.executeAction(16536, 10, 1)
-
-      const partyState = useTimelineStore.getState().partyState
-      // 节制会同时附加主状态 1873 与副状态 3881
-      expect(partyState?.statuses).toHaveLength(2)
-      const primary = partyState?.statuses.find(s => s.statusId === 1873)
-      expect(primary?.startTime).toBe(10)
-      expect(primary?.endTime).toBe(35)
-      const secondary = partyState?.statuses.find(s => s.statusId === 3881)
-      expect(secondary?.startTime).toBe(10)
-      expect(secondary?.endTime).toBe(40)
-    })
-  })
-
-  describe('cleanupExpiredStatuses', () => {
-    it('应该清理过期的状态', () => {
-      const store = useTimelineStore.getState()
-      store.initializePartyState(mockComposition)
-
-      // 执行节制（1873 持续 25s，副状态 3881 持续 30s）
-      store.executeAction(16536, 10, 1)
-
-      // 时间点 20: 两个状态都仍然生效
-      store.cleanupExpiredStatuses(20)
-      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(2)
-
-      // 时间点 36: 1873 已过期（endTime=35），3881 仍生效（endTime=40）
-      store.cleanupExpiredStatuses(36)
-      const remaining = useTimelineStore.getState().partyState?.statuses ?? []
-      expect(remaining).toHaveLength(1)
-      expect(remaining[0].statusId).toBe(3881)
-
-      // 时间点 41: 两个状态都已过期
-      store.cleanupExpiredStatuses(41)
-      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(0)
-    })
-  })
-
-  describe('updatePartyState', () => {
-    it('应该更新小队状态', () => {
-      const store = useTimelineStore.getState()
-      store.initializePartyState(mockComposition)
-
-      const newPartyState = {
-        statuses: [
-          {
-            instanceId: 'manual-status',
-            statusId: 1873,
-            startTime: 0,
-            endTime: 10,
-          },
-        ],
-        timestamp: 5,
-      }
-
-      store.updatePartyState(newPartyState)
-      expect(useTimelineStore.getState().partyState?.statuses).toHaveLength(1)
-      expect(useTimelineStore.getState().partyState?.statuses[0].instanceId).toBe('manual-status')
-      expect(useTimelineStore.getState().partyState?.timestamp).toBe(5)
-    })
-  })
 })
 
 describe('undo/redo - Y.UndoManager', () => {
@@ -304,7 +236,6 @@ describe('undo/redo - Y.UndoManager', () => {
     // 修改 UI 状态（不应该产生历史记录）
     store.selectEvent('some-event')
     store.setZoomLevel(80)
-    store.setCurrentTime(30)
 
     expect(useTimelineStore.getState().canUndo).toBe(false)
   })

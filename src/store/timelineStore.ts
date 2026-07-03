@@ -25,8 +25,7 @@ import type {
   SyncEvent,
 } from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
-import type { ActionExecutionContext, EncounterStatistics } from '@/types/mitigation'
-import { MITIGATION_DATA } from '@/data/mitigationActions'
+import type { EncounterStatistics } from '@/types/mitigation'
 import { createEmptyStatData, cleanupStatData } from '@/utils/statDataUtils'
 import type { TimelineStatData } from '@/types/statData'
 import { SyncEngine } from '@/collab/SyncEngine'
@@ -99,8 +98,6 @@ interface TimelineState {
   selectedAnnotationIds: string[]
   /** 当前选择是否由「全选 / 全选技能 / 全选伤害事件」操作产生（决定复制后粘贴用绝对时间） */
   selectionFromSelectAll: boolean
-  /** 当前播放时间 (秒) */
-  currentTime: number
   /** 缩放级别 (像素/秒) */
   zoomLevel: number
   /** 待恢复的滚动进度 (0-1) */
@@ -141,12 +138,6 @@ interface TimelineState {
   initializePartyState: (composition: Composition) => void
   /** 设置副本统计数据 */
   setStatistics: (statistics: EncounterStatistics | null) => void
-  /** 执行技能并更新状态 */
-  executeAction: (actionId: number, time: number, sourcePlayerId: number) => void
-  /** 更新小队状态 */
-  updatePartyState: (partyState: PartyState) => void
-  /** 清理过期状态 */
-  cleanupExpiredStatuses: (currentTime: number) => void
   /** 选择伤害事件 */
   selectEvent: (eventId: string | null) => void
   /** 选择技能使用事件 */
@@ -159,16 +150,12 @@ interface TimelineState {
   toggleSelection: (kind: SelectionKind, id: string) => void
   /** 清空全部选择 */
   clearSelection: () => void
-  /** 设置当前时间 */
-  setCurrentTime: (time: number) => void
   /** 设置缩放级别 */
   setZoomLevel: (level: number) => void
   /** 设置待恢复的滚动进度 */
   setPendingScrollProgress: (progress: number | null) => void
   /** 更新滚动状态（用于缩放计算） */
   updateScrollState: (scrollLeft: number, timelineWidth: number, viewportWidth: number) => void
-  /** 带滚动进度保持的缩放 */
-  zoomWithScrollPreservation: (delta: number) => void
   /** 更新时间轴名称 */
   updateTimelineName: (name: string) => void
   /** 更新时间轴说明 */
@@ -241,7 +228,6 @@ const initialUiState = {
   selectedCastEventIds: [],
   selectedAnnotationIds: [],
   selectionFromSelectAll: false,
-  currentTime: 0,
   zoomLevel: 30, // xx 像素 / 秒
   pendingScrollProgress: null,
   currentScrollLeft: 0,
@@ -472,7 +458,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       engine.undoManager.on('stack-item-added', syncUndoState)
       engine.undoManager.on('stack-item-popped', syncUndoState)
       engine.undoManager.on('stack-cleared', syncUndoState)
-      set({ engine, currentTime: 0 })
+      set({ engine })
 
       // 决定是否立即视为已加载:
       // - local:seed 即真相源,直接视为已加载;
@@ -562,49 +548,6 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }
     },
 
-    executeAction: (actionId, time, sourcePlayerId) => {
-      const state = get()
-      if (!state.partyState) return
-
-      // 查找技能
-      const action = MITIGATION_DATA.actions.find(a => a.id === actionId)
-      if (!action) {
-        console.error(`技能 ${actionId} 不存在`)
-        return
-      }
-
-      // 创建执行上下文
-      const context: ActionExecutionContext = {
-        actionId,
-        useTime: time,
-        partyState: state.partyState,
-        sourcePlayerId,
-        statistics: state.timeline?.statData ?? undefined,
-      }
-
-      // 执行技能并更新状态
-      if (!action.executor) return
-      const newPartyState = action.executor(context)
-      set({ partyState: newPartyState })
-    },
-
-    updatePartyState: partyState => {
-      set({ partyState })
-    },
-
-    cleanupExpiredStatuses: currentTime => {
-      const state = get()
-      if (!state.partyState) return
-
-      const newPartyState: PartyState = {
-        ...state.partyState,
-        statuses: state.partyState.statuses.filter(s => s.endTime >= currentTime),
-        timestamp: currentTime,
-      }
-
-      set({ partyState: newPartyState })
-    },
-
     setSelection: (sel, opts) => {
       const next = {
         eventIds: sel.eventIds ?? [],
@@ -665,11 +608,6 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       else get().setSelection({ castEventIds: [castEventId] })
     },
 
-    setCurrentTime: time =>
-      set({
-        currentTime: Math.max(0, time),
-      }),
-
     setZoomLevel: level =>
       set({
         zoomLevel: Math.max(10, Math.min(200, level)),
@@ -686,20 +624,6 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         currentTimelineWidth: timelineWidth,
         currentViewportWidth: viewportWidth,
       }),
-
-    zoomWithScrollPreservation: delta => {
-      const state = get()
-      const currentZoom = state.zoomLevel
-      const newZoomLevel = Math.max(10, Math.min(200, currentZoom + delta))
-
-      // 保存视口中央对应的时间（秒），缩放后据此还原位置
-      const timeAtCenter = (state.currentScrollLeft + state.currentViewportWidth / 2) / currentZoom
-
-      set({ pendingScrollProgress: timeAtCenter })
-
-      // 更新缩放级别
-      set({ zoomLevel: newZoomLevel })
-    },
 
     updateTimelineName: name => {
       const engine = get().engine
