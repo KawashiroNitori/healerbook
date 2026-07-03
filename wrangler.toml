@@ -62,8 +62,6 @@ database_id = "937ecb93-3ef7-456e-818b-ff7542b90d1a"
 name = "healerbook"
 [env.production.vars]
 ENVIRONMENT = "production"
-RATE_LIMIT_RPM = "30"
-CACHE_TTL = "3600"
 FFLOGS_CLIENT_ID = "a1263e4f-6950-4100-9a79-f7ebfb94363c"
 
 [[env.production.kv_namespaces]]
@@ -84,9 +82,6 @@ database_name = "healerbook_timelines"
 database_id = "d5c7c316-c36a-42c7-a00e-aa43ceaba3c8"
 
 # Secrets (通过 wrangler secret 设置)
-# v1 API
-# wrangler secret put FFLOGS_API_KEY
-#
 # v2 API (OAuth)
 # wrangler secret put FFLOGS_CLIENT_SECRET
 #

@@ -41,12 +41,11 @@ export class FFLogsClient {
     params: {
       start: number
       end: number
-      lang?: string
     }
   ) {
     const allEvents: FFLogsEvent[] = []
     let currentStart = params.start
-    const { end, lang } = params
+    const { end } = params
 
     // 最多请求 100 页，防止无限循环
     const MAX_PAGES = 100
@@ -55,7 +54,7 @@ export class FFLogsClient {
     while (currentStart < end && pageCount < MAX_PAGES) {
       pageCount++
 
-      const response = await this.getEvents(reportCode, { start: currentStart, end, lang })
+      const response = await this.getEvents(reportCode, { start: currentStart, end })
 
       if (response.events && response.events.length > 0) {
         allEvents.push(...response.events)
@@ -76,7 +75,7 @@ export class FFLogsClient {
    */
   private async getEvents(
     reportCode: string,
-    params: { start?: number; end?: number; lang?: string } = {}
+    params: { start?: number; end?: number } = {}
   ): Promise<FFLogsEventsResponse> {
     const queryParams = new URLSearchParams(
       Object.fromEntries(

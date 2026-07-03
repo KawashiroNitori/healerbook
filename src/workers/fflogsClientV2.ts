@@ -32,7 +32,6 @@ export interface GetEventsParams {
   reportCode: string
   start: number
   end: number
-  lang?: string
   dataType?: FFLogsEventDataType[]
 }
 

@@ -26,7 +26,6 @@ app.get('/events/:reportCode', async c => {
   const reportCode = c.req.param('reportCode')
   const start = c.req.query('start')
   const end = c.req.query('end')
-  const lang = c.req.query('lang') || undefined
 
   if (!start || !end) {
     return c.json({ error: 'Missing start or end parameter' }, 400)
@@ -38,7 +37,6 @@ app.get('/events/:reportCode', async c => {
       reportCode,
       start: parseFloat(start),
       end: parseFloat(end),
-      lang,
     })
     return c.json(data)
   } catch (error) {

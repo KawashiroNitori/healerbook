@@ -221,7 +221,6 @@ export default function ImportFFLogsDialog({
         const eventsData = await client.getAllEvents(parsed.reportCode, {
           start: fight.startTime,
           end: fight.endTime,
-          lang: report.lang,
         })
 
         setLoadingStep(`正在解析数据...`)
