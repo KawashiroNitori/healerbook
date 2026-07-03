@@ -426,7 +426,7 @@ export default function TimelineTableView() {
                   litCells={litCellsByEvent.get(row.id) ?? new Set()}
                   cdCells={cdCellsByEvent.get(row.id) ?? new Set()}
                   shadowCells={shadowCellsByEvent.get(row.id) ?? new Set()}
-                  markerCells={markerCellsByEvent.get(row.id) ?? new Map<string, number>()}
+                  markerCells={markerCellsByEvent.get(row.id) ?? new Map()}
                   actionsById={actionsById}
                   calculationResult={calculationResults.get(row.id)}
                   showOriginalDamage={showOriginalDamage}

@@ -36,6 +36,8 @@ interface UIState {
    * 但 calculator 仍然算 HP 池演化，便于未来"主时间轴 HP 曲线 overlay" 按需消费。
    */
   enableHpSimulation: boolean
+  /** 是否展示资源预览悬浮窗（时间轴/表格 hover 时的战斗资源面板） */
+  showResourceHover: boolean
   /** 当前正在拖拽的 castEvent.id；非拖拽态为 null。
    *  ephemeral 状态，从 persist 排除。 */
   draggingId: string | null
@@ -67,6 +69,8 @@ interface UIState {
   toggleShowCastStartTime: () => void
   /** 切换 HP 模拟显示 */
   toggleEnableHpSimulation: () => void
+  /** 切换资源预览悬浮窗显示 */
+  toggleShowResourceHover: () => void
   /** 设置当前拖拽的 castEvent.id；停止拖拽传 null */
   setDraggingId: (id: string | null) => void
   /** 设置画布工具模式 */
@@ -113,6 +117,7 @@ export const useUIStore = create<UIState>()(
       showOriginalDamage: false,
       showCastStartTime: false,
       enableHpSimulation: true,
+      showResourceHover: true,
       draggingId: null,
       canvasTool: 'pan',
       iconLearned: DEFAULT_ICON_PROVIDER,
@@ -166,6 +171,11 @@ export const useUIStore = create<UIState>()(
       toggleEnableHpSimulation: () =>
         set(state => ({
           enableHpSimulation: !state.enableHpSimulation,
+        })),
+
+      toggleShowResourceHover: () =>
+        set(state => ({
+          showResourceHover: !state.showResourceHover,
         })),
 
       setDraggingId: id => set({ draggingId: id }),

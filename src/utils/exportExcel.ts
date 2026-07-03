@@ -8,7 +8,12 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/utils/mitigationCalculator'
 import { mergeAndSortRows } from '@/utils/tableRows'
-import { computeLitCellsByEvent, computeCastMarkerCells, cellKey } from '@/utils/castWindow'
+import {
+  computeLitCellsByEvent,
+  computeCastMarkerCells,
+  cellKey,
+  type CastMarker,
+} from '@/utils/castWindow'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { getJobName, getJobShortName, getJobInitial } from '@/data/jobs'
 import type { Job } from '@/types/timeline'
@@ -259,7 +264,7 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
 
       // 技能列
       const litSet = litCellsByEvent.get(event.id) ?? new Set<string>()
-      const markerMap = castMarkerCells.get(event.id) ?? new Map<string, number>()
+      const markerMap = castMarkerCells.get(event.id) ?? new Map<string, CastMarker>()
 
       skillTracks.forEach((track, idx) => {
         const col = fixedColCount + 1 + idx

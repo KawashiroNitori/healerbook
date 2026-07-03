@@ -10,7 +10,7 @@
 
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { GameIcon } from '@/components/GameIcon'
-import { cellKey } from '@/utils/castWindow'
+import { cellKey, type CastMarker } from '@/utils/castWindow'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useUIStore } from '@/store/uiStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
@@ -39,10 +39,10 @@ interface TableDataRowProps {
   shadowCells: Set<string>
   /**
    * 标记为 cast 起点的单元格——即该伤害事件是 cast 之后的第一个。
-   * value 是实际住在该格的 cast 的 actionId（与 key 用的 trackGroup 不同，
-   * 用于显示正确的变体图标，如 buff 期的 37016）。
+   * value 含实际住在该格的 cast 的 actionId（与 key 用的 trackGroup 不同，
+   * 用于显示正确的变体图标，如 buff 期的 37016）和使用时刻（悬浮资源预览用）。
    */
-  markerCells: Map<string, number>
+  markerCells: Map<string, CastMarker>
   /** 用于按 actionId 查找变体真实图标 */
   actionsById: Map<number, MitigationAction>
   calculationResult: CalculationResult | undefined
@@ -153,19 +153,21 @@ export default function TableDataRow({
   // 非粘性技能列可以用半透明 hover 色
   const hoverClass = 'group-hover:bg-muted/50'
 
+  // 资源预览悬浮：只在特定单元格上触发，各自定位到不同时刻——
+  // 读条开始时间格 → castStartTime；判定时间/事件名格 → 伤害判定时刻；
+  // 技能图标格 → cast 使用时刻。其余单元格不显示（行级只兜底清除）。
+  const hoverAt = (t: number) => (e: React.MouseEvent) =>
+    useResourceHoverStore.getState().setHover(t, { x: e.clientX, y: e.clientY })
+  const clearHover = () => useResourceHoverStore.getState().clearHover()
+
   return (
-    <tr
-      className="group"
-      style={{ height: ROW_HEIGHT }}
-      onMouseMove={e =>
-        useResourceHoverStore.getState().setHover(event.time, { x: e.clientX, y: e.clientY })
-      }
-      onMouseLeave={() => useResourceHoverStore.getState().clearHover()}
-    >
+    <tr className="group" style={{ height: ROW_HEIGHT }} onMouseLeave={clearHover}>
       {showCastStartTime && (
         <td
           className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
           style={{ width: CAST_START_COL_WIDTH, minWidth: CAST_START_COL_WIDTH, left: castLeft }}
+          onMouseMove={event.castStartTime != null ? hoverAt(event.castStartTime) : undefined}
+          onMouseLeave={event.castStartTime != null ? clearHover : undefined}
         >
           {event.castStartTime != null ? formatTimeWithDecimal(event.castStartTime) : '-'}
         </td>
@@ -173,6 +175,8 @@ export default function TableDataRow({
       <td
         className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
         style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH, left: timeLeft }}
+        onMouseMove={hoverAt(event.time)}
+        onMouseLeave={clearHover}
       >
         {formatTimeWithDecimal(event.time)}
       </td>
@@ -180,6 +184,8 @@ export default function TableDataRow({
         className={`${stickyCell} ${stickyHoverClass} z-10 px-2`}
         style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH, left: nameLeft }}
         title={event.name}
+        onMouseMove={hoverAt(event.time)}
+        onMouseLeave={clearHover}
       >
         <button
           type="button"
@@ -225,9 +231,9 @@ export default function TableDataRow({
         const isNewPlayer = index === 0 || skillTracks[index - 1].playerId !== track.playerId
         const key = cellKey(track.playerId, track.actionId)
         const isLit = litCells.has(key)
-        const markerActionId = markerCells.get(key)
-        const isMarker = markerActionId !== undefined
-        const markerAction = markerActionId !== undefined ? actionsById.get(markerActionId) : null
+        const marker = markerCells.get(key)
+        const isMarker = marker !== undefined
+        const markerAction = marker !== undefined ? actionsById.get(marker.actionId) : null
         const baseBg = index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
         return (
           <td
@@ -241,6 +247,8 @@ export default function TableDataRow({
               e.stopPropagation()
               onCellToggle(track, event, isMarker)
             }}
+            onMouseMove={marker !== undefined ? hoverAt(marker.castTime) : undefined}
+            onMouseLeave={marker !== undefined ? clearHover : undefined}
           >
             {isLit && <div className="pointer-events-none absolute inset-0 bg-emerald-500/30" />}
             {!isLit && cdCells.has(key) && (

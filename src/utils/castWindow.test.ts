@@ -432,14 +432,14 @@ describe('computeCastMarkerCells', () => {
     const casts = [cast('c1', 1, 100, 20)] // 持久化父 100
     const resolved = new Map<string, number>([['c1', 101]]) // 推导为变体 101
     const result = computeCastMarkerCells(events, casts, actionsById, resolved)
-    // 归列 key 仍是 trackGroup(100)，但 value 是变体 101
-    expect(result.get('d1')?.get(cellKey(1, 100))).toBe(101)
+    // 归列 key 仍是 trackGroup(100)，但 value 是变体 101；castTime 为 cast 使用时刻
+    expect(result.get('d1')?.get(cellKey(1, 100))).toEqual({ actionId: 101, castTime: 20 })
   })
 
   it('resolvedVariantByCastId 缺失该 cast 时回退父 actionId', () => {
     const events = [damage('d1', 30)]
     const casts = [cast('c1', 1, 100, 20)]
     const result = computeCastMarkerCells(events, casts, actionsById, new Map())
-    expect(result.get('d1')?.get(cellKey(1, 100))).toBe(100)
+    expect(result.get('d1')?.get(cellKey(1, 100))).toEqual({ actionId: 100, castTime: 20 })
   })
 })

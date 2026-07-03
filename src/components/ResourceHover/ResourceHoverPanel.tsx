@@ -4,6 +4,7 @@ import JobIcon from '@/components/JobIcon'
 import { getJobName } from '@/data/jobs'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
+import { useUIStore } from '@/store/uiStore'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useResourceHoverData } from '@/hooks/useResourceHoverData'
 import type { ResourceWidget } from '@/utils/resource/hoverSnapshot'
@@ -32,6 +33,7 @@ function renderWidget(w: ResourceWidget) {
 export default function ResourceHoverPanel() {
   const time = useResourceHoverStore(s => s.time)
   const cursor = useResourceHoverStore(s => s.cursor)
+  const showResourceHover = useUIStore(s => s.showResourceHover)
   const { filteredDamageEvents } = useFilteredTimelineView()
   const { getSnapshotAt } = useResourceHoverData()
   const ref = useRef<HTMLDivElement>(null)
@@ -64,7 +66,7 @@ export default function ResourceHoverPanel() {
     )
   }, [time, cursor, members.length, castingEvents.length])
 
-  if (time == null || !cursor || members.length === 0) return null
+  if (!showResourceHover || time == null || !cursor || members.length === 0) return null
 
   return (
     <div

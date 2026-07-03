@@ -74,28 +74,35 @@ export function computeLitCellsByEvent(
   return result
 }
 
+/** cast 起点格的载荷：显示变体 id + cast 的使用时刻（悬浮资源预览用） */
+export interface CastMarker {
+  actionId: number
+  castTime: number
+}
+
 /**
  * 为每个 cast 找到它之后的第一个伤害事件，把该 (damageEvent, playerId, trackGroupId)
  * 组合标记为 "cast 起点"——表格视图用这个标记在使用时刻的下一格里画技能图标。
  *
- * 返回 `Map<damageEventId, Map<cellKey, actionId>>`：内层 Map 的 value 是该格实际
- * 住着的 cast 的**显示变体 id**（区别于 cellKey 里用的 trackGroupId）。渲染时用
- * `actionsById.get(actionId).icon` 显示正确的变体图标（如 buff 期的 37016）。
+ * 返回 `Map<damageEventId, Map<cellKey, CastMarker>>`：内层 Map 的 value 是该格实际
+ * 住着的 cast 的**显示变体 id**（区别于 cellKey 里用的 trackGroupId）与使用时刻。
+ * 渲染时用 `actionsById.get(actionId).icon` 显示正确的变体图标（如 buff 期的 37016），
+ * `castTime` 供悬浮图标时资源预览定位到技能使用时刻。
  *
  * cast 持久化的 `actionId` 是父 id，具体变体由 simulate 推导出的 `resolvedVariantByCastId`
  * 给出；缺失（计算未回来 / 无变体）时回退父 `castEvent.actionId`。归列仍按 trackGroup
  * （`castCellKey` 内的 `trackGroup ?? id`），不受变体影响。
  *
- * @returns Map<damageEventId, Map<cellKey, actionId>>
+ * @returns Map<damageEventId, Map<cellKey, CastMarker>>
  */
 export function computeCastMarkerCells(
   damageEvents: DamageEvent[],
   castEvents: CastEvent[],
   actionsById: Map<number, MitigationAction>,
   resolvedVariantByCastId: Map<string, number>
-): Map<string, Map<string, number>> {
+): Map<string, Map<string, CastMarker>> {
   const sorted = [...damageEvents].sort((a, b) => a.time - b.time)
-  const result = new Map<string, Map<string, number>>()
+  const result = new Map<string, Map<string, CastMarker>>()
   for (const castEvent of castEvents) {
     const firstAfter = sorted.find(e => e.time >= castEvent.timestamp)
     if (!firstAfter) continue
@@ -106,7 +113,7 @@ export function computeCastMarkerCells(
       result.set(firstAfter.id, map)
     }
     const variantId = resolvedVariantByCastId.get(castEvent.id) ?? castEvent.actionId
-    map.set(key, variantId)
+    map.set(key, { actionId: variantId, castTime: castEvent.timestamp })
   }
   return result
 }

@@ -112,6 +112,8 @@ export default function EditorToolbar({
     toggleShowCastStartTime,
     enableHpSimulation,
     toggleEnableHpSimulation,
+    showResourceHover,
+    toggleShowResourceHover,
     canvasTool,
     setCanvasTool,
   } = useUIStore()
@@ -453,6 +455,15 @@ export default function EditorToolbar({
                   }}
                 >
                   HP 模拟
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={showResourceHover}
+                  onCheckedChange={checked => {
+                    track('view-toggle-resource-hover', { checked })
+                    toggleShowResourceHover()
+                  }}
+                >
+                  资源预览
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
