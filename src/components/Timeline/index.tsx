@@ -1570,7 +1570,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   //   伤害轨/伤害注释 y：固定区，不随垂直滚动（timeRulerHeight 起）
   //   技能轨/技能注释 y：fixedAreaHeight + trackIndex*skillTrackHeight + ... - scrollTop
   const canvasLeft = labelColumnWidth + SCROLLBAR_WIDTH
-  const DAMAGE_CARD_WIDTH = 150
   // DamageEventCard: Group y = yOffset + row*LANE_ROW_HEIGHT + LANE_ROW_HEIGHT/2 (=18)
   // Rect local y=-15, height=30 → real span [base+3, base+33] where base = timeRulerHeight + row*LANE_ROW_HEIGHT
   const DAMAGE_CARD_RECT_HEIGHT = 30
@@ -1583,14 +1582,15 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     const objs: MarqueeObject[] = []
     // 伤害事件（固定区，y 不随垂直滚动）；只框选过滤后可见的事件，与渲染一致
     for (const event of filteredDamageEvents) {
-      const x0 = canvasLeft + event.time * zoomLevel - clampedScrollLeft
+      const geom = computeDamageCardGeometry(event, zoomLevel)
+      const x0 = canvasLeft + event.time * zoomLevel + geom.leftLocal - clampedScrollLeft
       const row = damageEventRowMap.get(event.id) ?? 0
       const y0 = timeRulerHeight + row * LANE_ROW_HEIGHT + DAMAGE_CARD_Y_OFFSET
       objs.push({
         id: event.id,
         kind: 'damage',
         x0,
-        x1: x0 + DAMAGE_CARD_WIDTH,
+        x1: x0 + geom.width,
         y0,
         y1: y0 + DAMAGE_CARD_RECT_HEIGHT,
       })

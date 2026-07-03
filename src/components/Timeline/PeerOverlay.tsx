@@ -17,6 +17,7 @@ import type { Annotation, DamageEvent, CastEvent } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { MitigationAction } from '@/types/mitigation'
 import { effectiveTrackGroup } from '@/types/mitigation'
+import { computeDamageCardGeometry } from './cardGeometry'
 
 /** 协作者名字标签:彩色底色 + 白色字体。x/y 为标签左上角。 */
 function PeerNameTag({ x, y, name, color }: { x: number; y: number; name: string; color: string }) {
@@ -129,9 +130,9 @@ export function PeerOverlayFixed({
       const ev = damageEventById.get(eventId)
       const row = damageEventRowMap.get(eventId)
       if (ev != null && row != null) {
-        const CARD_W = 150
         const CARD_H = 30
-        const cardX = ev.time * zoomLevel
+        const geom = computeDamageCardGeometry(ev, zoomLevel)
+        const cardX = ev.time * zoomLevel + geom.leftLocal
         const cardY = yOffset + row * rowHeight + (rowHeight - CARD_H) / 2
 
         // 拖动自己选中的伤害事件时,初始位置选框不重复画昵称(昵称跟随实时 ghost)
@@ -156,7 +157,7 @@ export function PeerOverlayFixed({
             <Rect
               x={cardX}
               y={cardY}
-              width={CARD_W}
+              width={geom.width}
               height={CARD_H}
               stroke={peer.user.color}
               strokeWidth={2}
@@ -176,16 +177,16 @@ export function PeerOverlayFixed({
       const ev = damageEventById.get(dragId)
       const row = damageEventRowMap.get(dragId)
       if (ev != null && row != null) {
-        const CARD_W = 150
         const CARD_H = 30
-        const ghostX = dragTime * zoomLevel
+        const geom = computeDamageCardGeometry(ev, zoomLevel)
+        const ghostX = dragTime * zoomLevel + geom.leftLocal
         const ghostY = yOffset + row * rowHeight + (rowHeight - CARD_H) / 2
         nodes.push(
           <Fragment key={`peer-ghost-dmg-${peer.clientId}`}>
             <Rect
               x={ghostX}
               y={ghostY}
-              width={CARD_W}
+              width={geom.width}
               height={CARD_H}
               fill={peer.user.color}
               opacity={0.55}
@@ -256,16 +257,16 @@ export function PeerOverlayFixed({
         const ev = damageEventById.get(eventId)
         const row = damageEventRowMap.get(eventId)
         if (ev == null || row == null) continue
-        const CARD_W = 150
         const CARD_H = 30
-        const ghostX = (ev.time + delta) * zoomLevel
+        const geom = computeDamageCardGeometry(ev, zoomLevel)
+        const ghostX = (ev.time + delta) * zoomLevel + geom.leftLocal
         const ghostY = yOffset + row * rowHeight + (rowHeight - CARD_H) / 2
         nodes.push(
           <Rect
             key={`${peer.clientId}-group-dmg-${eventId}`}
             x={ghostX}
             y={ghostY}
-            width={CARD_W}
+            width={geom.width}
             height={CARD_H}
             fill={peer.user.color}
             opacity={0.55}
