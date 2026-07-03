@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { Clock } from 'lucide-react'
 import JobIcon from '@/components/JobIcon'
 import { getJobName } from '@/data/jobs'
 import { formatTimeWithDecimal } from '@/utils/formatters'
@@ -55,8 +56,12 @@ export default function ResourceHoverPanel() {
       className="fixed z-50 pointer-events-none w-fit rounded-lg border border-[hsl(var(--border)/0.4)] bg-[hsl(var(--popover)/0.4)] shadow-xl p-4 text-popover-foreground backdrop-blur-2xl"
       style={{ left: pos.left, top: pos.top }}
     >
-      <div className="mb-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-        T{formatTimeWithDecimal(time)}
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <span className="text-sm font-bold">资源预览</span>
+        <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          {formatTimeWithDecimal(time)}
+        </span>
       </div>
       <div className="flex flex-col gap-2.5">
         {members.map(m => (
