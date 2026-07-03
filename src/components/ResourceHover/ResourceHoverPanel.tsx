@@ -4,9 +4,11 @@ import JobIcon from '@/components/JobIcon'
 import { getJobName } from '@/data/jobs'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
+import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useResourceHoverData } from '@/hooks/useResourceHoverData'
 import type { ResourceWidget } from '@/utils/resource/hoverSnapshot'
 import { clampPanelPosition } from './panelPosition'
+import BossCastBar from './BossCastBar'
 import CooldownWidget from './CooldownWidget'
 import ProgressBarWidget from './ProgressBarWidget'
 import LightsWidget from './LightsWidget'
@@ -30,11 +32,25 @@ function renderWidget(w: ResourceWidget) {
 export default function ResourceHoverPanel() {
   const time = useResourceHoverStore(s => s.time)
   const cursor = useResourceHoverStore(s => s.cursor)
+  const { filteredDamageEvents } = useFilteredTimelineView()
   const { getSnapshotAt } = useResourceHoverData()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ left: 0, top: 0 })
 
   const members = time != null ? getSnapshotAt(time) : []
+
+  // 当前时刻正在读条的伤害事件（castStartTime/castEndTime 成对存在才视为有读条）；
+  // 用过滤后的事件集，被 FilterPreset 过滤掉的事件不显示读条
+  const castingEvents =
+    time != null
+      ? filteredDamageEvents.filter(
+          e =>
+            e.castStartTime != null &&
+            e.castEndTime != null &&
+            time >= e.castStartTime &&
+            time <= e.castEndTime
+        )
+      : []
 
   useLayoutEffect(() => {
     if (time == null || !cursor || !ref.current) return
@@ -46,7 +62,7 @@ export default function ResourceHoverPanel() {
         { width: window.innerWidth, height: window.innerHeight }
       )
     )
-  }, [time, cursor, members.length])
+  }, [time, cursor, members.length, castingEvents.length])
 
   if (time == null || !cursor || members.length === 0) return null
 
@@ -63,6 +79,16 @@ export default function ResourceHoverPanel() {
           {formatTimeWithDecimal(time)}
         </span>
       </div>
+      {castingEvents.map(e => (
+        <div key={e.id} className="mb-2">
+          <BossCastBar
+            name={e.name}
+            fraction={
+              (time - e.castStartTime!) / Math.max(e.castEndTime! - e.castStartTime!, 0.001)
+            }
+          />
+        </div>
+      ))}
       <div className="flex flex-col gap-2.5">
         {members.map(m => (
           // gap-2：菱形指示灯旋转后向上视觉外扩约 2.5px，行距过小会显得贴在一起
