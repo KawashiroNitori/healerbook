@@ -2,6 +2,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../env'
 import type { TimelineDoc } from '../durable/TimelineDoc'
+import { requireSyncToken } from '../middleware/requireSyncToken'
 
 const app = new Hono<AppEnv>()
 
@@ -12,12 +13,12 @@ const app = new Hono<AppEnv>()
  * /connect 时把 timelineId 存进了 storage('docId')。这里用 `idFromString(hex)`
  * 把日志里的 64 位 hex 还原成 DO 引用,直连后让它自报 docId,再补充 D1 元信息。
  *
- * GET /api/internal/do-lookup?doId=<hex>  (暂不鉴权)
+ * GET /api/internal/do-lookup?doId=<hex>  (需 sync token，与 /migrate 一致)
  *   200 { doId, timelineId, name, authorId, authorName }
  *   404 { doId, timelineId: null }   —— 该 DO 从未 /connect(无对应 timeline)
  *   400 invalid / missing doId
  */
-app.get('/do-lookup', async c => {
+app.get('/do-lookup', requireSyncToken, async c => {
   const doId = c.req.query('doId')?.trim()
   if (!doId) return c.json({ error: 'missing doId' }, 400)
 
