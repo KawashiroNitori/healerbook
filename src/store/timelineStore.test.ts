@@ -11,6 +11,7 @@ import * as Y from 'yjs'
 import { useTimelineStore } from './timelineStore'
 import type { Composition, DamageEvent, CastEvent, SyncEvent } from '@/types/timeline'
 import type { TimelineContent } from '@/collab/types'
+import type { EncounterStatistics } from '@/types/mitigation'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
 import { buildYDoc } from '@/collab/docSchema'
 
@@ -74,6 +75,19 @@ describe('timelineStore - 状态管理', () => {
       const timeline = useTimelineStore.getState().timeline
       expect(timeline?.id).toBe('test-timeline')
       expect(timeline?.name).toBe('测试时间轴')
+    })
+  })
+
+  describe('会话重置', () => {
+    it('openTimeline 应清空上一文档残留的 statistics', async () => {
+      const store = useTimelineStore.getState()
+      // 模拟上一个文档留下的统计数据（仅需 truthy 对象，字段不参与断言）
+      store.setStatistics({ players: [] } as unknown as EncounterStatistics)
+      expect(useTimelineStore.getState().statistics).not.toBeNull()
+
+      await store.openTimeline('doc-b', { role: 'local', seedContent: baseContent })
+
+      expect(useTimelineStore.getState().statistics).toBeNull()
     })
   })
 

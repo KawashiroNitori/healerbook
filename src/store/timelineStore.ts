@@ -254,6 +254,31 @@ const initialUiState = {
   peers: [] as PeerState[],
 }
 
+/**
+ * 打开 / 切换文档时必须清零的会话态。
+ * openTimeline 与 setViewerSnapshot 共用，防止两处手写清单漂移
+ * （历史 bug：两处都漏了 statistics/partyState，切文档后旧副本统计残留）。
+ * 注意：不含 zoomLevel / 滚动等视口态——切文档保留视口是既有行为。
+ */
+const sessionResetFields = {
+  engine: null,
+  yDocProjection: null,
+  yDocReady: false,
+  canUndo: false,
+  canRedo: false,
+  connectionStatus: 'disconnected' as ConnectionStatus,
+  pendingRequestCount: 0,
+  peers: [] as PeerState[],
+  partyState: null,
+  statistics: null,
+  selectedEventId: null,
+  selectedCastEventId: null,
+  selectedEventIds: [] as string[],
+  selectedCastEventIds: [] as string[],
+  selectedAnnotationIds: [] as string[],
+  selectionFromSelectAll: false,
+}
+
 /** 由多选数组派生旧的单选字段：仅当总选中数==1 且为该类型时给出 id */
 function deriveSingle(sel: {
   eventIds: string[]
@@ -418,23 +443,10 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       // 重置三源:snapshot 来自 opts(可为 undefined),yDocProjection / yDocReady 清空
       // timeline 由紧随其后的 recomputeTimeline() 派生写入(yDocProjection ?? snapshot)
       set({
-        engine: null,
-        yDocProjection: null,
+        ...sessionResetFields,
         snapshot: opts.snapshot ?? null,
-        yDocReady: false,
-        selectedEventId: null,
-        selectedCastEventId: null,
-        selectedEventIds: [],
-        selectedCastEventIds: [],
-        selectedAnnotationIds: [],
-        selectionFromSelectAll: false,
-        canUndo: false,
-        canRedo: false,
-        connectionStatus: 'disconnected',
-        pendingRequestCount: 0,
         isPublished: opts.role !== 'local',
         sessionRole: opts.role,
-        peers: [],
       })
       recomputeTimeline()
       useUIStore.setState({ manualLock: false })
@@ -510,23 +522,10 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }
       // timeline 由紧随其后的 recomputeTimeline() 派生写入(yDocProjection ?? snapshot)
       set({
-        engine: null,
-        yDocProjection: null,
+        ...sessionResetFields,
         snapshot: timeline,
-        yDocReady: false,
         isPublished: true,
         sessionRole: 'viewer',
-        connectionStatus: 'disconnected',
-        pendingRequestCount: 0,
-        canUndo: false,
-        canRedo: false,
-        selectedEventId: null,
-        selectedCastEventId: null,
-        selectedEventIds: [],
-        selectedCastEventIds: [],
-        selectedAnnotationIds: [],
-        selectionFromSelectAll: false,
-        peers: [],
       })
       recomputeTimeline()
       useUIStore.setState({ manualLock: false })
