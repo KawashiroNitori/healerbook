@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useMitigationStore } from '@/store/mitigationStore'
 import { useUIStore } from '@/store/uiStore'
+import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useFilterStore } from '@/store/filterStore'
@@ -290,6 +291,8 @@ export default function TimelineTableView() {
         moved = true
         document.body.style.cursor = 'grabbing'
         document.body.style.userSelect = 'none'
+        // 拖动平移时隐藏资源预览悬浮窗（并阻止单元格 mousemove 重新触发）
+        useResourceHoverStore.getState().setDragging(true)
       }
       wrapper.scrollLeft = sl - dx
       wrapper.scrollTop = st - dy
@@ -299,6 +302,7 @@ export default function TimelineTableView() {
     const onUp = () => {
       if (!dragging) return
       dragging = false
+      useResourceHoverStore.getState().setDragging(false)
       if (moved) {
         moved = false
         document.body.style.cursor = ''

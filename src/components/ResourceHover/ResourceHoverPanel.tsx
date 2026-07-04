@@ -15,6 +15,10 @@ import ProgressBarWidget from './ProgressBarWidget'
 import LightsWidget from './LightsWidget'
 import LightsWithBarWidget from './LightsWithBarWidget'
 
+// 悬浮窗固定宽度：内容区刚好容纳一行 8 个技能 icon
+// = 8×32px(icon h-8/w-8) + 7×6px(gap-1.5) + 2×16px(p-4) + 2×1px(border)
+const PANEL_WIDTH = 8 * 32 + 7 * 6 + 2 * 16 + 2
+
 function renderWidget(w: ResourceWidget) {
   switch (w.style) {
     case 'cooldown':
@@ -71,8 +75,8 @@ export default function ResourceHoverPanel() {
   return (
     <div
       ref={ref}
-      className="fixed z-50 pointer-events-none w-fit rounded-lg border border-[hsl(var(--border)/0.4)] bg-[hsl(var(--popover)/0.4)] shadow-xl p-4 text-popover-foreground backdrop-blur-2xl"
-      style={{ left: pos.left, top: pos.top }}
+      className="fixed z-50 pointer-events-none rounded-lg border border-[hsl(var(--border)/0.4)] bg-[hsl(var(--popover)/0.4)] shadow-xl p-4 text-popover-foreground backdrop-blur-2xl"
+      style={{ left: pos.left, top: pos.top, width: PANEL_WIDTH }}
     >
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <span className="text-sm font-bold">资源预览</span>

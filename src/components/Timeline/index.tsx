@@ -482,6 +482,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             hoverTimeRef.current = null
             hoverTrackIndexRef.current = null
             hideCrosshair()
+            // 拖动平移时隐藏资源预览悬浮窗
+            useResourceHoverStore.getState().clearHover()
           }
           return
         }
