@@ -2,13 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { env, SELF } from 'cloudflare:test'
 
 describe('GET /api/internal/do-lookup', () => {
+  const authHeaders = { Authorization: 'Bearer test-sync-token' }
+
   it('缺 doId 返回 400', async () => {
-    const res = await SELF.fetch('https://app/api/internal/do-lookup')
+    const res = await SELF.fetch('https://app/api/internal/do-lookup', {
+      headers: authHeaders,
+    })
     expect(res.status).toBe(400)
   })
 
   it('非法 doId 返回 400', async () => {
-    const res = await SELF.fetch('https://app/api/internal/do-lookup?doId=not-a-valid-hex')
+    const res = await SELF.fetch('https://app/api/internal/do-lookup?doId=not-a-valid-hex', {
+      headers: authHeaders,
+    })
     expect(res.status).toBe(400)
   })
 
@@ -29,7 +35,9 @@ describe('GET /api/internal/do-lookup', () => {
     })
 
     const hex = env.TIMELINE_DOC.idFromName(docName).toString()
-    const res = await SELF.fetch(`https://app/api/internal/do-lookup?doId=${hex}`)
+    const res = await SELF.fetch(`https://app/api/internal/do-lookup?doId=${hex}`, {
+      headers: authHeaders,
+    })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({
       doId: hex,
@@ -42,8 +50,17 @@ describe('GET /api/internal/do-lookup', () => {
 
   it('合法但从未 /connect 的 DO 返回 404', async () => {
     const hex = env.TIMELINE_DOC.idFromName('diagLookupNever0001').toString()
-    const res = await SELF.fetch(`https://app/api/internal/do-lookup?doId=${hex}`)
+    const res = await SELF.fetch(`https://app/api/internal/do-lookup?doId=${hex}`, {
+      headers: authHeaders,
+    })
     expect(res.status).toBe(404)
     expect(await res.json()).toMatchObject({ timelineId: null })
+  })
+
+  it('缺少 Authorization 头返回 401', async () => {
+    const res = await SELF.fetch(
+      'https://app/api/internal/do-lookup?doId=00000000000000000000000000000000'
+    )
+    expect(res.status).toBe(401)
   })
 })
