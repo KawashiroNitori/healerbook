@@ -1,21 +1,10 @@
 import type { MiddlewareHandler } from 'hono'
 import type { AppEnv } from '../env'
-import { verifyToken } from '../jwt'
+import { readAuthFromHeader } from './readAuthFromHeader'
 
 export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const header = c.req.header('Authorization')
-  if (!header?.startsWith('Bearer ')) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-  if (!c.env.JWT_SECRET) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-  const token = header.slice(7)
-  const result = await verifyToken(token, c.env.JWT_SECRET)
-  if (!result.ok || !result.payload.sub) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-  const name = (result.payload as { name?: string }).name ?? ''
-  c.set('auth', { userId: result.payload.sub, username: name })
+  const auth = await readAuthFromHeader(c)
+  if (!auth) return c.json({ error: 'Unauthorized' }, 401)
+  c.set('auth', auth)
   await next()
 }

@@ -4,7 +4,7 @@ import { vValidator } from '@hono/valibot-validator'
 import * as v from 'valibot'
 import type { AppEnv } from '../env'
 import { requireAuth } from '../middleware/requireAuth'
-import { tryReadAuth } from '../middleware/tryReadAuth'
+import { readAuthFromHeader } from '../middleware/readAuthFromHeader'
 import * as sensitiveWordFilter from '../sensitiveWordFilter'
 import { generateId } from '@/utils/id'
 import { fromBase64 } from 'lib0/buffer'
@@ -109,7 +109,7 @@ app.get('/:id', async c => {
   if (!row) return c.json({ error: 'Not found' }, 404)
 
   const allowEditRequests = row.allow_edit_requests === 1
-  const user = await tryReadAuth(c)
+  const user = await readAuthFromHeader(c)
   let role: 'editor' | 'viewer' = 'viewer'
   let isAuthor = false
   let hasPendingRequest = false
