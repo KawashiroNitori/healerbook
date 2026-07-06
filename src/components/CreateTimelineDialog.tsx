@@ -24,7 +24,8 @@ import {
 } from '@/components/ui/select'
 import { RAID_TIERS } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
-import { fetchEncounterTemplate, type EncounterTemplateResponse } from '@/api/encounterTemplate'
+import { fetchEncounterTemplate } from '@/api/encounterTemplate'
+import type { EncounterTemplateResponse } from '@/types/apiContracts'
 
 // 妖星乱舞绝境战置顶展示，其余副本保持原有顺序
 const PRIORITY_ENCOUNTER_ID = 1085

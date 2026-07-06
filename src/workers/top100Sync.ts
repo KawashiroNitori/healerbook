@@ -14,7 +14,7 @@ import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import { calculatePercentile } from '@/utils/stats'
 import type { DamageEvent } from '@/types/timeline'
-import type { Top100Data } from '@/types/apiContracts'
+import type { EncounterTemplateResponse, Top100Data } from '@/types/apiContracts'
 import {
   parseDamageEvents,
   parseComposition,
@@ -532,19 +532,22 @@ export async function handleGetEncounterTemplate(
   }
   const data = await kv.get(getEncounterTemplateKVKey(encounterId), 'json')
   if (!data) {
-    return new Response(
-      JSON.stringify({ events: [], updatedAt: null, templateSourceDurationMs: null, kill: false }),
-      { headers }
-    )
+    const empty: EncounterTemplateResponse = {
+      events: [],
+      updatedAt: null,
+      templateSourceDurationMs: null,
+      kill: false,
+    }
+    return new Response(JSON.stringify(empty), { headers })
   }
   const template = data as EncounterTemplate
-  return new Response(
-    JSON.stringify({
-      events: template.events,
-      updatedAt: template.updatedAt,
-      templateSourceDurationMs: template.templateSourceDurationMs,
-      kill: template.kill ?? false,
-    }),
-    { headers }
-  )
+  // 裁掉内部字段 abilityId，使线上响应与契约一致
+  const body: EncounterTemplateResponse = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    events: template.events.map(({ abilityId: _abilityId, ...e }) => e),
+    updatedAt: template.updatedAt,
+    templateSourceDurationMs: template.templateSourceDurationMs,
+    kill: template.kill ?? false,
+  }
+  return new Response(JSON.stringify(body), { headers })
 }

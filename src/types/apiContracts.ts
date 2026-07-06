@@ -6,7 +6,7 @@
  * 不属于契约，留在各自模块内部。
  */
 
-import type { Composition, Timeline } from './timeline'
+import type { Composition, DamageEvent, Timeline } from './timeline'
 
 /** GET /api/my/timelines 的列表项 */
 export interface MyTimelineListItem {
@@ -70,3 +70,13 @@ export interface Top100Data {
 /** GET /api/top100 的响应体：encounterId → 数据；KV 未同步时为 null。
  *  JSON 序列化后对象 key 实为字符串，Record<number, ...> 是语义标注，结构兼容。 */
 export type Top100AllResponse = Record<number, Top100Data | null>
+
+/** GET /api/encounter-templates/:encounterId 的响应体（不含 encounterId，由调用方自行持有） */
+export interface EncounterTemplateResponse {
+  events: DamageEvent[]
+  updatedAt: string | null
+  /** 模板来源战斗的时长（毫秒），即当前进度最长那次；无模板时为 null */
+  templateSourceDurationMs: number | null
+  /** 模板来源战斗是否为击杀；为 true 时前端显示"已更新完成"而非时长进度条 */
+  kill: boolean
+}
