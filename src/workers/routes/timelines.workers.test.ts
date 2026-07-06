@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { env, SELF } from 'cloudflare:test'
 import * as Y from 'yjs'
 import { toBase64 } from 'lib0/buffer'
 import { signAccessToken } from '@/workers/jwt'
+import { app } from '@/workers/index'
+import * as sensitiveWordFilter from '@/workers/sensitiveWordFilter'
 
 // 作者固定 userId，与发布时一致（发布后自动入 timeline_editors）
 const AUTHOR_USER_ID = 'author-1'
@@ -227,6 +229,102 @@ describe('GET /api/timelines/:id role', () => {
     const cacheControl = res.headers.get('Cache-Control') ?? ''
     expect(cacheControl).not.toContain('max-age')
     expect(cacheControl).toContain('no-cache')
+  })
+})
+
+describe('POST 敏感词 id 换发', () => {
+  it('客户端 id 命中敏感词时服务端换发干净 id', async () => {
+    const spy = vi
+      .spyOn(sensitiveWordFilter, 'containsBannedSubstring')
+      .mockResolvedValueOnce(true) // 请求的 id 命中
+      .mockResolvedValue(false) // 后续候选全部干净
+    try {
+      const res = await app.request(
+        'https://app/api/timelines',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${await authorJwt()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: 'banned-id', name: 'x' }),
+        },
+        env
+      )
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { id: string }
+      expect(body.id).not.toBe('banned-id')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('重生成 32 次仍全命中时返回 500 id_generation_failed', async () => {
+    const spy = vi.spyOn(sensitiveWordFilter, 'containsBannedSubstring').mockResolvedValue(true)
+    try {
+      const res = await app.request(
+        'https://app/api/timelines',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${await authorJwt()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: 'always-banned', name: 'x' }),
+        },
+        env
+      )
+      expect(res.status).toBe(500)
+      expect(((await res.json()) as { error: string }).error).toBe('id_generation_failed')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
+describe('POST/DELETE 校验与鉴权（自手写 mock 套件迁移）', () => {
+  it('POST 无 Authorization 头返回 401', async () => {
+    const res = await SELF.fetch('https://app/api/timelines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'no-auth-post', name: 'x' }),
+    })
+    expect(res.status).toBe(401)
+  })
+
+  it('POST id 为空字符串返回 400', async () => {
+    const res = await SELF.fetch('https://app/api/timelines', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await authorJwt()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: '', name: 'x' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST id 超过 64 字符返回 400', async () => {
+    const res = await SELF.fetch('https://app/api/timelines', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await authorJwt()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'x'.repeat(65), name: 'x' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST id 已存在返回 409 id_taken', async () => {
+    await publishOne('dup-id-409', 'first')
+    const res = await SELF.fetch('https://app/api/timelines', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await authorJwt()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'dup-id-409', name: 'second' }),
+    })
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { error: string }).error).toBe('id_taken')
+  })
+
+  it('DELETE 未登录返回 401', async () => {
+    await publishOne('del-noauth', 'x')
+    const res = await SELF.fetch('https://app/api/timelines/del-noauth', { method: 'DELETE' })
+    expect(res.status).toBe(401)
   })
 })
 
