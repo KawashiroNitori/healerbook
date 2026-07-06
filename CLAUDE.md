@@ -40,6 +40,7 @@ Healerbook 是一个专为 FF14 治疗职业设计的减伤技能规划工具，
 - **网络**：ky（HTTP，带 token 自动续期）、graphql-request（FFLogs GraphQL）
 - **后端 / 部署**：Cloudflare Workers + Pages + D1 + KV + Queues
 - **测试**：Vitest 4（测试文件与源文件同目录 `*.test.ts`）
+- **API 契约**：`src/types/apiContracts.ts` 是前后端共享的请求/响应类型单源，Workers 路由与前端 api 客户端共同引用，字段漂移在编译期暴露
 
 ## 常用命令
 
@@ -89,18 +90,20 @@ src/
 
 ## 关键文件说明
 
-| 文件                                | 说明                                      |
-| ----------------------------------- | ----------------------------------------- |
-| `src/api/apiClient.ts`              | ky 客户端，含 401 自动续期逻辑            |
-| `src/utils/mitigationCalculator.ts` | 减伤计算引擎（`MitigationCalculator` 类） |
-| `src/utils/statusRegistry.ts`       | 状态 ID → 元数据映射（引用 keigenn.ts）   |
-| `src/utils/fflogsImporter.ts`       | FFLogs 数据解析入口                       |
-| `src/data/mitigationActions.ts`     | 技能定义                                  |
-| `src/data/jobs.ts`                  | 职业定义及角色分类                        |
-| `src/workers/index.ts`              | Workers Hono 入口，按功能域挂载路由       |
-| `src/workers/routes/timelines.ts`   | 共享时间轴 D1 CRUD（含版本冲突检测）      |
-| `src/workers/jwt.ts`                | JWT 签发与验证（jose）                    |
-| `src/components/Timeline/index.tsx` | 时间轴主组件（Canvas 交互核心）           |
+| 文件                                | 说明                                                 |
+| ----------------------------------- | ---------------------------------------------------- |
+| `src/api/apiClient.ts`              | ky 客户端，含 401 自动续期逻辑                       |
+| `src/utils/mitigationCalculator.ts` | 减伤计算引擎（`MitigationCalculator` 类）            |
+| `src/utils/statusRegistry.ts`       | 状态 ID → 元数据映射（引用 keigenn.ts）              |
+| `src/utils/fflogsImporter.ts`       | FFLogs 数据解析入口                                  |
+| `src/data/mitigationActions.ts`     | 技能定义                                             |
+| `src/data/jobs.ts`                  | 职业定义及角色分类                                   |
+| `src/workers/index.ts`              | Workers Hono 入口，按功能域挂载路由                  |
+| `src/workers/routes/timelines.ts`   | 共享时间轴 D1 CRUD（发布 / 公开读 / 删除）           |
+| `src/workers/db/editors.ts`         | timeline_editors / timeline_edit_requests 数据访问层 |
+| `src/workers/jwt.ts`                | JWT 签发与验证（jose）                               |
+| `src/types/apiContracts.ts`         | 前后端 API 契约单源                                  |
+| `src/components/Timeline/index.tsx` | 时间轴主组件（Canvas 交互核心）                      |
 
 ## 核心概念
 
@@ -210,9 +213,14 @@ state.timeline.damageEvents.push(newEvent)
 /api/internal            → routes/internalDiag.ts（DO 诊断查询，sync token）
 ```
 
-中间件在 `src/workers/middleware/`：`requireAuth`（JWT 必需）、`tryReadAuth`（可选读取）、
-`requireSyncToken`（内部/同步端点）。协作文档 Durable Object 在 `src/workers/durable/TimelineDoc.ts`，
-其 SQLite 存储封装在 `src/workers/collab/doSqlStore.ts`。
+中间件在 `src/workers/middleware/`：`requireAuth`（JWT 必需，401 短路）、`readAuthFromHeader`（可选读取，
+无副作用解析，失败时如何处理由调用方决定）、`requireSyncToken`（内部/同步端点）。协作文档 Durable Object
+在 `src/workers/durable/TimelineDoc.ts`，其 stub 获取封装在 `src/workers/durable/stub.ts`
+（`docStub(env, id)`），SQLite 存储封装在 `src/workers/collab/doSqlStore.ts`。D1 数据访问层集中在
+`src/workers/db/editors.ts`（timeline_editors / timeline_edit_requests）。TOP100 相关的 KV key 构造
+（`src/workers/kvKeys.ts`）、统计聚合（`src/workers/encounterStats.ts`）、副本模板构建
+（`src/workers/encounterTemplate.ts`）已从 `top100Sync.ts` 拆出，后者职责收敛为 TOP100 同步编排 +
+FFLogs 数据提取。
 
 ### Konva 性能
 
@@ -225,5 +233,5 @@ state.timeline.damageEvents.push(newEvent)
 
 ---
 
-**最后更新**: 2026-07-03
+**最后更新**: 2026-07-06
 **线上地址**: https://xivhealer.com
