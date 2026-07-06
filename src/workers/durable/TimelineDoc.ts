@@ -18,6 +18,7 @@ import { verifyToken } from '../jwt'
 import { projectTimeline } from '@/collab/docSchema'
 import { Y_MAP } from '@/collab/constants'
 import type { Timeline } from '@/types/timeline'
+import { countPendingEditRequests, isEditor } from '../db/editors'
 
 /** 挂在每个 WebSocket 上的鉴权状态(扛 hibernation) */
 interface SocketAttachment {
@@ -169,11 +170,7 @@ export class TimelineDoc extends DurableObject<Env> {
     }
     const userId = result.payload.sub
     const name = typeof result.payload.name === 'string' ? result.payload.name : undefined
-    const row = await this.env.healerbook_timelines
-      .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
-      .bind(this.docId(), userId)
-      .first()
-    if (!row) {
+    if (!(await isEditor(this.env.healerbook_timelines, this.docId(), userId))) {
       ws.close(1008, 'not an editor')
       return
     }
@@ -252,11 +249,8 @@ export class TimelineDoc extends DurableObject<Env> {
       .bind(timelineId)
       .first<{ author_id: string }>()
     if (!authorRow) return
-    const countRow = await this.env.healerbook_timelines
-      .prepare('SELECT COUNT(*) AS n FROM timeline_edit_requests WHERE timeline_id = ?')
-      .bind(timelineId)
-      .first<{ n: number }>()
-    const frame = encodeMessage(MSG.EDIT_REQUEST, encodeEditRequest(countRow?.n ?? 0))
+    const count = await countPendingEditRequests(this.env.healerbook_timelines, timelineId)
+    const frame = encodeMessage(MSG.EDIT_REQUEST, encodeEditRequest(count))
     for (const ws of this.ctx.getWebSockets()) {
       const att = (ws.deserializeAttachment() ?? { authed: false }) as SocketAttachment
       if (att.authed && att.userId === authorRow.author_id) {

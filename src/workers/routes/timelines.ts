@@ -11,6 +11,14 @@ import { fromBase64 } from 'lib0/buffer'
 import type { TimelineDoc } from '../durable/TimelineDoc'
 import type { SharedTimelineResponse } from '@/types/apiContracts'
 import type { Timeline } from '@/types/timeline'
+import {
+  countPendingEditRequests,
+  deleteAllEditRequests,
+  deleteAllEditors,
+  hasPendingEditRequest,
+  insertEditorStatement,
+  isEditor,
+} from '../db/editors'
 
 const PublishTimelineRequestSchema = v.object({
   id: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
@@ -72,12 +80,7 @@ app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), asy
     return c.json({ error: 'id_taken' }, 409)
   }
 
-  await c.env.healerbook_timelines
-    .prepare(
-      'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, created_at) VALUES (?,?,?)'
-    )
-    .bind(id, auth.userId, Date.now())
-    .run()
+  await insertEditorStatement(c.env.healerbook_timelines, id, auth.userId).run()
 
   // 携带初始内容时:把本地 Y.Doc seed 进 DO,并预写 KV 快照,
   // 使公开读(含匿名 viewer)发布后立即可见,无需等作者首次 /connect。
@@ -117,24 +120,12 @@ app.get('/:id', async c => {
   let pendingRequestCount = 0
   if (user) {
     isAuthor = user.userId === row.author_id
-    const editorRow = await c.env.healerbook_timelines
-      .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
-      .bind(id, user.userId)
-      .first()
-    if (editorRow) role = 'editor'
+    if (await isEditor(c.env.healerbook_timelines, id, user.userId)) role = 'editor'
     if (role === 'viewer') {
-      const reqRow = await c.env.healerbook_timelines
-        .prepare('SELECT 1 FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
-        .bind(id, user.userId)
-        .first()
-      hasPendingRequest = reqRow != null
+      hasPendingRequest = await hasPendingEditRequest(c.env.healerbook_timelines, id, user.userId)
     }
     if (isAuthor) {
-      const countRow = await c.env.healerbook_timelines
-        .prepare('SELECT COUNT(*) AS n FROM timeline_edit_requests WHERE timeline_id = ?')
-        .bind(id)
-        .first<{ n: number }>()
-      pendingRequestCount = countRow?.n ?? 0
+      pendingRequestCount = await countPendingEditRequests(c.env.healerbook_timelines, id)
     }
   }
 
@@ -184,7 +175,7 @@ app.get('/:id/connect', async c => {
   return docStub(c.env, id).fetch(fwd)
 })
 
-// 删除:删 D1 行 + KV + timeline_editors
+// 删除:删 D1 行 + KV + timeline_editors + timeline_edit_requests
 app.delete('/:id', requireAuth, async c => {
   const auth = c.get('auth')!
   const id = c.req.param('id')
@@ -194,10 +185,8 @@ app.delete('/:id', requireAuth, async c => {
     .run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found or forbidden' }, 404)
   await c.env.healerbook_snapshots.delete(`tl-snapshot:${id}`)
-  await c.env.healerbook_timelines
-    .prepare('DELETE FROM timeline_editors WHERE timeline_id = ?')
-    .bind(id)
-    .run()
+  await deleteAllEditors(c.env.healerbook_timelines, id)
+  await deleteAllEditRequests(c.env.healerbook_timelines, id)
   // 清空 Durable Object 存储:DO 经 idFromName 取得会被复用,
   // 不清空则同 id 重新发布会复活旧内容
   await docStub(c.env, id).purge()

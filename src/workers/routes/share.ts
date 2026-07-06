@@ -5,6 +5,16 @@ import * as v from 'valibot'
 import type { AppEnv } from '../env'
 import { requireAuth } from '../middleware/requireAuth'
 import { docStub } from './timelines'
+import {
+  deleteEditRequestStatement,
+  findEditRequest,
+  insertEditRequestStatement,
+  insertEditorStatement,
+  isEditor,
+  listEditors,
+  listEditRequests,
+  removeEditor,
+} from '../db/editors'
 
 const app = new Hono<AppEnv>()
 
@@ -33,28 +43,13 @@ app.get('/:id/share', requireAuth, async c => {
   const author = await findAuthor(c.env, id, auth.userId)
   if (!author) return c.json({ error: 'Forbidden' }, 403)
 
-  const editors = await c.env.healerbook_timelines
-    .prepare(
-      'SELECT user_id, user_name FROM timeline_editors WHERE timeline_id = ? AND user_id != ? ORDER BY created_at'
-    )
-    .bind(id, author.author_id)
-    .all<{ user_id: string; user_name: string }>()
-
-  const applicants = await c.env.healerbook_timelines
-    .prepare(
-      'SELECT user_id, user_name, created_at FROM timeline_edit_requests WHERE timeline_id = ? ORDER BY created_at'
-    )
-    .bind(id)
-    .all<{ user_id: string; user_name: string; created_at: number }>()
+  const editors = await listEditors(c.env.healerbook_timelines, id, author.author_id)
+  const applicants = await listEditRequests(c.env.healerbook_timelines, id)
 
   return c.json({
     allowEditRequests: author.allow_edit_requests === 1,
-    editors: editors.results.map(r => ({ userId: r.user_id, userName: r.user_name })),
-    applicants: applicants.results.map(r => ({
-      userId: r.user_id,
-      userName: r.user_name,
-      createdAt: r.created_at,
-    })),
+    editors,
+    applicants,
   })
 })
 
@@ -85,20 +80,18 @@ app.post('/:id/edit-requests', requireAuth, async c => {
     .first<{ allow_edit_requests: number }>()
   if (!tl) return c.json({ error: 'Not found' }, 404)
 
-  const editor = await c.env.healerbook_timelines
-    .prepare('SELECT 1 FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
-    .bind(id, auth.userId)
-    .first()
-  if (editor) return c.json({ error: 'already_editor' }, 409)
+  if (await isEditor(c.env.healerbook_timelines, id, auth.userId)) {
+    return c.json({ error: 'already_editor' }, 409)
+  }
 
   if (tl.allow_edit_requests !== 1) return c.json({ error: 'requests_disabled' }, 403)
 
-  const inserted = await c.env.healerbook_timelines
-    .prepare(
-      'INSERT OR IGNORE INTO timeline_edit_requests (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
-    )
-    .bind(id, auth.userId, auth.username, Date.now())
-    .run()
+  const inserted = await insertEditRequestStatement(
+    c.env.healerbook_timelines,
+    id,
+    auth.userId,
+    auth.username
+  ).run()
   // 实际写入新行(非幂等重复)→ 经 DO 把最新申请数推给在线作者
   if (inserted.meta.changes > 0) {
     await docStub(c.env, id).notifyEditRequest(id)
@@ -114,21 +107,12 @@ app.post('/:id/edit-requests/:userId/approve', requireAuth, async c => {
   const author = await findAuthor(c.env, id, auth.userId)
   if (!author) return c.json({ error: 'Forbidden' }, 403)
 
-  const reqRow = await c.env.healerbook_timelines
-    .prepare('SELECT user_name FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
-    .bind(id, targetUserId)
-    .first<{ user_name: string }>()
+  const reqRow = await findEditRequest(c.env.healerbook_timelines, id, targetUserId)
   if (!reqRow) return c.json({ error: 'Not found' }, 404)
 
   await c.env.healerbook_timelines.batch([
-    c.env.healerbook_timelines
-      .prepare('DELETE FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
-      .bind(id, targetUserId),
-    c.env.healerbook_timelines
-      .prepare(
-        'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
-      )
-      .bind(id, targetUserId, reqRow.user_name, Date.now()),
+    deleteEditRequestStatement(c.env.healerbook_timelines, id, targetUserId),
+    insertEditorStatement(c.env.healerbook_timelines, id, targetUserId, reqRow.userName),
   ])
   return c.json({ ok: true })
 })
@@ -141,10 +125,11 @@ app.post('/:id/edit-requests/:userId/reject', requireAuth, async c => {
   const author = await findAuthor(c.env, id, auth.userId)
   if (!author) return c.json({ error: 'Forbidden' }, 403)
 
-  const result = await c.env.healerbook_timelines
-    .prepare('DELETE FROM timeline_edit_requests WHERE timeline_id = ? AND user_id = ?')
-    .bind(id, targetUserId)
-    .run()
+  const result = await deleteEditRequestStatement(
+    c.env.healerbook_timelines,
+    id,
+    targetUserId
+  ).run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })
 })
@@ -159,10 +144,7 @@ app.delete('/:id/editors/:userId', requireAuth, async c => {
   if (targetUserId === author.author_id) {
     return c.json({ error: 'cannot_remove_author' }, 400)
   }
-  await c.env.healerbook_timelines
-    .prepare('DELETE FROM timeline_editors WHERE timeline_id = ? AND user_id = ?')
-    .bind(id, targetUserId)
-    .run()
+  await removeEditor(c.env.healerbook_timelines, id, targetUserId)
   await docStub(c.env, id).kickUser(targetUserId)
   return c.json({ ok: true })
 })

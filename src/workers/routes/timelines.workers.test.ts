@@ -373,4 +373,26 @@ describe('DELETE /api/timelines/:id 取消发布', () => {
       .first()
     expect(row).not.toBeNull()
   })
+
+  it('删除时间轴时一并清理待处理的编辑申请', async () => {
+    await publishOne('del-cleanup-req', 'x')
+    await env.healerbook_timelines
+      .prepare(
+        'INSERT INTO timeline_edit_requests (timeline_id, user_id, user_name, created_at) VALUES (?,?,?,?)'
+      )
+      .bind('del-cleanup-req', 'viewer-9', 'V9', Date.now())
+      .run()
+
+    const res = await SELF.fetch('https://app/api/timelines/del-cleanup-req', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${await authorJwt()}` },
+    })
+    expect(res.status).toBe(204)
+
+    const left = await env.healerbook_timelines
+      .prepare('SELECT COUNT(*) AS n FROM timeline_edit_requests WHERE timeline_id = ?')
+      .bind('del-cleanup-req')
+      .first<{ n: number }>()
+    expect(left?.n).toBe(0)
+  })
 })

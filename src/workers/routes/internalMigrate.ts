@@ -7,6 +7,7 @@ import type { TimelineContent } from '@/collab/types'
 import type { TimelineDoc } from '../durable/TimelineDoc'
 import { encodeStateAsUpdate } from 'yjs'
 import { requireSyncToken } from '../middleware/requireSyncToken'
+import { insertEditorStatement } from '../db/editors'
 
 const app = new Hono<AppEnv>()
 
@@ -67,12 +68,7 @@ app.post('/migrate', requireSyncToken, async c => {
         await c.env.healerbook_snapshots.delete(`tl-snapshot:${row.id}`)
         repaired++
       }
-      await c.env.healerbook_timelines
-        .prepare(
-          'INSERT OR IGNORE INTO timeline_editors (timeline_id, user_id, created_at) VALUES (?,?,?)'
-        )
-        .bind(row.id, row.author_id, Date.now())
-        .run()
+      await insertEditorStatement(c.env.healerbook_timelines, row.id, row.author_id).run()
       migrated++
     } catch (err) {
       console.error('[migrate] skip', row.id, err)
