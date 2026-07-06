@@ -16,7 +16,6 @@ import {
   type EncounterTemplate,
   type ExtractedFightData,
   type EncounterSamples,
-  type Top100Data,
 } from './top100Sync'
 import type { SampleQueueRow } from './samplesQueue'
 import { calculatePercentile } from '@/utils/stats'
@@ -24,8 +23,9 @@ import type { DamageEvent } from '@/types/timeline'
 import type { FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
-import type { FFLogsClientV2, RankingEntry } from './fflogsClientV2'
+import type { FFLogsClientV2 } from './fflogsClientV2'
 import type { RaidEncounter } from '@/data/raidEncounters'
+import type { Top100Data, RankingEntry } from '@/types/apiContracts'
 
 describe('mergeWithReservoirSampling', () => {
   it('总量未超上限时直接追加', () => {

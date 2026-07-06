@@ -34,3 +34,39 @@ export interface SharedTimelineResponse extends ShareRoleInfo {
   /** KV snapshot;三角色通用。editor/author 用于首屏兜底渲染,KV miss 时为 undefined */
   snapshot?: Timeline
 }
+
+/**
+ * 排行榜单条目
+ */
+export interface RankingEntry {
+  rank: number
+  characterName: string
+  jobClass: string
+  characterNameTwo: string
+  jobClassTwo: string
+  /** 合计 DPS（healercombineddps） */
+  amount: number
+  /** 战斗时长（毫秒） */
+  duration: number
+  reportCode: string
+  fightID: number
+  startTime: number
+  serverName: string
+  serverRegion: string
+  serverNameTwo: string
+  /** 按标准职业顺序排列的完整阵容职业代码列表 */
+  composition: string[]
+}
+
+/** KV 中存储的 TOP100 数据结构 */
+export interface Top100Data {
+  encounterId: number
+  encounterName: string
+  entries: RankingEntry[]
+  /** ISO 8601 时间戳 */
+  updatedAt: string
+}
+
+/** GET /api/top100 的响应体：encounterId → 数据；KV 未同步时为 null。
+ *  JSON 序列化后对象 key 实为字符串，Record<number, ...> 是语义标注，结构兼容。 */
+export type Top100AllResponse = Record<number, Top100Data | null>

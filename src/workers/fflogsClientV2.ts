@@ -10,6 +10,7 @@ import type {
   FFLogsEvent,
 } from '@/types/fflogs'
 import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from '@/types/fflogs'
+import type { RankingEntry } from '@/types/apiContracts'
 import { buildComposition } from '@/utils/rosterUtils'
 
 export interface FFLogsV2Config {
@@ -33,29 +34,6 @@ export interface GetEventsParams {
   start: number
   end: number
   dataType?: FFLogsEventDataType[]
-}
-
-/**
- * 排行榜单条目
- */
-export interface RankingEntry {
-  rank: number
-  characterName: string
-  jobClass: string
-  characterNameTwo: string
-  jobClassTwo: string
-  /** 合计 DPS（healercombineddps） */
-  amount: number
-  /** 战斗时长（毫秒） */
-  duration: number
-  reportCode: string
-  fightID: number
-  startTime: number
-  serverName: string
-  serverRegion: string
-  serverNameTwo: string
-  /** 按标准职业顺序排列的完整阵容职业代码列表 */
-  composition: string[]
 }
 
 /**

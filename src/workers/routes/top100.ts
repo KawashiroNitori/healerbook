@@ -4,8 +4,9 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../env'
 import { createClient } from '../env'
 import { requireSyncToken } from '../middleware/requireSyncToken'
-import { getTop100KVKey, syncAllTop100, type Top100Data } from '../top100Sync'
+import { getTop100KVKey, syncAllTop100 } from '../top100Sync'
 import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
+import type { Top100Data } from '@/types/apiContracts'
 
 const app = new Hono<AppEnv>()
 

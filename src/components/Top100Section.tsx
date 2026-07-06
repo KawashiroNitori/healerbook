@@ -28,42 +28,8 @@ import type { Job } from '@/types/timeline'
 import { track } from '@/utils/analytics'
 import { buildFFLogsSourceIndex } from '@/utils/timelineStorage'
 import { getTankJobs, getHealerJobs, getDPSJobs, getJobRole, getJobName } from '@/data/jobs'
-
-// ---- 类型定义 ----
-
-interface RankingEntry {
-  rank: number
-  characterName: string
-  jobClass: string
-  characterNameTwo: string
-  jobClassTwo: string
-  amount: number
-  duration: number
-  reportCode: string
-  fightID: number
-  startTime: number
-  serverName: string
-  serverRegion: string
-  serverNameTwo: string
-  composition: string[]
-}
-
-interface Top100Data {
-  encounterId: number
-  encounterName: string
-  entries: RankingEntry[]
-  updatedAt: string
-}
-
-// ---- API ----
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace('/fflogs', '') ?? '/api'
-
-async function fetchTop100All(): Promise<Record<string, Top100Data | null>> {
-  const res = await fetch(`${API_BASE}/top100`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
-}
+import { fetchTop100All } from '@/api/top100'
+import type { Top100Data } from '@/types/apiContracts'
 
 // ---- 工具函数 ----
 

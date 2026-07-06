@@ -6,7 +6,7 @@
  * KV 键格式：top100:encounter:{encounterId}
  */
 
-import { FFLogsClientV2, type RankingEntry } from './fflogsClientV2'
+import { FFLogsClientV2 } from './fflogsClientV2'
 import { enqueueRankings, pickNextSample, type SampleQueueRow } from './samplesQueue'
 import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
 import type { FFLogsEvent, FFLogsAbility, FFLogsReport } from '@/types/fflogs'
@@ -14,6 +14,7 @@ import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import { calculatePercentile } from '@/utils/stats'
 import type { DamageEvent } from '@/types/timeline'
+import type { Top100Data } from '@/types/apiContracts'
 import {
   parseDamageEvents,
   parseComposition,
@@ -22,15 +23,6 @@ import {
   extractMaxHPData,
 } from '@/utils/fflogsImporter'
 import { generateObjectId } from '@/utils/shortId'
-
-/** KV 中存储的 TOP100 数据结构 */
-export interface Top100Data {
-  encounterId: number
-  encounterName: string
-  entries: RankingEntry[]
-  /** ISO 8601 时间戳 */
-  updatedAt: string
-}
 
 /** fight-stats 存储用的精简 DamageEvent，剥离 id / 明细，并额外附带 abilityId */
 export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'playerDamageDetails'> & {
