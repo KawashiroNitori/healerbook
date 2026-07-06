@@ -12,9 +12,8 @@ import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
 import type { FFLogsEvent, FFLogsAbility, FFLogsReport } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
-import { calculatePercentile } from '@/utils/stats'
 import type { DamageEvent } from '@/types/timeline'
-import type { EncounterTemplateResponse, Top100Data } from '@/types/apiContracts'
+import type { Top100Data } from '@/types/apiContracts'
 import {
   parseDamageEvents,
   parseComposition,
@@ -22,7 +21,14 @@ import {
   extractHealData,
   extractMaxHPData,
 } from '@/utils/fflogsImporter'
-import { generateObjectId } from '@/utils/shortId'
+import {
+  getTop100KVKey,
+  getStatisticsKVKey,
+  getSamplesKVKey,
+  getEncounterTemplateKVKey,
+} from './kvKeys'
+import { type EncounterSamples, calculatePercentiles, mergeRecord } from './encounterStats'
+import { type EncounterTemplate, buildEncounterTemplate } from './encounterTemplate'
 
 /** fight-stats 存储用的精简 DamageEvent，剥离 id / 明细，并额外附带 abilityId */
 export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'playerDamageDetails'> & {
@@ -121,126 +127,6 @@ export function extractFightStats(
   }
 }
 
-/** 模板事件：DamageEvent + abilityId（仅模板聚合/过滤内部使用，非持久化字段） */
-export type EncounterTemplateEvent = DamageEvent & { abilityId?: number }
-
-/** 副本模板数据结构（KV 存储） */
-export interface EncounterTemplate {
-  encounterId: number
-  /** 完整 DamageEvent（带 id）+ abilityId。playerDamageDetails 始终为空 */
-  events: EncounterTemplateEvent[]
-  /** 模板战斗的时长（毫秒），用于覆盖策略比较 */
-  templateSourceDurationMs: number
-  /**
-   * 模板来源战斗是否为击杀。
-   * 旧 template 无此字段（optional），读取时按 false（wipe）处理。
-   * kill 模板代表完整时间轴，前端据此显示"已更新完成"而非时长进度条。
-   */
-  kill?: boolean
-  updatedAt: string
-}
-
-/** 获取 encounter template 的 KV 键名 */
-export function getEncounterTemplateKVKey(encounterId: number): string {
-  return `encounter-template:${encounterId}`
-}
-
-interface BuildEncounterTemplateInput {
-  /** 本场 fight 的时长（毫秒） */
-  fightDurationMs: number
-  /** 本场 fight 的 slim damage events */
-  fightEvents: StoredDamageEvent[]
-  /** abilityId → p50 伤害（来自最新 statistics 的 calculatePercentiles 输出） */
-  p50Map: Record<number, number>
-  /** 旧 template（KV 中的当前值），null 表示不存在 */
-  oldTemplate: EncounterTemplate | null
-  /** 本场是否击杀；默认 false（wipe） */
-  fightKill?: boolean
-}
-
-/**
- * 覆盖优先级：kill 优先，其次比时长。
- * - 新 kill vs 旧 wipe → 覆盖（kill 即完整时间轴，无视时长）
- * - 新 wipe vs 旧 kill → 不覆盖（kill 模板不被进度 wipe 顶掉）
- * - 结果相同（都 kill / 都 wipe）→ 本场更长才覆盖（严格 >）
- */
-function shouldReplaceTemplate(
-  oldTemplate: EncounterTemplate,
-  newDurationMs: number,
-  newKill: boolean
-): boolean {
-  const oldKill = oldTemplate.kill ?? false
-  if (newKill !== oldKill) return newKill
-  return newDurationMs > oldTemplate.templateSourceDurationMs
-}
-
-/**
- * 单场版 encounter template 构建。
- *
- * 行为：
- * - 覆盖策略见 `shouldReplaceTemplate`（kill 优先，其次比时长）；旧 template 不存在时总是产出
- * - 不做 abilityId 出现场数过滤；前端可用 `EncounterStatistics.abilityFightCount` 自行过滤
- * - 每个保留事件的 `damage` 用 `p50Map[abilityId]` 覆盖；无 p50 时保留原 damage
- * - 每个事件重新 generateObjectId
- *
- * 返回 null 表示"无需写入"（不是错误）。
- */
-export function buildEncounterTemplate(input: BuildEncounterTemplateInput): {
-  events: EncounterTemplateEvent[]
-  templateSourceDurationMs: number
-  kill: boolean
-} | null {
-  const { fightDurationMs, fightEvents, p50Map, oldTemplate, fightKill = false } = input
-
-  if (oldTemplate && !shouldReplaceTemplate(oldTemplate, fightDurationMs, fightKill)) {
-    return null
-  }
-
-  const events: EncounterTemplateEvent[] = fightEvents.map(e => ({
-    id: generateObjectId(),
-    name: e.name,
-    time: e.time,
-    damage: p50Map[e.abilityId ?? 0] ?? e.damage,
-    type: e.type,
-    damageType: e.damageType,
-    packetId: e.packetId,
-    snapshotTime: e.snapshotTime,
-    damageSource: e.damageSource,
-    abilityId: e.abilityId,
-  }))
-
-  return { events, templateSourceDurationMs: fightDurationMs, kill: fightKill }
-}
-
-/** 样本存储（低频访问，供定时任务读写） */
-export interface EncounterSamples {
-  encounterId: number
-  /** 每个伤害技能的原始样本值，每个 ability 独立限制 MAX_SAMPLES 条 */
-  damageByAbility: Record<number, number[]>
-  /** 每个职业（Job 枚举字符串，如 "WHM"）的原始最大 HP 样本值 */
-  maxHPByJob: Record<Job, number[]>
-  /** 每个盾值状态的原始样本值，每个 statusId 独立限制 MAX_SAMPLES 条 */
-  shieldByAbility: Record<number, number[]>
-  /** 每个治疗技能的原始样本值，每个 ability 独立限制 MAX_SAMPLES 条 */
-  healByAbility: Record<number, number[]>
-  updatedAt: string
-}
-
-/** 获取 TOP100 数据的 KV 键名 */
-export function getTop100KVKey(encounterId: number): string {
-  return `top100:encounter:${encounterId}`
-}
-
-/** 获取统计数据的 KV 键名 */
-export function getStatisticsKVKey(encounterId: number): string {
-  return `statistics:encounter:${encounterId}`
-}
-
-/** 获取样本数据的 KV 键名 */
-export function getSamplesKVKey(encounterId: number): string {
-  return `statistics-samples:encounter:${encounterId}`
-}
-
 /**
  * 从事件列表中提取伤害数据
  */
@@ -260,46 +146,6 @@ function extractDamageData(events: FFLogsEvent[]): Record<number, number[]> {
   }
 
   return damageByAbility
-}
-
-const MAX_SAMPLES = 500
-
-/**
- * Reservoir Sampling（Algorithm R）
- * 从 reservoir + incoming 中均匀随机保留 max 条样本
- */
-export function mergeWithReservoirSampling(
-  reservoir: number[],
-  incoming: number[],
-  max: number = MAX_SAMPLES
-): number[] {
-  const combined = [...reservoir, ...incoming]
-  if (combined.length <= max) return combined
-
-  const result = combined.slice(0, max)
-  for (let i = max; i < combined.length; i++) {
-    const j = Math.floor(Math.random() * (i + 1))
-    if (j < max) result[j] = combined[i]
-  }
-  return result
-}
-
-/**
- * 对 Record<K, number[]> 中每个 key 计算指定百分位数
- */
-export function calculatePercentiles<T extends number | string>(
-  data: Record<T, number[]>,
-  percentile: number = 50
-): Record<T, number> {
-  const result: Record<string, number> = {}
-
-  for (const [key, values] of Object.entries(data)) {
-    if (Array.isArray(values) && values.length > 0) {
-      result[key] = calculatePercentile(values as number[], percentile)
-    }
-  }
-
-  return result as Record<T, number>
 }
 
 /**
@@ -477,19 +323,6 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
   return true
 }
 
-/** 工具：reservoir merge `Record<K, number[]>`（K 为 string 或 number——运行时都是字符串键） */
-function mergeRecord<K extends string | number>(
-  base: Record<K, number[]>,
-  incoming: Record<K, number[]>
-): Record<K, number[]> {
-  const out: Record<string, number[]> = { ...(base as unknown as Record<string, number[]>) }
-  const entries = Object.entries(incoming as unknown as Record<string, number[]>)
-  for (const [key, values] of entries) {
-    out[key] = mergeWithReservoirSampling(out[key] ?? [], values)
-  }
-  return out as unknown as Record<K, number[]>
-}
-
 /**
  * 同步所有副本的 TOP100 数据
  * 串行执行
@@ -516,38 +349,4 @@ export async function syncAllTop100(
   }
 
   return { success, failed, errors }
-}
-
-/**
- * GET /api/encounter-templates/:encounterId
- * 返回副本模板（含预填充伤害事件）；KV 无数据时返回空列表
- */
-export async function handleGetEncounterTemplate(
-  encounterId: number,
-  kv: KVNamespace
-): Promise<Response> {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Cache-Control': 'public, max-age=3600',
-  }
-  const data = await kv.get(getEncounterTemplateKVKey(encounterId), 'json')
-  if (!data) {
-    const empty: EncounterTemplateResponse = {
-      events: [],
-      updatedAt: null,
-      templateSourceDurationMs: null,
-      kill: false,
-    }
-    return new Response(JSON.stringify(empty), { headers })
-  }
-  const template = data as EncounterTemplate
-  // 裁掉内部字段 abilityId，使线上响应与契约一致
-  const body: EncounterTemplateResponse = {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    events: template.events.map(({ abilityId: _abilityId, ...e }) => e),
-    updatedAt: template.updatedAt,
-    templateSourceDurationMs: template.templateSourceDurationMs,
-    kill: template.kill ?? false,
-  }
-  return new Response(JSON.stringify(body), { headers })
 }

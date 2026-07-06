@@ -2,7 +2,7 @@
 
 import { Hono } from 'hono'
 import type { AppEnv } from '../env'
-import { getStatisticsKVKey } from '../top100Sync'
+import { getStatisticsKVKey } from '../kvKeys'
 
 const app = new Hono<AppEnv>()
 

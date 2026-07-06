@@ -1,24 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import {
-  mergeWithReservoirSampling,
-  getSamplesKVKey,
-  getStatisticsKVKey,
-  calculatePercentiles,
   slimDamageEvents,
-  buildEncounterTemplate,
   extractFightStats,
-  getEncounterTemplateKVKey,
-  getTop100KVKey,
-  handleGetEncounterTemplate,
   processOneSample,
   syncEncounter,
-  type StoredDamageEvent,
-  type EncounterTemplate,
   type ExtractedFightData,
-  type EncounterSamples,
 } from './top100Sync'
+import {
+  getSamplesKVKey,
+  getStatisticsKVKey,
+  getEncounterTemplateKVKey,
+  getTop100KVKey,
+} from './kvKeys'
+import type { EncounterSamples } from './encounterStats'
+import type { EncounterTemplate } from './encounterTemplate'
 import type { SampleQueueRow } from './samplesQueue'
-import { calculatePercentile } from '@/utils/stats'
 import type { DamageEvent } from '@/types/timeline'
 import type { FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
@@ -27,69 +23,9 @@ import type { FFLogsClientV2 } from './fflogsClientV2'
 import type { RaidEncounter } from '@/data/raidEncounters'
 import type { Top100Data, RankingEntry } from '@/types/apiContracts'
 
-describe('mergeWithReservoirSampling', () => {
-  it('总量未超上限时直接追加', () => {
-    const result = mergeWithReservoirSampling([1, 2, 3], [4, 5], 10)
-    expect(result).toEqual([1, 2, 3, 4, 5])
-  })
-
-  it('总量超上限时结果长度等于 max', () => {
-    const reservoir = Array.from({ length: 10 }, (_, i) => i)
-    const incoming = Array.from({ length: 5 }, (_, i) => i + 100)
-    const result = mergeWithReservoirSampling(reservoir, incoming, 10)
-    expect(result).toHaveLength(10)
-  })
-
-  it('空旧样本时直接返回新数据（不超限）', () => {
-    const result = mergeWithReservoirSampling([], [1, 2, 3], 10)
-    expect(result).toEqual([1, 2, 3])
-  })
-
-  it('空新数据时返回旧样本', () => {
-    const result = mergeWithReservoirSampling([1, 2, 3], [], 10)
-    expect(result).toEqual([1, 2, 3])
-  })
-})
-
-describe('calculatePercentile', () => {
-  it('奇数个样本', () => {
-    expect(calculatePercentile([3, 1, 2])).toBe(2)
-  })
-
-  it('偶数个样本', () => {
-    expect(calculatePercentile([1, 2, 3, 4])).toBe(3) // round((2+3)/2)
-  })
-
-  it('偶数个样本，中间两值之和为奇数（.5 舍入）', () => {
-    expect(calculatePercentile([1, 2])).toBe(2) // round((1+2)/2) = round(1.5) = 2
-  })
-
-  it('单个样本', () => {
-    expect(calculatePercentile([42])).toBe(42)
-  })
-
-  it('空数组返回 0', () => {
-    expect(calculatePercentile([])).toBe(0)
-  })
-})
-
 describe('getSamplesKVKey', () => {
   it('返回正确格式', () => {
     expect(getSamplesKVKey(1234)).toBe('statistics-samples:encounter:1234')
-  })
-})
-
-describe('calculatePercentiles', () => {
-  it('计算每个 key 的中位数', () => {
-    const result = calculatePercentiles({ 100: [1, 3, 5], 200: [2, 4] })
-    expect(result[100]).toBe(3)
-    expect(result[200]).toBe(3) // round((2+4)/2)
-  })
-
-  it('空数组的 key 不出现在结果中', () => {
-    const result = calculatePercentiles({ 100: [], 200: [5] })
-    expect(result[100]).toBeUndefined()
-    expect(result[200]).toBe(5)
   })
 })
 
@@ -148,215 +84,6 @@ describe('slimDamageEvents', () => {
   })
 })
 
-describe('buildEncounterTemplate (single-fight)', () => {
-  function makeSlim(abilityId: number, time: number, damage = 1000): StoredDamageEvent {
-    return { name: `a-${abilityId}`, time, damage, type: 'aoe', damageType: 'magical', abilityId }
-  }
-
-  it('无旧模板 → 用本场骨架产出新模板', () => {
-    const events = [makeSlim(1, 1, 100), makeSlim(2, 2, 200)]
-    const result = buildEncounterTemplate({
-      fightDurationMs: 120_000,
-      fightEvents: events,
-      p50Map: { 1: 555, 2: 666 },
-      oldTemplate: null,
-    })
-    expect(result).not.toBeNull()
-    expect(result!.templateSourceDurationMs).toBe(120_000)
-    expect(result!.events).toHaveLength(2)
-    const byId = Object.fromEntries(result!.events.map(e => [e.abilityId!, e.damage]))
-    expect(byId[1]).toBe(555)
-    expect(byId[2]).toBe(666)
-  })
-
-  it('本场更长 → 覆盖', () => {
-    const oldTemplate = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 100_000,
-      updatedAt: 'x',
-    }
-    const result = buildEncounterTemplate({
-      fightDurationMs: 100_001,
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate,
-    })
-    expect(result).not.toBeNull()
-    expect(result!.templateSourceDurationMs).toBe(100_001)
-  })
-
-  it('本场等长 → 不覆盖（严格 >）', () => {
-    const oldTemplate = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 100_000,
-      updatedAt: 'x',
-    }
-    const result = buildEncounterTemplate({
-      fightDurationMs: 100_000,
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate,
-    })
-    expect(result).toBeNull()
-  })
-
-  it('本场更短 → 不覆盖', () => {
-    const oldTemplate = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 100_000,
-      updatedAt: 'x',
-    }
-    const result = buildEncounterTemplate({
-      fightDurationMs: 50_000,
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate,
-    })
-    expect(result).toBeNull()
-  })
-
-  it('damage 字段用 p50Map 覆盖，无 p50 时 fallback 到原值', () => {
-    const result = buildEncounterTemplate({
-      fightDurationMs: 100,
-      fightEvents: [makeSlim(1, 1, 9999), makeSlim(2, 2, 8888)],
-      p50Map: { 1: 500 },
-      oldTemplate: null,
-    })
-    const byId = Object.fromEntries(result!.events.map(e => [e.abilityId!, e.damage]))
-    expect(byId[1]).toBe(500)
-    expect(byId[2]).toBe(8888)
-  })
-
-  it('每个事件带不同的 nanoid id', () => {
-    const result = buildEncounterTemplate({
-      fightDurationMs: 100,
-      fightEvents: [makeSlim(1, 1), makeSlim(2, 2), makeSlim(3, 3)],
-      p50Map: {},
-      oldTemplate: null,
-    })
-    const ids = result!.events.map(e => e.id)
-    expect(new Set(ids).size).toBe(ids.length)
-    for (const id of ids) expect(id).toMatch(/\S+/)
-  })
-
-  it('空 events → 空 template（仍写）', () => {
-    const result = buildEncounterTemplate({
-      fightDurationMs: 100,
-      fightEvents: [],
-      p50Map: {},
-      oldTemplate: null,
-    })
-    expect(result).not.toBeNull()
-    expect(result!.events).toHaveLength(0)
-  })
-
-  it('产出 template 带 kill 字段（默认 false）', () => {
-    const wipe = buildEncounterTemplate({
-      fightDurationMs: 100,
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate: null,
-    })
-    expect(wipe!.kill).toBe(false)
-
-    const kill = buildEncounterTemplate({
-      fightDurationMs: 100,
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate: null,
-      fightKill: true,
-    })
-    expect(kill!.kill).toBe(true)
-  })
-
-  it('kill 顶掉更长的 wipe（无视时长）', () => {
-    const oldTemplate = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 900_000,
-      kill: false,
-      updatedAt: 'x',
-    }
-    const result = buildEncounterTemplate({
-      fightDurationMs: 500_000, // 比旧 wipe 短
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate,
-      fightKill: true,
-    })
-    expect(result).not.toBeNull()
-    expect(result!.kill).toBe(true)
-    expect(result!.templateSourceDurationMs).toBe(500_000)
-  })
-
-  it('更长的 wipe 不顶掉已有 kill', () => {
-    const oldTemplate = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 500_000,
-      kill: true,
-      updatedAt: 'x',
-    }
-    const result = buildEncounterTemplate({
-      fightDurationMs: 900_000, // 更长，但 wipe
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate,
-      fightKill: false,
-    })
-    expect(result).toBeNull()
-  })
-
-  it('都是 kill → 本场更长才覆盖', () => {
-    const oldTemplate = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 500_000,
-      kill: true,
-      updatedAt: 'x',
-    }
-    expect(
-      buildEncounterTemplate({
-        fightDurationMs: 500_001,
-        fightEvents: [makeSlim(1, 1)],
-        p50Map: {},
-        oldTemplate,
-        fightKill: true,
-      })
-    ).not.toBeNull()
-    expect(
-      buildEncounterTemplate({
-        fightDurationMs: 400_000,
-        fightEvents: [makeSlim(1, 1)],
-        p50Map: {},
-        oldTemplate,
-        fightKill: true,
-      })
-    ).toBeNull()
-  })
-
-  it('旧 template 无 kill 字段 → 按 wipe 处理，kill 仍可顶掉', () => {
-    const legacyOld = {
-      encounterId: 1,
-      events: [],
-      templateSourceDurationMs: 900_000,
-      updatedAt: 'x',
-    }
-    const result = buildEncounterTemplate({
-      fightDurationMs: 300_000,
-      fightEvents: [makeSlim(1, 1)],
-      p50Map: {},
-      oldTemplate: legacyOld,
-      fightKill: true,
-    })
-    expect(result).not.toBeNull()
-    expect(result!.kill).toBe(true)
-  })
-})
-
 // 轻量 in-memory KV mock（只覆盖 get/put/delete）— 模块级，供后续 describes 复用
 function createMockKV(): KVNamespace & { _store: Map<string, string> } {
   const store = new Map<string, string>()
@@ -383,76 +110,6 @@ function createMockKV(): KVNamespace & { _store: Map<string, string> } {
   } as unknown as KVNamespace & { _store: Map<string, string> }
   return kv
 }
-
-describe('handleGetEncounterTemplate', () => {
-  it('KV 无数据 → 返回空事件列表', async () => {
-    const kv = createMockKV()
-    const res = await handleGetEncounterTemplate(9999, kv)
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      events: unknown[]
-      updatedAt: string | null
-      templateSourceDurationMs: number | null
-      kill: boolean
-    }
-    expect(body.events).toEqual([])
-    expect(body.updatedAt).toBeNull()
-    expect(body.templateSourceDurationMs).toBeNull()
-    expect(body.kill).toBe(false)
-  })
-
-  it('KV 有数据 → 返回 events + updatedAt + kill', async () => {
-    const kv = createMockKV()
-    const template: EncounterTemplate = {
-      encounterId: 1234,
-      events: [
-        {
-          id: 'e1',
-          name: '死刑',
-          time: 10,
-          damage: 80000,
-          type: 'tankbuster',
-          damageType: 'physical',
-          abilityId: 40000,
-        },
-      ],
-      templateSourceDurationMs: 500_000,
-      kill: true,
-      updatedAt: '2026-04-14T00:00:00.000Z',
-    }
-    await kv.put(getEncounterTemplateKVKey(1234), JSON.stringify(template))
-
-    const res = await handleGetEncounterTemplate(1234, kv)
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      events: Array<{ id: string }>
-      updatedAt: string | null
-      templateSourceDurationMs: number | null
-      kill: boolean
-    }
-    expect(body.events).toHaveLength(1)
-    expect(body.events[0].id).toBe('e1')
-    expect(body.updatedAt).toBe('2026-04-14T00:00:00.000Z')
-    expect(body.templateSourceDurationMs).toBe(500_000)
-    expect(body.kill).toBe(true)
-  })
-
-  it('KV 旧数据无 kill 字段 → 默认返回 false', async () => {
-    const kv = createMockKV()
-    await kv.put(
-      getEncounterTemplateKVKey(1235),
-      JSON.stringify({
-        encounterId: 1235,
-        events: [],
-        templateSourceDurationMs: 100_000,
-        updatedAt: '2026-04-14T00:00:00.000Z',
-      })
-    )
-    const res = await handleGetEncounterTemplate(1235, kv)
-    const body = (await res.json()) as { kill: boolean }
-    expect(body.kill).toBe(false)
-  })
-})
 
 describe('extractFightStats', () => {
   it('damage / heal / shield / maxHP 全提取，slim events 含 abilityId', () => {
