@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mergeTimelineList } from './homeTimelineList'
 import type { LocalDocMeta } from '@/collab/types'
-import type { MyTimelineItem } from '@/api/timelineShareApi'
+import type { MyTimelineListItem } from '@/types/apiContracts'
 
 function meta(
   p: Partial<LocalDocMeta> & Pick<LocalDocMeta, 'docId' | 'kind' | 'lastViewedAt'>
@@ -32,7 +32,7 @@ describe('mergeTimelineList', () => {
   })
 
   it('服务端独有条目并入，按其 updatedAt 排序', () => {
-    const server: MyTimelineItem[] = [
+    const server: MyTimelineListItem[] = [
       { id: 's', name: 'S', publishedAt: 0, updatedAt: 250, composition: null },
     ]
     const list = mergeTimelineList([meta({ docId: 'a', kind: 'local', lastViewedAt: 100 })], server)
@@ -42,7 +42,7 @@ describe('mergeTimelineList', () => {
   })
 
   it('本地与服务端同 id：本地条目优先，不重复', () => {
-    const server: MyTimelineItem[] = [
+    const server: MyTimelineListItem[] = [
       { id: 'a', name: 'A-server', publishedAt: 0, updatedAt: 999, composition: null },
     ]
     const list = mergeTimelineList(

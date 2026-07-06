@@ -4,7 +4,8 @@
 
 import { HTTPError } from 'ky'
 import { apiClient } from './apiClient'
-import type { Timeline, Composition } from '@/types/timeline'
+import type { Timeline } from '@/types/timeline'
+import type { MyTimelineListItem } from '@/types/apiContracts'
 
 export interface PublishResult {
   id: string
@@ -43,18 +44,10 @@ export async function publishTimeline(
   }
 }
 
-export interface MyTimelineItem {
-  id: string
-  name: string
-  publishedAt: number
-  updatedAt: number
-  composition: Composition | null
-}
-
 /** 获取当前登录用户的已发布时间轴列表 */
-export async function fetchMyTimelines(): Promise<MyTimelineItem[]> {
+export async function fetchMyTimelines(): Promise<MyTimelineListItem[]> {
   try {
-    return await apiClient.get('my/timelines').json<MyTimelineItem[]>()
+    return await apiClient.get('my/timelines').json<MyTimelineListItem[]>()
   } catch (err) {
     if (err instanceof HTTPError && err.response.status === 401) return []
     throw err

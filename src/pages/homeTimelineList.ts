@@ -1,6 +1,6 @@
 /** HomePage 统一列表：本地 meta 与服务端「我发布的」按 id 合并去重、按最近查看排序 */
 import type { LocalDocMeta } from '@/collab/types'
-import type { MyTimelineItem } from '@/api/timelineShareApi'
+import type { MyTimelineListItem } from '@/types/apiContracts'
 import type { Composition } from '@/types/timeline'
 
 export interface HomeTimelineItem {
@@ -17,7 +17,7 @@ export interface HomeTimelineItem {
 
 export function mergeTimelineList(
   metas: LocalDocMeta[],
-  serverItems: MyTimelineItem[]
+  serverItems: MyTimelineListItem[]
 ): HomeTimelineItem[] {
   const items: HomeTimelineItem[] = metas.map(m => ({
     id: m.docId,

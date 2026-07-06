@@ -53,6 +53,7 @@ describe('GET /api/my/timelines', () => {
     })
     const items = (await res.json()) as { id: string }[]
     expect(items.map(i => i.id)).toEqual(['my-a2', 'my-a1'])
+    expect('version' in items[0]).toBe(false)
   })
 
   it('阵容优先读 content.composition，回退旧格式 content.c 并过滤空槽位', async () => {
