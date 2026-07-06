@@ -8,11 +8,13 @@ import { sortJobsByOrder, getJobName } from '@/data/jobs'
 import { MAX_PARTY_SIZE } from '@/types/timeline'
 import type { Composition } from '@/types/timeline'
 
+const EMPTY_COMPOSITION = { players: [] } as Composition
+
 export default function CompositionPopover() {
-  const { timeline, updateComposition } = useTimelineStore()
+  const composition = useTimelineStore(s => s.timeline?.composition ?? EMPTY_COMPOSITION)
+  const updateComposition = useTimelineStore(s => s.updateComposition)
   const isReadOnly = useEditorReadOnly()
 
-  const composition = timeline?.composition || { players: [] }
   const sortedPlayers = [...composition.players].sort((a, b) => {
     const jobs = sortJobsByOrder([a.job, b.job])
     return jobs.indexOf(a.job) - jobs.indexOf(b.job)

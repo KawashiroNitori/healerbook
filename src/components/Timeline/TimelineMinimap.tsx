@@ -51,7 +51,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       contentHeight: 36,
     })
 
-    const { timeline } = useTimelineStore()
+    const timeline = useTimelineStore(s => s.timeline)
     const eventResults = useDamageCalculationResults()
     const theme = useUIStore(s => s.theme)
     const { filteredDamageEvents } = useFilteredTimelineView()

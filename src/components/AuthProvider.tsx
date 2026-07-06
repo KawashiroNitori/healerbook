@@ -9,7 +9,9 @@ const FFLOGS_OAUTH_CLIENT_ID = import.meta.env.VITE_FFLOGS_CLIENT_ID as string
 const FFLOGS_AUTH_URL = 'https://www.fflogs.com/oauth/authorize'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { username, accessToken, clearTokens } = useAuthStore()
+  const username = useAuthStore(s => s.username)
+  const accessToken = useAuthStore(s => s.accessToken)
+  const clearTokens = useAuthStore(s => s.clearTokens)
 
   function login() {
     if (!FFLOGS_OAUTH_CLIENT_ID) {

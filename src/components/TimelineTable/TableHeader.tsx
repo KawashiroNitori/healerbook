@@ -37,7 +37,9 @@ export default function TableHeader({
   showActualDamage,
   showCastStartTime,
 }: TableHeaderProps) {
-  const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
+  const showTooltip = useTooltipStore(s => s.showTooltip)
+  const toggleTooltip = useTooltipStore(s => s.toggleTooltip)
+  const hideTooltip = useTooltipStore(s => s.hideTooltip)
 
   // 计算粘性左侧列的累积 left 值（咏唱开始列在判定时间列左侧）
   let leftOffset = 0

@@ -31,7 +31,7 @@ interface AddEventDialogProps {
 }
 
 export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEventDialogProps) {
-  const { addDamageEvent } = useTimelineStore()
+  const addDamageEvent = useTimelineStore(s => s.addDamageEvent)
   const [name, setName] = useState('')
   const [time, setTime] = useState(defaultTime)
   const [damage, setDamage] = useState(100000)

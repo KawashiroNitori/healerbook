@@ -46,7 +46,10 @@ interface BranchViewData {
 }
 
 export default function PropertyPanel() {
-  const { timeline, selectedEventId, updateDamageEvent, removeDamageEvent } = useTimelineStore()
+  const timeline = useTimelineStore(s => s.timeline)
+  const selectedEventId = useTimelineStore(s => s.selectedEventId)
+  const updateDamageEvent = useTimelineStore(s => s.updateDamageEvent)
+  const removeDamageEvent = useTimelineStore(s => s.removeDamageEvent)
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const isReadOnly = useEditorReadOnly()
   const [helpOpen, setHelpOpen] = useState(false)

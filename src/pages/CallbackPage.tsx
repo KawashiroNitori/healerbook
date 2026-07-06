@@ -10,7 +10,7 @@ const AUTH_CALLBACK_URL = '/api/auth/callback'
 export default function CallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { setTokens } = useAuthStore()
+  const setTokens = useAuthStore(s => s.setTokens)
   const handledRef = useRef(false)
 
   useEffect(() => {

@@ -356,7 +356,8 @@ function StatDataDialogInner({
 }
 
 export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
-  const { timeline, updateStatData } = useTimelineStore()
+  const timeline = useTimelineStore(s => s.timeline)
+  const updateStatData = useTimelineStore(s => s.updateStatData)
   const statData = timeline?.statData
   const composition = timeline?.composition
   const isReadOnly = useEditorReadOnly()

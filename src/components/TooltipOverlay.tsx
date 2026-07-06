@@ -1,9 +1,18 @@
 import { useTooltipStore } from '@/store/tooltipStore'
+import { useShallow } from 'zustand/react/shallow'
 import ActionTooltip from './ActionTooltip'
 
 export default function TooltipOverlay() {
-  const { action, anchorRect, placementPriority, noTransition, showTooltip, hideTooltip } =
-    useTooltipStore()
+  const { action, anchorRect, placementPriority, noTransition } = useTooltipStore(
+    useShallow(s => ({
+      action: s.action,
+      anchorRect: s.anchorRect,
+      placementPriority: s.placementPriority,
+      noTransition: s.noTransition,
+    }))
+  )
+  const showTooltip = useTooltipStore(s => s.showTooltip)
+  const hideTooltip = useTooltipStore(s => s.hideTooltip)
 
   return (
     <ActionTooltip
