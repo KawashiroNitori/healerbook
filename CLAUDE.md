@@ -97,7 +97,8 @@ src/
 | `src/utils/fflogsImporter.ts`       | FFLogs 数据解析入口                       |
 | `src/data/mitigationActions.ts`     | 技能定义                                  |
 | `src/data/jobs.ts`                  | 职业定义及角色分类                        |
-| `src/workers/timelines.ts`          | 共享时间轴 D1 CRUD（含版本冲突检测）      |
+| `src/workers/index.ts`              | Workers Hono 入口，按功能域挂载路由       |
+| `src/workers/routes/timelines.ts`   | 共享时间轴 D1 CRUD（含版本冲突检测）      |
 | `src/workers/jwt.ts`                | JWT 签发与验证（jose）                    |
 | `src/components/Timeline/index.tsx` | 时间轴主组件（Canvas 交互核心）           |
 
@@ -193,17 +194,25 @@ state.timeline.damageEvents.push(newEvent)
 
 ### Workers 路由结构
 
-`fflogs-proxy.ts` 是顶层路由器，按功能域分发：
+`src/workers/index.ts` 是 Hono 入口，全局 `app.onError` 统一兜错，按功能域挂载：
 
 ```
-POST /api/auth/callback         → auth.ts（FFLogs OAuth 回调）
-POST /api/auth/refresh          → auth.ts（Token 续期）
-/api/timelines/*                → timelines.ts（共享时间轴 CRUD）
-GET  /api/my/timelines          → timelines.ts（我的时间轴列表）
-/api/fflogs/*                   → fflogs-proxy.ts 内联（FFLogs 代理）
-/api/top100/*                   → fflogs-proxy.ts 内联（TOP100 数据）
-/api/statistics/*               → fflogs-proxy.ts 内联（副本统计）
+/api/auth                → routes/auth.ts（FFLogs OAuth 回调 / Token 续期）
+/api/timelines           → routes/timelines.ts（发布 / 公开读 / connect / 删除）
+/api/timelines           → routes/share.ts（协作分享设置 / 编辑请求审批）
+/api/my                  → routes/my.ts（我的时间轴列表）
+/api/fflogs              → routes/fflogs.ts（FFLogs 代理与导入）
+/api/top100              → routes/top100.ts（TOP100 数据与手动同步）
+/api/statistics          → routes/statistics.ts（副本统计）
+/api/encounter-templates → routes/encounterTemplates.ts（副本模板）
+/api/samples-queue       → routes/samplesQueue.ts（采样队列入队，sync token）
+/api/internal            → routes/internalMigrate.ts（数据迁移，sync token）
+/api/internal            → routes/internalDiag.ts（DO 诊断查询，sync token）
 ```
+
+中间件在 `src/workers/middleware/`：`requireAuth`（JWT 必需）、`tryReadAuth`（可选读取）、
+`requireSyncToken`（内部/同步端点）。协作文档 Durable Object 在 `src/workers/durable/TimelineDoc.ts`，
+其 SQLite 存储封装在 `src/workers/collab/doSqlStore.ts`。
 
 ### Konva 性能
 
@@ -216,5 +225,5 @@ GET  /api/my/timelines          → timelines.ts（我的时间轴列表）
 
 ---
 
-**最后更新**: 2026-04-24
+**最后更新**: 2026-07-03
 **线上地址**: https://xivhealer.com
