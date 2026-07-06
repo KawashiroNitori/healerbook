@@ -13,13 +13,9 @@ const app = new Hono<AppEnv>()
 
 app.get('/report/:reportCode', async c => {
   const reportCode = c.req.param('reportCode')
-  try {
-    const client = createClient(c.env)
-    const data = await client.getReport({ reportCode })
-    return c.json(data)
-  } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
-  }
+  const client = createClient(c.env)
+  const data = await client.getReport({ reportCode })
+  return c.json(data)
 })
 
 app.get('/events/:reportCode', async c => {
@@ -31,17 +27,13 @@ app.get('/events/:reportCode', async c => {
     return c.json({ error: 'Missing start or end parameter' }, 400)
   }
 
-  try {
-    const client = createClient(c.env)
-    const data = await client.getEvents({
-      reportCode,
-      start: parseFloat(start),
-      end: parseFloat(end),
-    })
-    return c.json(data)
-  } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
-  }
+  const client = createClient(c.env)
+  const data = await client.getEvents({
+    reportCode,
+    start: parseFloat(start),
+    end: parseFloat(end),
+  })
+  return c.json(data)
 })
 
 app.get('/import', async c => {
