@@ -8,7 +8,7 @@ import { readAuthFromHeader } from '../middleware/readAuthFromHeader'
 import * as sensitiveWordFilter from '../sensitiveWordFilter'
 import { generateId } from '@/utils/id'
 import { fromBase64 } from 'lib0/buffer'
-import type { TimelineDoc } from '../durable/TimelineDoc'
+import { docStub } from '../durable/stub'
 import type { SharedTimelineResponse } from '@/types/apiContracts'
 import type { Timeline } from '@/types/timeline'
 import {
@@ -40,15 +40,6 @@ async function generateCleanId(env: AppEnv['Bindings']): Promise<string> {
     if (!(await sensitiveWordFilter.containsBannedSubstring(candidate, env))) return candidate
   }
   throw new Error('id_generation_failed')
-}
-
-/**
- * 取该 timeline 的 DO stub。
- * DurableObjectNamespace binding 在 env.ts 中无具体类型，故 cast 为 TimelineDoc
- * 以调用其 RPC 方法（getSnapshotJson）及 fetch。
- */
-export function docStub(env: AppEnv['Bindings'], id: string): TimelineDoc {
-  return env.TIMELINE_DOC.get(env.TIMELINE_DOC.idFromName(id)) as unknown as TimelineDoc
 }
 
 const app = new Hono<AppEnv>()

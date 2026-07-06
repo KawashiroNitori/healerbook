@@ -4,7 +4,7 @@ import type { AppEnv } from '../env'
 import { buildYDoc } from '@/collab/docSchema'
 import { parseFromAny } from '@/utils/timelineFormat'
 import type { TimelineContent } from '@/collab/types'
-import type { TimelineDoc } from '../durable/TimelineDoc'
+import { docStub } from '../durable/stub'
 import { encodeStateAsUpdate } from 'yjs'
 import { requireSyncToken } from '../middleware/requireSyncToken'
 import { insertEditorStatement } from '../db/editors'
@@ -58,9 +58,7 @@ app.post('/migrate', requireSyncToken, async c => {
       const timeline = parseFromAny(raw, { id: row.id, name: row.name })
       const content = toContent(timeline)
       const bin = encodeStateAsUpdate(buildYDoc(content))
-      const stub = c.env.TIMELINE_DOC.get(
-        c.env.TIMELINE_DOC.idFromName(row.id)
-      ) as unknown as TimelineDoc
+      const stub = docStub(c.env, row.id)
       await stub.seed(bin)
       // seed 幂等:旧版迁移已 seed 的 DO 不会被覆盖,缺 name 的坏数据靠此回填。
       // 回填后删掉可能陈旧(无 name)的 KV 快照,viewer 即回落到 DO 取最新。

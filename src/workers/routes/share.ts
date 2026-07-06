@@ -4,7 +4,7 @@ import { vValidator } from '@hono/valibot-validator'
 import * as v from 'valibot'
 import type { AppEnv } from '../env'
 import { requireAuth } from '../middleware/requireAuth'
-import { docStub } from './timelines'
+import { docStub } from '../durable/stub'
 import {
   deleteEditRequestStatement,
   findEditRequest,
