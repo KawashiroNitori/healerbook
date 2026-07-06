@@ -2,9 +2,9 @@
  * 副本统计数据 API 客户端
  */
 
-import { HTTPError } from 'ky'
 import type { EncounterStatistics } from '@/types/mitigation'
 import { apiClient } from './apiClient'
+import { unwrapApiError } from './unwrapApiError'
 
 /**
  * 获取指定副本的统计数据
@@ -14,12 +14,8 @@ import { apiClient } from './apiClient'
 export async function getEncounterStatistics(
   encounterId: number
 ): Promise<EncounterStatistics | null> {
-  try {
-    return await apiClient.get(`statistics/${encounterId}`).json<EncounterStatistics>()
-  } catch (err) {
-    if (err instanceof HTTPError && err.response.status === 404) {
-      return null
-    }
-    throw err
-  }
+  return unwrapApiError<EncounterStatistics | null>(
+    () => apiClient.get(`statistics/${encounterId}`).json<EncounterStatistics>(),
+    { onStatus: { 404: () => null }, rethrowOriginal: true }
+  )
 }
