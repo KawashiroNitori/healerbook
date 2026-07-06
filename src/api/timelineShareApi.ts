@@ -4,25 +4,13 @@
 
 import { HTTPError } from 'ky'
 import { apiClient } from './apiClient'
-import type { Timeline } from '@/types/timeline'
-import type { MyTimelineListItem } from '@/types/apiContracts'
+import type { MyTimelineListItem, SharedTimelineResponse } from '@/types/apiContracts'
+
+export type { SharedTimelineResponse }
 
 export interface PublishResult {
   id: string
   publishedAt: number
-}
-
-/** GET /api/timelines/:id 的角色化响应 */
-export interface SharedTimelineResponse {
-  role: 'editor' | 'viewer'
-  authorName: string
-  isAuthor: boolean
-  allowEditRequests: boolean
-  hasPendingRequest: boolean
-  /** 作者视角:当前待处理的申请数;非作者恒 0 */
-  pendingRequestCount: number
-  /** KV snapshot;三角色通用。editor/author 用于首屏兜底渲染,KV miss 时为 undefined */
-  snapshot?: Timeline
 }
 
 /**
@@ -64,16 +52,6 @@ export async function deleteSharedTimeline(id: string): Promise<void> {
   }
 }
 
-interface RawSharedResponse {
-  role: 'editor' | 'viewer'
-  authorName: string
-  isAuthor: boolean
-  allowEditRequests: boolean
-  hasPendingRequest: boolean
-  pendingRequestCount: number
-  snapshot?: Timeline
-}
-
 /**
  * 获取共享时间轴的角色与 KV snapshot。
  * snapshot 三角色通用:viewer 用于只读渲染,editor/author 用于首屏兜底,KV miss 时为 undefined。
@@ -81,7 +59,7 @@ interface RawSharedResponse {
  */
 export async function fetchSharedTimeline(id: string): Promise<SharedTimelineResponse> {
   try {
-    const raw = await apiClient.get(`timelines/${id}`).json<RawSharedResponse>()
+    const raw = await apiClient.get(`timelines/${id}`).json<SharedTimelineResponse>()
     const result: SharedTimelineResponse = {
       role: raw.role,
       authorName: raw.authorName,

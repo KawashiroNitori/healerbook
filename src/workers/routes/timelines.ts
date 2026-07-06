@@ -9,6 +9,8 @@ import * as sensitiveWordFilter from '../sensitiveWordFilter'
 import { generateId } from '@/utils/id'
 import { fromBase64 } from 'lib0/buffer'
 import type { TimelineDoc } from '../durable/TimelineDoc'
+import type { SharedTimelineResponse } from '@/types/apiContracts'
+import type { Timeline } from '@/types/timeline'
 
 const PublishTimelineRequestSchema = v.object({
   id: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
@@ -136,7 +138,7 @@ app.get('/:id', async c => {
     }
   }
 
-  const base = {
+  const base: Omit<SharedTimelineResponse, 'snapshot'> = {
     role,
     authorName: row.author_name,
     isAuthor,
@@ -160,7 +162,7 @@ app.get('/:id', async c => {
     role === 'editor' ? 'private, no-cache' : user ? 'private, no-cache' : 'public, no-cache'
 
   // snapshot 为 undefined 时不写入 body(保持响应字段最小化)
-  const body = snapshot ? { ...base, snapshot } : base
+  const body: SharedTimelineResponse = snapshot ? { ...base, snapshot: snapshot as Timeline } : base
   return c.json(body, 200, { 'Cache-Control': cacheControl })
 })
 

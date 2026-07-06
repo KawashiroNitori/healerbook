@@ -16,6 +16,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
+import type { ShareRoleInfo } from '@/types/apiContracts'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
 import { generateId } from '@/utils/id'
@@ -77,12 +78,12 @@ export default function EditorPage() {
 
   const [mode, setMode] = useState<PageMode>('loading')
   const [authorName, setAuthorName] = useState<string>('')
-  const [shareRole, setShareRole] = useState<{
-    role: 'editor' | 'viewer'
-    isAuthor: boolean
-    allowEditRequests: boolean
-    hasPendingRequest: boolean
-  }>({ role: 'viewer', isAuthor: false, allowEditRequests: false, hasPendingRequest: false })
+  const [shareRole, setShareRole] = useState<ShareRoleInfo>({
+    role: 'viewer',
+    isAuthor: false,
+    allowEditRequests: false,
+    hasPendingRequest: false,
+  })
   // ── 模式推导 + 加载 ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) {

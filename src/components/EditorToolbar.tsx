@@ -68,20 +68,14 @@ import { useAutoMitigate } from '@/hooks/useAutoMitigate'
 import { AutoMitigateProgressModal } from '@/components/AutoMitigateProgressModal'
 import { AutoMitigateDisclaimerModal } from '@/components/AutoMitigateDisclaimerModal'
 import { track } from '@/utils/analytics'
-
-interface ShareRole {
-  role: 'editor' | 'viewer'
-  isAuthor: boolean
-  allowEditRequests: boolean
-  hasPendingRequest: boolean
-}
+import type { ShareRoleInfo } from '@/types/apiContracts'
 
 interface EditorToolbarProps {
   onCreateCopy: () => void
   onPublished?: (newId: string) => void
   viewMode: 'timeline' | 'table'
   onViewModeChange: (mode: 'timeline' | 'table') => void
-  shareRole: ShareRole
+  shareRole: ShareRoleInfo
 }
 
 export default function EditorToolbar({
