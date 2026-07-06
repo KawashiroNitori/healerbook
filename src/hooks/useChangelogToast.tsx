@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { track } from '@/utils/analytics'
 
@@ -14,7 +14,12 @@ interface LatestRelease {
 }
 
 export function useChangelogToast() {
+  const fetched = useRef(false)
+
   useEffect(() => {
+    if (fetched.current) return
+    fetched.current = true
+
     let dismissed = false
 
     fetch('/latest-release.json')
