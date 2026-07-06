@@ -14,7 +14,6 @@ import { toast } from 'sonner'
 import { House } from 'lucide-react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
-import { useMitigationStore } from '@/store/mitigationStore'
 import { setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
@@ -76,9 +75,6 @@ export default function EditorPage() {
   const setViewerSnapshot = useTimelineStore(s => s.setViewerSnapshot)
   const reset = useTimelineStore(s => s.reset)
 
-  const mitigationActions = useMitigationStore(s => s.actions)
-  const loadMitigationActions = useMitigationStore(s => s.loadActions)
-
   const [mode, setMode] = useState<PageMode>('loading')
   const [authorName, setAuthorName] = useState<string>('')
   const [shareRole, setShareRole] = useState<{
@@ -87,10 +83,6 @@ export default function EditorPage() {
     allowEditRequests: boolean
     hasPendingRequest: boolean
   }>({ role: 'viewer', isAuthor: false, allowEditRequests: false, hasPendingRequest: false })
-  useEffect(() => {
-    if (mitigationActions.length === 0) loadMitigationActions()
-  }, [mitigationActions.length, loadMitigationActions])
-
   // ── 模式推导 + 加载 ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) {

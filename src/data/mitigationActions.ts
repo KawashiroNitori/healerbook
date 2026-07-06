@@ -1601,3 +1601,11 @@ if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
     }
   })
 }
+
+/** 全部技能（静态数据，直接 import 使用，无需经 store / loadActions） */
+export const ACTIONS = MITIGATION_DATA.actions
+
+/** id → action 索引（数据不可变，模块级建一次） */
+export const ACTIONS_BY_ID: Map<number, MitigationAction> = new Map(
+  MITIGATION_DATA.actions.map(a => [a.id, a])
+)

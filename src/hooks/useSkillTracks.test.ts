@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useFilterStore } from '@/store/filterStore'
 import { useSkillTracks } from './useSkillTracks'
 import type { Timeline } from '@/types/timeline'
@@ -32,7 +32,6 @@ describe('useSkillTracks with filter', () => {
   beforeEach(() => {
     localStorage.clear()
     useFilterStore.setState({ customPresets: [], activeFilterId: 'builtin:all' })
-    useMitigationStore.getState().loadActions()
     useTimelineStore.setState({ timeline: makeTimeline() })
   })
 
@@ -52,7 +51,7 @@ describe('useSkillTracks with filter', () => {
     // 治疗的单体（target）减伤/盾可挂在坦克身上，故纳入仅坦克视图
     expect(jobs.has('WHM')).toBe(true)
     // 但仅限 target 技能：保留的 WHM 轨道对应的 action 都应含 'target' category
-    const catById = new Map(useMitigationStore.getState().actions.map(a => [a.id, a.category]))
+    const catById = new Map(ACTIONS.map(a => [a.id, a.category]))
     const whmTracks = result.current.filter(t => t.job === 'WHM')
     expect(whmTracks.every(t => catById.get(t.actionId)?.includes('target'))).toBe(true)
     // 无 target 减伤的纯输出职业仍不产生轨道

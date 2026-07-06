@@ -32,7 +32,7 @@ import {
 } from '@/utils/importAdapter'
 import { useTimelineStore } from '@/store/timelineStore'
 import { fetchEncounterTemplate } from '@/api/encounterTemplate'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { DamageCalculationContext } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import { sortJobsByOrder } from '@/data/jobs'
@@ -72,7 +72,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
   const [rangeEnd, setRangeEnd] = useState(0)
   const [rangeEndUnlimited, setRangeEndUnlimited] = useState(true)
 
-  const mitigationActions = useMitigationStore(s => s.actions)
+  const mitigationActions = ACTIONS
   const calc = useContext(DamageCalculationContext)
 
   const range = useMemo<ImportRange>(

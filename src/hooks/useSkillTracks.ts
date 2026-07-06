@@ -4,14 +4,14 @@
 
 import { useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useFilterStore } from '@/store/filterStore'
 import { deriveSkillTracks, type SkillTrack } from '@/utils/skillTracks'
 import { matchTrack } from './useFilteredTimelineView'
 
 export function useSkillTracks(): SkillTrack[] {
   const composition = useTimelineStore(s => s.timeline?.composition)
-  const actions = useMitigationStore(s => s.actions)
+  const actions = ACTIONS
   const activePreset = useFilterStore(s => s.getActivePreset())
 
   return useMemo(() => {

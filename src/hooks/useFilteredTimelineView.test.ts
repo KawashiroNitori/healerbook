@@ -9,7 +9,6 @@ import {
   useFilteredTimelineView,
 } from './useFilteredTimelineView'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useMitigationStore } from '@/store/mitigationStore'
 import { useFilterStore } from '@/store/filterStore'
 import type { MitigationAction, MitigationCategory } from '@/types/mitigation'
 import type { FilterPreset } from '@/types/filter'
@@ -300,7 +299,6 @@ describe('useFilteredTimelineView', () => {
   beforeEach(() => {
     localStorage.clear()
     useFilterStore.setState({ customPresets: [], activeFilterId: 'builtin:all' })
-    useMitigationStore.getState().loadActions()
     useTimelineStore.setState({ timeline: makeTimeline() })
   })
 

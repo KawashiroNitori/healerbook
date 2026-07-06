@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useFilterStore } from '@/store/filterStore'
 import { type Job } from '@/data/jobs'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
@@ -66,7 +66,7 @@ export function matchTrack(
 
 export function useFilteredTimelineView(): FilteredView {
   const timeline = useTimelineStore(s => s.timeline)
-  const actions = useMitigationStore(s => s.actions)
+  const actions = ACTIONS
   const activePreset = useFilterStore(s => s.getActivePreset())
 
   return useMemo(() => {

@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import {
   useStatusTimelineByPlayer,
@@ -22,7 +22,7 @@ export function useResourceHoverData(): {
   getSnapshotAt: (time: number) => MemberResourceSnapshot[]
 } {
   const timeline = useTimelineStore(s => s.timeline)
-  const actions = useMitigationStore(s => s.actions)
+  const actions = ACTIONS
   const tracks = useSkillTracks()
   const statusTimeline = useStatusTimelineByPlayer()
   const resolvedVariant = useResolvedVariantByCastId()

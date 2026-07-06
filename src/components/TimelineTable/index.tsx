@@ -4,7 +4,7 @@
  *
  * 数据流：
  * - useTimelineStore → timeline（伤害事件、注释、castEvents）
- * - useMitigationStore → actions（构造 actionsById Map）
+ * - ACTIONS（构造 actionsById Map）
  * - useSkillTracks() → 列顺序
  * - useDamageCalculationResults() → 编辑/回放模式的伤害数值
  * - useUIStore → showOriginalDamage / showActualDamage
@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useUIStore } from '@/store/uiStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
@@ -64,7 +64,7 @@ export default function TimelineTableView() {
   const selectEvent = useTimelineStore(s => s.selectEvent)
   const addCastEvent = useTimelineStore(s => s.addCastEvent)
   const removeCastEvent = useTimelineStore(s => s.removeCastEvent)
-  const actions = useMitigationStore(s => s.actions)
+  const actions = ACTIONS
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const showCastStartTime = useUIStore(s => s.showCastStartTime)

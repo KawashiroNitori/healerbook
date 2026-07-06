@@ -8,7 +8,7 @@ import { Stage, Layer, Line, Text } from 'react-konva'
 import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useTooltipStore } from '@/store/tooltipStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -221,7 +221,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const selectedEventIds = useTimelineStore(s => s.selectedEventIds)
   const selectedCastEventIds = useTimelineStore(s => s.selectedCastEventIds)
   const selectedAnnotationIds = useTimelineStore(s => s.selectedAnnotationIds)
-  const { actions } = useMitigationStore()
+  const actions = ACTIONS
   const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const canvasTool = useUIStore(s => s.canvasTool)
@@ -805,7 +805,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       if (!payload) return
       const tl = useTimelineStore.getState().timeline
       if (!tl) return
-      const validActionIds = new Set(useMitigationStore.getState().actions.map(a => a.id))
+      const validActionIds = new Set(ACTIONS.map(a => a.id))
       const result = remapClipboardForPaste(payload, {
         currentComposition: tl.composition,
         targetTime,

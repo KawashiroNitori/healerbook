@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import {
   useCastEffectiveEnd,
   useDamageCalculationResults,
@@ -32,7 +32,7 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
   const timeline = useTimelineStore(s => s.timeline)
   const globalShowOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const globalShowActualDamage = useUIStore(s => s.showActualDamage)
-  const actions = useMitigationStore(s => s.actions)
+  const actions = ACTIONS
   const calculationResults = useDamageCalculationResults()
   const castEffectiveEnd = useCastEffectiveEnd()
   const resolvedVariantByCastId = useResolvedVariantByCastId()

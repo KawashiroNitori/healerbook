@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { useMitigationStore } from '@/store/mitigationStore'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useFilterStore } from '@/store/filterStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import {
@@ -43,7 +43,7 @@ interface Props {
 const MAX_NAME = 20
 
 export default function EditPresetDialog({ open, onClose, preset }: Props) {
-  const allActions = useMitigationStore(s => s.actions)
+  const allActions = ACTIONS
   const addPreset = useFilterStore(s => s.addPreset)
   const updatePreset = useFilterStore(s => s.updatePreset)
   const showTooltip = useTooltipStore(s => s.showTooltip)
