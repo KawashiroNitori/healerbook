@@ -4,7 +4,7 @@
 
 export { createBuffExecutor } from './createBuffExecutor'
 export { createShieldExecutor } from './createShieldExecutor'
-export { generateId } from './utils'
+export { generateInstanceId } from './utils'
 export {
   addStatus,
   removeStatus,

@@ -11,7 +11,7 @@
 import type { ActionExecutor } from '@/types/mitigation'
 import type { MitigationStatus } from '@/types/status'
 import { computeFinalHeal } from './healMath'
-import { generateId } from './utils'
+import { generateInstanceId } from './utils'
 
 export interface RegenExecutorOptions {
   /**
@@ -43,7 +43,7 @@ export function createRegenExecutor(
     )
 
     const newStatus: MitigationStatus = {
-      instanceId: generateId(),
+      instanceId: generateInstanceId(),
       statusId,
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,

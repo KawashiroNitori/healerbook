@@ -2,12 +2,8 @@
  * 执行器工具函数
  */
 
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
+import { ALPHANUMERIC_ALPHABET } from '@/utils/nanoidAlphabet'
 
-/**
- * 生成唯一 ID
- * @returns 唯一 ID 字符串
- */
-export function generateId(): string {
-  return nanoid()
-}
+/** MitigationStatus.instanceId 生成器：纯运行时 diff key，不持久化，字符集与项目其余 id 统一 */
+export const generateInstanceId = customAlphabet(ALPHANUMERIC_ALPHABET, 21)

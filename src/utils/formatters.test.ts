@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatTimeWithDecimal, formatDamageValue } from './formatters'
+import { formatTimeWithDecimal, formatDamageValue, splitDeciseconds } from './formatters'
 
 describe('formatTimeWithDecimal', () => {
   it('常规格式 mm:ss.f，秒数补零到两位整数', () => {
@@ -25,6 +25,16 @@ describe('formatTimeWithDecimal', () => {
     expect(formatTimeWithDecimal(59.97)).toBe('1:00.0')
     expect(formatTimeWithDecimal(59.94)).toBe('0:59.9')
     expect(formatTimeWithDecimal(119.97)).toBe('2:00.0')
+  })
+})
+
+describe('splitDeciseconds', () => {
+  it('整体四舍五入后拆分，避免进位撕裂', () => {
+    expect(splitDeciseconds(9.97)).toEqual({ minutes: 0, seconds: 10, tenths: 0 })
+    expect(splitDeciseconds(59.97)).toEqual({ minutes: 1, seconds: 0, tenths: 0 })
+    expect(splitDeciseconds(59.94)).toEqual({ minutes: 0, seconds: 59, tenths: 9 })
+    expect(splitDeciseconds(125.45)).toEqual({ minutes: 2, seconds: 5, tenths: 5 })
+    expect(splitDeciseconds(0)).toEqual({ minutes: 0, seconds: 0, tenths: 0 })
   })
 })
 

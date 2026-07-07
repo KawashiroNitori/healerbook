@@ -7,7 +7,7 @@
 
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus, PerformanceType } from '@/types/status'
-import { generateId } from './utils'
+import { generateInstanceId } from './utils'
 
 /**
  * addStatus 入参
@@ -40,7 +40,7 @@ export function addStatus(state: PartyState, input: AddStatusInput): PartyState 
   const { eventTime, duration, statusId, remainingBarrier, initialBarrier, ...rest } = input
 
   const newStatus: MitigationStatus = {
-    instanceId: generateId(),
+    instanceId: generateInstanceId(),
     statusId,
     startTime: eventTime,
     endTime: eventTime + duration,

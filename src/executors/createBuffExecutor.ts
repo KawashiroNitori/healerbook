@@ -4,7 +4,7 @@
 
 import type { ActionExecutor } from '@/types/mitigation'
 import type { MitigationStatus, PerformanceType } from '@/types/status'
-import { generateId } from './utils'
+import { generateInstanceId } from './utils'
 
 /**
  * Buff 执行器配置选项
@@ -42,7 +42,7 @@ export function createBuffExecutor(
     const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))
 
     const newStatus: MitigationStatus = {
-      instanceId: generateId(),
+      instanceId: generateInstanceId(),
       statusId,
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,

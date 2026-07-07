@@ -2,15 +2,26 @@
  * 时间格式化工具函数
  */
 
+/**
+ * 把非负秒数按 0.1s 精度四舍五入后拆分为 {分, 秒, 十分位}。
+ * 先把 deciseconds 算成整体再拆，避免 9.97 → "9:60.0" 式进位撕裂。
+ * 仅接受 t >= 0；符号与负数格式由调用方自理（各消费方负数口径不同）。
+ */
+export function splitDeciseconds(t: number): {
+  minutes: number
+  seconds: number
+  tenths: number
+} {
+  const totalDeci = Math.round(t * 10)
+  const totalSeconds = Math.floor(totalDeci / 10)
+  const tenths = totalDeci % 10
+  return { minutes: Math.floor(totalSeconds / 60), seconds: totalSeconds % 60, tenths }
+}
+
 export function formatTimeWithDecimal(seconds: number): string {
   const sign = seconds < 0 ? '-' : ''
-  // 先四舍五入到 0.1s 再拆分 min/sec：否则补零判断用的是未取整的 sec，
-  // 而显示用 sec.toFixed(1) 会进位，二者在边界处不一致——
-  // 如 9.97s → 补 0 + "10.0" = "010.0"，59.97s → "0:60.0"。
-  const totalDeci = Math.round(Math.abs(seconds) * 10)
-  const min = Math.floor(totalDeci / 600)
-  const sec = (totalDeci % 600) / 10
-  return `${sign}${min}:${sec < 10 ? '0' : ''}${sec.toFixed(1)}`
+  const { minutes, seconds: sec, tenths } = splitDeciseconds(Math.abs(seconds))
+  return `${sign}${minutes}:${sec < 10 ? '0' : ''}${sec}.${tenths}`
 }
 
 /**

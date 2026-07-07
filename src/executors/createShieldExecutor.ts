@@ -4,7 +4,7 @@
 
 import type { ActionExecutor } from '@/types/mitigation'
 import type { MitigationStatus } from '@/types/status'
-import { generateId } from './utils'
+import { generateInstanceId } from './utils'
 import { computeFinalHeal } from './healMath'
 
 /**
@@ -43,7 +43,7 @@ export function createShieldExecutor(
     const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))
 
     const newStatus: MitigationStatus = {
-      instanceId: generateId(),
+      instanceId: generateInstanceId(),
       statusId,
       startTime: ctx.useTime,
       endTime: ctx.useTime + duration,

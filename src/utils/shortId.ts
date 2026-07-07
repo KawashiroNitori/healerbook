@@ -1,4 +1,5 @@
 import { customAlphabet } from 'nanoid'
+import { ALPHANUMERIC_ALPHABET } from '@/utils/nanoidAlphabet'
 
 /**
  * Timeline 内部对象（DamageEvent / CastEvent / Annotation）的运行时 id。
@@ -7,7 +8,4 @@ import { customAlphabet } from 'nanoid'
  * 在协作 Y.Doc 里它们作为 Y.Map 的 key 共享，故必须全局唯一——随机 nanoid
  * 保证多客户端并发新增不撞键（旧的自增计数器 / `Date.now()` 方案会撞）。
  */
-export const generateObjectId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  10
-)
+export const generateObjectId = customAlphabet(ALPHANUMERIC_ALPHABET, 10)
