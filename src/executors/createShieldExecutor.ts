@@ -3,9 +3,8 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import type { MitigationStatus } from '@/types/status'
 import { getStatusById } from '@/utils/statusRegistry'
-import { generateInstanceId } from './utils'
+import { addStatus } from './statusHelpers'
 import { computeFinalHeal } from './healMath'
 
 /**
@@ -46,14 +45,10 @@ export function createShieldExecutor(
       getStatusById
     )
 
-    // 删除互斥组中的旧状态
-    const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))
-
-    const newStatus: MitigationStatus = {
-      instanceId: generateInstanceId(),
+    return addStatus(ctx.partyState, {
       statusId,
-      startTime: ctx.useTime,
-      endTime: ctx.useTime + duration,
+      eventTime: ctx.useTime,
+      duration,
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
       remainingBarrier: barrier,
@@ -61,11 +56,9 @@ export function createShieldExecutor(
       stack,
       // 原生盾：barrier 就是它全部意义，归 0 即由 calculator 自动清扫
       removeOnBarrierBreak: true,
-    }
-
-    return {
-      ...ctx.partyState,
-      statuses: [...filteredStatuses, newStatus],
-    }
+      // 互斥替换：uniqueGroup 非空时移除同组旧盾（新实例带新 instanceId 是正确语义）；
+      // 空数组关闭互斥，多盾共存
+      replaces: uniqueGroup.length > 0 ? s => uniqueGroup.includes(s.statusId) : undefined,
+    })
   }
 }

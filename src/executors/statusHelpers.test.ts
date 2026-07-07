@@ -75,6 +75,46 @@ describe('statusHelpers', () => {
       })
       expect(state.statuses[0].data).toEqual({ boosted: true })
     })
+
+    it('replaces：加入前过滤掉匹配的旧状态，保留不匹配的', () => {
+      const withStatuses: PartyState = {
+        ...basePartyState(),
+        statuses: [
+          { instanceId: 'a', statusId: 810, startTime: 0, endTime: 10 },
+          { instanceId: 'b', statusId: 811, startTime: 0, endTime: 10 },
+        ],
+      }
+      const state = addStatus(withStatuses, {
+        statusId: 810,
+        duration: 10,
+        eventTime: 5,
+        replaces: s => s.statusId === 810,
+      })
+
+      // 旧 810 被移除，811 保留，加上新 810 —— 共两条
+      expect(state.statuses).toHaveLength(2)
+      expect(state.statuses.find(s => s.instanceId === 'a')).toBeUndefined()
+      expect(state.statuses.find(s => s.instanceId === 'b')).toBeDefined()
+      const added = state.statuses.find(s => s.instanceId !== 'b')!
+      expect(added.statusId).toBe(810)
+      // 新实例 instanceId 与被替换的旧实例不同
+      expect(added.instanceId).not.toBe('a')
+    })
+
+    it('replaces：不传时纯追加，不移除任何旧状态', () => {
+      const withStatuses: PartyState = {
+        ...basePartyState(),
+        statuses: [{ instanceId: 'a', statusId: 810, startTime: 0, endTime: 10 }],
+      }
+      const state = addStatus(withStatuses, {
+        statusId: 810,
+        duration: 10,
+        eventTime: 5,
+      })
+
+      expect(state.statuses).toHaveLength(2)
+      expect(state.statuses.find(s => s.instanceId === 'a')).toBeDefined()
+    })
   })
 
   describe('removeStatus', () => {

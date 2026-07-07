@@ -9,10 +9,9 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import type { MitigationStatus } from '@/types/status'
 import { getStatusById } from '@/utils/statusRegistry'
 import { computeFinalHeal } from './healMath'
-import { generateInstanceId } from './utils'
+import { addStatus } from './statusHelpers'
 
 export interface RegenExecutorOptions {
   /**
@@ -39,24 +38,15 @@ export function createRegenExecutor(
       getStatusById
     )
 
-    // 同一玩家的同名 HoT 不共存：新 cast 替换旧实例（不同玩家可共存）
-    const filteredStatuses = ctx.partyState.statuses.filter(
-      s => !(s.statusId === statusId && s.sourcePlayerId === ctx.sourcePlayerId)
-    )
-
-    const newStatus: MitigationStatus = {
-      instanceId: generateInstanceId(),
+    return addStatus(ctx.partyState, {
       statusId,
-      startTime: ctx.useTime,
-      endTime: ctx.useTime + duration,
+      eventTime: ctx.useTime,
+      duration,
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
       data: { tickAmount: snapshotTickAmount, castEventId: ctx.castEventId ?? '' },
-    }
-
-    return {
-      ...ctx.partyState,
-      statuses: [...filteredStatuses, newStatus],
-    }
+      // 同一玩家的同名 HoT 不共存：新 cast 互斥替换旧实例（不同玩家可共存）
+      replaces: s => s.statusId === statusId && s.sourcePlayerId === ctx.sourcePlayerId,
+    })
   }
 }

@@ -31,13 +31,27 @@ export interface AddStatusInput {
   data?: Record<string, unknown>
   /** barrier 归 0 时是否由 calculator 自动移除本实例；默认 undefined = 保留 */
   removeOnBarrierBreak?: boolean
+  /**
+   * 互斥替换谓词：加入新状态前，先过滤掉所有满足谓词的旧状态。
+   *
+   * 语义边界（instanceId 契约，见 `@/types/status.ts` MitigationStatus.instanceId）：
+   * `replaces` 仅用于「新 cast 互斥替换旧 buff」——新实例带新 instanceId 是**正确**语义
+   * （这条 interval 归当前 cast，旧 cast 的绿条收束在替换时刻）。
+   *
+   * **不得**用它做「延长 / 变身 / 改字段」的既有 status 更新——那类操作必须
+   * 走 `updateStatus`（保持原 instanceId），否则原 cast 的绿条会被错误断开另起一条。
+   *
+   * 不传 = 纯追加（不移除任何旧状态）。
+   */
+  replaces?: (existing: MitigationStatus) => boolean
 }
 
 /**
  * 添加一个新状态到 PartyState
  */
 export function addStatus(state: PartyState, input: AddStatusInput): PartyState {
-  const { eventTime, duration, statusId, remainingBarrier, initialBarrier, ...rest } = input
+  const { eventTime, duration, statusId, remainingBarrier, initialBarrier, replaces, ...rest } =
+    input
 
   const newStatus: MitigationStatus = {
     instanceId: generateInstanceId(),
@@ -52,9 +66,11 @@ export function addStatus(state: PartyState, input: AddStatusInput): PartyState 
     newStatus.initialBarrier = initialBarrier ?? remainingBarrier
   }
 
+  const baseStatuses = replaces ? state.statuses.filter(s => !replaces(s)) : state.statuses
+
   return {
     ...state,
-    statuses: [...state.statuses, newStatus],
+    statuses: [...baseStatuses, newStatus],
   }
 }
 

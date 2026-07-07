@@ -3,8 +3,8 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import type { MitigationStatus, PerformanceType } from '@/types/status'
-import { generateInstanceId } from './utils'
+import type { PerformanceType } from '@/types/status'
+import { addStatus } from './statusHelpers'
 
 /**
  * Buff 执行器配置选项
@@ -37,27 +37,17 @@ export function createBuffExecutor(
   const uniqueGroup = options?.uniqueGroup ?? [statusId]
   const performance = options?.performance
 
-  return ctx => {
-    // 删除互斥组中的旧状态
-    const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))
-
-    const newStatus: MitigationStatus = {
-      instanceId: generateInstanceId(),
+  return ctx =>
+    addStatus(ctx.partyState, {
       statusId,
-      startTime: ctx.useTime,
-      endTime: ctx.useTime + duration,
+      eventTime: ctx.useTime,
+      duration,
       stack: options?.stack ?? 1,
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
-    }
-
-    if (performance !== undefined) {
-      newStatus.performance = performance
-    }
-
-    return {
-      ...ctx.partyState,
-      statuses: [...filteredStatuses, newStatus],
-    }
-  }
+      ...(performance !== undefined ? { performance } : {}),
+      // 互斥替换：uniqueGroup 非空时移除同组旧 buff（新实例带新 instanceId 是正确语义）；
+      // 空数组关闭互斥，多实例共存
+      replaces: uniqueGroup.length > 0 ? s => uniqueGroup.includes(s.statusId) : undefined,
+    })
 }
