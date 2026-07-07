@@ -11,7 +11,7 @@ import type {
   SimulateResponse,
   StatusTimelineByPlayer,
 } from '@/web-workers/calculator/types'
-import { MitigationCalculator } from '@/utils/mitigationCalculator'
+import { simulate } from '@/utils/mitigationCalculator'
 import type { MitigationStatusMetadata } from '@/types/status'
 import type { Timeline } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
@@ -19,7 +19,7 @@ import { createHealExecutor } from '@/executors/createHealExecutor'
 import { createRegenExecutor } from '@/executors/createRegenExecutor'
 import { regenStatusExecutor } from '@/executors/regenStatusExecutor'
 
-// FakeWorker：用真实 MitigationCalculator 在主线程同步算，下一个 microtask 回包。
+// FakeWorker：用真实 simulate 在主线程同步算，下一个 microtask 回包。
 // 这样所有依赖具体计算结果的断言（HP 演化、healSnapshots 反向溯源等）都能保持原有语义；
 // 唯一变化是 hook 现在通过 Promise.resolve().then(...) 异步 setState，测试需要 flush microtask。
 class FakeWorker implements Partial<Worker> {
@@ -29,12 +29,11 @@ class FakeWorker implements Partial<Worker> {
   postMessage(msg: SimulateRequest) {
     this.postedMessages.push(msg)
     Promise.resolve().then(() => {
-      const calculator = new MitigationCalculator()
       try {
-        const main = calculator.simulate(msg.input)
+        const main = simulate(msg.input)
         const removalTimelinesByExcludeId: Map<string, StatusTimelineByPlayer> = new Map()
         for (const id of msg.extraExcludeIds) {
-          const out = calculator.simulate({
+          const out = simulate({
             ...msg.input,
             castEvents: msg.input.castEvents.filter(ev => ev.id !== id),
             skipHpPipeline: true,

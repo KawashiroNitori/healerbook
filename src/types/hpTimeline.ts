@@ -1,7 +1,7 @@
 /**
  * HP 池演化序列上的一个点。
  *
- * MitigationCalculator.simulate 在每次 hp.current 改变后 push 一条，
+ * mitigationCalculator 的 simulate 在每次 hp.current 改变后 push 一条，
  * 出口前按 time 升序 sort（与 healSnapshots 一致）。
  *
  * - kind 区分触发原因：

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { MitigationCalculator } from '@/utils/mitigationCalculator'
+import { simulate } from '@/utils/mitigationCalculator'
 import type { SimulateOutput } from '@/types/calculation'
 import { runOptimize } from '@/utils/autoMitigation'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
@@ -61,17 +61,15 @@ self.onmessage = (e: MessageEvent<SimulateRequest | OptimizeRequest>) => {
   }
 
   try {
-    const calculator = new MitigationCalculator()
-
     if (!cache.main) {
-      cache.main = calculator.simulate(input)
+      cache.main = simulate(input)
     }
 
     const removalTimelinesByExcludeId: Map<string, StatusTimelineByPlayer> = new Map()
     for (const id of extraExcludeIds) {
       let out = cache.byExcludeId.get(id)
       if (!out) {
-        out = calculator.simulate({
+        out = simulate({
           ...input,
           castEvents: input.castEvents.filter(ev => ev.id !== id),
           skipHpPipeline: true,

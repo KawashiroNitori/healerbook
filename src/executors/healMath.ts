@@ -74,7 +74,7 @@ export function computeFinalHeal(
  *
  * 两个既有入口是它的薄包装：
  * - `computeMaxHpMultiplier`：`'excludeEnd'` + `!meta.isTankOnly`（HP 池视角）
- * - `MitigationCalculator#computeReferenceMaxHP`：`'closed'` + 调用方 filter（参考 HP 视角）
+ * - mitigationCalculator 的 `computeReferenceMaxHP`：`'closed'` + 调用方 filter（参考 HP 视角）
  *
  * @param boundary 生效窗边界口径（见 `statusWindow.ts` 两口径说明）
  * @param getMeta statusId → 元数据查询函数（调用方注入，通常为 getStatusById）

@@ -1,7 +1,7 @@
 /**
  * 治疗事件快照（一次性 cast / HoT tick 各产出一条）
  *
- * 由 MitigationCalculator.simulate 内部收集，写入 SimulateOutput.healSnapshots。
+ * 由 mitigationCalculator 的 simulate 内部收集，写入 SimulateOutput.healSnapshots。
  * UI 后续消费（治疗 cast 详情面板 / 治疗效率统计），本期不直接渲染。
  */
 export interface HealSnapshot {

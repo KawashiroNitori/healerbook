@@ -1,4 +1,4 @@
-import { createMitigationCalculator } from '@/utils/mitigationCalculator'
+import { simulate } from '@/utils/mitigationCalculator'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { isInScope } from './scope'
 import type { OptimizeInput, Evaluator, PerEventEval } from './types'
@@ -9,16 +9,14 @@ import type { OptimizeInput, Evaluator, PerEventEval } from './types'
  * 纯函数：每次调用独立，试探可丢弃返回值回滚。
  */
 export function createEvaluator(input: OptimizeInput): Evaluator {
-  // calc 在闭包外实例化，避免优化器数百次 evaluate 重复 new。
-  // MitigationCalculator.simulate 每次调用都在内部局部初始化全部状态、不跨调用持有
-  // 可变状态，故同一 calc 实例在多次 evaluator 调用间复用仍满足"每次调用独立/纯函数"约束。
-  const calc = createMitigationCalculator()
+  // simulate 是纯函数直接调用：每次调用都在内部局部初始化全部状态、不跨调用持有
+  // 可变状态，天然满足"每次调用独立/纯函数"约束，无实例可复用的概念。
   const inScopeIds = new Set(input.damageEvents.filter(isInScope).map(e => e.id))
   return casts => {
     // 故意不传 tankPlayerIds：优化作用域仅 AOE 类事件（isInScope），而 tankPlayerIds 只影响
     // 坦专（tankbuster/auto，includeTankOnly）分支，对 in-scope 事件无作用，省略后评估值与
     // 编辑器实时重算一致。若将来作用域扩到坦专事件，这里必须补回 tankPlayerIds 以免静默分歧。
-    const out = calc.simulate({
+    const out = simulate({
       castEvents: casts,
       damageEvents: input.damageEvents,
       initialState: input.initialState,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createPlacementEngine } from './engine'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { createMitigationCalculator } from '@/utils/mitigationCalculator'
+import { simulate } from '@/utils/mitigationCalculator'
 import type { CastEvent, DamageEvent } from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
 
@@ -9,7 +9,6 @@ const actions = new Map(MITIGATION_DATA.actions.map(a => [a.id, a]))
 const initialState: PartyState = { statuses: [], timestamp: 0 } as PartyState
 
 function makeEngine(castEvents: CastEvent[]) {
-  const calc = createMitigationCalculator()
   const damageEvents: DamageEvent[] = [
     {
       id: 'd-end',
@@ -20,15 +19,15 @@ function makeEngine(castEvents: CastEvent[]) {
       damageType: 'physical',
     } as DamageEvent,
   ]
-  const full = calc.simulate({ castEvents, damageEvents, initialState })
+  const full = simulate({ castEvents, damageEvents, initialState })
   // 预算每个 cast 的"假装它不存在"的 status timeline，等价于原 simulateOnRemove
   // 回调按需重跑的结果。worker 路径在生产环境会一次性返回这张表。
   const removalTimelinesByExcludeId = new Map<
     string,
-    ReturnType<typeof calc.simulate>['statusTimelineByPlayer']
+    ReturnType<typeof simulate>['statusTimelineByPlayer']
   >()
   for (const ce of castEvents) {
-    const result = calc.simulate({
+    const result = simulate({
       castEvents: castEvents.filter(e => e.id !== ce.id),
       damageEvents,
       initialState,

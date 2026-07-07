@@ -10,7 +10,7 @@ import type { MitigationStatus } from './status'
  * 仅模拟非坦克玩家共享的最低参考血量；坦专事件（tankbuster / auto）
  * 不入池，继续走 mitigationCalculator 的多坦分支孤立判定。
  *
- * 由 MitigationCalculator.simulate 在入口按 baseReferenceMaxHPForAoe 初始化，
+ * 由 mitigationCalculator 的 simulate 在入口按 baseReferenceMaxHPForAoe 初始化，
  * 后续随 cast / damage / tick / expire 演化。回放模式不参与。
  *
  * 段累积状态（segMax / inSegment / segCandidateMax）独立放在 PartyState.segment，

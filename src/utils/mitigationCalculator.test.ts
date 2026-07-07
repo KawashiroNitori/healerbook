@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MitigationCalculator } from './mitigationCalculator'
+import { calculate, simulate } from './mitigationCalculator'
 import type { PartyState } from '@/types/partyState'
 import type { CastEvent, DamageEvent, DamageEventType, DamageType } from '@/types/timeline'
 import { vi } from 'vitest'
@@ -21,12 +21,10 @@ function makeEvent(
   return { id: 'e', name: 'e', damage, time, damageType, type, snapshotTime }
 }
 
-describe('MitigationCalculator', () => {
-  let calculator: MitigationCalculator
+describe('mitigationCalculator', () => {
   let basePartyState: PartyState
 
   beforeEach(() => {
-    calculator = new MitigationCalculator()
     basePartyState = {
       players: [{ id: 1, job: 'PLD', maxHP: 100000 }],
       statuses: [],
@@ -51,7 +49,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(100000, 10, 'magical'), partyState)
+      const result = calculate(makeEvent(100000, 10, 'magical'), partyState)
 
       expect(result.originalDamage).toBe(100000)
       expect(result.finalDamage).toBe(90000)
@@ -72,7 +70,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(8000)
       expect(result.mitigationPercentage).toBe(20)
@@ -98,7 +96,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7200)
       expect(result.mitigationPercentage).toBe(28)
@@ -118,7 +116,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(9000)
       expect(result.mitigationPercentage).toBe(10)
@@ -144,7 +142,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7200)
       expect(result.mitigationPercentage).toBe(28)
@@ -168,7 +166,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(5000)
       expect(result.mitigationPercentage).toBe(50)
@@ -192,7 +190,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(7000)
       expect(result.mitigationPercentage).toBe(30)
@@ -220,7 +218,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(6000)
       expect(result.mitigationPercentage).toBe(40)
@@ -250,7 +248,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(3000)
       expect(result.mitigationPercentage).toBe(70)
@@ -271,7 +269,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(0)
       expect(result.mitigationPercentage).toBe(100)
@@ -310,7 +308,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 20, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(10000, 20, 'physical', 'aoe'), partyState)
 
       // 预期消耗顺序：shield-1 (startTime=5) -> shield-2 (startTime=10) -> shield-3 (startTime=15)
       // 10000 - 2000 - 2500 - 3000 = 2500
@@ -346,7 +344,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(5000, 15, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(5000, 15, 'physical', 'aoe'), partyState)
 
       // 预期消耗顺序：shield-1 (startTime=5) 先消耗 3000，shield-2 (startTime=10) 再消耗 2000
       expect(result.finalDamage).toBe(0)
@@ -373,7 +371,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.mitigationPercentage).toBe(0)
@@ -393,7 +391,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 30, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 30, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.mitigationPercentage).toBe(0)
@@ -415,7 +413,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(9000)
     })
@@ -433,7 +431,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'magical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'magical'), partyState)
 
       expect(result.finalDamage).toBe(9500)
     })
@@ -459,7 +457,7 @@ describe('MitigationCalculator', () => {
     })
 
     it('死刑应包含坦克专属减伤', () => {
-      const result = calculator.calculate(
+      const result = calculate(
         makeEvent(10000, 10, 'physical', 'tankbuster'),
         partyStateWithTankMit()
       )
@@ -469,20 +467,14 @@ describe('MitigationCalculator', () => {
     })
 
     it('普通攻击应包含坦克专属减伤', () => {
-      const result = calculator.calculate(
-        makeEvent(10000, 10, 'physical', 'auto'),
-        partyStateWithTankMit()
-      )
+      const result = calculate(makeEvent(10000, 10, 'physical', 'auto'), partyStateWithTankMit())
 
       expect(result.finalDamage).toBe(7200)
       expect(result.appliedStatuses).toHaveLength(2)
     })
 
     it('AOE 应忽略坦克专属减伤', () => {
-      const result = calculator.calculate(
-        makeEvent(10000, 10, 'physical', 'aoe'),
-        partyStateWithTankMit()
-      )
+      const result = calculate(makeEvent(10000, 10, 'physical', 'aoe'), partyStateWithTankMit())
 
       expect(result.finalDamage).toBe(9000) // 只生效牵制 10%
       expect(result.appliedStatuses).toHaveLength(1)
@@ -505,7 +497,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'aoe'), partyState)
+      const result = calculate(makeEvent(10000, 5, 'physical', 'aoe'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.mitigationPercentage).toBe(0)
@@ -530,7 +522,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState)
+      const result = calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.appliedStatuses).toHaveLength(0)
@@ -554,7 +546,7 @@ describe('MitigationCalculator', () => {
         ],
       }
 
-      const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'auto'), partyState)
+      const result = calculate(makeEvent(10000, 5, 'physical', 'auto'), partyState)
 
       expect(result.finalDamage).toBe(10000)
       expect(result.appliedStatuses).toHaveLength(0)
@@ -622,10 +614,7 @@ describe('MitigationCalculator', () => {
           timestamp: 0,
         }
 
-        const result = calculator.calculate(
-          makeEvent(10000, 5, 'physical', 'tankbuster'),
-          partyState
-        )
+        const result = calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState)
 
         expect(onBeforeShield).toHaveBeenCalledTimes(1)
         expect(onBeforeShield.mock.calls[0][0].candidateDamage).toBe(10000)
@@ -658,7 +647,7 @@ describe('MitigationCalculator', () => {
           timestamp: 0,
         }
 
-        calculator.calculate(makeEvent(5000, 5, 'physical', 'tankbuster'), partyState)
+        calculate(makeEvent(5000, 5, 'physical', 'tankbuster'), partyState)
 
         expect(onConsume).toHaveBeenCalledTimes(1)
         expect(onConsume.mock.calls[0][0].absorbedAmount).toBe(3000)
@@ -692,10 +681,7 @@ describe('MitigationCalculator', () => {
           timestamp: 0,
         }
 
-        const result = calculator.calculate(
-          makeEvent(15000, 5, 'physical', 'tankbuster'),
-          partyState
-        )
+        const result = calculate(makeEvent(15000, 5, 'physical', 'tankbuster'), partyState)
 
         expect(onBeforeShield).toHaveBeenCalledTimes(1)
         expect(result.finalDamage).toBe(0)
@@ -750,7 +736,7 @@ describe('MitigationCalculator', () => {
       }
 
       // 编辑模式以 referenceMaxHP 当作坦克满血（5000 模拟一个低 HP 坦克参考值）
-      const result = calculator.calculate(event, partyState, { referenceMaxHP: 5000 })
+      const result = calculate(event, partyState, { referenceMaxHP: 5000 })
 
       // 公式: required = candidate(20000) - tankOnlyShield(2000) - referenceMaxHP(5000) + 1 = 13001
       // 死刑事件下 Phase 3 只消耗坦专盾：20000 - 13001 - tank(2000) = 4999（team 盾 3000 保留）
@@ -772,7 +758,7 @@ describe('MitigationCalculator', () => {
       }
 
       // 第一次 20000 伤害：LD 补盾 15001、把伤害挡到 4999
-      const first = calculator.calculate(
+      const first = calculate(
         { id: 'e1', name: '', time: 3, damage: 20000, type: 'tankbuster', damageType: 'physical' },
         partyState,
         { referenceMaxHP: 5000 }
@@ -783,7 +769,7 @@ describe('MitigationCalculator', () => {
       expect(ldAfterFirst!.remainingBarrier).toBe(0)
 
       // 第二次 18000 伤害：LD 应再次补盾 13001、把伤害挡到 4999
-      const second = calculator.calculate(
+      const second = calculate(
         { id: 'e2', name: '', time: 6, damage: 18000, type: 'tankbuster', damageType: 'physical' },
         first.updatedPartyState!,
         { referenceMaxHP: 5000 }
@@ -814,7 +800,7 @@ describe('MitigationCalculator', () => {
           timestamp: 0,
         }
 
-        calculator.calculate(makeEvent(3000, 5, 'physical', 'tankbuster'), partyState)
+        calculate(makeEvent(3000, 5, 'physical', 'tankbuster'), partyState)
 
         expect(onConsume).not.toHaveBeenCalled()
       } finally {
@@ -835,13 +821,13 @@ describe('MitigationCalculator', () => {
         ],
         timestamp: 0,
       }
-      const result = calculator.calculate(makeEvent(4000, 5, 'physical', 'tankbuster'), partyState)
+      const result = calculate(makeEvent(4000, 5, 'physical', 'tankbuster'), partyState)
       expect(result.candidateDamage).toBe(4000)
       expect(result.finalDamage).toBe(4000)
     })
   })
 
-  describe('MitigationCalculator with simplified PartyState', () => {
+  describe('mitigationCalculator with simplified PartyState', () => {
     it('should calculate damage using player.statuses only', () => {
       const partyState: PartyState = {
         players: [{ id: 1, job: 'WHM', maxHP: 50000 }],
@@ -862,7 +848,7 @@ describe('MitigationCalculator', () => {
         timestamp: 10,
       }
 
-      const result = calculator.calculate(makeEvent(10000, 10, 'physical'), partyState)
+      const result = calculate(makeEvent(10000, 10, 'physical'), partyState)
 
       expect(result.finalDamage).toBe(7650) // 10000 * 0.9 * 0.85
       expect(result.appliedStatuses).toHaveLength(2)
@@ -876,7 +862,7 @@ describe('MitigationCalculator', () => {
         ...makeEvent(100000, 10, 'magical', 'aoe'),
         tempMitigations: [{ id: 'tm1', name: '临时20%', type: 'percent', value: 20 }],
       }
-      const result = calculator.calculate(event, basePartyState)
+      const result = calculate(event, basePartyState)
       expect(result.finalDamage).toBe(80000)
       expect(result.candidateDamage).toBe(80000)
       expect(result.mitigationPercentage).toBe(20)
@@ -903,7 +889,7 @@ describe('MitigationCalculator', () => {
         tempMitigations: [{ id: 'tm1', name: '临时20%', type: 'percent', value: 20 }],
       }
       // 真实 10%（节制）× 临时 20% = 100000 * 0.9 * 0.8 = 72000
-      const result = calculator.calculate(event, partyState)
+      const result = calculate(event, partyState)
       expect(result.finalDamage).toBe(72000)
       expect(result.mitigationPercentage).toBe(28)
       expect(result.appliedStatuses).toHaveLength(1) // 只有真实状态进 appliedStatuses
@@ -914,7 +900,7 @@ describe('MitigationCalculator', () => {
         ...makeEvent(100000, 10, 'magical', 'aoe'),
         tempMitigations: [{ id: 'tm1', name: '超界', type: 'percent', value: 150 }],
       }
-      const result = calculator.calculate(event, basePartyState)
+      const result = calculate(event, basePartyState)
       // clamp 到 100% → 全免
       expect(result.finalDamage).toBe(0)
     })
@@ -924,7 +910,7 @@ describe('MitigationCalculator', () => {
         ...makeEvent(100000, 10, 'magical', 'aoe'),
         tempMitigations: [{ id: 'tm1', name: '临时盾', type: 'shield', value: 30000 }],
       }
-      const result = calculator.calculate(event, basePartyState)
+      const result = calculate(event, basePartyState)
       expect(result.finalDamage).toBe(70000)
       // candidateDamage 是盾前伤害，不含临时盾
       expect(result.candidateDamage).toBe(100000)
@@ -940,7 +926,7 @@ describe('MitigationCalculator', () => {
         ],
       }
       // candidateDamage = 100000*0.8 = 80000；finalDamage = 80000-30000 = 50000
-      const result = calculator.calculate(event, basePartyState)
+      const result = calculate(event, basePartyState)
       expect(result.candidateDamage).toBe(80000)
       expect(result.finalDamage).toBe(50000)
       // candidateDamage - finalDamage = 30000 = 临时盾吸收量（供色块归类）
@@ -952,7 +938,7 @@ describe('MitigationCalculator', () => {
         ...makeEvent(20000, 10, 'magical', 'aoe'),
         tempMitigations: [{ id: 'tm1', name: '大盾', type: 'shield', value: 50000 }],
       }
-      const result = calculator.calculate(event, basePartyState)
+      const result = calculate(event, basePartyState)
       expect(result.finalDamage).toBe(0)
     })
 
@@ -977,7 +963,7 @@ describe('MitigationCalculator', () => {
         ...makeEvent(100000, 10, 'magical', 'aoe'),
         tempMitigations: [{ id: 'tm-shield', name: '临时盾', type: 'shield', value: 20000 }],
       }
-      const result = calculator.calculate(event, partyState)
+      const result = calculate(event, partyState)
 
       // candidateDamage 在盾前，不受任何盾（真实或临时）影响
       expect(result.candidateDamage).toBe(100000)
@@ -1004,7 +990,7 @@ describe('MitigationCalculator', () => {
         ...makeEvent(100000, 10, 'physical', 'tankbuster'),
         tempMitigations: [{ id: 'tm1', name: '临时20%', type: 'percent', value: 20 }],
       }
-      const result = calculator.calculate(event, partyState, {
+      const result = calculate(event, partyState, {
         tankPlayerIds: [1, 2],
         baseReferenceMaxHP: 100000,
       })
@@ -1018,11 +1004,9 @@ describe('MitigationCalculator', () => {
 })
 
 describe('多坦 per-victim 路径', () => {
-  let calculator: MitigationCalculator
   let basePartyState: PartyState
 
   beforeEach(() => {
-    calculator = new MitigationCalculator()
     basePartyState = {
       players: [
         { id: 1, job: 'PLD', maxHP: 100000 },
@@ -1047,11 +1031,10 @@ describe('多坦 per-victim 路径', () => {
         },
       ],
     }
-    const result = calculator.calculate(
-      makeEvent(200000, 5, 'physical', 'tankbuster'),
-      partyState,
-      { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
-    )
+    const result = calculate(makeEvent(200000, 5, 'physical', 'tankbuster'), partyState, {
+      tankPlayerIds: [1, 2],
+      baseReferenceMaxHP: 100000,
+    })
     expect(result.perVictim).toHaveLength(2)
     expect(result.perVictim![0].playerId).toBe(1)
     expect(result.perVictim![1].playerId).toBe(2)
@@ -1091,11 +1074,10 @@ describe('多坦 per-victim 路径', () => {
           },
         ],
       }
-      const result = calculator.calculate(
-        makeEvent(10000, 5, 'physical', 'tankbuster'),
-        partyState,
-        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
-      )
+      const result = calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState, {
+        tankPlayerIds: [1, 2],
+        baseReferenceMaxHP: 100000,
+      })
       expect(result.perVictim![0].finalDamage).toBe(7000)
       expect(result.perVictim![1].finalDamage).toBe(7000)
     } finally {
@@ -1136,14 +1118,10 @@ describe('多坦 per-victim 路径', () => {
           },
         ],
       }
-      const a = calculator.calculate(
-        makeEvent(10000, 5, 'physical', 'tankbuster'),
-        fromNascentFlash,
-        {
-          tankPlayerIds: [1, 2],
-          baseReferenceMaxHP: 100000,
-        }
-      )
+      const a = calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), fromNascentFlash, {
+        tankPlayerIds: [1, 2],
+        baseReferenceMaxHP: 100000,
+      })
       // perVictim 按 finalDamage 升序排，故按 playerId 反查而非按下标
       const aByPlayer = new Map(a.perVictim!.map(v => [v.playerId, v.finalDamage]))
       expect(aByPlayer.get(1)).toBe(10000) // 施法者不吃
@@ -1163,11 +1141,10 @@ describe('多坦 per-victim 路径', () => {
           },
         ],
       }
-      const b = calculator.calculate(
-        makeEvent(10000, 5, 'physical', 'tankbuster'),
-        fromBloodwhetting,
-        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
-      )
+      const b = calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), fromBloodwhetting, {
+        tankPlayerIds: [1, 2],
+        baseReferenceMaxHP: 100000,
+      })
       const bByPlayer = new Map(b.perVictim!.map(v => [v.playerId, v.finalDamage]))
       expect(bByPlayer.get(1)).toBe(9000) // 施法者吃 10%
       expect(bByPlayer.get(2)).toBe(10000) // 对方不吃
@@ -1210,11 +1187,10 @@ describe('多坦 per-victim 路径', () => {
           },
         ],
       }
-      const result = calculator.calculate(
-        makeEvent(3000, 5, 'physical', 'tankbuster'),
-        partyState,
-        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
-      )
+      const result = calculate(makeEvent(3000, 5, 'physical', 'tankbuster'), partyState, {
+        tankPlayerIds: [1, 2],
+        baseReferenceMaxHP: 100000,
+      })
       // perVictim 按 finalDamage 升序：OT (0) 在前，MT (3000) 在后
       expect(result.perVictim![0].playerId).toBe(2)
       expect(result.perVictim![0].finalDamage).toBe(0)
@@ -1244,7 +1220,7 @@ describe('多坦 per-victim 路径', () => {
         },
       ],
     }
-    const result = calculator.calculate(makeEvent(1, 5, 'physical', 'tankbuster'), partyState, {
+    const result = calculate(makeEvent(1, 5, 'physical', 'tankbuster'), partyState, {
       tankPlayerIds: [1, 2],
       baseReferenceMaxHP: 100000,
     })
@@ -1265,7 +1241,7 @@ describe('多坦 per-victim 路径', () => {
         },
       ],
     }
-    const result = calculator.calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState, {
+    const result = calculate(makeEvent(10000, 5, 'physical', 'tankbuster'), partyState, {
       tankPlayerIds: [1],
       baseReferenceMaxHP: 100000,
     })
@@ -1279,7 +1255,7 @@ describe('多坦 per-victim 路径', () => {
       ...basePartyState,
       statuses: [],
     }
-    const result = calculator.calculate(makeEvent(10000, 5, 'magical', 'aoe'), partyState, {
+    const result = calculate(makeEvent(10000, 5, 'magical', 'aoe'), partyState, {
       tankPlayerIds: [1, 2],
       baseReferenceMaxHP: 100000,
     })
@@ -1318,11 +1294,10 @@ describe('多坦 per-victim 路径', () => {
           },
         ],
       }
-      const result = calculator.calculate(
-        makeEvent(2000, 5, 'physical', 'tankbuster'),
-        partyState,
-        { tankPlayerIds: [1, 2], baseReferenceMaxHP: 100000 }
-      )
+      const result = calculate(makeEvent(2000, 5, 'physical', 'tankbuster'), partyState, {
+        tankPlayerIds: [1, 2],
+        baseReferenceMaxHP: 100000,
+      })
       // 两个分支都不消耗这块盾 → 吃满 2000
       expect(result.perVictim![0].finalDamage).toBe(2000)
       expect(result.perVictim![1].finalDamage).toBe(2000)
@@ -1351,7 +1326,7 @@ describe('多坦 per-victim 路径', () => {
       ],
     }
     const e1 = makeEvent(200000, 5, 'physical', 'tankbuster')
-    const r1 = calculator.calculate(e1, partyState0, {
+    const r1 = calculate(e1, partyState0, {
       tankPlayerIds: [1, 2],
       baseReferenceMaxHP: 100000,
     })
@@ -1364,7 +1339,7 @@ describe('多坦 per-victim 路径', () => {
 
     // 下一死刑：3255 的 survival hook 仍应为 MT 分支生效
     const e2 = makeEvent(200000, 8, 'physical', 'tankbuster')
-    const r2 = calculator.calculate(e2, r1.updatedPartyState!, {
+    const r2 = calculate(e2, r1.updatedPartyState!, {
       tankPlayerIds: [1, 2],
       baseReferenceMaxHP: 100000,
     })
@@ -1381,8 +1356,7 @@ describe('多坦 per-victim 路径', () => {
       const castEvents = [
         { id: 'c1', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
       ]
-      const calc = new MitigationCalculator()
-      const { statusTimelineByPlayer } = calc.simulate({
+      const { statusTimelineByPlayer } = simulate({
         castEvents,
         damageEvents: [
           {
@@ -1410,8 +1384,7 @@ describe('多坦 per-victim 路径', () => {
       const castEvents = [
         { id: 'c-seraph', actionId: 37014, playerId: 1, timestamp: 5 } as unknown as CastEvent,
       ]
-      const calc = new MitigationCalculator()
-      const { statusTimelineByPlayer } = calc.simulate({
+      const { statusTimelineByPlayer } = simulate({
         castEvents,
         damageEvents: [
           {
@@ -1438,8 +1411,7 @@ describe('多坦 per-victim 路径', () => {
       const castEvents = [
         { id: 'c-seraph', actionId: 37014, playerId: 1, timestamp: 20 } as unknown as CastEvent,
       ]
-      const calc = new MitigationCalculator()
-      const { statusTimelineByPlayer } = calc.simulate({
+      const { statusTimelineByPlayer } = simulate({
         castEvents,
         damageEvents: [
           {
@@ -1463,8 +1435,7 @@ describe('多坦 per-victim 路径', () => {
       const castEvents = [
         { id: 'c-seraph', actionId: 37014, playerId: 1, timestamp: 5 } as unknown as CastEvent,
       ]
-      const calc = new MitigationCalculator()
-      const { statusTimelineByPlayer } = calc.simulate({
+      const { statusTimelineByPlayer } = simulate({
         castEvents,
         damageEvents: [],
         initialState: { players: [], statuses: [], timestamp: 0 },
@@ -1483,8 +1454,7 @@ describe('多坦 per-victim 路径', () => {
         { id: 'first', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
         { id: 'second', actionId: 16536, playerId: 1, timestamp: 20 } as unknown as CastEvent,
       ]
-      const calc = new MitigationCalculator()
-      const { statusTimelineByPlayer } = calc.simulate({
+      const { statusTimelineByPlayer } = simulate({
         castEvents,
         damageEvents: [
           {
@@ -1514,8 +1484,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     const castEvents = [
       { id: 'c1', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [],
       initialState: { players: [], statuses: [], timestamp: 0 },
@@ -1528,8 +1497,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     const castEvents = [
       { id: 'c1', actionId: 36920, playerId: 1, timestamp: 0 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [
         {
@@ -1567,8 +1535,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
       { id: 'first', actionId: 16536, playerId: 1, timestamp: 10 } as unknown as CastEvent,
       { id: 'second', actionId: 16536, playerId: 1, timestamp: 20 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [],
       initialState: { players: [], statuses: [], timestamp: 0 },
@@ -1583,8 +1550,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     const castEvents = [
       { id: 'c1', actionId: 7382, playerId: 1, timestamp: 0 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [],
       initialState: { players: [], statuses: [], timestamp: 0 },
@@ -1597,8 +1563,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     const castEvents = [
       { id: 'c1', actionId: 37013, playerId: 1, timestamp: 0 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [
         {
@@ -1634,8 +1599,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     const castEvents = [
       { id: 'c1', actionId: 7388, playerId: 1, timestamp: 0 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [
         {
@@ -1670,8 +1634,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
     const castEvents = [
       { id: 'c1', actionId: 3569, playerId: 1, timestamp: 0 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents,
       damageEvents: [],
       initialState: { players: [], statuses: [], timestamp: 0 },
@@ -1691,8 +1654,7 @@ describe('simulate → castEffectiveEndByCastEventId', () => {
   // 间接验证了 "instance 消失即收束" 的核心机制。
 
   it('seeded buff（initialState 带的、无 cast 来源）不进 castEffectiveEnd', () => {
-    const calc = new MitigationCalculator()
-    const { castEffectiveEndByCastEventId } = calc.simulate({
+    const { castEffectiveEndByCastEventId } = simulate({
       castEvents: [],
       damageEvents: [],
       initialState: {
@@ -1730,7 +1692,6 @@ describe('HP 池演化 - partial 段累积', () => {
   const baseInitialState: PartyState = { statuses: [], timestamp: 0 }
 
   it('段内每次扣 max 增量；pfaoe 触发段结束', () => {
-    const calculator = new MitigationCalculator()
     const damageEvents = [
       mkDmg('A', 10, 'aoe', 20000),
       mkDmg('B', 15, 'partial_aoe', 15000),
@@ -1741,7 +1702,7 @@ describe('HP 池演化 - partial 段累积', () => {
       mkDmg('J', 43, 'partial_aoe', 14000),
       mkDmg('L', 50, 'partial_aoe', 20000),
     ]
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents,
       initialState: baseInitialState,
@@ -1761,7 +1722,6 @@ describe('HP 池演化 - partial 段累积', () => {
   })
 
   it('aoe 中段插入打断 partial 段', () => {
-    const calculator = new MitigationCalculator()
     const damageEvents = [
       mkDmg('X1', 5, 'partial_aoe', 20000),
       mkDmg('X2', 10, 'partial_aoe', 25000),
@@ -1769,7 +1729,7 @@ describe('HP 池演化 - partial 段累积', () => {
       mkDmg('X4', 20, 'partial_aoe', 15000),
       mkDmg('X5', 25, 'partial_final_aoe', 28000),
     ]
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents,
       initialState: baseInitialState,
@@ -1785,13 +1745,12 @@ describe('HP 池演化 - partial 段累积', () => {
   })
 
   it('tankbuster / auto 段穿透；tankbuster 接 partial_aoe 段不被打断', () => {
-    const calculator = new MitigationCalculator()
     const damageEvents = [
       mkDmg('p1', 5, 'partial_aoe', 20000),
       mkDmg('t1', 10, 'tankbuster', 50000),
       mkDmg('p2', 15, 'partial_aoe', 25000),
     ]
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents,
       initialState: baseInitialState,
@@ -1804,9 +1763,8 @@ describe('HP 池演化 - partial 段累积', () => {
   })
 
   it('overkill：aoe finalDamage > hp.current 时 hp clamp 到 0', () => {
-    const calculator = new MitigationCalculator()
     const damageEvents = [mkDmg('A', 5, 'aoe', 50000), mkDmg('B', 10, 'aoe', 80000)]
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents,
       initialState: baseInitialState,
@@ -1819,12 +1777,11 @@ describe('HP 池演化 - partial 段累积', () => {
   })
 
   it('段未收尾时 EOF 不强制结算', () => {
-    const calculator = new MitigationCalculator()
     const damageEvents = [
       mkDmg('p1', 5, 'partial_aoe', 20000),
       mkDmg('p2', 10, 'partial_aoe', 30000),
     ]
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents,
       initialState: baseInitialState,
@@ -1853,7 +1810,6 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === MAX_HP_BUFF_ID ? mkMaxHpMeta(1.1) : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -1866,7 +1822,7 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('A', 10, 'aoe', 20000)],
         initialState,
@@ -1886,7 +1842,6 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === MAX_HP_BUFF_ID ? mkMaxHpMeta(1.1, true) : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -1899,7 +1854,7 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('A', 10, 'aoe', 20000)],
         initialState,
@@ -1918,7 +1873,6 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === MAX_HP_BUFF_ID ? mkMaxHpMeta(1.1) : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -1931,7 +1885,7 @@ describe('HP 池 - maxHP buff 同步伸缩', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('A', 10, 'aoe', 20000), mkDmg('B', 20, 'aoe', 20000)],
         initialState,
@@ -1997,7 +1951,6 @@ describe('HP 池 - calculate 内钩子能 push HealSnapshot', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === REACTIVE_HEAL_BUFF_ID ? mkReactiveHealMeta() : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -2010,7 +1963,7 @@ describe('HP 池 - calculate 内钩子能 push HealSnapshot', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('A', 10, 'aoe', 30000)],
         initialState,
@@ -2062,7 +2015,6 @@ describe('HP 池 - calculate 内钩子改 hp 真正生效', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === REACTIVE_HEAL_BUFF_ID ? mkReactiveHealMeta() : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -2075,7 +2027,7 @@ describe('HP 池 - calculate 内钩子改 hp 真正生效', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('A', 10, 'aoe', 20000), // 100k → 钩子 +1k clamp 到 100k → 扣 20k = 80k
@@ -2120,7 +2072,6 @@ describe('Phase 5 onAfterDamage 派发口径', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === PARTYWIDE_BUFF_ID ? mkPartywideMeta() : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -2133,7 +2084,7 @@ describe('Phase 5 onAfterDamage 派发口径', () => {
         ],
         timestamp: 0,
       }
-      calculator.simulate({
+      simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('A', 10, 'aoe', 10000),
@@ -2190,9 +2141,8 @@ describe('礼仪之铃 (2709) onExpire — 用真实 registry', () => {
   })
 
   it('自然到期回复剩余层数：每层 healByAbility[25863]/2', () => {
-    const calculator = new MitigationCalculator()
     // 窗口 [0,20] 内无伤害 → 5 层全保留；t=30 的伤害把推进带过 endTime 触发 onExpire。
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [mkDmg('post', 30, 'aoe', 10000)],
       initialState: mkBell(5),
@@ -2211,10 +2161,9 @@ describe('礼仪之铃 (2709) onExpire — 用真实 registry', () => {
   })
 
   it('被伤害打空层数后 removeStatus，到期不重复回血', () => {
-    const calculator = new MitigationCalculator()
     // stack=1：t=5 的伤害触发 onAfterDamage 满额回血一次并消层到 0 → removeStatus；
     // t=30 推进带过 endTime 时铃铛已不在 → 不触发 onExpire。
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [mkDmg('hit', 5, 'aoe', 30000), mkDmg('post', 30, 'aoe', 10000)],
       initialState: mkBell(1),
@@ -2266,9 +2215,8 @@ describe('泛输血 (2613) onExpire — 用真实 registry', () => {
   })
 
   const runExpire = (stack: number, shieldAmount: number) => {
-    const calculator = new MitigationCalculator()
     // t=30 的伤害把推进带过 endTime(20) 触发 onExpire。
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [mkDmg('post', 30, 'aoe', 10000)],
       initialState: mkPanhaima(stack),
@@ -2300,8 +2248,7 @@ describe('HP 池 · hpTimeline', () => {
   const baseInitialState: PartyState = { statuses: [], timestamp: 0 }
 
   it('hp 池初始化后立即 push 一条 init point', () => {
-    const calculator = new MitigationCalculator()
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [],
       initialState: baseInitialState,
@@ -2311,8 +2258,7 @@ describe('HP 池 · hpTimeline', () => {
   })
 
   it('未配 hp 池时 hpTimeline 为空', () => {
-    const calculator = new MitigationCalculator()
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [],
       initialState: baseInitialState,
@@ -2322,8 +2268,7 @@ describe('HP 池 · hpTimeline', () => {
   })
 
   it('aoe 事件后 push damage point，hp 反映扣血结果', () => {
-    const calculator = new MitigationCalculator()
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [mkDmg('A', 10, 'aoe', 30000)],
       initialState: baseInitialState,
@@ -2340,8 +2285,7 @@ describe('HP 池 · hpTimeline', () => {
   })
 
   it('partial 段每条扣血都各自 push 一条 damage point', () => {
-    const calculator = new MitigationCalculator()
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [
         mkDmg('A', 5, 'partial_aoe', 20000),
@@ -2401,7 +2345,6 @@ describe('HP 池 · hpTimeline', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === REACTIVE_HEAL_BUFF_ID ? mkMeta() : undefined))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [
           {
@@ -2414,7 +2357,7 @@ describe('HP 池 · hpTimeline', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('A', 10, 'aoe', 30000)],
         initialState,
@@ -2483,7 +2426,6 @@ describe('HP 池 · hpTimeline', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === TICK_BUFF_ID ? mkTickMeta() : undefined))
     try {
-      const calculator = new MitigationCalculator()
       // 先一次伤害把血扣到 50k 留出 tick 空间，再 advanceToTime 跨 9s 触发 3 个 tick
       const initialState: PartyState = {
         statuses: [
@@ -2497,7 +2439,7 @@ describe('HP 池 · hpTimeline', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('A', 1, 'aoe', 50000), // hp → 50000
@@ -2540,7 +2482,6 @@ describe('HP 池 · hpTimeline', () => {
       .spyOn(registry, 'getStatusById')
       .mockImplementation(id => (id === MAXHP_BUFF_ID ? mkMaxHpMeta() : undefined))
     try {
-      const calculator = new MitigationCalculator()
       // buff 在 t=5 自然过期 → recomputeHpMax 缩 hp.max → 应该 push 一条 maxhp-change
       const initialState: PartyState = {
         statuses: [
@@ -2554,7 +2495,7 @@ describe('HP 池 · hpTimeline', () => {
         ],
         timestamp: 0,
       }
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('A', 10, 'aoe', 0)], // 推进时间到 10s 让 buff 过期
         initialState,
@@ -2573,8 +2514,7 @@ describe('HP 池 · hpTimeline', () => {
   it('hpTimeline 按 time 升序 sort', () => {
     // 同一 time 多事件（cast at t=10 同时 damage at t=10）的 push 顺序由 simulate 主循环内序定，
     // 出口 sort 用稳定排序保留同时刻先后
-    const calculator = new MitigationCalculator()
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [
         mkDmg('A', 5, 'aoe', 10000),
@@ -2593,8 +2533,7 @@ describe('HP 池 · hpTimeline', () => {
   it('回放模式 hpTimeline 为空', () => {
     // simulate 不被回放模式直接调用，但 useDamageCalculation 在 isReplayMode 时短路返回 empty。
     // 此处只需验证：当 initialState.hp 为空 + 不传 baseReferenceMaxHPForAoe → hpTimeline 为空。
-    const calculator = new MitigationCalculator()
-    const out = calculator.simulate({
+    const out = simulate({
       castEvents: [],
       damageEvents: [mkDmg('A', 5, 'aoe', 10000)],
       initialState: { statuses: [], timestamp: 0 },
@@ -2653,14 +2592,13 @@ describe('partial 段延迟扣盾', () => {
   it('partial_aoe 期间 remainingBarrier 不变（盾仅显示参与）', () => {
     const spy = spyShield()
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [mkShieldStatus('sh1', 0, 50000)],
         timestamp: 0,
       }
       // 段未收尾：partial_aoe 总和 50k 应"看起来"全吸收，但盾不被实扣。
       // 末尾 aoe 5k 验证盾仍是 50k（旧行为下盾已归 0，aoe finalDamage=5k）。
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('p1', 5, 'partial_aoe', 20000),
@@ -2683,7 +2621,6 @@ describe('partial 段延迟扣盾', () => {
   it('partial_final_aoe 按 max(自身 cd, segCandidateMax) 扣盾', () => {
     const spy = spyShield()
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [mkShieldStatus('sh1', 0, 50000)],
         timestamp: 0,
@@ -2691,7 +2628,7 @@ describe('partial 段延迟扣盾', () => {
       // 段：partial_aoe 30k → partial_aoe 40k → partial_final_aoe 20k
       // segCandidateMax 在 final 时段累积到 max(30k, 40k) = 40k；自身 cd = 20k
       // effectiveDamage = max(20k, 40k) = 40k → 盾 50k 吃掉 40k → 残 10k
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('p1', 5, 'partial_aoe', 30000),
@@ -2705,7 +2642,7 @@ describe('partial 段延迟扣盾', () => {
       expect(out.damageResults.get('pf')!.finalDamage).toBe(0)
 
       // 盾被结算扣到剩 10k：再来一个 aoe 验证 remainingBarrier 已变更
-      const out2 = calculator.simulate({
+      const out2 = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('p1', 5, 'partial_aoe', 30000),
@@ -2726,13 +2663,12 @@ describe('partial 段延迟扣盾', () => {
   it('单 partial_final_aoe（无前置 partial_aoe）按自身 cd 扣盾', () => {
     const spy = spyShield()
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [mkShieldStatus('sh1', 0, 50000)],
         timestamp: 0,
       }
       // segCandidateMax = 0；effectiveDamage = max(35k, 0) = 35k → 盾残 15k
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [mkDmg('pf', 5, 'partial_final_aoe', 35000), mkDmg('aoe', 10, 'aoe', 10000)],
         initialState,
@@ -2751,14 +2687,13 @@ describe('partial 段延迟扣盾', () => {
     const consumeCalls: number[] = []
     const spy = spyShield(({ absorbedAmount }) => consumeCalls.push(absorbedAmount))
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [mkShieldStatus('sh1', 0, 30000)],
         timestamp: 0,
       }
       // segCandidateMax 在 final 时段累积到 max(40k, 50k) = 50k
       // effectiveDamage = max(15k, 50k) = 50k；盾 30k 全吃掉 → 触发 onConsume(absorbed=30k)
-      calculator.simulate({
+      simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('p1', 5, 'partial_aoe', 40000),
@@ -2778,7 +2713,6 @@ describe('partial 段延迟扣盾', () => {
   it('段被 aoe 打断后，下一段 segCandidateMax 重置', () => {
     const spy = spyShield()
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [mkShieldStatus('sh1', 0, 50000)],
         timestamp: 0,
@@ -2786,7 +2720,7 @@ describe('partial 段延迟扣盾', () => {
       // 段1：p1=40k → aoe(40k) 打断（吃掉 40k 盾，残 10k）
       // 段2：p2=15k → pf=10k；segCandidateMax=15k；effectiveDamage=max(10k,15k)=15k
       // 残盾 10k 不够吃 15k → 全消耗 → 盾归 0
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('p1', 5, 'partial_aoe', 40000),
@@ -2810,13 +2744,12 @@ describe('partial 段延迟扣盾', () => {
   it('removeOnBarrierBreak: true 的盾在结算被打穿时自动从 statuses 移除', () => {
     const spy = spyShield()
     try {
-      const calculator = new MitigationCalculator()
       const initialState: PartyState = {
         statuses: [mkShieldStatus('sh1', 0, 20000)],
         timestamp: 0,
       }
       // segCandidateMax = 50k；盾 20k 被打穿
-      const out = calculator.simulate({
+      const out = simulate({
         castEvents: [],
         damageEvents: [
           mkDmg('p1', 5, 'partial_aoe', 50000),
@@ -2837,11 +2770,9 @@ describe('partial 段延迟扣盾', () => {
 })
 
 describe('目标减开关 (targetMitigationDisabled)', () => {
-  let calculator: MitigationCalculator
   let basePartyState: PartyState
 
   beforeEach(() => {
-    calculator = new MitigationCalculator()
     basePartyState = {
       players: [{ id: 1, job: 'PLD', maxHP: 100000 }],
       statuses: [],
@@ -2857,8 +2788,8 @@ describe('目标减开关 (targetMitigationDisabled)', () => {
         { instanceId: 'reprisal', statusId: 1193, startTime: 0, endTime: 15, sourcePlayerId: 2 },
       ],
     }
-    const on = calculator.calculate(makeEvent(100000, 10, 'magical', 'aoe'), partyState)
-    const off = calculator.calculate(
+    const on = calculate(makeEvent(100000, 10, 'magical', 'aoe'), partyState)
+    const off = calculate(
       { ...makeEvent(100000, 10, 'magical', 'aoe'), targetMitigationDisabled: true },
       partyState
     )
@@ -2883,7 +2814,7 @@ describe('目标减开关 (targetMitigationDisabled)', () => {
         },
       ],
     }
-    const off = calculator.calculate(
+    const off = calculate(
       { ...makeEvent(100000, 10, 'magical', 'aoe'), targetMitigationDisabled: true },
       partyState
     )
@@ -2904,8 +2835,7 @@ describe('simulate → resolvedVariantByCastId', () => {
       { id: 'c-in', actionId: 37013, playerId: 6, timestamp: 20 } as unknown as CastEvent,
       { id: 'c-out', actionId: 37013, playerId: 6, timestamp: 100 } as unknown as CastEvent,
     ]
-    const calc = new MitigationCalculator()
-    const result = calc.simulate({
+    const result = simulate({
       castEvents,
       damageEvents: [
         {

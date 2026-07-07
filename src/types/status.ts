@@ -253,7 +253,7 @@ export interface StatusExecutor {
 }
 
 /**
- * 状态时间线区间（由 MitigationCalculator.simulate 产出）
+ * 状态时间线区间（由 mitigationCalculator 的 simulate 产出）
  *
  * 半开区间 [from, to)。`sourcePlayerId` = 施放者；`sourceCastEventId` = 触发该状态
  * attach 的 cast event 的 id（Healerbook UUID）。同一个 status instance 可能因
