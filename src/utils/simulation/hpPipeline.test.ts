@@ -38,7 +38,7 @@ const mkState = (hp?: { current: number; max: number; base: number }): PartyStat
 
 describe('hpPipeline.applyDamage', () => {
   it('aoe 全额扣 HP，返回 snapshot', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     const state = mkState({ current: 100000, max: 100000, base: 100000 })
     const { nextState, snapshot } = hp.applyDamage(state, mkDmg('A', 10, 'aoe', 0), 30000, 30000)
 
@@ -55,7 +55,7 @@ describe('hpPipeline.applyDamage', () => {
   })
 
   it('overkill：扣血量超过当前 HP 时 hpAfter clamp 到 0，snapshot.overkill 记录溢出', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     const state = mkState({ current: 20000, max: 100000, base: 100000 })
     const { nextState, snapshot } = hp.applyDamage(state, mkDmg('A', 10, 'aoe', 0), 30000, 30000)
 
@@ -64,7 +64,7 @@ describe('hpPipeline.applyDamage', () => {
   })
 
   it('tankbuster / auto 不入池，snapshot 为 undefined', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     const state = mkState({ current: 100000, max: 100000, base: 100000 })
     const tb = hp.applyDamage(state, mkDmg('A', 10, 'tankbuster', 0), 30000, 30000)
     expect(tb.snapshot).toBeUndefined()
@@ -76,7 +76,7 @@ describe('hpPipeline.applyDamage', () => {
   })
 
   it('partial_aoe：段内按增量扣血（max(finalDamage) - segMaxBefore）', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     let state = mkState({ current: 100000, max: 100000, base: 100000 })
 
     // 首个 partial：段内 segMaxBefore=0，扣全额 30000
@@ -98,7 +98,7 @@ describe('hpPipeline.applyDamage', () => {
   })
 
   it('partial_final_aoe：结算后段清零（inSegment=false）', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     let state = mkState({ current: 100000, max: 100000, base: 100000 })
 
     const first = hp.applyDamage(state, mkDmg('P1', 5, 'partial_aoe', 30000), 30000, 30000)
@@ -112,7 +112,7 @@ describe('hpPipeline.applyDamage', () => {
   })
 
   it('无 hp 池时（skipHpPipeline 场景）仍维护 segment，snapshot 为 undefined', () => {
-    const hp = createHpPipeline({ skipHpPipeline: true, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: true })
     const state = mkState() // hp undefined
     const { nextState, snapshot } = hp.applyDamage(
       state,
@@ -127,7 +127,7 @@ describe('hpPipeline.applyDamage', () => {
 
 describe('hpPipeline.recomputeAndTrack', () => {
   it('hp.max 无变化时不 push 点', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     const state = mkState({ current: 100000, max: 100000, base: 100000 })
     hp.recordTimelinePoint({ time: 0, hp: 100000, hpMax: 100000, kind: 'init' })
 
@@ -154,7 +154,7 @@ describe('hpPipeline.recomputeAndTrack', () => {
           : undefined) as ReturnType<typeof registry.getStatusById>
     )
     try {
-      const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+      const hp = createHpPipeline({ skipHpPipeline: false })
       const state: PartyState = {
         statuses: [
           {
@@ -183,7 +183,7 @@ describe('hpPipeline.recomputeAndTrack', () => {
 
 describe('hpPipeline.recordHeal / recordTimelinePoint / finish', () => {
   it('recordHeal 回填 hpAfter 并 push heal 点（读上一已知 hp）', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     // 先 seed 影子状态：当前 hp 50000 / max 100000
     hp.recordTimelinePoint({ time: 0, hp: 50000, hpMax: 100000, kind: 'init' })
     hp.recordHeal?.({
@@ -204,7 +204,7 @@ describe('hpPipeline.recordHeal / recordTimelinePoint / finish', () => {
   })
 
   it('recordHeal 溢出 clamp 到 hpMax', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     hp.recordTimelinePoint({ time: 0, hp: 90000, hpMax: 100000, kind: 'init' })
     hp.recordHeal?.({
       castEventId: '',
@@ -223,7 +223,7 @@ describe('hpPipeline.recordHeal / recordTimelinePoint / finish', () => {
   })
 
   it('finish 按 time 升序 sort hpTimeline 与 healSnapshots', () => {
-    const hp = createHpPipeline({ skipHpPipeline: false, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: false })
     hp.recordTimelinePoint({ time: 10, hp: 100000, hpMax: 100000, kind: 'init' })
     hp.recordTimelinePoint({ time: 3, hp: 100000, hpMax: 100000, kind: 'maxhp-change' })
     hp.recordTimelinePoint({ time: 7, hp: 100000, hpMax: 100000, kind: 'damage' })
@@ -235,7 +235,7 @@ describe('hpPipeline.recordHeal / recordTimelinePoint / finish', () => {
   })
 
   it('skipHpPipeline=true：recordHeal 为 undefined，finish 返回空数组', () => {
-    const hp = createHpPipeline({ skipHpPipeline: true, initialState: mkState() })
+    const hp = createHpPipeline({ skipHpPipeline: true })
     expect(hp.recordHeal).toBeUndefined()
     // recordTimelinePoint 在 skip 下短路，不 push
     hp.recordTimelinePoint({ time: 0, hp: 100000, hpMax: 100000, kind: 'init' })

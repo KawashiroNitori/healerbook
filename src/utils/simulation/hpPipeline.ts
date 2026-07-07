@@ -176,11 +176,7 @@ export interface HpPipeline {
   finish(): { hpTimeline: HpTimelinePoint[]; healSnapshots: HealSnapshot[] }
 }
 
-export function createHpPipeline(opts: {
-  skipHpPipeline: boolean
-  /** 保留以对齐 brief 契约；影子状态由 recordTimelinePoint(init) 首次回填，此处不消费。 */
-  initialState: PartyState
-}): HpPipeline {
+export function createHpPipeline(opts: { skipHpPipeline: boolean }): HpPipeline {
   const { skipHpPipeline } = opts
 
   const healSnapshots: HealSnapshot[] = []
