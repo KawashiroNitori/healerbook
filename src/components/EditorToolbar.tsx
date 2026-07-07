@@ -3,6 +3,7 @@
  */
 
 import { useState, lazy, Suspense } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   ZoomIn,
   ZoomOut,
@@ -85,32 +86,40 @@ export default function EditorToolbar({
   onViewModeChange,
   shareRole,
 }: EditorToolbarProps) {
+  const timeline = useTimelineStore(s => s.timeline)
+  const zoomLevel = useTimelineStore(s => s.zoomLevel)
+  const exitReplayMode = useTimelineStore(s => s.exitReplayMode)
+  const setZoomLevel = useTimelineStore(s => s.setZoomLevel)
+  const setPendingScrollProgress = useTimelineStore(s => s.setPendingScrollProgress)
+  const selectEvent = useTimelineStore(s => s.selectEvent)
+  const selectCastEvent = useTimelineStore(s => s.selectCastEvent)
+  const undo = useTimelineStore(s => s.undo)
+  const redo = useTimelineStore(s => s.redo)
+
   const {
-    timeline,
-    exitReplayMode,
-    zoomLevel,
-    setZoomLevel,
-    setPendingScrollProgress,
-    selectEvent,
-    selectCastEvent,
-    undo,
-    redo,
-  } = useTimelineStore()
-  const {
-    toggleManualLock,
     showActualDamage,
     showOriginalDamage,
-    toggleShowActualDamage,
-    toggleShowOriginalDamage,
     showCastStartTime,
-    toggleShowCastStartTime,
     enableHpSimulation,
-    toggleEnableHpSimulation,
     showResourceHover,
-    toggleShowResourceHover,
     canvasTool,
-    setCanvasTool,
-  } = useUIStore()
+  } = useUIStore(
+    useShallow(s => ({
+      showActualDamage: s.showActualDamage,
+      showOriginalDamage: s.showOriginalDamage,
+      showCastStartTime: s.showCastStartTime,
+      enableHpSimulation: s.enableHpSimulation,
+      showResourceHover: s.showResourceHover,
+      canvasTool: s.canvasTool,
+    }))
+  )
+  const toggleManualLock = useUIStore(s => s.toggleManualLock)
+  const toggleShowActualDamage = useUIStore(s => s.toggleShowActualDamage)
+  const toggleShowOriginalDamage = useUIStore(s => s.toggleShowOriginalDamage)
+  const toggleShowCastStartTime = useUIStore(s => s.toggleShowCastStartTime)
+  const toggleEnableHpSimulation = useUIStore(s => s.toggleEnableHpSimulation)
+  const toggleShowResourceHover = useUIStore(s => s.toggleShowResourceHover)
+  const setCanvasTool = useUIStore(s => s.setCanvasTool)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
   const [showStatDataDialog, setShowStatDataDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)

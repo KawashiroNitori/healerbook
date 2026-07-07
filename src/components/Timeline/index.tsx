@@ -199,30 +199,33 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 框选：渲染期写入最新的对象 box 构建函数，pointerup 时读取（避免 stale 闭包）
   const buildMarqueeObjectsRef = useRef<() => MarqueeObject[]>(() => [])
 
-  const {
-    timeline,
-    zoomLevel,
-    pendingScrollProgress,
-    selectEvent,
-    selectCastEvent,
-    addCastEvent,
-    removeDamageEvent,
-    removeCastEvent,
-    setZoomLevel,
-    setPendingScrollProgress,
-    updateScrollState,
-    undo,
-    redo,
-    addAnnotation,
-    updateAnnotation,
-    removeAnnotation,
-  } = useTimelineStore()
+  const { timeline, zoomLevel, pendingScrollProgress } = useTimelineStore(
+    useShallow(s => ({
+      timeline: s.timeline,
+      zoomLevel: s.zoomLevel,
+      pendingScrollProgress: s.pendingScrollProgress,
+    }))
+  )
+  const selectEvent = useTimelineStore(s => s.selectEvent)
+  const selectCastEvent = useTimelineStore(s => s.selectCastEvent)
+  const addCastEvent = useTimelineStore(s => s.addCastEvent)
+  const removeDamageEvent = useTimelineStore(s => s.removeDamageEvent)
+  const removeCastEvent = useTimelineStore(s => s.removeCastEvent)
+  const setZoomLevel = useTimelineStore(s => s.setZoomLevel)
+  const setPendingScrollProgress = useTimelineStore(s => s.setPendingScrollProgress)
+  const updateScrollState = useTimelineStore(s => s.updateScrollState)
+  const undo = useTimelineStore(s => s.undo)
+  const redo = useTimelineStore(s => s.redo)
+  const addAnnotation = useTimelineStore(s => s.addAnnotation)
+  const updateAnnotation = useTimelineStore(s => s.updateAnnotation)
+  const removeAnnotation = useTimelineStore(s => s.removeAnnotation)
   // 多选 ID 列表——渲染期需响应式订阅，保证高亮随选区变化更新
   const selectedEventIds = useTimelineStore(s => s.selectedEventIds)
   const selectedCastEventIds = useTimelineStore(s => s.selectedCastEventIds)
   const selectedAnnotationIds = useTimelineStore(s => s.selectedAnnotationIds)
   const actions = ACTIONS
-  const { isDamageTrackCollapsed, toggleDamageTrackCollapsed } = useUIStore()
+  const isDamageTrackCollapsed = useUIStore(s => s.isDamageTrackCollapsed)
+  const toggleDamageTrackCollapsed = useUIStore(s => s.toggleDamageTrackCollapsed)
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
   const canvasTool = useUIStore(s => s.canvasTool)
   const calculationResults = useDamageCalculationResults()
@@ -278,7 +281,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     )
   }, [engine, draggingId, timeline?.isReplayMode])
 
-  const { showTooltip, toggleTooltip, hideTooltip } = useTooltipStore()
+  const showTooltip = useTooltipStore(s => s.showTooltip)
+  const toggleTooltip = useTooltipStore(s => s.toggleTooltip)
+  const hideTooltip = useTooltipStore(s => s.hideTooltip)
   const isReadOnly = useEditorReadOnly()
   const skillTracks = useSkillTracks()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
