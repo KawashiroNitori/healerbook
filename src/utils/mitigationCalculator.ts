@@ -4,7 +4,7 @@
  */
 
 import type { HpPool, PartyState } from '@/types/partyState'
-import type { MitigationStatus, MitigationStatusMetadata, StatusInterval } from '@/types/status'
+import type { MitigationStatus, MitigationStatusMetadata } from '@/types/status'
 import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext, MitigationAction } from '@/types/mitigation'
@@ -37,14 +37,10 @@ import {
 import { computeMaxHpMultiplier, computeMaxHpMultiplierFiltered } from '@/executors/healMath'
 import { isStatusActiveAt } from './statusWindow'
 import { isStatusValidForTank } from './statusFilter'
-import {
-  statusTier,
-  reduceCastEffectiveEnds,
-  type StatusTier,
-  type CastEndEntry,
-} from './castEffectiveEnd'
+import { reduceCastEffectiveEnds } from './castEffectiveEnd'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { resolveVariant } from './placement/resolveVariant'
+import { createStatusIntervalRecorder } from './simulation/statusIntervalRecorder'
 
 /**
  * actionId → action.category 映射（模块级构建一次）。
@@ -338,7 +334,6 @@ export function simulate(input: SimulateInput): SimulateOutput {
   } = input
 
   const damageResults = new Map<string, CalculationResult>()
-  const statusTimelineByPlayer: Map<number, Map<number, StatusInterval[]>> = new Map()
   const castEffectiveEndByCastEventId = new Map<string, number>()
   const resolvedVariantByCastId = new Map<string, number>()
   // 预建 trackGroup 成员表：父 id → members
@@ -349,7 +344,6 @@ export function simulate(input: SimulateInput): SimulateOutput {
     arr.push(a)
     variantMembers.set(gid, arr)
   }
-  const castEndEntries: CastEndEntry[] = []
   const healSnapshots: HealSnapshot[] = []
   const hpTimeline: HpTimelinePoint[] = []
   // 已被 advance 剔除（endTime < cur）但 DOT snapshotTime 仍可能落在区间内的 buff。
@@ -414,85 +408,11 @@ export function simulate(input: SimulateInput): SimulateOutput {
         }
       }
 
-  interface OpenRecord {
-    statusId: number
-    targetPlayerId: number
-    sourcePlayerId: number
-    sourceCastEventId: string
-    from: number
-    stacks: number
-    endTime: number
-    tier: StatusTier
-  }
-  const open = new Map<string, OpenRecord>()
-
-  const pushInterval = (rec: OpenRecord, to: number) => {
-    const byStatus = statusTimelineByPlayer.get(rec.targetPlayerId) ?? new Map()
-    const arr = byStatus.get(rec.statusId) ?? []
-    arr.push({
-      from: rec.from,
-      to,
-      stacks: rec.stacks,
-      sourcePlayerId: rec.sourcePlayerId,
-      sourceCastEventId: rec.sourceCastEventId,
-    })
-    byStatus.set(rec.statusId, arr)
-    statusTimelineByPlayer.set(rec.targetPlayerId, byStatus)
-
-    // 维护绿条末端原始条目：seeded buff（sourceCastEventId 为空）跳过；
-    // 收尾按 tier 优先合成 castEffectiveEndByCastEventId。
-    if (rec.sourceCastEventId !== '') {
-      castEndEntries.push({ castId: rec.sourceCastEventId, to, tier: rec.tier })
-    }
-  }
-
-  // 对比 state → state' 的 status instance 差异：
-  //   消失 → pushInterval(rec, to = at)
-  //   新增 → open 一条，from = at，sourceCastEventId 取 castEventIdHint（attach 由 cast executor 触发时）
-  //   保留 → 刷新 endTime 快照供 finalize 用
-  const captureTransition = (
-    prev: PartyState,
-    next: PartyState,
-    at: number,
-    castEventIdHint?: string,
-    castPlayerIdHint?: number
-  ) => {
-    const prevIds = new Set(prev.statuses.map(s => s.instanceId))
-    const nextIds = new Set(next.statuses.map(s => s.instanceId))
-
-    for (const id of prevIds) {
-      if (nextIds.has(id)) continue
-      const rec = open.get(id)
-      if (rec) {
-        // 自然过期时 advanceToTime 会把 endTime < at 的 status 过滤掉，此时 interval 的
-        // 实际终点是 endTime；consume 场景下 rec.endTime >= at，at 才是真正的收束时刻。
-        pushInterval(rec, Math.min(at, rec.endTime))
-        open.delete(id)
-      }
-    }
-
-    for (const s of next.statuses) {
-      if (prevIds.has(s.instanceId)) continue
-      const target = s.sourcePlayerId ?? castPlayerIdHint ?? 0
-      open.set(s.instanceId, {
-        statusId: s.statusId,
-        targetPlayerId: target,
-        sourcePlayerId: s.sourcePlayerId ?? castPlayerIdHint ?? target,
-        sourceCastEventId: castEventIdHint ?? '',
-        from: at,
-        stacks: s.stack ?? 1,
-        endTime: s.endTime,
-        tier: statusTier(getStatusById(s.statusId), s),
-      })
-    }
-
-    for (const s of next.statuses) {
-      const rec = open.get(s.instanceId)
-      if (!rec) continue
-      rec.endTime = s.endTime
-      rec.stacks = s.stack ?? rec.stacks
-    }
-  }
+  // status 生效区间记录：instanceId diff 语义（attach/persist/consume）已下沉到
+  // simulation/statusIntervalRecorder。simulate 只在状态迁移处调 captureTransition，
+  // 收尾调 finish() 取 statusTimelineByPlayer 与 castEndEntries。
+  const recorder = createStatusIntervalRecorder()
+  const captureTransition = recorder.captureTransition
 
   const advanceToTime = (state: PartyState, prev: number, cur: number): PartyState => {
     let next = state
@@ -813,19 +733,11 @@ export function simulate(input: SimulateInput): SimulateOutput {
     castIdx++
   }
 
-  for (const [, rec] of open) {
-    pushInterval(rec, rec.endTime)
-  }
-  open.clear()
+  // recorder 收尾：flush 仍 open 的记录、按 from 排序，取出最终产物。
+  const { statusTimelineByPlayer, castEndEntries } = recorder.finish()
 
   for (const [castId, end] of reduceCastEffectiveEnds(castEndEntries)) {
     castEffectiveEndByCastEventId.set(castId, end)
-  }
-
-  for (const byStatus of statusTimelineByPlayer.values()) {
-    for (const list of byStatus.values()) {
-      list.sort((a, b) => a.from - b.from)
-    }
   }
 
   // 按 time 升序：cast / HoT tick 自然按主循环时序入列，但 calculate 内部钩子（onConsume /
