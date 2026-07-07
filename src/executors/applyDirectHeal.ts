@@ -9,7 +9,7 @@
 
 import type { PartyState } from '@/types/partyState'
 import type { HealSnapshot } from '@/types/healSnapshot'
-import { computeFinalHeal } from './healMath'
+import { computeFinalHeal, type GetStatusMeta } from './healMath'
 
 export interface DirectHealMeta {
   castEventId: string
@@ -20,17 +20,26 @@ export interface DirectHealMeta {
 
 /**
  * 应用一次直接治疗，返回新的 PartyState；hp 未初始化或 baseAmount<=0 时原样返回。
+ *
+ * @param getMeta statusId → 元数据查询函数（透传给 computeFinalHeal）
  */
 export function applyDirectHeal(
   partyState: PartyState,
   baseAmount: number,
   meta: DirectHealMeta,
+  getMeta: GetStatusMeta,
   recordHeal?: (snap: HealSnapshot) => void
 ): PartyState {
   if (!partyState.hp) return partyState
   if (baseAmount <= 0) return partyState
 
-  const finalHeal = computeFinalHeal(baseAmount, partyState, meta.sourcePlayerId, meta.time)
+  const finalHeal = computeFinalHeal(
+    baseAmount,
+    partyState,
+    meta.sourcePlayerId,
+    meta.time,
+    getMeta
+  )
   const before = partyState.hp.current
   const next = Math.min(before + finalHeal, partyState.hp.max)
   const applied = next - before

@@ -8,6 +8,7 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
+import { getStatusById } from '@/utils/statusRegistry'
 import { applyDirectHeal } from './applyDirectHeal'
 
 export interface HealExecutorOptions {
@@ -38,6 +39,7 @@ export function createHealExecutor(options?: HealExecutorOptions): ActionExecuto
         sourcePlayerId: ctx.sourcePlayerId,
         time: ctx.useTime,
       },
+      getStatusById,
       ctx.recordHeal
     )
   }

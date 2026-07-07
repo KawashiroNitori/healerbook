@@ -10,9 +10,17 @@
  */
 
 import type { PartyState } from '@/types/partyState'
-import type { MitigationStatus } from '@/types/status'
-import { getStatusById } from '@/utils/statusRegistry'
+import type { MitigationStatus, MitigationStatusMetadata } from '@/types/status'
 import { isStatusActiveAt } from '@/utils/statusWindow'
+
+/**
+ * statusId → 状态元数据的查询函数。
+ *
+ * healMath 不直接 import 状态注册表（避免 registry → statusExtras →
+ * healMath → registry 的静态 import 环），由叶子调用方 import
+ * `getStatusById` 并显式注入。
+ */
+export type GetStatusMeta = (statusId: number) => MitigationStatusMetadata | undefined
 
 /**
  * 计算应用所有活跃 heal / selfHeal buff 后的目标治疗量。
@@ -26,18 +34,20 @@ import { isStatusActiveAt } from '@/utils/statusWindow'
  * @param partyState 当前小队状态（含 statuses）
  * @param castSourcePlayerId 施法玩家 ID
  * @param castTime 治疗发生时刻（cast 时刻 / tick 时刻），秒
+ * @param getMeta statusId → 元数据查询函数（调用方注入，通常为 getStatusById）
  */
 export function computeFinalHeal(
   baseAmount: number,
   partyState: PartyState,
   castSourcePlayerId: number,
-  castTime: number
+  castTime: number,
+  getMeta: GetStatusMeta
 ): number {
   let multiplier = 1
 
   for (const status of partyState.statuses) {
     if (!isStatusActiveAt(status, castTime, 'excludeEnd')) continue
-    const meta = getStatusById(status.statusId)
+    const meta = getMeta(status.statusId)
     if (!meta) continue
     if (meta.isTankOnly) continue
     const perf = status.performance ?? meta.performance
@@ -61,12 +71,18 @@ export function computeFinalHeal(
  * 计算当前 active maxHP buff 的累乘倍率。
  *
  * 仅消费 !meta.isTankOnly 的 status：坦专 maxHP buff 不抬升非坦池上限。
+ *
+ * @param getMeta statusId → 元数据查询函数（调用方注入，通常为 getStatusById）
  */
-export function computeMaxHpMultiplier(statuses: MitigationStatus[], time: number): number {
+export function computeMaxHpMultiplier(
+  statuses: MitigationStatus[],
+  time: number,
+  getMeta: GetStatusMeta
+): number {
   let m = 1
   for (const s of statuses) {
     if (!isStatusActiveAt(s, time, 'excludeEnd')) continue
-    const meta = getStatusById(s.statusId)
+    const meta = getMeta(s.statusId)
     if (!meta) continue
     if (meta.isTankOnly) continue
     const perf = s.performance ?? meta.performance

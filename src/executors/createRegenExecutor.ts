@@ -10,6 +10,7 @@
 
 import type { ActionExecutor } from '@/types/mitigation'
 import type { MitigationStatus } from '@/types/status'
+import { getStatusById } from '@/utils/statusRegistry'
 import { computeFinalHeal } from './healMath'
 import { generateInstanceId } from './utils'
 
@@ -34,7 +35,8 @@ export function createRegenExecutor(
       baseTickAmount,
       ctx.partyState,
       ctx.sourcePlayerId,
-      ctx.useTime
+      ctx.useTime,
+      getStatusById
     )
 
     // 同一玩家的同名 HoT 不共存：新 cast 替换旧实例（不同玩家可共存）

@@ -4,6 +4,7 @@
 
 import type { ActionExecutor } from '@/types/mitigation'
 import type { MitigationStatus } from '@/types/status'
+import { getStatusById } from '@/utils/statusRegistry'
 import { generateInstanceId } from './utils'
 import { computeFinalHeal } from './healMath'
 
@@ -37,7 +38,13 @@ export function createShieldExecutor(
 
   return ctx => {
     const baseBarrier = fixedBarrier ?? ctx.statistics?.shieldByAbility?.[statusId] ?? 10000
-    const barrier = computeFinalHeal(baseBarrier, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
+    const barrier = computeFinalHeal(
+      baseBarrier,
+      ctx.partyState,
+      ctx.sourcePlayerId,
+      ctx.useTime,
+      getStatusById
+    )
 
     // 删除互斥组中的旧状态
     const filteredStatuses = ctx.partyState.statuses.filter(s => !uniqueGroup.includes(s.statusId))

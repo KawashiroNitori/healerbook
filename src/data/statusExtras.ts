@@ -29,6 +29,7 @@ import { isStatusValidForTank } from '@/utils/statusFilter'
 import { regenStatusExecutor } from '@/executors/regenStatusExecutor'
 import { applyDirectHeal } from '@/executors/applyDirectHeal'
 import { computeFinalHeal } from '@/executors/healMath'
+import { getStatusById } from '@/utils/statusRegistry'
 
 /**
  * 创建"按需生成盾值"的 onBeforeShield 钩子。
@@ -109,6 +110,7 @@ function triggerStatusHeal(
       sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
       time: ctx.partyState.timestamp,
     },
+    getStatusById,
     ctx.recordHeal
   )
 }
@@ -134,7 +136,8 @@ function spawnRegenChild(
     baseTickAmount,
     cleared,
     parent.sourcePlayerId ?? 0,
-    time
+    time,
+    getStatusById
   )
   return addStatus(cleared, {
     statusId: childStatusId,
@@ -386,6 +389,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
             sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
             time: ctx.expireTime,
           },
+          getStatusById,
           ctx.recordHeal
         )
       },
@@ -552,6 +556,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
             sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
             time: ctx.expireTime,
           },
+          getStatusById,
           ctx.recordHeal
         )
       },
@@ -602,6 +607,7 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
             sourcePlayerId: ctx.status.sourcePlayerId ?? 0,
             time: ctx.expireTime,
           },
+          getStatusById,
           ctx.recordHeal
         )
       },
