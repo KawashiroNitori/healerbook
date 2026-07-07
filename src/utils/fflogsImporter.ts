@@ -213,6 +213,35 @@ export function buildBossIds(
   return ids
 }
 
+/** parseDamageEvents 的入参上下文（对象化，替代原 9 位置参数）。 */
+export interface ImportContext {
+  events: FFLogsEvent[]
+  fightStartTime: number
+  playerMap: PlayerMap
+  abilityMap?: Map<number, FFLogsAbility>
+  composition?: Composition
+  bossIds?: Set<number>
+  /** sourceID → actor 名映射，编排层用 report.enemies 建好传入；仅用于填 damageSource */
+  sourceNames?: Map<number, string>
+  /** 可选中区间索引；来源在伤害时刻不可选中时，目标减判无效 */
+  targetability?: TargetabilityIntervals
+  bossCasts?: FFLogsEvent[]
+}
+
+/**
+ * 导入期临时明细：PlayerDamageDetail 超集，聚合结束即丢弃，不进持久化。
+ * 原先以 detail 对象身份为 key 的 6 个并行 Map 收敛为本类型的字段。
+ */
+interface ImportDetail extends PlayerDamageDetail {
+  /** 仅 calculateddamage 无 damage 时缺省；absorbed 匹配用 `?? detail.timestamp` 兜底 */
+  damageTimestamp?: number
+  skillName: string
+  sourceId: number
+  packetId?: number
+  snapshotTimestamp?: number
+  isAutoAttack: boolean
+}
+
 /**
  * 解析伤害事件（只保留 Boss 技能）
  *
@@ -223,19 +252,18 @@ export function buildBossIds(
  * 3. 将护盾数据 push 到 PlayerDamageDetail 的护盾列表
  * 4. 按 packetID 汇总 PlayerDamageDetail，构建 DamageEvent
  */
-export function parseDamageEvents(
-  events: FFLogsEvent[],
-  fightStartTime: number,
-  playerMap: PlayerMap,
-  abilityMap?: Map<number, FFLogsAbility>,
-  composition?: Composition,
-  bossIds?: Set<number>,
-  /** sourceID → actor 名映射，编排层用 report.enemies 建好传入；仅用于填 damageSource */
-  sourceNames?: Map<number, string>,
-  /** 可选中区间索引；来源在伤害时刻不可选中时，目标减判无效 */
-  targetability?: TargetabilityIntervals,
-  bossCasts?: FFLogsEvent[]
-): DamageEvent[] {
+export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
+  const {
+    events,
+    fightStartTime,
+    playerMap,
+    abilityMap,
+    composition,
+    bossIds,
+    sourceNames,
+    targetability,
+    bossCasts,
+  } = ctx
   const TANK_JOBS = getTankJobs()
 
   // DOT 追踪：记录 applydebuff 事件的快照时间和来源技能
@@ -246,17 +274,10 @@ export function parseDamageEvents(
   // - applydebuff: 记录 DOT 快照信息
   // - calculateddamage: 创建 detail（时间戳最准确）
   // - damage: 填充数值，若无 calculateddamage 则同时创建 detail
-  const playerDamageDetails: PlayerDamageDetail[] = []
-  const damageTimestamps = new Map<PlayerDamageDetail, number>()
-  const detailByPacketAndTarget = new Map<string, PlayerDamageDetail>()
-  // 以 detail 对象身份为键的并行 Map，记录导入期使用的临时元数据。
-  // PlayerDamageDetail 类型不再持有这些字段，但聚合阶段仍需要它们。
-  const detailSkillNames = new Map<PlayerDamageDetail, string>()
-  const detailSourceIds = new Map<PlayerDamageDetail, number>()
-  const detailPacketIds = new Map<PlayerDamageDetail, number | undefined>()
-  const detailSnapshotTimestamps = new Map<PlayerDamageDetail, number>()
-  // 普攻标记：命名匹配任一语言 regex（abilityMap 原始名或中文回退名）即置 true
-  const detailIsAutoAttack = new Map<PlayerDamageDetail, boolean>()
+  // 导入期临时元数据已并入 ImportDetail 自身字段（skillName / sourceId / packetId /
+  // snapshotTimestamp / isAutoAttack / damageTimestamp），不再用并行 Map。
+  const playerDamageDetails: ImportDetail[] = []
+  const detailByPacketAndTarget = new Map<string, ImportDetail>()
 
   for (const event of events) {
     // 追踪 applydebuff 用于 DOT 快照
@@ -305,6 +326,10 @@ export function parseDamageEvents(
       const debuffKey = `${abilityId}-${event.targetID}`
       const dotInfo = event.tick ? dotDebuffMap.get(debuffKey) : undefined
 
+      // 两个名字都查一遍，因为 actionChinese 的翻译不一定能命中 regex
+      const isAutoAttack =
+        AUTO_ATTACK_PATTERN.test(abilityName) || AUTO_ATTACK_PATTERN.test(skillName)
+
       detail = {
         timestamp: event.timestamp,
         playerId: event.targetID,
@@ -313,20 +338,15 @@ export function parseDamageEvents(
         unmitigatedDamage: 0,
         finalDamage: 0,
         statuses: [],
+        skillName,
+        sourceId: event.sourceID || 0,
+        packetId: event.packetID,
+        isAutoAttack,
+        ...(dotInfo?.timestamp !== undefined ? { snapshotTimestamp: dotInfo.timestamp } : {}),
       }
 
       playerDamageDetails.push(detail)
       detailByPacketAndTarget.set(key, detail)
-      detailSkillNames.set(detail, skillName)
-      detailSourceIds.set(detail, event.sourceID || 0)
-      detailPacketIds.set(detail, event.packetID)
-      // 两个名字都查一遍，因为 actionChinese 的翻译不一定能命中 regex
-      if (AUTO_ATTACK_PATTERN.test(abilityName) || AUTO_ATTACK_PATTERN.test(skillName)) {
-        detailIsAutoAttack.set(detail, true)
-      }
-      if (dotInfo?.timestamp !== undefined) {
-        detailSnapshotTimestamps.set(detail, dotInfo.timestamp)
-      }
     }
 
     // calculateddamage 仅用于创建 detail，不携带数值字段
@@ -369,7 +389,7 @@ export function parseDamageEvents(
     }
 
     // 记录 damage 时间戳，用于 absorbed 匹配
-    damageTimestamps.set(detail, event.timestamp)
+    detail.damageTimestamp = event.timestamp
 
     // damage 已填充，从 map 中移除，避免 dot tick 等同 key 多次 damage 合并到同一 detail
     detailByPacketAndTarget.delete(key)
@@ -377,11 +397,10 @@ export function parseDamageEvents(
 
   // Step 3: 从 absorbed 事件填充盾值状态
   // absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key
-  const detailByDamageTs = new Map<string, PlayerDamageDetail>()
+  const detailByDamageTs = new Map<string, ImportDetail>()
   for (const detail of playerDamageDetails) {
-    const ts = damageTimestamps.get(detail) ?? detail.timestamp
-    const sourceId = detailSourceIds.get(detail) ?? 0
-    const key = `${ts}-${detail.playerId}-${sourceId}-${detail.abilityId ?? 0}`
+    const ts = detail.damageTimestamp ?? detail.timestamp
+    const key = `${ts}-${detail.playerId}-${detail.sourceId}-${detail.abilityId ?? 0}`
     detailByDamageTs.set(key, detail)
   }
 
@@ -421,8 +440,8 @@ export function parseDamageEvents(
     if (processedIndices.has(i)) continue
 
     const baseDetail = playerDamageDetails[i]
-    const baseSkillName = detailSkillNames.get(baseDetail) ?? ''
-    const details: PlayerDamageDetail[] = [baseDetail]
+    const baseSkillName = baseDetail.skillName
+    const details: ImportDetail[] = [baseDetail]
     processedIndices.add(i)
 
     // 查找时间窗口内相同技能名称的其他伤害
@@ -436,7 +455,7 @@ export function parseDamageEvents(
       if (timeDiff > TIME_WINDOW) break
 
       // 相同技能名称，合并
-      if (detailSkillNames.get(currentDetail) === baseSkillName) {
+      if (currentDetail.skillName === baseSkillName) {
         details.push(currentDetail)
         processedIndices.add(j)
       }
@@ -455,7 +474,7 @@ export function parseDamageEvents(
 
     // 伤害属性：DOT 从 applydebuff 的 extraAbilityGameID 获取，否则从自身 abilityId 获取
     let damageType: DamageType
-    const firstSnapshotTimestamp = detailSnapshotTimestamps.get(firstDetail)
+    const firstSnapshotTimestamp = firstDetail.snapshotTimestamp
     const firstAbilityId = firstDetail.abilityId ?? 0
     const dotInfo =
       firstSnapshotTimestamp !== undefined
@@ -478,10 +497,10 @@ export function parseDamageEvents(
         ? Math.round((firstSnapshotTimestamp - fightStartTime) / 10) / 100
         : undefined
 
-    const name = detailSkillNames.get(firstDetail) ?? ''
-    const isAutoAttack = detailIsAutoAttack.get(firstDetail) ?? false
+    const name = firstDetail.skillName
+    const isAutoAttack = firstDetail.isAutoAttack
 
-    const sourceId = detailSourceIds.get(firstDetail) ?? 0
+    const sourceId = firstDetail.sourceId
     const sourceIsNonBoss =
       !!bossIds && bossIds.size > 0 && sourceId !== 0 && !bossIds.has(sourceId)
     // 来源已知且在该伤害时刻不可选中（用 raw timestamp，与 targetabilityupdate 同为报告相对毫秒域）
@@ -500,7 +519,7 @@ export function parseDamageEvents(
       type: detectDamageType(details, TANK_JOBS, isAutoAttack),
       damageType,
       playerDamageDetails: details,
-      packetId: detailPacketIds.get(firstDetail),
+      packetId: firstDetail.packetId,
       snapshotTime,
       ...(targetMitigationDisabled && { targetMitigationDisabled }),
       ...(damageSource && { damageSource }),
@@ -1004,17 +1023,17 @@ export function parseFightImport(
   report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
   const targetability = buildTargetabilityIntervals(events, enemyNames)
   const bossCasts = extractBossCasts(events, playerMap)
-  const damageEvents = parseDamageEvents(
+  const damageEvents = parseDamageEvents({
     events,
     fightStartTime,
     playerMap,
     abilityMap,
     composition,
     bossIds,
-    enemyNames,
+    sourceNames: enemyNames,
     targetability,
-    bossCasts
-  )
+    bossCasts,
+  })
   const castEvents = parseCastEvents(events, fightStartTime, playerMap)
   const syncEvents = parseSyncEvents(events, fightStartTime, playerMap, abilityMap)
 

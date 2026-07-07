@@ -356,12 +356,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Test Attack')
     expect(result[0].time).toBe(5)
@@ -413,12 +413,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(12000) // 魔法伤害取近战(SAM)最高值
   })
@@ -452,12 +452,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].playerDamageDetails).toHaveLength(2)
     expect(result[0].damage).toBe(13000) // 6000 + 7000 累计，而非取单次最高 7000
@@ -495,12 +495,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(20000) // 只有坦克时 fallback 取最高值
     expect(result[0].damageType).toBe('physical')
@@ -562,12 +562,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(15000) // 物理伤害取 healer(15000) 和 caster(14000) 中最高
   })
@@ -616,12 +616,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(10000) // 无近战/远物，fallback 非T最高值(SCH 10000)
   })
@@ -676,12 +676,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     // 若不做 fallback 防护，magical 分支在 SAM.unmitigatedDamage=0 上会返回 0
     // 修复后：该组全 0 → fallback 到非 T 最高值 → WHM 15000
@@ -737,12 +737,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(12000)
   })
@@ -791,12 +791,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     // 物理分支 caster/healer 全 0 → 非 T fallback 全 0 → 最终 fallback 到全体 → T 20000
     expect(result[0].damage).toBe(20000)
@@ -834,12 +834,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(12000) // 无法系/治疗，fallback 非T最高值(NIN 12000)
   })
@@ -888,12 +888,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(13000) // darkness 直接 fallback 非T最高值(WHM 13000)
   })
@@ -940,12 +940,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].playerDamageDetails).toHaveLength(2)
     const tankDetail = result[0].playerDamageDetails?.find(d => d.playerId === 1)
@@ -973,12 +973,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('auto')
   })
@@ -1003,12 +1003,12 @@ describe('parseDamageEvents', () => {
       })
     }
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(11)
     expect(result.every(e => e.type === 'auto')).toBe(true)
   })
@@ -1032,12 +1032,12 @@ describe('parseDamageEvents', () => {
       })
     }
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(10)
     expect(result.every(e => e.type !== 'auto')).toBe(true)
   })
@@ -1077,7 +1077,12 @@ describe('parseDamageEvents', () => {
 
     // 直接用 damage 事件，保证 applydebuff 在所有 damage 事件前被处理
     // （withCalculatedDamage 会把 calc 事件前置到 applydebuff 之前，导致 DoT 快照丢失）
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents({
+      events: events,
+      fightStartTime,
+      playerMap,
+      abilityMap,
+    })
     expect(result).toHaveLength(11)
     // 确认是 DOT（snapshotTime 已经被填充）
     expect(result.every(e => e.snapshotTime !== undefined)).toBe(true)
@@ -1108,12 +1113,12 @@ describe('parseDamageEvents', () => {
       })
     }
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(11)
     expect(result.every(e => e.type !== 'auto')).toBe(true)
   })
@@ -1136,12 +1141,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].damage).toBe(5000)
   })
@@ -1180,12 +1185,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     const details = result[0].playerDamageDetails ?? []
     const healerDetail = details.find(d => d.playerId === 1)
@@ -1225,12 +1230,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     // 两个玩家都保留
     expect(result[0].playerDamageDetails).toHaveLength(2)
@@ -1277,12 +1282,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(2)
     const aoe = result.find(e => e.name === 'AOE Attack')
     const tb = result.find(e => e.name === 'Tankbuster')
@@ -1334,12 +1339,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('aoe')
   })
@@ -1379,12 +1384,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(2)
     // 两次都应该是 aoe（第一次通过交叉验证回退）
     expect(result.every(e => e.type === 'aoe')).toBe(true)
@@ -1428,12 +1433,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(2)
     const lowHit = result.find(e => e.name === 'Low Hit on Tank')
     expect(lowHit?.type).toBe('aoe')
@@ -1457,12 +1462,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('tankbuster')
   })
@@ -1513,7 +1518,12 @@ describe('parseDamageEvents', () => {
     ]
 
     // 不使用 withCalculatedDamage，直接传入只有 damage 的事件
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents({
+      events: events,
+      fightStartTime,
+      playerMap,
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Test Attack')
     expect(result[0].time).toBe(5)
@@ -1566,7 +1576,12 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(events, fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents({
+      events: events,
+      fightStartTime,
+      playerMap,
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].playerDamageDetails).toHaveLength(2)
 
@@ -1597,12 +1612,12 @@ describe('parseDamageEvents', () => {
       sourceID: 999,
     }))
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('aoe')
   })
@@ -1627,17 +1642,67 @@ describe('parseDamageEvents', () => {
       },
     ]
 
-    const result = parseDamageEvents(
-      withCalculatedDamage(events),
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(events),
       fightStartTime,
       playerMap,
-      abilityMap
-    )
+      abilityMap,
+    })
 
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Absorbed Hit')
     expect(result[0].damage).toBe(0)
     expect(result[0].packetId).toBeUndefined()
+  })
+
+  it('传入 bossCasts 时，同名/同 id 伤害事件应回填 castStartTime/castEndTime', () => {
+    // 该分支（第 9 参 bossCasts）此前无任何测试覆盖：构造最小 boss begincast/cast 对
+    // 与同 id 的伤害事件，断言读条窗口被回填到产出事件上。
+    const playerMap = new Map<number, V2Actor>([[1, { id: 1, name: 'Tank1', type: 'Paladin' }]])
+    const abilityMap = makeAbilityMap(888888, 'Boss Cast Attack', 1024)
+
+    const damageEvents = [
+      {
+        type: 'damage',
+        packetID: 1,
+        abilityGameID: 888888,
+        targetID: 1,
+        unmitigatedAmount: 30000,
+        absorbed: 0,
+        amount: 30000,
+        timestamp: fightStartTime + 5000,
+        sourceID: 999,
+      },
+    ]
+
+    // boss（sourceID=999，不在 playerMap 内）的读条：begincast@3s → cast@5s，duration 2000ms
+    const bossCasts = [
+      {
+        type: 'begincast',
+        abilityGameID: 888888,
+        sourceID: 999,
+        duration: 2000,
+        timestamp: fightStartTime + 3000,
+      },
+      {
+        type: 'cast',
+        abilityGameID: 888888,
+        sourceID: 999,
+        timestamp: fightStartTime + 5000,
+      },
+    ] as FFLogsEvent[]
+
+    const result = parseDamageEvents({
+      events: withCalculatedDamage(damageEvents),
+      fightStartTime,
+      playerMap,
+      abilityMap,
+      bossCasts,
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0].castStartTime).toBe(3)
+    expect(result[0].castEndTime).toBe(5)
   })
 
   describe('集成 classifyPartialAOE', () => {
@@ -1689,13 +1754,13 @@ describe('parseDamageEvents', () => {
         ],
       }
 
-      const result = parseDamageEvents(
-        withCalculatedDamage(events),
+      const result = parseDamageEvents({
+        events: withCalculatedDamage(events),
         fightStartTime,
         playerMap,
         abilityMap,
-        composition
-      )
+        composition,
+      })
 
       expect(result).toHaveLength(3)
       expect(result.map(e => e.type)).toEqual(['partial_aoe', 'partial_final_aoe', 'aoe'])
@@ -1722,12 +1787,12 @@ describe('parseDamageEvents', () => {
         },
       ]
 
-      const result = parseDamageEvents(
-        withCalculatedDamage(events),
+      const result = parseDamageEvents({
+        events: withCalculatedDamage(events),
         fightStartTime,
         playerMap,
-        abilityMap
-      )
+        abilityMap,
+      })
 
       // 单个非 T 命中、无 composition：保持原 detect 路径的归类（aoe）
       expect(result[0].type).toBe('aoe')
@@ -1783,13 +1848,13 @@ describe('parseDamageEvents', () => {
         ],
       }
 
-      const result = parseDamageEvents(
-        withCalculatedDamage(events),
+      const result = parseDamageEvents({
+        events: withCalculatedDamage(events),
         fightStartTime,
         playerMap,
         abilityMap,
-        composition
-      )
+        composition,
+      })
 
       expect(result.map(e => e.type)).toEqual(['partial_aoe', 'partial_final_aoe', 'aoe'])
       // partial_final_aoe（原 t=10）后移 0.1s；partial_aoe / aoe 时间不动
@@ -1850,13 +1915,13 @@ describe('parseDamageEvents', () => {
         ],
       }
 
-      const result = parseDamageEvents(
-        withCalculatedDamage(events),
+      const result = parseDamageEvents({
+        events: withCalculatedDamage(events),
         fightStartTime,
         playerMap,
         abilityMap,
-        composition
-      )
+        composition,
+      })
 
       // 同刻全员 AOE 留在 t=10，partial_final_aoe 后移到 t=10.1 排在其后
       const finalAoe = result.find(e => e.type === 'partial_final_aoe')
@@ -2396,14 +2461,13 @@ describe('parseDamageEvents 目标减自动判定', () => {
   ]
 
   it('非 boss 来源标记 disabled，boss 来源不标记', () => {
-    const result = parseDamageEvents(
-      withCalc(events),
+    const result = parseDamageEvents({
+      events: withCalc(events),
       fightStartTime,
       playerMap,
       abilityMap,
-      undefined,
-      new Set([500])
-    )
+      bossIds: new Set([500]),
+    })
     const fromBoss = result.find(e => Math.abs(e.time - 5) < 0.6)
     const fromAdd = result.find(e => Math.abs(e.time - 9) < 0.6)
     expect(fromBoss?.targetMitigationDisabled).toBeUndefined()
@@ -2411,7 +2475,12 @@ describe('parseDamageEvents 目标减自动判定', () => {
   })
 
   it('未传 bossIds 时全部默认生效（回归）', () => {
-    const result = parseDamageEvents(withCalc(events), fightStartTime, playerMap, abilityMap)
+    const result = parseDamageEvents({
+      events: withCalc(events),
+      fightStartTime,
+      playerMap,
+      abilityMap,
+    })
     expect(result.every(e => e.targetMitigationDisabled === undefined)).toBe(true)
   })
 
@@ -2426,16 +2495,14 @@ describe('parseDamageEvents 目标减自动判定', () => {
 
   it('boss 来源在不可选中时段 → disabled', () => {
     const targetability = buildTargetabilityIntervals([taEvent(fightStartTime + 3000, 500, 0)])
-    const result = parseDamageEvents(
-      withCalc(events),
+    const result = parseDamageEvents({
+      events: withCalc(events),
       fightStartTime,
       playerMap,
       abilityMap,
-      undefined,
-      new Set([500]),
-      undefined,
-      targetability
-    )
+      bossIds: new Set([500]),
+      targetability,
+    })
     const fromBoss = result.find(e => Math.abs(e.time - 5) < 0.6)
     expect(fromBoss?.targetMitigationDisabled).toBe(true)
   })
@@ -2445,32 +2512,27 @@ describe('parseDamageEvents 目标减自动判定', () => {
       taEvent(fightStartTime + 3000, 500, 0),
       taEvent(fightStartTime + 4000, 500, 1),
     ])
-    const result = parseDamageEvents(
-      withCalc(events),
+    const result = parseDamageEvents({
+      events: withCalc(events),
       fightStartTime,
       playerMap,
       abilityMap,
-      undefined,
-      new Set([500]),
-      undefined,
-      targetability
-    )
+      bossIds: new Set([500]),
+      targetability,
+    })
     const fromBoss = result.find(e => Math.abs(e.time - 5) < 0.6)
     expect(fromBoss?.targetMitigationDisabled).toBeUndefined()
   })
 
   it('bossIds 为空 + 来源不可选中 → 仍 disabled（通用规则不依赖 boss 检测）', () => {
     const targetability = buildTargetabilityIntervals([taEvent(fightStartTime + 3000, 500, 0)])
-    const result = parseDamageEvents(
-      withCalc(events),
+    const result = parseDamageEvents({
+      events: withCalc(events),
       fightStartTime,
       playerMap,
       abilityMap,
-      undefined,
-      undefined,
-      undefined,
-      targetability
-    )
+      targetability,
+    })
     const fromBoss = result.find(e => Math.abs(e.time - 5) < 0.6)
     expect(fromBoss?.targetMitigationDisabled).toBe(true)
   })

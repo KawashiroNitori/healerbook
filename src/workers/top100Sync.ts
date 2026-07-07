@@ -98,15 +98,16 @@ export function extractFightStats(
   const composition = parseComposition(report, fight.id, participantIds)
   const enemyNames = new Map<number, string>()
   report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
-  const fullDamageEvents = parseDamageEvents(
+  // 注意：此调用点有意少传 bossIds / targetability / bossCasts（且零时间用 fight.startTime
+  // 而非解析后的 fightStartTime）——与 parseFightImport 的 9 字段口径差异是刻意的，勿补全。
+  const fullDamageEvents = parseDamageEvents({
     events,
-    fight.startTime,
+    fightStartTime: fight.startTime,
     playerMap,
     abilityMap,
     composition,
-    undefined,
-    enemyNames
-  )
+    sourceNames: enemyNames,
+  })
   const damageEvents = slimDamageEvents(fullDamageEvents)
   const durationMs = fight.endTime - fight.startTime
 

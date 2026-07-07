@@ -119,7 +119,12 @@ async function main() {
   const fightStartTime = findFirstDamageTimestamp(data.events, fight.startTime)
   console.error(`fightStartTime: ${fightStartTime}`)
 
-  const damageEvents = parseDamageEvents(filtered, fightStartTime, playerMap, abilityMap)
+  const damageEvents = parseDamageEvents({
+    events: filtered,
+    fightStartTime,
+    playerMap,
+    abilityMap,
+  })
   console.error(`解析出 ${damageEvents.length} 个 DamageEvent`)
   console.log(JSON.stringify(damageEvents, null, 2))
 }
