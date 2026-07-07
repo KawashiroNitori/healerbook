@@ -4,6 +4,7 @@ import {
   computeResourceTrace,
   computeResourceAmount,
   computeResourceStateAt,
+  computeAmountTransitions,
 } from './compute'
 import type { ResourceDefinition } from '@/types/resource'
 import { makeAction, makeCast } from './__tests__/helpers'
@@ -426,6 +427,99 @@ describe('computeResourceStateAt', () => {
         computeResourceAmount(def, events, t)
       )
     }
+  })
+})
+
+describe('computeAmountTransitions — 回充 amount 分段函数单源', () => {
+  function makeDef(partial: Partial<ResourceDefinition>): ResourceDefinition {
+    return {
+      id: 'test',
+      name: 'Test',
+      job: 'SCH',
+      initial: 2,
+      max: 2,
+      style: 'cooldown',
+      regen: { interval: 60, amount: 1 },
+      ...partial,
+    } as ResourceDefinition
+  }
+
+  it('无事件：只有 initial 段（-Infinity），无 refill 展开（已满，时钟停摆）', () => {
+    const def = makeDef({ initial: 2, max: 2 })
+    expect(computeAmountTransitions(def, [])).toEqual([
+      { t: -Infinity, amount: 2, kind: 'initial' },
+    ])
+  })
+
+  it('断点完整性 + kind/eventIndex：单事件消耗后展开回充到回满', () => {
+    const def = makeDef({ initial: 2, max: 2, regen: { interval: 60, amount: 1 } })
+    const events = [makeRe({ timestamp: 45, delta: -1, index: 0 })]
+    expect(computeAmountTransitions(def, events)).toEqual([
+      { t: -Infinity, amount: 2, kind: 'initial' },
+      { t: 45, amount: 1, kind: 'event', eventIndex: 0 },
+      // 事件后继续展开未来回充直到回满：45+60=105 回满
+      { t: 105, amount: 2, kind: 'refill' },
+    ])
+  })
+
+  it('顺序回充语义：双 cast @0/30 → refill 展开到回满（60→1、120→2），而非平行模型 90', () => {
+    const def = makeDef({ initial: 2, max: 2, regen: { interval: 60, amount: 1 } })
+    const events = [
+      makeRe({ timestamp: 0, delta: -1, index: 0 }),
+      makeRe({ timestamp: 30, delta: -1, index: 1 }),
+    ]
+    expect(computeAmountTransitions(def, events)).toEqual([
+      { t: -Infinity, amount: 2, kind: 'initial' },
+      { t: 0, amount: 1, kind: 'event', eventIndex: 0 },
+      { t: 30, amount: 0, kind: 'event', eventIndex: 1 },
+      // 顺序：第一档 @60 回，回后下一档计时重置 → @120（平行模型会是 90）
+      { t: 60, amount: 1, kind: 'refill' },
+      { t: 120, amount: 2, kind: 'refill' },
+    ])
+  })
+
+  it('refill 穿插在事件之间（refill 断点先于后一事件断点）', () => {
+    const def = makeDef({ initial: 2, max: 2, regen: { interval: 30, amount: 1 } })
+    const events = [
+      makeRe({ timestamp: 0, delta: -1, index: 0 }), // 时钟启动，refill@30
+      makeRe({ timestamp: 35, delta: -1, index: 1 }), // refill@30 先触发（amount 回 2），再消耗到 1
+    ]
+    expect(computeAmountTransitions(def, events)).toEqual([
+      { t: -Infinity, amount: 2, kind: 'initial' },
+      { t: 0, amount: 1, kind: 'event', eventIndex: 0 },
+      { t: 30, amount: 2, kind: 'refill' },
+      { t: 35, amount: 1, kind: 'event', eventIndex: 1 },
+      { t: 65, amount: 2, kind: 'refill' }, // 35+30 回满
+    ])
+  })
+
+  it('无 regen：事件后不展开 refill（时钟不启动）', () => {
+    const def = makeDef({ initial: 2, max: 2, regen: undefined })
+    const events = [makeRe({ timestamp: 0, delta: -1, index: 0 })]
+    expect(computeAmountTransitions(def, events)).toEqual([
+      { t: -Infinity, amount: 2, kind: 'initial' },
+      { t: 0, amount: 1, kind: 'event', eventIndex: 0 },
+    ])
+  })
+
+  it('|delta|=N 深亏空：N 档按 interval 顺序回充展开到回满', () => {
+    const def = makeDef({ initial: 2, max: 2, regen: { interval: 60, amount: 1 } })
+    const events = [makeRe({ timestamp: 0, delta: -2, index: 0 })]
+    expect(computeAmountTransitions(def, events)).toEqual([
+      { t: -Infinity, amount: 2, kind: 'initial' },
+      { t: 0, amount: 0, kind: 'event', eventIndex: 0 },
+      { t: 60, amount: 1, kind: 'refill' },
+      { t: 120, amount: 2, kind: 'refill' },
+    ])
+  })
+
+  it('产出溢出 clamp 到 max，时钟停摆不展开 refill', () => {
+    const def = makeDef({ initial: 0, max: 2, regen: { interval: 60, amount: 1 } })
+    const events = [makeRe({ timestamp: 10, delta: +5, index: 0 })]
+    expect(computeAmountTransitions(def, events)).toEqual([
+      { t: -Infinity, amount: 0, kind: 'initial' },
+      { t: 10, amount: 2, kind: 'event', eventIndex: 0 },
+    ])
   })
 })
 

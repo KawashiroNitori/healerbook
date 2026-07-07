@@ -8,7 +8,12 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { ResourceDefinition, ResourceEffect, ResourceEvent } from '@/types/resource'
 import type { Interval } from '@/types/placement'
 import { complement, intersect, mergeOverlapping, sortIntervals } from '@/utils/placement/intervals'
-import { computeResourceTrace, effectsForAction, resolveDef } from './compute'
+import {
+  computeAmountTransitions,
+  computeResourceTrace,
+  effectsForAction,
+  resolveDef,
+} from './compute'
 
 const INF = Number.POSITIVE_INFINITY
 const NEG_INF = Number.NEGATIVE_INFINITY
@@ -26,35 +31,11 @@ function forbidForEffect(
   // 产出不贡献 forbid；required=false 的软消费者也不贡献（与 validator 语义对齐）
   const threshold = -effect.delta
 
-  const trace = computeResourceTrace(def, events)
-
-  // 自耗尽段：枚举"amount 跌到 <threshold"的持续时段
-  // amount 函数是分段常量，分段点是 events[i].timestamp 和 pendingAfter 中的 refill 时刻
+  // 自耗尽段：枚举"amount 跌到 <threshold"的持续时段。
+  // amount 是分段常量函数，由 computeAmountTransitions 单源产出（事件点 + 顺序回充断点）。
   const selfForbid: Interval[] = []
-  // 构建分段：(t, amount_at_t_after_all_events_and_refills_applied)
-  // 方法：按时间合并事件点 + 所有 pending refill 时刻，线性扫描记录 amount
-  const transitions: Array<{ t: number; amount: number }> = []
-  // 初始段 [−∞, events[0].timestamp)：amount = def.initial
-  transitions.push({ t: NEG_INF, amount: def.initial })
-  for (let i = 0; i < events.length; i++) {
-    const snap = trace[i]
-    const ev = events[i]
-    // 事件发生瞬间 amount 变为 amountAfter（边界：[ev.timestamp, next) 段 = amountAfter）
-    transitions.push({ t: ev.timestamp, amount: snap.amountAfter })
-    // 此事件后到下一事件前可能有 refill 触发
-    const nextEventTs = i + 1 < events.length ? events[i + 1].timestamp : INF
-    // 计算在 [ev.timestamp, nextEventTs) 区间内 pending 到点的瞬间
-    // pendingAfter 是应用此事件后的 refill 队列；升序；只关心 < nextEventTs 的部分
-    let currentAmount = snap.amountAfter
-    for (const refillTime of snap.pendingAfter) {
-      if (refillTime >= nextEventTs) break
-      if (!def.regen) break
-      currentAmount = Math.min(currentAmount + def.regen.amount, def.max)
-      transitions.push({ t: refillTime, amount: currentAmount })
-    }
-  }
-
-  // 把 transitions 合成 [from, to) 区段，amount < threshold 的加入 selfForbid
+  const transitions = computeAmountTransitions(def, events)
+  // 把断点合成 [from, to) 区段，amount < threshold 的加入 selfForbid
   for (let i = 0; i < transitions.length; i++) {
     const { t, amount } = transitions[i]
     if (amount < threshold) {
@@ -64,6 +45,8 @@ function forbidForEffect(
   }
 
   // 下游透支段：对每条 delta<0 事件 C，M_C = amountBefore(C) - |delta_C|
+  // （保留 computeResourceTrace——需要 amountBefore 快照，与自耗尽段分段函数不同视角）
+  const trace = computeResourceTrace(def, events)
   // 若 M_C < threshold → 新 cast 窗口 (C.timestamp - interval, C.timestamp) 进 forbid
   // 无 regen 时窗口延到 −∞
   const downstreamForbid: Interval[] = []

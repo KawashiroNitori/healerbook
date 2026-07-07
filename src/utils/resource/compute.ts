@@ -173,6 +173,58 @@ export function futureRefills(def: ResourceDefinition, st: ClockState): number[]
   return out
 }
 
+/**
+ * amount 分段函数的一个断点。amount 在 [t, next.t) 区间内恒定。
+ *
+ * cdBar 与 legalIntervals 共用的单源：把顺序回充时钟展开成一串 (t, amount) 断点，
+ * 下游只需线性扫描，不再各自重写时钟推进逻辑。
+ */
+export interface AmountBreakpoint {
+  /** 断点时刻；首个固定 -Infinity（initial 段） */
+  t: number
+  /** [t, next.t) 区间内的恒定 amount */
+  amount: number
+  kind: 'initial' | 'event' | 'refill'
+  /** kind==='event' 时对应 events 下标 */
+  eventIndex?: number
+}
+
+/**
+ * 把顺序回充时钟展开为 amount 分段函数（断点序列，升序）。
+ *
+ * 复用 `applyResourceEvent` 原语 + 与 `advanceRefills` 同款的逐档展开：
+ * - 首段 `{ -Infinity, initial, 'initial' }`；
+ * - 每个事件：先把 ≤ 事件时刻的回充逐档展开成 `refill` 断点，再应用事件产出 `event` 断点；
+ * - 全部事件处理完后，继续展开未来回充直到回满（时钟停摆）——cdBar 场景需要扫到底。
+ *
+ * 与 `computeResourceTrace` 语义完全一致，只是把「事件快照」重排成「随时间的 amount 分段」。
+ */
+export function computeAmountTransitions(
+  def: ResourceDefinition,
+  events: ResourceEvent[]
+): AmountBreakpoint[] {
+  const out: AmountBreakpoint[] = [{ t: -Infinity, amount: def.initial, kind: 'initial' }]
+  const st: ClockState = { amount: def.initial, nextRefill: null }
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i]
+    // 逐档展开 ≤ ev.timestamp 的回充（与 advanceRefills 同款推进，但记录每一档断点）
+    while (st.nextRefill !== null && st.nextRefill <= ev.timestamp) {
+      const at = st.nextRefill
+      advanceRefills(def, st, at) // 只推进这一档（下一档时刻 > at）
+      out.push({ t: at, amount: st.amount, kind: 'refill' })
+    }
+    applyResourceEvent(def, st, ev)
+    out.push({ t: ev.timestamp, amount: st.amount, kind: 'event', eventIndex: i })
+  }
+  // 事件耗尽后继续展开未来回充直到回满
+  while (st.nextRefill !== null) {
+    const at = st.nextRefill
+    advanceRefills(def, st, at)
+    out.push({ t: at, amount: st.amount, kind: 'refill' })
+  }
+  return out
+}
+
 export function computeResourceTrace(
   def: ResourceDefinition,
   events: ResourceEvent[]

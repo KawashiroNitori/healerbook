@@ -7,13 +7,7 @@
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { ResourceDefinition, ResourceEvent } from '@/types/resource'
-import {
-  advanceRefills,
-  applyResourceEvent,
-  effectsForAction,
-  resolveDef,
-  type ClockState,
-} from './compute'
+import { computeAmountTransitions, effectsForAction, resolveDef } from './compute'
 
 /**
  * 返回 cast 的蓝条 rawEnd（秒）。null = 不画；Infinity = 时间轴内无恢复。
@@ -39,31 +33,16 @@ export function computeCdBarEnd(
   if (idx < 0) return null
   const threshold = -consume.delta
 
-  // 顺序回充时钟：模拟到（含）本 cast 事件
-  const st: ClockState = { amount: def.initial, nextRefill: null }
-  for (let i = 0; i <= idx; i++) {
-    advanceRefills(def, st, events[i].timestamp)
-    applyResourceEvent(def, st, events[i])
-  }
-  if (st.amount >= threshold) return null // 还有库存，不画
+  // 单源分段函数：把顺序回充时钟展开为 (t, amount) 断点，线性扫描。
+  const transitions = computeAmountTransitions(def, events)
+  // 定位本 cast 事件对应的 event 断点
+  const castBpIdx = transitions.findIndex(bp => bp.kind === 'event' && bp.eventIndex === idx)
+  if (castBpIdx < 0) return null
+  if (transitions[castBpIdx].amount >= threshold) return null // 还有库存，不画
 
-  // 继续扫：把后续 ResourceEvents 与回充按时间升序交错推进，找 amount 恢复到 ≥threshold
-  let nextEventIdx = idx + 1
-  while (st.amount < threshold) {
-    const nextRefill = st.nextRefill ?? Infinity
-    const nextEvent = nextEventIdx < events.length ? events[nextEventIdx].timestamp : Infinity
-    if (nextRefill === Infinity && nextEvent === Infinity) return Infinity
-
-    if (nextRefill <= nextEvent) {
-      advanceRefills(def, st, nextRefill) // 触发这一档回充（时钟自动 +interval 或停摆）
-      if (st.amount >= threshold) return nextRefill
-    } else {
-      const ev = events[nextEventIdx]
-      advanceRefills(def, st, ev.timestamp)
-      applyResourceEvent(def, st, ev)
-      nextEventIdx++
-      if (st.amount >= threshold) return ev.timestamp
-    }
+  // 向后扫第一个 amount 恢复到 ≥threshold 的断点时刻；扫到底仍不足 → 时间轴内无恢复
+  for (let i = castBpIdx + 1; i < transitions.length; i++) {
+    if (transitions[i].amount >= threshold) return transitions[i].t
   }
-  return null // 上面循环里必然 return，理论不可达
+  return Infinity
 }

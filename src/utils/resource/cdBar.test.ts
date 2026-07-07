@@ -64,6 +64,20 @@ describe('computeCdBarEnd — 多充能有 regen（献奉）', () => {
     expect(computeCdBarEnd(xianfeng, cs[1], events, registry)).toBe(60)
   })
 
+  // 互证 fixture：三档连续消耗 @0/20/40（与 legalIntervals.test.ts 同一组 def/events 数值）。
+  // 断点单源（computeAmountTransitions）的 refill 展开时刻，cdBar 与 legalIntervals 两文件互证。
+  it('三档连续消耗 @0/20/40（互证 fixture）：#3 cast 深亏空 → rawEnd = 顺序回充 @120', () => {
+    const cs = [
+      makeCast({ id: '1', actionId: 25754, timestamp: 0 }),
+      makeCast({ id: '2', actionId: 25754, timestamp: 20 }),
+      makeCast({ id: '3', actionId: 25754, timestamp: 40 }),
+    ]
+    const events = deriveResourceEvents(cs, new Map([[25754, xianfeng]]))
+    // 断点：initial(2) @0(1) @20(0) @40(-1) refill@60(0) refill@120(1) refill@180(2)
+    // #3 amount=-1；向后扫首个 ≥1 的断点 = refill@120
+    expect(computeCdBarEnd(xianfeng, cs[2], events, registry)).toBe(120)
+  })
+
   it('#3 cast 在 refill@60 fire 后打空 → rawEnd 是顺序回充的 @120', () => {
     // 献奉 t=0, t=30, t=70 → 第 3 条 cast 前 refill@60 已 fire (amount 0→1)，下一档计时重置到 120
     // #3 消耗 1→0；顺序回充 @120 才回到 1（平行模型会是 90）

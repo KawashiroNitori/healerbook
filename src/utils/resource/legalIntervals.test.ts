@@ -60,6 +60,28 @@ describe('resourceLegalIntervals — 多充能 drk:oblation 场景', () => {
     expect(intervals).toEqual([{ from: NEG_INF, to: INF }])
   })
 
+  // 互证 fixture：三档连续消耗 @0/20/40（与 cdBar.test.ts 同一组 def/events 数值）。
+  // 断点单源（computeAmountTransitions）：cdBar 断言 #3 蓝条 @120，此处断言 legal 边界 @120，两文件互证。
+  it('三档连续消耗 @0/20/40（互证 fixture）：shadow = (−40, 120)，legal 恢复边界 @120', () => {
+    const events = deriveResourceEvents(
+      [
+        makeCast({ id: '1', actionId: 25754, timestamp: 0 }),
+        makeCast({ id: '2', actionId: 25754, timestamp: 20 }),
+        makeCast({ id: '3', actionId: 25754, timestamp: 40 }),
+      ],
+      new Map([[25754, xianfeng]])
+    )
+    const intervals = resourceLegalIntervals(xianfeng, 10, events, registry)
+    // 断点：initial(2) @0(1) @20(0) @40(-1) refill@60(0) refill@120(1) refill@180(2)
+    // 自耗尽 forbid（amount<1）：[20,40)∪[40,60)∪[60,120) = [20,120)
+    // 下游：t=0 M=1 不透支；t=20 M=0 → (-40,20)；t=40 M=-1 → (-20,40)
+    // union = (-40, 120)；legal = (-∞, -40] ∪ [120, +∞)
+    expect(intervals).toEqual([
+      { from: NEG_INF, to: -40 },
+      { from: 120, to: INF },
+    ])
+  })
+
   it('双 cast @ t=0, t=30（amount 轨迹 2/1/0/1/2）：shadow = (−30, 60)', () => {
     const events = deriveResourceEvents(
       [
