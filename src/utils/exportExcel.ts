@@ -13,7 +13,7 @@ import {
   computeCastMarkerCells,
   cellKey,
   type CastMarker,
-} from '@/utils/castWindow'
+} from '@/utils/tableCellHitTest'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { getJobName, getJobShortName, getJobInitial } from '@/data/jobs'
 import type { Job } from '@/types/timeline'

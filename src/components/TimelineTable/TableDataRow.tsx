@@ -10,7 +10,7 @@
 
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { GameIcon } from '@/components/GameIcon'
-import { cellKey, type CastMarker } from '@/utils/castWindow'
+import { cellKey, type CastMarker } from '@/utils/tableCellHitTest'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useUIStore } from '@/store/uiStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'

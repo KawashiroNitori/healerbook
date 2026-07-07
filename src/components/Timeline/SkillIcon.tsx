@@ -3,7 +3,7 @@
  */
 
 import { Rect, Image as KonvaImage } from 'react-konva'
-import { useKonvaImage } from '@/utils/useKonvaImage'
+import { useKonvaImage } from '@/hooks/useKonvaImage'
 import { useCanvasColors } from './constants'
 
 interface SkillIconProps {

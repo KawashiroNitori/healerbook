@@ -34,7 +34,7 @@ import {
   computeCdCellsByEvent,
   computeLitCellsByEvent,
   computeShadowCellsByEvent,
-} from '@/utils/castWindow'
+} from '@/utils/tableCellHitTest'
 import { generateObjectId } from '@/utils/shortId'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'

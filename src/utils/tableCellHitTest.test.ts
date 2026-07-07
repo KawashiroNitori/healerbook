@@ -5,7 +5,7 @@ import {
   computeShadowCellsByEvent,
   computeCastMarkerCells,
   cellKey,
-} from './castWindow'
+} from './tableCellHitTest'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { SkillTrack } from './skillTracks'
