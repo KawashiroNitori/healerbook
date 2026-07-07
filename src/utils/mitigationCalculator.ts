@@ -9,7 +9,6 @@ import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext, MitigationAction } from '@/types/mitigation'
 import type { HealSnapshot } from '@/types/healSnapshot'
-import type { HpTimelinePoint } from '@/types/hpTimeline'
 import type {
   PerTankResult,
   HpSimulationSnapshot,
@@ -29,18 +28,15 @@ export type {
   SimulateOutput,
 }
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import {
-  getStatusById,
-  getMultiplierForDamageType,
-  STATUS_ABILITY_OFFSET,
-} from '@/utils/statusRegistry'
-import { computeMaxHpMultiplier, computeMaxHpMultiplierFiltered } from '@/executors/healMath'
+import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
+import { computeMaxHpMultiplierFiltered } from '@/executors/healMath'
 import { isStatusActiveAt } from './statusWindow'
 import { isStatusValidForTank } from './statusFilter'
 import { reduceCastEffectiveEnds } from './castEffectiveEnd'
 import { formatTimeWithDecimal } from '@/utils/formatters'
 import { resolveVariant } from './placement/resolveVariant'
 import { createStatusIntervalRecorder } from './simulation/statusIntervalRecorder'
+import { createHpPipeline } from './simulation/hpPipeline'
 
 /**
  * actionId → action.category 映射（模块级构建一次）。
@@ -189,131 +185,6 @@ export function calculate(
 }
 
 /**
- * 按事件类型扣 HP 池，处理 partial 段累积；同时维护 partyState.segment。
- *
- * 段累积器读写：
- *   aoe                → 段重置（inSegment=false, segMax/segCandidateMax=0），扣全额
- *   partial_aoe        → 进/留段内，segMax / segCandidateMax 累加 max
- *   partial_final_aoe  → 累加后段结束（inSegment=false, segMax/segCandidateMax=0）
- *   tankbuster / auto  → 段不动，HP 不入池
- *
- * candidateDamage 来自 calculate 输出，用于驱动 segCandidateMax —— partial_final_aoe
- * 的延迟结算需要这个值。partial_aoe 在 Phase 3 走 read-only 路径，event 自身的
- * finalDamage 在盾够大时为 0，不能驱动 segCandidateMax；必须用 candidateDamage。
- *
- * 坦专事件（tankbuster / auto）不入池，snapshot 为 undefined。
- *
- * @internal 导出仅供 simulation/ 兄弟模块使用，不属于公共 API。
- */
-export function applyDamageToHp(
-  state: PartyState,
-  ev: DamageEvent,
-  finalDamage: number,
-  candidateDamage: number
-): { nextState: PartyState; snapshot?: HpSimulationSnapshot } {
-  if (ev.type === 'tankbuster' || ev.type === 'auto') {
-    return { nextState: state }
-  }
-
-  // 段累积：先把段更新到"含本事件"的状态，再算扣血量
-  const prevSegment = state.segment ?? {
-    inSegment: false,
-    segMax: 0,
-    segCandidateMax: 0,
-    segOriginalMax: 0,
-  }
-
-  let nextSegment = prevSegment
-  let snapshotSegOriginalMax: number | undefined
-  if (ev.type === 'aoe') {
-    nextSegment = { inSegment: false, segMax: 0, segCandidateMax: 0, segOriginalMax: 0 }
-  } else if (ev.type === 'partial_aoe' || ev.type === 'partial_final_aoe') {
-    const baseSeg = prevSegment.inSegment
-      ? prevSegment
-      : { inSegment: true, segMax: 0, segCandidateMax: 0, segOriginalMax: 0 }
-    // snapshot 暴露给 UI 的"最高区间伤害"= 段进入本事件前的最大 event.damage（不含自身），
-    // 否则本事件就是段最大时会退化成"最高 = 原始 = 自身、结算 = 0"，不携带信息。
-    // nextSegment.segOriginalMax 仍维护含自身的最大值，给下一事件用。
-    snapshotSegOriginalMax = baseSeg.segOriginalMax
-    nextSegment = {
-      inSegment: ev.type === 'partial_final_aoe' ? false : true,
-      segMax: ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segMax, finalDamage),
-      segCandidateMax:
-        ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segCandidateMax, candidateDamage),
-      segOriginalMax:
-        ev.type === 'partial_final_aoe' ? 0 : Math.max(baseSeg.segOriginalMax, ev.damage),
-    }
-  }
-
-  if (!state.hp) {
-    return { nextState: { ...state, segment: nextSegment } }
-  }
-  const hp = state.hp
-
-  const before = hp.current
-  let nextCurrent = hp.current
-  let dealt = 0
-  let snapshotSegMax: number | undefined
-  let snapshotPreShieldDealt: number | undefined
-
-  if (ev.type === 'aoe') {
-    dealt = finalDamage
-    nextCurrent -= finalDamage
-  } else if (ev.type === 'partial_aoe' || ev.type === 'partial_final_aoe') {
-    // 用"段进入本事件前的 segMax / segCandidateMax"算增量；结算事件 nextSegment 已清零。
-    const segMaxBefore = prevSegment.inSegment ? prevSegment.segMax : 0
-    const segCandidateMaxBefore = prevSegment.inSegment ? prevSegment.segCandidateMax : 0
-    const newSegMax = Math.max(segMaxBefore, finalDamage)
-    dealt = Math.max(0, finalDamage - segMaxBefore)
-    nextCurrent -= dealt
-    snapshotSegMax = newSegMax
-    snapshotPreShieldDealt = Math.max(0, candidateDamage - segCandidateMaxBefore)
-  }
-
-  const overkill = Math.max(0, dealt - before)
-  nextCurrent = Math.max(0, Math.min(nextCurrent, hp.max))
-
-  return {
-    nextState: {
-      ...state,
-      hp: { ...hp, current: nextCurrent },
-      segment: nextSegment,
-    },
-    snapshot: {
-      hpBefore: before,
-      hpAfter: nextCurrent,
-      hpMax: hp.max,
-      segMax: snapshotSegMax,
-      segOriginalMax: snapshotSegOriginalMax,
-      preShieldDealt: snapshotPreShieldDealt,
-      overkill: overkill > 0 ? overkill : undefined,
-    },
-  }
-}
-
-/**
- * 重算 hp.max（按 active 非坦专 maxHP buff 累乘），按比例同步伸缩 hp.current。
- * 在每次 status mutation（applyExecutor / advanceToTime expire / onConsume）后调用。
- *
- * @internal 导出仅供 simulation/ 兄弟模块使用，不属于公共 API。
- */
-export function recomputeHpMax(state: PartyState): PartyState {
-  if (!state.hp) return state
-  const newMultiplier = computeMaxHpMultiplier(state.statuses, state.timestamp, getStatusById)
-  const prevMultiplier = state.hp.max / state.hp.base
-  if (Math.abs(newMultiplier - prevMultiplier) < 1e-9) return state
-
-  const ratio = newMultiplier / prevMultiplier
-  // Round 后避免浮点误差（Math.round 与 computeReferenceMaxHP 口径一致）。
-  // hp.current 也 round——maxHP 缩放是写 hp 的链路之一，与 computeFinalHeal /
-  // calculate.finalDamage 出口取整对齐，保证 hp.current 始终整数。
-  const newMax = Math.round(state.hp.base * newMultiplier)
-  const newCurrent = Math.max(0, Math.min(Math.round(state.hp.current * ratio), newMax))
-
-  return { ...state, hp: { ...state.hp, current: newCurrent, max: newMax } }
-}
-
-/**
  * 纯函数版全时间轴模拟。产出每个 damageEvent 的计算结果与
  * （下一 task 起）statusTimelineByPlayer。编辑模式专用，不走回放路径。
  *
@@ -344,69 +215,15 @@ export function simulate(input: SimulateInput): SimulateOutput {
     arr.push(a)
     variantMembers.set(gid, arr)
   }
-  const healSnapshots: HealSnapshot[] = []
-  const hpTimeline: HpTimelinePoint[] = []
   // 已被 advance 剔除（endTime < cur）但 DOT snapshotTime 仍可能落在区间内的 buff。
   // 主循环按 event.time 单调推进，无法回滚状态——靠这个补丁让 Phase 1 % 减伤找回它们。
   const pastStatuses: MitigationStatus[] = []
-  // 闭包变量：跟踪"最近已知 hp 值"，让 recordHeal 在钩子还未 return 新 state 时也能正确回填
-  let lastKnownHp = 0
-  let lastKnownHpMax = 0
-  const recomputeAndTrack = (state: PartyState, time: number): PartyState => {
-    const next = recomputeHpMax(state)
-    if (!skipHpPipeline && state.hp && next.hp && state.hp.max !== next.hp.max) {
-      lastKnownHp = next.hp.current
-      lastKnownHpMax = next.hp.max
-      hpTimeline.push({
-        time,
-        hp: lastKnownHp,
-        hpMax: lastKnownHpMax,
-        kind: 'maxhp-change',
-      })
-    }
-    return next
-  }
-  // skipHpPipeline 时 recordHeal 设为 undefined：让 executor 的 ctx.recordHeal?.(...)
-  // 调用直接走 optional chaining 短路；降低无效对象构造与日志开销。
-  const recordHeal = skipHpPipeline
-    ? undefined
-    : (snap: HealSnapshot) => {
-        healSnapshots.push(snap)
-        // 治疗后 hp = 当前已知 hp + applied（钩子里还没 return，所以 lastKnown 还是治疗前的 hp.current）
-        const prevHp = lastKnownHp
-        const hpAfter = Math.min(prevHp + snap.applied, lastKnownHpMax)
-        hpTimeline.push({
-          time: snap.time,
-          hp: hpAfter,
-          hpMax: lastKnownHpMax,
-          kind: snap.isHotTick ? 'tick' : 'heal',
-          // castEventId 为空字符串时转 undefined，与 refEventId 语义一致（无来源 cast）
-          refEventId: snap.castEventId || undefined,
-        })
-        lastKnownHp = hpAfter
-
-        // 调试日志：每次治疗的时间 / 技能名 / prevHP / afterHP / 变化量。
-        // actionId 形如 1e6+statusId（healByAbility 中 buff 类治疗的 key 形式，如全大赦
-        // 给医治追加的附属治疗 amountSourceId=1001219）时反查 statusRegistry 拿 buff 名。
-        // 仅 DEV 构建保留；生产期 import.meta.env.DEV 常量折叠成 false → 整段 DCE，
-        // 包含 actionName 反查（每条 snap 一次 MITIGATION_DATA.actions.find）的运行期开销。
-        if (import.meta.env.DEV) {
-          const actionName = (() => {
-            const action = MITIGATION_DATA.actions.find(a => a.id === snap.actionId)
-            if (action) return action.name
-            if (snap.actionId >= STATUS_ABILITY_OFFSET) {
-              const status = getStatusById(snap.actionId - STATUS_ABILITY_OFFSET)
-              if (status) return status.name
-            }
-            return `action#${snap.actionId}`
-          })()
-          const tag = snap.isHotTick ? 'HoT' : 'cast'
-          const overhealNote = snap.overheal > 0 ? ` (overheal ${snap.overheal})` : ''
-          console.log(
-            `[hp-sim heal] ${formatTimeWithDecimal(snap.time)} [${tag}] ${actionName}: ${prevHp} → ${hpAfter} (+${snap.applied})${overhealNote}`
-          )
-        }
-      }
+  // HP 池演算管道：hp.max 同步、伤害落池、治疗 / tick 记录与 hpTimeline / healSnapshots /
+  // lastKnownHp / lastKnownHpMax 影子状态全部封装在此。recomputeAndTrack / recordHeal
+  // 只是管道方法的本地别名，简化下方主循环的调用点。
+  const hp = createHpPipeline({ skipHpPipeline, initialState })
+  const recomputeAndTrack = hp.recomputeAndTrack
+  const recordHeal = hp.recordHeal
 
   // status 生效区间记录：instanceId diff 语义（attach/persist/consume）已下沉到
   // simulation/statusIntervalRecorder。simulate 只在状态迁移处调 captureTransition，
@@ -555,13 +372,11 @@ export function simulate(input: SimulateInput): SimulateOutput {
   }
   // 初始 state 已挂的 maxHP buff 立即同步 hp.max / hp.current
   currentState = recomputeAndTrack(currentState, currentState.timestamp)
-  if (!skipHpPipeline && currentState.hp) {
-    lastKnownHp = currentState.hp.current
-    lastKnownHpMax = currentState.hp.max
-    hpTimeline.push({
+  if (currentState.hp) {
+    hp.recordTimelinePoint({
       time: currentState.timestamp,
-      hp: lastKnownHp,
-      hpMax: lastKnownHpMax,
+      hp: currentState.hp.current,
+      hpMax: currentState.hp.max,
       kind: 'init',
     })
   }
@@ -654,25 +469,15 @@ export function simulate(input: SimulateInput): SimulateOutput {
       captureTransition(beforeCalc, currentState, event.time)
     }
 
-    // calculate 之后扣 HP 池；hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
-    const { nextState: stateAfterHp, snapshot: hpSnap } = applyDamageToHp(
+    // calculate 之后扣 HP 池；applyDamage 内部维护影子状态并 push damage 点。
+    // hpSimulation 在 set 时一次性合并，避免放进 Map 后再 mutate
+    const { nextState: stateAfterHp, snapshot: hpSnap } = hp.applyDamage(
       currentState,
       event,
       result.finalDamage,
       result.candidateDamage ?? result.finalDamage
     )
     damageResults.set(event.id, { ...result, hpSimulation: hpSnap })
-    if (!skipHpPipeline && stateAfterHp.hp) {
-      lastKnownHp = stateAfterHp.hp.current
-      lastKnownHpMax = stateAfterHp.hp.max
-      hpTimeline.push({
-        time: event.time,
-        hp: lastKnownHp,
-        hpMax: lastKnownHpMax,
-        kind: 'damage',
-        refEventId: event.id,
-      })
-    }
     // 调试日志：仅 DEV 构建保留；生产期 import.meta.env.DEV 折叠成 false → 整段 DCE。
     if (import.meta.env.DEV && !skipHpPipeline && hpSnap) {
       const dealt = hpSnap.hpBefore - hpSnap.hpAfter
@@ -740,15 +545,8 @@ export function simulate(input: SimulateInput): SimulateOutput {
     castEffectiveEndByCastEventId.set(castId, end)
   }
 
-  // 按 time 升序：cast / HoT tick 自然按主循环时序入列，但 calculate 内部钩子（onConsume /
-  // onAfterDamage）的 recordHeal 与同时刻 advanceToTime 先 fire 的 onTick 入列顺序依赖
-  // 主循环执行顺序，出口处显式排序避免下游消费者依赖隐式约定。
-  // skipHpPipeline 下两个数组都是空，跳排序。
-  if (!skipHpPipeline) {
-    healSnapshots.sort((a, b) => a.time - b.time)
-    // JS Array.sort 是稳定排序（ES2019+），同时刻 push 顺序（主循环内序）得以保留。
-    hpTimeline.sort((a, b) => a.time - b.time)
-  }
+  // hp 管道收尾：按 time 升序排序（详见 hpPipeline.finish）并取出 hpTimeline / healSnapshots。
+  const { hpTimeline, healSnapshots } = hp.finish()
 
   return {
     damageResults,
