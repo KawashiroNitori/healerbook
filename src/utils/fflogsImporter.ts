@@ -2,7 +2,13 @@
  * FFLogs 数据解析工具（V2 API）
  */
 
-import type { FFLogsReport, FFLogsAbility, FFLogsEvent, FFLogsReportActor } from '@/types/fflogs'
+import type {
+  FFLogsReport,
+  FFLogsAbility,
+  FFLogsEvent,
+  FFLogsReportActor,
+  PlayerMap,
+} from '@/types/fflogs'
 import type { TimelineStatData } from '@/types/statData'
 import type {
   Composition,
@@ -15,7 +21,7 @@ import type {
 } from '@/types/timeline'
 import { SOUMA_SYNC_RULES } from '@/data/soumaSyncRules'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getStatusById } from '@/utils/statusRegistry'
+import { getStatusById, toStatusId, STATUS_ABILITY_OFFSET } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import actionExtraRaw from '@/data/action.json'
 import { JOB_MAP } from '@/data/jobMap'
@@ -220,7 +226,7 @@ export function buildBossIds(
 export function parseDamageEvents(
   events: FFLogsEvent[],
   fightStartTime: number,
-  playerMap: Map<number, { id: number; name: string; type: string }>,
+  playerMap: PlayerMap,
   abilityMap?: Map<number, FFLogsAbility>,
   composition?: Composition,
   bossIds?: Set<number>,
@@ -346,7 +352,7 @@ export function parseDamageEvents(
     if (event.buffs) {
       const buffIds: number[] = (event.buffs as string).split('.').filter(Boolean).map(Number)
       for (const buffId of buffIds) {
-        const statusId = buffId > 1_000_000 ? buffId - 1_000_000 : buffId
+        const statusId = toStatusId(buffId)
         const statusMeta = getStatusById(statusId)
         if (statusMeta) {
           detail.statuses.push({
@@ -388,7 +394,7 @@ export function parseDamageEvents(
     let statusId = event.abilityGameID
     if (statusId === 1002643) statusId = 1002613
 
-    const actualStatusId = statusId && statusId > 1_000_000 ? statusId - 1_000_000 : statusId || 0
+    const actualStatusId = statusId ? toStatusId(statusId) : 0
 
     // 使用 damage 时间戳匹配（absorbed 与 damage 时间戳一致）
     const key = `${event.timestamp}-${event.targetID}-${event.attackerID}-${event.extraAbilityGameID}`
@@ -722,7 +728,7 @@ function detectDamageTypeFromAbility(abilityType: string | number): DamageType {
 export function parseCastEvents(
   events: FFLogsEvent[],
   fightStartTime: number,
-  playerMap: Map<number, { id: number; name: string; type: string }>
+  playerMap: PlayerMap
 ): CastEvent[] {
   const castEventsResult: CastEvent[] = []
   const validActionIds = new Set(MITIGATION_DATA.actions.map(a => a.id))
@@ -771,7 +777,7 @@ export function parseCastEvents(
 export function parseSyncEvents(
   events: FFLogsEvent[],
   fightStartTime: number,
-  playerMap: Map<number, { id: number; name: string; type: string }>,
+  playerMap: PlayerMap,
   abilityMap?: Map<number, FFLogsAbility>
 ): SyncEvent[] {
   const battleOnceSeen = new Set<number>()
@@ -823,7 +829,7 @@ export function extractShieldData(events: FFLogsEvent[]): Record<number, number[
   for (const event of events) {
     if (event.type === 'absorbed' && event.abilityGameID && event.amount) {
       const rawId = event.abilityGameID === 1002643 ? 1002613 : event.abilityGameID
-      const statusId = rawId - 1000000
+      const statusId = rawId - STATUS_ABILITY_OFFSET
       if (!shieldByAbility[statusId]) shieldByAbility[statusId] = []
       shieldByAbility[statusId].push(event.amount)
     }
@@ -850,7 +856,7 @@ export function extractHealData(events: FFLogsEvent[]): Record<number, number[]>
  */
 export function extractMaxHPData(
   events: FFLogsEvent[],
-  playerMap: Map<number, { id: number; name: string; type: string }>
+  playerMap: PlayerMap
 ): Record<Job, number[]> {
   const maxHPByJob: Partial<Record<Job, number[]>> = {}
   for (const event of events) {
@@ -878,7 +884,7 @@ export function extractMaxHPData(
  */
 export function parseStatData(
   events: FFLogsEvent[],
-  playerMap: Map<number, { id: number; name: string; type: string }>,
+  playerMap: PlayerMap,
   composition: Composition
 ): TimelineStatData | undefined {
   // 1. 阵容内 action 的 statDataEntries → 按 type 分桶的合法 key 集合
@@ -958,7 +964,7 @@ export interface FightImportResult {
   /** 战斗零时间（首个 limitbreakupdate，无则回退首次伤害时间戳，毫秒） */
   fightStartTime: number
   /** playerId → 基本信息，供调用方进一步提取 statData */
-  playerMap: Map<number, { id: number; name: string; type: string }>
+  playerMap: PlayerMap
   damageEvents: DamageEvent[]
   castEvents: CastEvent[]
   syncEvents: SyncEvent[]
@@ -975,7 +981,7 @@ export function parseFightImport(
   fight: FFLogsReport['fights'][number],
   events: FFLogsEvent[]
 ): FightImportResult {
-  const playerMap = new Map<number, { id: number; name: string; type: string }>()
+  const playerMap: PlayerMap = new Map()
   report.friendlies?.forEach(player => {
     playerMap.set(player.id, { id: player.id, name: player.name, type: player.type })
   })

@@ -1,7 +1,7 @@
 import type { HpSimulationSnapshot } from './mitigationCalculator'
 
 /** 致死/危险阈值：剩余血量 < 5% 视为危险；坦专 fallback 同步用 1 - 5% = 95% */
-const DANGER_HP_PCT = 0.05
+export const DANGER_HP_PCT = 0.05
 
 export interface LethalDangerous {
   isLethal: boolean

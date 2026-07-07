@@ -3,9 +3,7 @@
  */
 
 import type { DamageEvent } from '@/types/timeline'
-import type { FFLogsEvent } from '@/types/fflogs'
-
-type PlayerMap = Map<number, { id: number; name: string; type: string }>
+import type { FFLogsEvent, PlayerMap } from '@/types/fflogs'
 
 /** 把 abilityGameID 解析为技能名（与导入侧伤害事件命名同源）；无法解析返回 undefined。 */
 type NameResolver = (abilityGameID: number) => string | undefined

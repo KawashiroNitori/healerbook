@@ -12,6 +12,16 @@ import type { DamageType } from '@/types/timeline'
 /** 第三方 keigenns 数组的元素形状（fullIcon 可选） */
 type KeigennInput = Omit<Keigenn, 'fullIcon'> & { fullIcon?: string }
 
+/** FFLogs 把 buff/DoT 类事件的 abilityGameID 编码为 OFFSET + statusId */
+export const STATUS_ABILITY_OFFSET = 1_000_000
+
+/** abilityGameID → 裸 statusId（超过 OFFSET 才减，保持既有条件语义） */
+export function toStatusId(abilityGameID: number): number {
+  return abilityGameID > STATUS_ABILITY_OFFSET
+    ? abilityGameID - STATUS_ABILITY_OFFSET
+    : abilityGameID
+}
+
 /**
  * 由 keigenn 列表 + extras 表构建状态注册表
  *

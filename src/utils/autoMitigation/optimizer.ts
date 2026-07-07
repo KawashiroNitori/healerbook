@@ -17,6 +17,7 @@ import { mulberry32 } from './prng'
 import { createEvaluator } from './evaluate'
 import { generateCandidates, isGcdMit } from './candidates'
 import { isInScope } from './scope'
+import { DANGER_HP_PCT } from '@/utils/lethalDanger'
 
 export interface OptimizerContext {
   input: OptimizeInput
@@ -176,12 +177,6 @@ export function phase2Minimize(ctx: OptimizerContext): void {
 }
 
 /**
- * 危险阈值占比：复用 deriveLethalDangerous 的"剩血<5%"口径（finalDamage ≥ 满血×95%）。
- * GCD 减伤兜底只在事件减伤后仍达到此阈值时才介入。
- */
-const DANGER_FRACTION = 0.95
-
-/**
  * GCD 减伤兜底（规则一）：在非 GCD 减伤都生效（phase1/2/3 跑完）后，
  * 对仍"危险"（finalDamage ≥ 满血×95%）的 in-scope 事件，才动用 GCD 减伤候选去压。
  * 最危险优先；每次选对目标事件降伤最大的 GCD 候选，经 tryAccept 保证合法+可行。
@@ -195,7 +190,7 @@ export function gcdFallback(ctx: OptimizerContext, gcdCands: Candidate[]): void 
     let worst = -Infinity
     for (const [id, pe] of ctx.evalState.perEvent) {
       if (!pe.inScope || shelved.has(id) || pe.referenceMaxHP == null) continue
-      if (pe.finalDamage < pe.referenceMaxHP * DANGER_FRACTION) continue // 已不危险
+      if (pe.finalDamage < pe.referenceMaxHP * (1 - DANGER_HP_PCT)) continue // 已不危险
       const ratio = pe.finalDamage / pe.referenceMaxHP
       if (ratio > worst) {
         worst = ratio

@@ -29,6 +29,12 @@ export interface FFLogsReportActor {
 }
 
 /**
+ * fflogsImporter 流水线用的精简 Actor 视图（playerId → 基本信息）。
+ * FFLogsReportActor 的字段子集（省略 guid/server/icon/fights）。
+ */
+export type PlayerMap = Map<number, { id: number; name: string; type: string }>
+
+/**
  * FFLogs 战斗报告
  */
 export interface FFLogsReport {

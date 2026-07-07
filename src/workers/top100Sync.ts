@@ -9,7 +9,7 @@
 import { FFLogsClientV2 } from './fflogsClientV2'
 import { enqueueRankings, pickNextSample, type SampleQueueRow } from './samplesQueue'
 import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
-import type { FFLogsEvent, FFLogsAbility, FFLogsReport } from '@/types/fflogs'
+import type { FFLogsEvent, FFLogsAbility, FFLogsReport, PlayerMap } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
 import type { DamageEvent } from '@/types/timeline'
@@ -78,7 +78,7 @@ export function extractFightStats(
   fight: FFLogsReport['fights'][number],
   events: FFLogsEvent[]
 ): ExtractedFightData {
-  const playerMap = new Map<number, { id: number; name: string; type: string }>()
+  const playerMap: PlayerMap = new Map()
   for (const actor of report.friendlies ?? []) {
     playerMap.set(actor.id, { id: actor.id, name: actor.name, type: actor.type })
   }

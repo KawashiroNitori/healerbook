@@ -11,7 +11,11 @@ import type { ActionExecutionContext, MitigationAction } from '@/types/mitigatio
 import type { HealSnapshot } from '@/types/healSnapshot'
 import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
+import {
+  getStatusById,
+  getMultiplierForDamageType,
+  STATUS_ABILITY_OFFSET,
+} from '@/utils/statusRegistry'
 import { computeMaxHpMultiplier } from '@/executors/healMath'
 import { isStatusValidForTank } from './statusFilter'
 import {
@@ -551,8 +555,8 @@ export class MitigationCalculator {
             const actionName = (() => {
               const action = MITIGATION_DATA.actions.find(a => a.id === snap.actionId)
               if (action) return action.name
-              if (snap.actionId >= 1_000_000) {
-                const status = getStatusById(snap.actionId - 1_000_000)
+              if (snap.actionId >= STATUS_ABILITY_OFFSET) {
+                const status = getStatusById(snap.actionId - STATUS_ABILITY_OFFSET)
                 if (status) return status.name
               }
               return `action#${snap.actionId}`
