@@ -242,38 +242,29 @@ interface ImportDetail extends PlayerDamageDetail {
   isAutoAttack: boolean
 }
 
+/** DOT 快照映射：key `${abilityGameID}-${targetID}` → applydebuff 的快照时间与来源技能。 */
+type DotDebuffMap = Map<string, { timestamp: number; extraAbilityGameID: number }>
+
 /**
- * 解析伤害事件（只保留 Boss 技能）
+ * Step 1 & 2：单次遍历 events，同时记录 DOT 快照并创建/填充 ImportDetail。
+ * - applydebuff: 记录 DOT 快照信息
+ * - calculateddamage: 创建 detail（时间戳最准确）
+ * - damage: 填充数值，若无 calculateddamage 则同时创建 detail
  *
- * V2 事件字段：abilityGameID, packetID, sourceID, targetID, amount, unmitigatedAmount, absorbed
- * 重构后的四步流程：
- * 1. 从 damage 事件中过滤出对玩家的伤害，构建原始 PlayerDamageDetail（缺少护盾数据）
- * 2. 从 absorbed 事件中构建耗盾事件四元组，匹配到对应的 PlayerDamageDetail
- * 3. 将护盾数据 push 到 PlayerDamageDetail 的护盾列表
- * 4. 按 packetID 汇总 PlayerDamageDetail，构建 DamageEvent
+ * DOT 快照记录与 detail 创建填充在同一次遍历里完成（不拆两次遍历），
+ * 以保持物理行为与性能特征不变。返回累积的 details 与 dotDebuffMap，
+ * 供 Step 3（absorbed 回填）与 Step 4（聚合）显式消费。
  */
-export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
-  const {
-    events,
-    fightStartTime,
-    playerMap,
-    abilityMap,
-    composition,
-    bossIds,
-    sourceNames,
-    targetability,
-    bossCasts,
-  } = ctx
-  const TANK_JOBS = getTankJobs()
+function collectDamageDetails(ctx: ImportContext): {
+  details: ImportDetail[]
+  dotDebuffMap: DotDebuffMap
+} {
+  const { events, playerMap, abilityMap } = ctx
 
   // DOT 追踪：记录 applydebuff 事件的快照时间和来源技能
   // key: `${abilityGameID}-${targetID}`, value: { timestamp, extraAbilityGameID }
-  const dotDebuffMap = new Map<string, { timestamp: number; extraAbilityGameID: number }>()
+  const dotDebuffMap: DotDebuffMap = new Map()
 
-  // Step 1 & 2: 单次遍历事件
-  // - applydebuff: 记录 DOT 快照信息
-  // - calculateddamage: 创建 detail（时间戳最准确）
-  // - damage: 填充数值，若无 calculateddamage 则同时创建 detail
   // 导入期临时元数据已并入 ImportDetail 自身字段（skillName / sourceId / packetId /
   // snapshotTimestamp / isAutoAttack / damageTimestamp），不再用并行 Map。
   const playerDamageDetails: ImportDetail[] = []
@@ -395,10 +386,17 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
     detailByPacketAndTarget.delete(key)
   }
 
-  // Step 3: 从 absorbed 事件填充盾值状态
+  return { details: playerDamageDetails, dotDebuffMap }
+}
+
+/**
+ * Step 3：从 absorbed 事件回填盾值明细。
+ * absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key，就地修改传入的 details。
+ */
+function attachAbsorbedShields(details: ImportDetail[], events: FFLogsEvent[]): void {
   // absorbed 的时间戳与 damage 一致，用 damage 时间戳做匹配 key
   const detailByDamageTs = new Map<string, ImportDetail>()
-  for (const detail of playerDamageDetails) {
+  for (const detail of details) {
     const ts = detail.damageTimestamp ?? detail.timestamp
     const key = `${ts}-${detail.playerId}-${detail.sourceId}-${detail.abilityId ?? 0}`
     detailByDamageTs.set(key, detail)
@@ -426,29 +424,42 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
       }
     }
   }
+}
+
+/**
+ * Step 4：0.9s 时间窗口 + 技能名分组聚合，产出 DamageEvent[]（未做后处理）。
+ * dotDebuffMap 由 Step 1&2 显式传入，用于 DOT 伤害属性推导。
+ */
+function aggregateIntoDamageEvents(
+  details: ImportDetail[],
+  ctx: ImportContext,
+  dotDebuffMap: DotDebuffMap
+): DamageEvent[] {
+  const { fightStartTime, abilityMap, bossIds, sourceNames, targetability } = ctx
+  const TANK_JOBS = getTankJobs()
 
   // Step 4: 按时间窗口（0.9秒）+ 技能名称汇总，构建 DamageEvent
   const TIME_WINDOW = 900
 
   // 按时间排序所有 PlayerDamageDetail
-  playerDamageDetails.sort((a, b) => a.timestamp - b.timestamp)
+  details.sort((a, b) => a.timestamp - b.timestamp)
 
   const damageEvents: DamageEvent[] = []
   const processedIndices = new Set<number>()
 
-  for (let i = 0; i < playerDamageDetails.length; i++) {
+  for (let i = 0; i < details.length; i++) {
     if (processedIndices.has(i)) continue
 
-    const baseDetail = playerDamageDetails[i]
+    const baseDetail = details[i]
     const baseSkillName = baseDetail.skillName
-    const details: ImportDetail[] = [baseDetail]
+    const windowDetails: ImportDetail[] = [baseDetail]
     processedIndices.add(i)
 
     // 查找时间窗口内相同技能名称的其他伤害
-    for (let j = i + 1; j < playerDamageDetails.length; j++) {
+    for (let j = i + 1; j < details.length; j++) {
       if (processedIndices.has(j)) continue
 
-      const currentDetail = playerDamageDetails[j]
+      const currentDetail = details[j]
       const timeDiff = currentDetail.timestamp - baseDetail.timestamp
 
       // 超出时间窗口，停止查找
@@ -456,7 +467,7 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
 
       // 相同技能名称，合并
       if (currentDetail.skillName === baseSkillName) {
-        details.push(currentDetail)
+        windowDetails.push(currentDetail)
         processedIndices.add(j)
       }
     }
@@ -466,7 +477,7 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
     // 因为某些机制伤害确实很低但对减伤规划仍有意义。
 
     // 找到最早的 detail
-    const firstDetail = details.reduce((earliest, current) =>
+    const firstDetail = windowDetails.reduce((earliest, current) =>
       current.timestamp < earliest.timestamp ? current : earliest
     )
     const relativeTime = Math.round((firstDetail.timestamp - fightStartTime) / 10) / 100
@@ -489,7 +500,7 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
     }
 
     // 计算代表伤害值：按伤害属性选取受该属性影响最大的职业组的最高值
-    const representativeDamage = selectRepresentativeDamage(details, damageType, TANK_JOBS)
+    const representativeDamage = selectRepresentativeDamage(windowDetails, damageType, TANK_JOBS)
 
     // DOT 快照时间（秒）
     const snapshotTime =
@@ -516,9 +527,9 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
       name,
       time: relativeTime,
       damage: representativeDamage,
-      type: detectDamageType(details, TANK_JOBS, isAutoAttack),
+      type: detectDamageType(windowDetails, TANK_JOBS, isAutoAttack),
       damageType,
-      playerDamageDetails: details,
+      playerDamageDetails: windowDetails,
       packetId: firstDetail.packetId,
       snapshotTime,
       ...(targetMitigationDisabled && { targetMitigationDisabled }),
@@ -528,26 +539,70 @@ export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
 
   damageEvents.sort((a, b) => a.time - b.time)
 
-  // 后处理：验证 tankbuster 分类
-  refineTankbusterClassification(damageEvents)
-  // 后处理：用"出现次数 × 全 T 比例"启发式补捞 regex 漏掉的普通攻击
-  refineAutoAttackClassification(damageEvents, TANK_JOBS)
-  // 后处理：把 type==='aoe' 的事件按非 T 命中集合细分为
-  //   'aoe' / 'partial_aoe' / 'partial_final_aoe'
-  // composition 缺失（既有 dev 调用方）时 no-op，保持向后兼容
-  classifyPartialAOE(damageEvents, composition)
-  // 流水线最后：按 actionOverride 表强制改写 type，权威覆盖上面所有启发式判别
-  applyActionTypeOverride(damageEvents)
-  // type 最终稳定后：把"部分 AOE（结算）"事件时间后移，使其稳定排在同刻全员 AOE 之后
-  shiftPartialFinalAoeTime(damageEvents)
+  return damageEvents
+}
+
+/**
+ * 构建后处理 pipeline：一组就地改写 DamageEvent[] 的处理器。
+ *
+ * 数组顺序即依赖顺序，逐字等于原有调用顺序，不可重排：
+ *   refineTankbusterClassification → refineAutoAttackClassification(TANK_JOBS)
+ *   → classifyPartialAOE(composition) → applyActionTypeOverride
+ *   → shiftPartialFinalAoeTime →（条件）attachCastWindows
+ *
+ * attachCastWindows 仅在 bossCasts 存在时入列（保持原条件性）；无 bossCasts 时不加入。
+ */
+function buildPostProcessors(ctx: ImportContext): Array<(events: DamageEvent[]) => void> {
+  const { abilityMap, composition, fightStartTime, bossCasts } = ctx
+  const TANK_JOBS = getTankJobs()
+
+  const processors: Array<(events: DamageEvent[]) => void> = [
+    // 验证 tankbuster 分类；须最先跑，为下游提供已收敛的 aoe/tankbuster 基线
+    events => refineTankbusterClassification(events),
+    // 依赖上一步的分类：用"出现次数 × 全 T 比例"启发式补捞 regex 漏掉的普通攻击
+    events => refineAutoAttackClassification(events, TANK_JOBS),
+    // 依赖前两步稳定的 type==='aoe' 集合：按非 T 命中细分为
+    //   'aoe' / 'partial_aoe' / 'partial_final_aoe'；composition 缺失时 no-op
+    events => classifyPartialAOE(events, composition),
+    // 流水线权威覆盖：按 actionOverride 表强制改写 type，推翻上面所有启发式判别
+    events => applyActionTypeOverride(events),
+    // 必须在 type 最终稳定（applyActionTypeOverride）之后：把"部分 AOE（结算）"事件时间后移
+    events => shiftPartialFinalAoeTime(events),
+  ]
+
   if (bossCasts) {
+    // 依赖 type 稳定后的事件序列；仅在有 bossCasts 时回填 castWindow。
     // 名称解析器与伤害事件命名同源（getActionChinese → abilityMap），
     // 供 castWindow 在「读条 id ≠ 伤害 id 但同名」时做名称兜底匹配
     const resolveActionName = (id: number): string | undefined =>
       getActionChinese(id) ?? abilityMap?.get(id)?.name
-    attachCastWindows(damageEvents, bossCasts, fightStartTime, resolveActionName)
+    processors.push(events =>
+      attachCastWindows(events, bossCasts, fightStartTime, resolveActionName)
+    )
   }
 
+  return processors
+}
+
+/**
+ * 解析伤害事件（只保留 Boss 技能）
+ *
+ * V2 事件字段：abilityGameID, packetID, sourceID, targetID, amount, unmitigatedAmount, absorbed
+ * 重构后的四步流程：
+ * 1. 从 damage 事件中过滤出对玩家的伤害，构建原始 PlayerDamageDetail（缺少护盾数据）
+ * 2. 从 absorbed 事件中构建耗盾事件四元组，匹配到对应的 PlayerDamageDetail
+ * 3. 将护盾数据 push 到 PlayerDamageDetail 的护盾列表
+ * 4. 按 packetID 汇总 PlayerDamageDetail，构建 DamageEvent
+ */
+export function parseDamageEvents(ctx: ImportContext): DamageEvent[] {
+  // Step 1 & 2：单次遍历创建/填充 detail，并记录 DOT 快照
+  const { details, dotDebuffMap } = collectDamageDetails(ctx)
+  // Step 3：absorbed 事件回填盾值明细（就地修改 details）
+  attachAbsorbedShields(details, ctx.events)
+  // Step 4：0.9s 窗口 + 技能名分组聚合
+  const damageEvents = aggregateIntoDamageEvents(details, ctx, dotDebuffMap)
+  // 后处理 pipeline：顺序即依赖，逐个就地改写 damageEvents
+  for (const process of buildPostProcessors(ctx)) process(damageEvents)
   return damageEvents
 }
 
