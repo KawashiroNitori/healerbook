@@ -4,14 +4,14 @@
 
 import { apiClient } from './apiClient'
 import { unwrapApiError } from './unwrapApiError'
-import type { MyTimelineListItem, SharedTimelineResponse } from '@/types/apiContracts'
+import type {
+  MyTimelineListItem,
+  SharedTimelineResponse,
+  ShareState,
+  PublishResult,
+} from '@/types/apiContracts'
 
-export type { SharedTimelineResponse }
-
-export interface PublishResult {
-  id: string
-  publishedAt: number
-}
+export type { SharedTimelineResponse, ShareState, PublishResult }
 
 /**
  * 发布:把一条本地时间轴注册为云端时间轴。
@@ -75,13 +75,6 @@ export async function fetchSharedTimeline(id: string): Promise<SharedTimelineRes
         err.response.status === 404 ? 'NOT_FOUND' : `HTTP ${err.response.status}`,
     }
   )
-}
-
-/** 作者面板数据:申请开关 + 编辑者列表 + 申请者列表 */
-export interface ShareState {
-  allowEditRequests: boolean
-  editors: { userId: string; userName: string }[]
-  applicants: { userId: string; userName: string; createdAt: number }[]
 }
 
 /** 作者读共享管理面板数据 */

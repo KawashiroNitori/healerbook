@@ -227,6 +227,12 @@ export interface DamageEvent {
   castEndTime?: number
 }
 
+/** fight-stats 存储用的精简 DamageEvent，剥离 id / 明细，附带 abilityId（top100Sync.slimDamageEvents 产出） */
+export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'playerDamageDetails'> & {
+  /** 从 playerDamageDetails[0] 提取的技能 ID，供 encounter template 聚合 */
+  abilityId?: number
+}
+
 /**
  * 小队阵容
  */

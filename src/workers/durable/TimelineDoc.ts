@@ -19,6 +19,7 @@ import { projectTimeline } from '@/collab/docSchema'
 import { Y_MAP } from '@/collab/constants'
 import type { Timeline } from '@/types/timeline'
 import { countPendingEditRequests, isEditor } from '../db/editors'
+import { getTimelineSnapshotKVKey } from '../kvKeys'
 
 /** 挂在每个 WebSocket 上的鉴权状态(扛 hibernation) */
 interface SocketAttachment {
@@ -340,7 +341,10 @@ export class TimelineDoc extends DurableObject<Env> {
     if (!this.cachedDocId) return
     const json = await this.getSnapshotJson()
     if (!json) return
-    await this.env.healerbook_snapshots.put(`tl-snapshot:${this.cachedDocId}`, JSON.stringify(json))
+    await this.env.healerbook_snapshots.put(
+      getTimelineSnapshotKVKey(this.cachedDocId),
+      JSON.stringify(json)
+    )
     // 把阵容回写 D1:GET /api/my/timelines 据此展示阵容,无需唤醒 DO
     await this.env.healerbook_timelines
       .prepare('UPDATE timelines SET content = ? WHERE id = ?')

@@ -9,7 +9,8 @@ import * as sensitiveWordFilter from '../sensitiveWordFilter'
 import { generateId } from '@/utils/id'
 import { fromBase64 } from 'lib0/buffer'
 import { docStub } from '../durable/stub'
-import type { SharedTimelineResponse } from '@/types/apiContracts'
+import { getTimelineSnapshotKVKey } from '../kvKeys'
+import type { SharedTimelineResponse, PublishResult } from '@/types/apiContracts'
 import type { Timeline } from '@/types/timeline'
 import {
   countPendingEditRequests,
@@ -82,14 +83,15 @@ app.post('/', requireAuth, vValidator('json', PublishTimelineRequestSchema), asy
       await stub.seed(fromBase64(content))
       const snapshot = await stub.getSnapshotJson()
       if (snapshot) {
-        await c.env.healerbook_snapshots.put(`tl-snapshot:${id}`, JSON.stringify(snapshot))
+        await c.env.healerbook_snapshots.put(getTimelineSnapshotKVKey(id), JSON.stringify(snapshot))
       }
     } catch {
       // 忽略:不影响发布成功语义
     }
   }
 
-  return c.json({ id, publishedAt: now }, 201)
+  const result: PublishResult = { id, publishedAt: now }
+  return c.json(result, 201)
 })
 
 // 公开读:返回 { role, authorName, isAuthor, allowEditRequests, hasPendingRequest, pendingRequestCount, snapshot? }
@@ -130,7 +132,7 @@ app.get('/:id', async c => {
   }
 
   // 三角色共用 KV snapshot 查询:editor / author 用于首屏兜底,viewer 用于只读渲染
-  const cached = await c.env.healerbook_snapshots.get(`tl-snapshot:${id}`)
+  const cached = await c.env.healerbook_snapshots.get(getTimelineSnapshotKVKey(id))
   const snapshot = cached
     ? (JSON.parse(cached) as object)
     : await docStub(c.env, id).getSnapshotJson()
@@ -175,7 +177,7 @@ app.delete('/:id', requireAuth, async c => {
     .bind(id, auth.userId)
     .run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found or forbidden' }, 404)
-  await c.env.healerbook_snapshots.delete(`tl-snapshot:${id}`)
+  await c.env.healerbook_snapshots.delete(getTimelineSnapshotKVKey(id))
   await deleteAllEditors(c.env.healerbook_timelines, id)
   await deleteAllEditRequests(c.env.healerbook_timelines, id)
   // 清空 Durable Object 存储:DO 经 idFromName 取得会被复用,

@@ -35,6 +35,19 @@ export interface SharedTimelineResponse extends ShareRoleInfo {
   snapshot?: Timeline
 }
 
+/** GET /api/timelines/:id/share 的响应（作者面板数据） */
+export interface ShareState {
+  allowEditRequests: boolean
+  editors: { userId: string; userName: string }[]
+  applicants: { userId: string; userName: string; createdAt: number }[]
+}
+
+/** POST /api/timelines 的响应（id 可能因敏感词换发而与请求不同） */
+export interface PublishResult {
+  id: string
+  publishedAt: number
+}
+
 /**
  * 排行榜单条目
  */

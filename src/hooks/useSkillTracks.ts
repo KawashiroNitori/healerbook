@@ -11,13 +11,12 @@ import { matchTrack } from './useFilteredTimelineView'
 
 export function useSkillTracks(): SkillTrack[] {
   const composition = useTimelineStore(s => s.timeline?.composition)
-  const actions = ACTIONS
   const activePreset = useFilterStore(s => s.getActivePreset())
 
   return useMemo(() => {
     if (!composition) return []
-    const tracks = deriveSkillTracks(composition, new Set(), actions)
-    const actionMap = new Map(actions.map(a => [a.id, a]))
+    const tracks = deriveSkillTracks(composition, new Set(), ACTIONS)
+    const actionMap = new Map(ACTIONS.map(a => [a.id, a]))
     return tracks.filter(t => matchTrack(t, activePreset, actionMap))
-  }, [composition, actions, activePreset])
+  }, [composition, activePreset])
 }

@@ -5,6 +5,7 @@ import * as v from 'valibot'
 import type { AppEnv } from '../env'
 import { requireAuth } from '../middleware/requireAuth'
 import { docStub } from '../durable/stub'
+import type { ShareState } from '@/types/apiContracts'
 import {
   deleteEditRequestStatement,
   findEditRequest,
@@ -46,11 +47,12 @@ app.get('/:id/share', requireAuth, async c => {
   const editors = await listEditors(c.env.healerbook_timelines, id, author.author_id)
   const applicants = await listEditRequests(c.env.healerbook_timelines, id)
 
-  return c.json({
+  const body: ShareState = {
     allowEditRequests: author.allow_edit_requests === 1,
     editors,
     applicants,
-  })
+  }
+  return c.json(body)
 })
 
 const ShareSettingsSchema = v.object({ allowEditRequests: v.boolean() })

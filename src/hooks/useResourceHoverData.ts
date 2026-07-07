@@ -22,12 +22,11 @@ export function useResourceHoverData(): {
   getSnapshotAt: (time: number) => MemberResourceSnapshot[]
 } {
   const timeline = useTimelineStore(s => s.timeline)
-  const actions = ACTIONS
   const tracks = useSkillTracks()
   const statusTimeline = useStatusTimelineByPlayer()
   const resolvedVariant = useResolvedVariantByCastId()
 
-  const actionsById = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
+  const actionsById = useMemo(() => new Map(ACTIONS.map(a => [a.id, a])), [])
 
   const resourceEventsByKey = useMemo(() => {
     if (!timeline) return new Map()

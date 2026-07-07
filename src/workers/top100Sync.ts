@@ -12,7 +12,7 @@ import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
 import type { FFLogsEvent, FFLogsAbility, FFLogsReport, PlayerMap } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
-import type { DamageEvent } from '@/types/timeline'
+import type { DamageEvent, StoredDamageEvent } from '@/types/timeline'
 import type { Top100Data } from '@/types/apiContracts'
 import {
   parseDamageEvents,
@@ -29,12 +29,6 @@ import {
 } from './kvKeys'
 import { type EncounterSamples, calculatePercentiles, mergeRecord } from './encounterStats'
 import { type EncounterTemplate, buildEncounterTemplate } from './encounterTemplate'
-
-/** fight-stats 存储用的精简 DamageEvent，剥离 id / 明细，并额外附带 abilityId */
-export type StoredDamageEvent = Omit<DamageEvent, 'id' | 'playerDamageDetails'> & {
-  /** 从 playerDamageDetails[0] 提取的技能 ID，供后续 encounter template 聚合使用 */
-  abilityId?: number
-}
 
 /**
  * 将 parseDamageEvents 输出的完整 DamageEvent 精简为存储格式

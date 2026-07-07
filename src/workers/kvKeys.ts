@@ -19,3 +19,8 @@ export function getSamplesKVKey(encounterId: number): string {
 export function getEncounterTemplateKVKey(encounterId: number): string {
   return `encounter-template:${encounterId}`
 }
+
+/** 时间轴 KV 快照键 */
+export function getTimelineSnapshotKVKey(id: string): string {
+  return `tl-snapshot:${id}`
+}

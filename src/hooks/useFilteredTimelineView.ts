@@ -66,7 +66,6 @@ export function matchTrack(
 
 export function useFilteredTimelineView(): FilteredView {
   const timeline = useTimelineStore(s => s.timeline)
-  const actions = ACTIONS
   const activePreset = useFilterStore(s => s.getActivePreset())
 
   return useMemo(() => {
@@ -74,7 +73,7 @@ export function useFilteredTimelineView(): FilteredView {
       return { filteredDamageEvents: [], filteredCastEvents: [] }
     }
 
-    const actionMap = new Map(actions.map(a => [a.id, a]))
+    const actionMap = new Map(ACTIONS.map(a => [a.id, a]))
     const playerJobById = new Map<number, Job>(timeline.composition.players.map(p => [p.id, p.job]))
 
     const filteredDamageEvents = timeline.damageEvents.filter(e =>
@@ -88,5 +87,5 @@ export function useFilteredTimelineView(): FilteredView {
     })
 
     return { filteredDamageEvents, filteredCastEvents }
-  }, [timeline, actions, activePreset])
+  }, [timeline, activePreset])
 }

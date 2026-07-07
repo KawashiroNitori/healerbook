@@ -1,6 +1,5 @@
-import type { DamageEvent } from '@/types/timeline'
+import type { DamageEvent, StoredDamageEvent } from '@/types/timeline'
 import { generateObjectId } from '@/utils/shortId'
-import type { StoredDamageEvent } from './top100Sync'
 
 /** 模板事件：DamageEvent + abilityId（仅模板聚合/过滤内部使用，非持久化字段） */
 export type EncounterTemplateEvent = DamageEvent & { abilityId?: number }

@@ -8,6 +8,7 @@ import { docStub } from '../durable/stub'
 import { encodeStateAsUpdate } from 'yjs'
 import { requireSyncToken } from '../middleware/requireSyncToken'
 import { insertEditorStatement } from '../db/editors'
+import { getTimelineSnapshotKVKey } from '../kvKeys'
 
 const app = new Hono<AppEnv>()
 
@@ -63,7 +64,7 @@ app.post('/migrate', requireSyncToken, async c => {
       // seed 幂等:旧版迁移已 seed 的 DO 不会被覆盖,缺 name 的坏数据靠此回填。
       // 回填后删掉可能陈旧(无 name)的 KV 快照,viewer 即回落到 DO 取最新。
       if (await stub.ensureMetaName(row.name)) {
-        await c.env.healerbook_snapshots.delete(`tl-snapshot:${row.id}`)
+        await c.env.healerbook_snapshots.delete(getTimelineSnapshotKVKey(row.id))
         repaired++
       }
       await insertEditorStatement(c.env.healerbook_timelines, row.id, row.author_id).run()

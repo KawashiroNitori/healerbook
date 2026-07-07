@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildEncounterTemplate } from './encounterTemplate'
-import type { StoredDamageEvent } from './top100Sync'
+import type { StoredDamageEvent } from '@/types/timeline'
 
 describe('buildEncounterTemplate (single-fight)', () => {
   function makeSlim(abilityId: number, time: number, damage = 1000): StoredDamageEvent {
