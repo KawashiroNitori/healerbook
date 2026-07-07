@@ -6,7 +6,8 @@
 import { keigenns } from '../../3rdparty/ff14-overlay-vue/src/resources/keigenn'
 import type { Keigenn } from '../../3rdparty/ff14-overlay-vue/src/types/keigennRecord2'
 import { STATUS_EXTRAS, type StatusExtras } from '@/data/statusExtras'
-import type { MitigationStatusMetadata } from '@/types/status'
+import type { MitigationStatusMetadata, PerformanceType } from '@/types/status'
+import type { DamageType } from '@/types/timeline'
 
 /** 第三方 keigenns 数组的元素形状（fullIcon 可选） */
 type KeigennInput = Omit<Keigenn, 'fullIcon'> & { fullIcon?: string }
@@ -142,4 +143,22 @@ export function getAllShieldStatuses(): MitigationStatusMetadata[] {
  */
 export function getAllShieldStatusIds(): number[] {
   return getAllShieldStatuses().map(status => status.id)
+}
+
+/**
+ * 按伤害类型取减伤表现的对应乘率字段。
+ * performance 应传 status.performance ?? meta.performance（快照优先，与计算引擎口径一致）。
+ */
+export function getMultiplierForDamageType(
+  performance: PerformanceType,
+  damageType: DamageType
+): number {
+  switch (damageType) {
+    case 'physical':
+      return performance.physics
+    case 'magical':
+      return performance.magic
+    case 'darkness':
+      return performance.darkness
+  }
 }

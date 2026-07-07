@@ -4,7 +4,7 @@
  */
 
 import type { DamageEvent } from '@/types/timeline'
-import { getStatusById } from '@/utils/statusRegistry'
+import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
 import { getJobName, sortJobsByOrder } from '@/data/jobs'
 import JobIcon from './JobIcon'
@@ -184,12 +184,9 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                 const totalPctMitigation = multiplierStatuses.reduce((acc, s) => {
                   const meta = getStatusById(s.statusId)
                   if (!meta) return acc
-                  const multiplier =
-                    damageType === 'physical'
-                      ? meta.performance.physics
-                      : damageType === 'magical'
-                        ? meta.performance.magic
-                        : meta.performance.darkness
+                  // detail.statuses 是 StatusSnapshot（FFLogs 回放数据），不带 performance 快照字段，
+                  // 与 MitigationStatus（编辑模式计算结果）不同，故此处无 snapshot 优先的口径可修
+                  const multiplier = getMultiplierForDamageType(meta.performance, damageType)
                   return acc * multiplier
                 }, 1)
                 const pctReduction = ((1 - totalPctMitigation) * 100).toFixed(1)
@@ -206,12 +203,8 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                   const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
                   let mitigationText = ''
                   if (meta?.type === 'multiplier') {
-                    const multiplier =
-                      damageType === 'physical'
-                        ? meta.performance.physics
-                        : damageType === 'magical'
-                          ? meta.performance.magic
-                          : meta.performance.darkness
+                    // status 是 StatusSnapshot，不带 performance 快照字段，见上方 totalPctMitigation 注释
+                    const multiplier = getMultiplierForDamageType(meta.performance, damageType)
                     mitigationText = `${((1 - multiplier) * 100).toFixed(1)}%`
                   } else if (meta?.type === 'absorbed') {
                     mitigationText = `盾: ${(status.absorb || 0).toLocaleString()}`

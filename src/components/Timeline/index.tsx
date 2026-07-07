@@ -27,7 +27,7 @@ import {
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
-import { getStatusById } from '@/utils/statusRegistry'
+import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { generateObjectId } from '@/utils/shortId'
@@ -1289,24 +1289,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
           if (multipliers.length > 0) {
             const damageType = event.damageType || 'physical'
+            // statuses 来自 detail.statuses（StatusSnapshot），不带 performance 快照字段，
+            // 与 calc.appliedStatuses（MitigationStatus，见下方编辑模式分支）不同，无 snapshot 优先口径可修
             const parts = multipliers.map(s => {
               const meta = getStatusById(s.statusId)!
-              const perf =
-                damageType === 'physical'
-                  ? meta.performance.physics
-                  : damageType === 'magical'
-                    ? meta.performance.magic
-                    : meta.performance.darkness
+              const perf = getMultiplierForDamageType(meta.performance, damageType)
               return `${getStatusName(s.statusId) || meta.name}(${((1 - perf) * 100).toFixed(0)}%)`
             })
             const totalMult = multipliers.reduce((acc, s) => {
               const meta = getStatusById(s.statusId)!
-              const perf =
-                damageType === 'physical'
-                  ? meta.performance.physics
-                  : damageType === 'magical'
-                    ? meta.performance.magic
-                    : meta.performance.darkness
+              const perf = getMultiplierForDamageType(meta.performance, damageType)
               return acc * perf
             }, 1)
             lines.push(`    减伤: ${parts.join(' + ')} = ${((1 - totalMult) * 100).toFixed(1)}%`)
@@ -1332,12 +1324,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         if (multipliers.length > 0) {
           const parts = multipliers.map(s => {
             const meta = getStatusById(s.statusId)!
-            const perf =
-              damageType === 'physical'
-                ? meta.performance.physics
-                : damageType === 'magical'
-                  ? meta.performance.magic
-                  : meta.performance.darkness
+            const perf = getMultiplierForDamageType(s.performance ?? meta.performance, damageType)
             return `${getStatusName(s.statusId) || meta.name}(${((1 - perf) * 100).toFixed(0)}%)`
           })
           lines.push(`  减伤: ${parts.join(' + ')} = ${calc.mitigationPercentage.toFixed(1)}%`)

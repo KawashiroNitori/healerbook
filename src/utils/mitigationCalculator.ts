@@ -4,19 +4,14 @@
  */
 
 import type { HpPool, PartyState } from '@/types/partyState'
-import type {
-  MitigationStatus,
-  MitigationStatusMetadata,
-  PerformanceType,
-  StatusInterval,
-} from '@/types/status'
+import type { MitigationStatus, MitigationStatusMetadata, StatusInterval } from '@/types/status'
 import type { CastEvent, DamageEvent, DamageType } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext, MitigationAction } from '@/types/mitigation'
 import type { HealSnapshot } from '@/types/healSnapshot'
 import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
-import { getStatusById } from '@/utils/statusRegistry'
+import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplier } from '@/executors/healMath'
 import { isStatusValidForTank } from './statusFilter'
 import {
@@ -1085,7 +1080,7 @@ export class MitigationCalculator {
         if (mitigationTime >= status.startTime && mitigationTime <= status.endTime) {
           // instance 的 performance 优先（snapshot-on-apply 覆盖），不在则取 metadata
           const performance = status.performance ?? meta.performance
-          const damageMultiplier = this.getDamageMultiplier(performance, damageType)
+          const damageMultiplier = getMultiplierForDamageType(performance, damageType)
           multiplier *= damageMultiplier
           appliedStatuses.push(status)
         }
@@ -1285,25 +1280,6 @@ export class MitigationCalculator {
       appliedStatuses,
       updatedPartyState,
       candidateDamage,
-    }
-  }
-
-  /**
-   * 根据伤害类型获取减伤倍率
-   * @param performance 状态性能数据
-   * @param damageType 伤害类型
-   * @returns 减伤倍率（0-1）
-   */
-  private getDamageMultiplier(performance: PerformanceType, damageType: DamageType): number {
-    switch (damageType) {
-      case 'physical':
-        return performance.physics
-      case 'magical':
-        return performance.magic
-      case 'darkness':
-        return performance.darkness
-      default:
-        return 1.0
     }
   }
 }

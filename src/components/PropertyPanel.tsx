@@ -8,7 +8,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
 import { useDamageCalculationResults } from '@/contexts/DamageCalculationContext'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
-import { getStatusById } from '@/utils/statusRegistry'
+import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { getStatusIconUrl, getStatusName } from '@/utils/statusIconUtils'
 import { Trash2, TriangleAlert, Skull, HelpCircle } from 'lucide-react'
 import PlayerDamageDetails from './PlayerDamageDetails'
@@ -405,12 +405,7 @@ export default function PropertyPanel() {
       const meta = getStatusById(s.statusId)
       if (!meta) return acc
       const perf = s.performance ?? meta.performance
-      const m =
-        damageType === 'physical'
-          ? perf.physics
-          : damageType === 'magical'
-            ? perf.magic
-            : perf.darkness
+      const m = getMultiplierForDamageType(perf, damageType)
       return acc * m
     }, 1)
     const pctReduction = ((1 - totalMultiplier) * 100).toFixed(1)
@@ -428,12 +423,7 @@ export default function PropertyPanel() {
         mitigationText = `盾: ${status.remainingBarrier.toLocaleString()}`
       } else if (meta?.type === 'multiplier') {
         const perf = status.performance ?? meta.performance
-        const m =
-          damageType === 'physical'
-            ? perf.physics
-            : damageType === 'magical'
-              ? perf.magic
-              : perf.darkness
+        const m = getMultiplierForDamageType(perf, damageType)
         mitigationText = `${((1 - m) * 100).toFixed(1)}%`
       }
       return (

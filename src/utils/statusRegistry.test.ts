@@ -9,6 +9,7 @@ import {
   getAllFriendlyStatuses,
   getAllEnemyStatuses,
   hasStatus,
+  getMultiplierForDamageType,
 } from './statusRegistry'
 import type { StatusExtras } from '@/data/statusExtras'
 
@@ -122,6 +123,20 @@ describe('statusRegistry', () => {
       expect(map.get(99003)?.name).toBe('本地修正名')
       expect(map.get(99003)?.performance.physics).toBe(0.5)
       expect(map.get(99003)?.isFriendly).toBe(true) // 未覆盖，回落 keigenn
+    })
+  })
+
+  describe('getMultiplierForDamageType', () => {
+    const perf = { physics: 0.9, magic: 0.8, darkness: 0.7 }
+
+    it('physical 取 physics', () => {
+      expect(getMultiplierForDamageType(perf, 'physical')).toBe(0.9)
+    })
+    it('magical 取 magic', () => {
+      expect(getMultiplierForDamageType(perf, 'magical')).toBe(0.8)
+    })
+    it('darkness 取 darkness', () => {
+      expect(getMultiplierForDamageType(perf, 'darkness')).toBe(0.7)
     })
   })
 })
