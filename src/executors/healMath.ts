@@ -12,6 +12,7 @@
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus } from '@/types/status'
 import { getStatusById } from '@/utils/statusRegistry'
+import { isStatusActiveAt } from '@/utils/statusWindow'
 
 /**
  * 计算应用所有活跃 heal / selfHeal buff 后的目标治疗量。
@@ -35,7 +36,7 @@ export function computeFinalHeal(
   let multiplier = 1
 
   for (const status of partyState.statuses) {
-    if (status.startTime > castTime || status.endTime <= castTime) continue
+    if (!isStatusActiveAt(status, castTime, 'excludeEnd')) continue
     const meta = getStatusById(status.statusId)
     if (!meta) continue
     if (meta.isTankOnly) continue
@@ -64,7 +65,7 @@ export function computeFinalHeal(
 export function computeMaxHpMultiplier(statuses: MitigationStatus[], time: number): number {
   let m = 1
   for (const s of statuses) {
-    if (s.startTime > time || s.endTime <= time) continue
+    if (!isStatusActiveAt(s, time, 'excludeEnd')) continue
     const meta = getStatusById(s.statusId)
     if (!meta) continue
     if (meta.isTankOnly) continue

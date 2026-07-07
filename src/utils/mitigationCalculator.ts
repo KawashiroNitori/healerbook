@@ -35,6 +35,7 @@ import {
   STATUS_ABILITY_OFFSET,
 } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplier } from '@/executors/healMath'
+import { isStatusActiveAt } from './statusWindow'
 import { isStatusValidForTank } from './statusFilter'
 import {
   statusTier,
@@ -514,7 +515,7 @@ export class MitigationCalculator {
         next = { ...next, timestamp: t }
         next = recomputeAndTrack(next, t)
         for (const status of next.statuses) {
-          if (status.startTime > t || status.endTime < t) continue
+          if (!isStatusActiveAt(status, t, 'closed')) continue
           const meta = getStatusById(status.statusId)
           if (!meta?.executor?.onTick) continue
           const result = meta.executor.onTick({
@@ -775,7 +776,7 @@ export class MitigationCalculator {
           const meta = getStatusById(status.statusId)
           if (!meta?.executor?.onAfterDamage) continue
           if (meta.isTankOnly) continue // 坦专 buff 不挂在非 T 身上，不参与 AOE 路径
-          if (event.time < status.startTime || event.time > status.endTime) continue
+          if (!isStatusActiveAt(status, event.time, 'closed')) continue
           const phase5Result = meta.executor.onAfterDamage({
             status,
             event,
@@ -863,7 +864,7 @@ export class MitigationCalculator {
     const time = event.time
     let m = 1
     for (const status of partyState.statuses) {
-      if (time < status.startTime || time > status.endTime) continue
+      if (!isStatusActiveAt(status, time, 'closed')) continue
       const meta = getStatusById(status.statusId)
       if (!meta) continue
       if (!filter(meta, status)) continue
@@ -925,7 +926,7 @@ export class MitigationCalculator {
       if (event.targetMitigationDisabled && meta.category?.includes('boss')) continue
 
       if (meta.type === 'multiplier') {
-        if (mitigationTime >= status.startTime && mitigationTime <= status.endTime) {
+        if (isStatusActiveAt(status, mitigationTime, 'closed')) {
           // instance 的 performance 优先（snapshot-on-apply 覆盖），不在则取 metadata
           const performance = status.performance ?? meta.performance
           const damageMultiplier = getMultiplierForDamageType(performance, damageType)
@@ -954,7 +955,7 @@ export class MitigationCalculator {
       if (!multiplierFilter(meta, status)) continue
       // 用 event.time（不是 mitigationTime）：snapshotTime 只决定 Phase 1 % 减伤的 buff
       // 选择，"buff 是否在伤害实际发生时 active"应按 event.time 判定。
-      if (time < status.startTime || time > status.endTime) continue
+      if (!isStatusActiveAt(status, time, 'closed')) continue
 
       const result = meta.executor.onBeforeShield({
         status,
@@ -983,7 +984,7 @@ export class MitigationCalculator {
       // 原因：一个盾状态实例的 remainingBarrier 代表单玩家一份，单体事件不该消耗"全队的份"
       if (!shieldFilter(meta, status)) continue
       if (status.remainingBarrier === undefined || status.remainingBarrier <= 0) continue
-      if (time >= status.startTime && time <= status.endTime) {
+      if (isStatusActiveAt(status, time, 'closed')) {
         shieldStatuses.push(status)
       }
     }
