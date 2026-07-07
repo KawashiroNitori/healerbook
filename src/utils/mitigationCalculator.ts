@@ -34,7 +34,7 @@ import {
   getMultiplierForDamageType,
   STATUS_ABILITY_OFFSET,
 } from '@/utils/statusRegistry'
-import { computeMaxHpMultiplier } from '@/executors/healMath'
+import { computeMaxHpMultiplier, computeMaxHpMultiplierFiltered } from '@/executors/healMath'
 import { isStatusActiveAt } from './statusWindow'
 import { isStatusValidForTank } from './statusFilter'
 import {
@@ -861,17 +861,13 @@ export class MitigationCalculator {
     // referenceMaxHP 按 event.time 算（与 simulate 主循环维护的 hp.max 同步）。
     // snapshotTime 只决定 Phase 1 % 减伤的 buff 选择，与 HP 上限无关——DOT 期间
     // 已过期的 maxHP buff 不应继续把坦克"理论 HP 上限"撑大。
-    const time = event.time
-    let m = 1
-    for (const status of partyState.statuses) {
-      if (!isStatusActiveAt(status, time, 'closed')) continue
-      const meta = getStatusById(status.statusId)
-      if (!meta) continue
-      if (!filter(meta, status)) continue
-      const perf = status.performance ?? meta.performance
-      const mm = perf.maxHP ?? 1
-      if (mm !== 1) m *= mm
-    }
+    const m = computeMaxHpMultiplierFiltered(
+      partyState.statuses,
+      event.time,
+      'closed',
+      getStatusById,
+      filter
+    )
     return Math.round(base * m)
   }
 

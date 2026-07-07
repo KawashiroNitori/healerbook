@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { computeFinalHeal, computeMaxHpMultiplier, type GetStatusMeta } from './healMath'
+import {
+  computeFinalHeal,
+  computeMaxHpMultiplier,
+  computeMaxHpMultiplierFiltered,
+  type GetStatusMeta,
+} from './healMath'
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus, MitigationStatusMetadata } from '@/types/status'
 
@@ -136,5 +141,60 @@ describe('computeMaxHpMultiplier', () => {
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.1 } })
     )
     expect(computeMaxHpMultiplier([mkStatus({ endTime: 5 })], 5, getMeta)).toBe(1)
+  })
+})
+
+describe('computeMaxHpMultiplierFiltered', () => {
+  const acceptAll = () => true
+
+  it('t === endTime 时 boundary 分叉：excludeEnd 不计入，closed 计入', () => {
+    const getMeta = metaAlways(
+      mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.1 } })
+    )
+    const statuses = [mkStatus({ endTime: 5 })]
+    expect(computeMaxHpMultiplierFiltered(statuses, 5, 'excludeEnd', getMeta, acceptAll)).toBe(1)
+    expect(computeMaxHpMultiplierFiltered(statuses, 5, 'closed', getMeta, acceptAll)).toBeCloseTo(
+      1.1,
+      5
+    )
+  })
+
+  it('filter 拒绝的 status 不参与累乘', () => {
+    const getMeta = metaAlways(
+      mkMeta({ isTankOnly: true, performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.2 } })
+    )
+    const statuses = [mkStatus({})]
+    expect(
+      computeMaxHpMultiplierFiltered(statuses, 3, 'closed', getMeta, meta => !meta.isTankOnly)
+    ).toBe(1)
+    expect(computeMaxHpMultiplierFiltered(statuses, 3, 'closed', getMeta, acceptAll)).toBeCloseTo(
+      1.2,
+      5
+    )
+  })
+
+  it('filter 能接收 status 参数（按 sourcePlayerId 过滤）', () => {
+    const getMeta = metaAlways(
+      mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.3 } })
+    )
+    const statuses = [mkStatus({ sourcePlayerId: 7 })]
+    expect(
+      computeMaxHpMultiplierFiltered(
+        statuses,
+        3,
+        'closed',
+        getMeta,
+        (_meta, status) => status.sourcePlayerId === 7
+      )
+    ).toBeCloseTo(1.3, 5)
+    expect(
+      computeMaxHpMultiplierFiltered(
+        statuses,
+        3,
+        'closed',
+        getMeta,
+        (_meta, status) => status.sourcePlayerId === 8
+      )
+    ).toBe(1)
   })
 })
