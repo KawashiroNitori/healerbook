@@ -90,31 +90,32 @@ src/
 
 ## 关键文件说明
 
-| 文件                                | 说明                                                 |
-| ----------------------------------- | ---------------------------------------------------- |
-| `src/api/apiClient.ts`              | ky 客户端，含 401 自动续期逻辑                       |
-| `src/utils/mitigationCalculator.ts` | 减伤计算引擎（`MitigationCalculator` 类）            |
-| `src/utils/statusRegistry.ts`       | 状态 ID → 元数据映射（引用 keigenn.ts）              |
-| `src/utils/fflogsImporter.ts`       | FFLogs 数据解析入口                                  |
-| `src/data/mitigationActions.ts`     | 技能定义                                             |
-| `src/data/jobs.ts`                  | 职业定义及角色分类                                   |
-| `src/workers/index.ts`              | Workers Hono 入口，按功能域挂载路由                  |
-| `src/workers/routes/timelines.ts`   | 共享时间轴 D1 CRUD（发布 / 公开读 / 删除）           |
-| `src/workers/db/editors.ts`         | timeline_editors / timeline_edit_requests 数据访问层 |
-| `src/workers/jwt.ts`                | JWT 签发与验证（jose）                               |
-| `src/types/apiContracts.ts`         | 前后端 API 契约单源                                  |
-| `src/components/Timeline/index.tsx` | 时间轴主组件（Canvas 交互核心）                      |
+| 文件                                | 说明                                                                                                           |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `src/api/apiClient.ts`              | ky 客户端，含 401 自动续期逻辑                                                                                 |
+| `src/utils/mitigationCalculator.ts` | 减伤计算引擎（`calculate` / `simulate` 自由函数，`simulate` 编排 `simulation/` 三模块）                        |
+| `src/utils/simulation/`             | `simulate` 拆出的三模块：statusIntervalRecorder（区间记录）/ hpPipeline（HP 池演算）/ timeAdvancer（时间推进） |
+| `src/utils/statusRegistry.ts`       | 状态 ID → 元数据映射（引用 keigenn.ts）                                                                        |
+| `src/utils/fflogsImporter.ts`       | FFLogs 数据解析入口                                                                                            |
+| `src/data/mitigationActions.ts`     | 技能定义                                                                                                       |
+| `src/data/jobs.ts`                  | 职业定义及角色分类                                                                                             |
+| `src/workers/index.ts`              | Workers Hono 入口，按功能域挂载路由                                                                            |
+| `src/workers/routes/timelines.ts`   | 共享时间轴 D1 CRUD（发布 / 公开读 / 删除）                                                                     |
+| `src/workers/db/editors.ts`         | timeline_editors / timeline_edit_requests 数据访问层                                                           |
+| `src/workers/jwt.ts`                | JWT 签发与验证（jose）                                                                                         |
+| `src/types/apiContracts.ts`         | 前后端 API 契约单源                                                                                            |
+| `src/components/Timeline/index.tsx` | 时间轴主组件（Canvas 交互核心）                                                                                |
 
 ## 核心概念
 
 ### 1. 技能与状态解耦架构
 
-技能使用时不直接产生减伤效果，而是通过 **Executor** 向 `PartyState` 附加状态，减伤效果由状态和计算器在计算阶段决定。
+技能使用时不直接产生减伤效果，而是通过 **Executor** 向 `PartyState` 附加状态，减伤效果由状态和 `calculate` / `simulate` 自由函数在计算阶段决定。
 
 ```
 技能使用 → Executor → PartyState.statuses 更新
                               ↓
-                    MitigationCalculator → 最终伤害
+                  calculate / simulate → 最终伤害
 ```
 
 核心类型定义见 `src/types/mitigation.ts`、`src/types/status.ts`、`src/types/partyState.ts`。
@@ -163,7 +164,7 @@ buff 的 attach / persist / consume，并据此驱动绿条长度、status inter
 
 - **`ResourceDefinition`** 在 `src/data/resources.ts` 的 `RESOURCE_REGISTRY` 中声明（如 `sch:consolation`、`drk:oblation`）。池按 `(playerId, resourceId)` 懒实例化。
 - **`MitigationAction.resourceEffects`** 声明一次 cast 对资源的影响（`+N` 产出、`-N` 消耗）。含消费者（`delta<0`）时，跳过 `__cd__` 合成；否则合成 `__cd__:${id}` 单充能池强制 `cooldown`。
-- **`regen`** 采用 FF14 充能 / **顺序回充**语义：单一回充时钟，amount 从满被消耗跌破时启动，未满时每回一档就把下一档计时 `+interval` 重置，回满即停摆；后续消耗只加深亏空、不重置时钟。**不**是"每次消耗各自调度独立 refill"，也**不**是从 t=0 固定节拍。
+- **`regen`** 采用 FF14 充能 / **顺序回充**语义：单一回充时钟，amount 从满被消耗跌破时启动，未满时每回一档就把下一档计时 `+interval` 重置，回满即停摆；后续消耗只加深亏空、不重置时钟。**不**是"每次消耗各自调度独立 refill"，也**不**是从 t=0 固定节拍。回充 amount 分段常量函数由 `computeAmountTransitions`（`src/utils/resource/compute.ts`）单源产出（事件点 + 顺序回充断点），为 cdBar（蓝条）与 legalIntervals（合法区间）共用。
 - **校验**：`findResourceExhaustedCasts` 判 cast 是否因资源不足非法；shadow 由 `resourceLegalIntervals`（自耗尽段 + 下游透支段）推导。
 - **trackGroup** 与资源模型**完全解耦**，仅用于 UI 渲染轨道归属。
 - **蓝色 CD 条** 的语义是"此 cast 打空池子到恢复的时段"；还有库存时不画。
