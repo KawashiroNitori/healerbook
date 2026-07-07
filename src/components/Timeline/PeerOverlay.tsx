@@ -14,7 +14,7 @@ import { Label, Line, Rect, Tag, Text } from 'react-konva'
 import { useSmoothedPeers } from './useSmoothedPeers'
 import type { PeerState } from '@/collab/awarenessTypes'
 import type { Annotation, DamageEvent, CastEvent } from '@/types/timeline'
-import type { SkillTrack } from '@/utils/skillTracks'
+import { buildTrackIndexMap, trackKey, type SkillTrack } from '@/utils/skillTracks'
 import type { MitigationAction } from '@/types/mitigation'
 import { effectiveTrackGroup } from '@/types/mitigation'
 import { computeDamageCardGeometry } from './cardGeometry'
@@ -385,6 +385,9 @@ export function PeerOverlayMain({
     return map
   }, [damageEvents])
 
+  // (playerId, actionId) → skillTracks 下标 查找表
+  const trackIndexMap = useMemo(() => buildTrackIndexMap(skillTracks), [skillTracks])
+
   // castEventId → trackIndex：通过 playerId + effectiveTrackGroup 匹配
   const castEventTrackIndex = useMemo(() => {
     const trackIndex = new Map<string, number>()
@@ -392,13 +395,13 @@ export function PeerOverlayMain({
       const action = actionMap.get(ce.actionId)
       if (!action) continue
       const groupId = effectiveTrackGroup(action)
-      const idx = skillTracks.findIndex(t => t.playerId === ce.playerId && t.actionId === groupId)
+      const idx = trackIndexMap.get(trackKey(ce.playerId, groupId)) ?? -1
       if (idx !== -1) {
         trackIndex.set(ce.id, idx)
       }
     }
     return trackIndex
-  }, [castEvents, actionMap, skillTracks])
+  }, [castEvents, actionMap, trackIndexMap])
 
   if (peers.length === 0) return null
 
@@ -504,9 +507,7 @@ export function PeerOverlayMain({
       // 只处理 skillTrack 锚定的注释（damageTrack 注释由 PeerOverlayFixed 负责）
       if (annotation?.anchor.type === 'skillTrack') {
         const anchor = annotation.anchor
-        const trackIndex = skillTracks.findIndex(
-          t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
-        )
+        const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
         if (trackIndex !== -1) {
           const ICON_SIZE = 22
           const ghostCenterY = trackIndex * trackHeight + trackHeight / 2
@@ -578,9 +579,7 @@ export function PeerOverlayMain({
         const annotation = annotationById.get(annId)
         if (annotation?.anchor.type !== 'skillTrack') continue
         const anchor = annotation.anchor
-        const trackIndex = skillTracks.findIndex(
-          t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
-        )
+        const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
         if (trackIndex === -1) continue
         const ICON_SIZE = 22
         const ghostCenterY = trackIndex * trackHeight + trackHeight / 2

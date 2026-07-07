@@ -53,7 +53,7 @@ import VerticalScrollbar, {
   type VerticalScrollbarHandle,
 } from './VerticalScrollbar'
 import type { TimelineMinimapHandle } from './TimelineMinimap'
-import type { SkillTrack } from '@/utils/skillTracks'
+import { buildTrackIndexMap, trackKey, type SkillTrack } from '@/utils/skillTracks'
 import type { AnnotationAnchor } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -286,6 +286,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const hideTooltip = useTooltipStore(s => s.hideTooltip)
   const isReadOnly = useEditorReadOnly()
   const skillTracks = useSkillTracks()
+  const trackIndexMap = useMemo(() => buildTrackIndexMap(skillTracks), [skillTracks])
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
 
   // 平移/缩放交互 Hook 的共享 refs
@@ -1530,9 +1531,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     } else {
       const anchor = annotation.anchor as { type: 'skillTrack'; playerId: number; actionId: number }
-      const trackIndex = skillTracks.findIndex(
-        t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
-      )
+      const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
       if (trackIndex === -1) return null
       const container = stageRef.current?.container()
       if (!container) return null
@@ -1591,9 +1590,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     for (const ce of timeline.castEvents) {
       const castAction = actionMap.get(ce.actionId)
       const castGroupId = castAction?.trackGroup ?? ce.actionId
-      const trackIndex = skillTracks.findIndex(
-        t => t.playerId === ce.playerId && t.actionId === castGroupId
-      )
+      const trackIndex = trackIndexMap.get(trackKey(ce.playerId, castGroupId)) ?? -1
       if (trackIndex === -1) continue
       const x0 = canvasLeft + ce.timestamp * zoomLevel - clampedScrollLeft
       const trackY = trackIndex * skillTrackHeight + skillTrackHeight / 2
@@ -1624,9 +1621,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         })
       } else {
         const anchor = annotation.anchor
-        const trackIndex = skillTracks.findIndex(
-          t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
-        )
+        const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
         if (trackIndex === -1) continue
         const cy =
           fixedAreaHeight + trackIndex * skillTrackHeight + skillTrackHeight / 2 - clampedScrollTop

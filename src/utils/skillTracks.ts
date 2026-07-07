@@ -3,8 +3,8 @@
  */
 
 import { sortJobsByOrder } from '@/data/jobs'
-import type { Composition, Job } from '@/types/timeline'
-import type { MitigationAction } from '@/types/mitigation'
+import type { Composition, Job, CastEvent } from '@/types/timeline'
+import { effectiveTrackGroup, type MitigationAction } from '@/types/mitigation'
 
 export interface SkillTrack {
   job: Job
@@ -45,4 +45,36 @@ export function deriveSkillTracks(
     }
   }
   return tracks
+}
+
+/** (playerId, actionId/groupId) 复合键，与 buildTrackIndexMap/groupCastEventsByTrack 共用 */
+export function trackKey(playerId: number, actionId: number): string {
+  return `${playerId}:${actionId}`
+}
+
+/** 建 (playerId, actionId) → skillTracks 下标 查找表，替代散落的 findIndex 线性扫描 */
+export function buildTrackIndexMap(skillTracks: SkillTrack[]): Map<string, number> {
+  const map = new Map<string, number>()
+  skillTracks.forEach((t, i) => map.set(trackKey(t.playerId, t.actionId), i))
+  return map
+}
+
+/**
+ * 按 (playerId, effectiveTrackGroup) 对 castEvents 分组——trackGroup 变体
+ * 归并到父轨道分组；actionsById 查不到的 cast 丢弃。不排序，由调用方按需 sort。
+ */
+export function groupCastEventsByTrack(
+  castEvents: CastEvent[],
+  actionsById: Map<number, MitigationAction>
+): Map<string, CastEvent[]> {
+  const grouped = new Map<string, CastEvent[]>()
+  for (const ce of castEvents) {
+    const action = actionsById.get(ce.actionId)
+    if (!action) continue
+    const key = trackKey(ce.playerId, effectiveTrackGroup(action))
+    const arr = grouped.get(key)
+    if (arr) arr.push(ce)
+    else grouped.set(key, [ce])
+  }
+  return grouped
 }

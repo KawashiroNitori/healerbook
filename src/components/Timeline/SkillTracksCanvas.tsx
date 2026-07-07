@@ -13,7 +13,12 @@ import {
   useCanvasColors,
   CROSSHAIR_LINE_POINTS,
 } from './constants'
-import type { SkillTrack } from '@/utils/skillTracks'
+import {
+  buildTrackIndexMap,
+  groupCastEventsByTrack,
+  trackKey,
+  type SkillTrack,
+} from '@/utils/skillTracks'
 import type { Annotation, CastEvent, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -151,6 +156,7 @@ export default function SkillTracksCanvas({
   const setDraggingId = useUIStore(s => s.setDraggingId)
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
+  const trackIndexMap = useMemo(() => buildTrackIndexMap(skillTracks), [skillTracks])
   const { filteredDamageEvents } = useFilteredTimelineView()
   const castEffectiveEnd = useCastEffectiveEnd()
   // simulate 推导出的每个 cast 的实际变体 id（cast 持久化的是父 id，具体变体显示要查这个 map）。
@@ -176,16 +182,7 @@ export default function SkillTracksCanvas({
     if (!actionMap) return bucket
 
     // 按 (playerId, groupId) 分组、按 timestamp 升序——分桶仅是为了后续合并区间
-    const grouped = new Map<string, CastEvent[]>()
-    for (const ce of timeline.castEvents) {
-      const other = actionMap.get(ce.actionId)
-      if (!other) continue
-      const groupId = effectiveTrackGroup(other)
-      const key = `${ce.playerId}|${groupId}`
-      const arr = grouped.get(key) ?? []
-      arr.push(ce)
-      grouped.set(key, arr)
-    }
+    const grouped = groupCastEventsByTrack(timeline.castEvents, actionMap)
     for (const arr of grouped.values()) {
       arr.sort((a, b) => a.timestamp - b.timestamp)
     }
@@ -217,6 +214,13 @@ export default function SkillTracksCanvas({
     }
     return merged
   }, [timeline.castEvents, actionMap, engine, maxTime, castEffectiveEnd, resolvedVariantByCastId])
+
+  // 按 (playerId, effectiveTrackGroup) 分组的原始 castEvents（未排序、未按可见区间合并），
+  // 供空转提示复用，避免重复线性扫描 timeline.castEvents。
+  const groupedCastEventsByTrack = useMemo(() => {
+    if (!actionMap) return new Map<string, CastEvent[]>()
+    return groupCastEventsByTrack(timeline.castEvents, actionMap)
+  }, [timeline.castEvents, actionMap])
 
   return (
     <>
@@ -284,7 +288,8 @@ export default function SkillTracksCanvas({
               parent.cooldown <= 3
                 ? engine.computePlacementShadow(groupId, track.playerId, draggingId ?? undefined)
                 : engine.computeTrackShadow(groupId, track.playerId, draggingId ?? undefined)
-            const visibleCooldownBars = visibleBarsByTrack.get(`${track.playerId}|${groupId}`) ?? []
+            const visibleCooldownBars =
+              visibleBarsByTrack.get(trackKey(track.playerId, groupId)) ?? []
             const shadow = subtractIntervals(rawShadow, visibleCooldownBars)
             return shadow.map((interval, idx) => {
               const left = Math.max(interval.from, TIMELINE_START_TIME) * zoomLevel
@@ -415,14 +420,12 @@ export default function SkillTracksCanvas({
         {skillTracks.map((track, trackIndex) => {
           // 获取该轨道的所有技能使用记录，按时间排序。
           // 同 trackGroup 的变体（如 37016 挂在 37013 轨道上）也应计入本轨道的使用记录。
-          const trackGroupId = actionMap?.get(track.actionId)?.trackGroup ?? track.actionId
-          const trackCastEvents = timeline.castEvents
-            .filter(castEvent => {
-              if (castEvent.playerId !== track.playerId) return false
-              const ca = actionMap?.get(castEvent.actionId)
-              const ceGroupId = ca?.trackGroup ?? castEvent.actionId
-              return ceGroupId === trackGroupId
-            })
+          const parentAction = actionMap?.get(track.actionId)
+          const trackGroupId = parentAction ? effectiveTrackGroup(parentAction) : track.actionId
+          const trackCastEvents = (
+            groupedCastEventsByTrack.get(trackKey(track.playerId, trackGroupId)) ?? []
+          )
+            .slice()
             .sort((a, b) => a.timestamp - b.timestamp)
 
           if (trackCastEvents.length < 1) return null
@@ -566,9 +569,7 @@ export default function SkillTracksCanvas({
           // 同 trackGroup 的变体（37016 trackGroup=37013）应渲染到 parent 轨道上。
           const castAction = actionMap?.get(castEvent.actionId)
           const castGroupId = castAction?.trackGroup ?? castEvent.actionId
-          const trackIndex = skillTracks.findIndex(
-            t => t.playerId === castEvent.playerId && t.actionId === castGroupId
-          )
+          const trackIndex = trackIndexMap.get(trackKey(castEvent.playerId, castGroupId)) ?? -1
 
           if (trackIndex === -1) return null
 
@@ -704,9 +705,7 @@ export default function SkillTracksCanvas({
               playerId: number
               actionId: number
             }
-            const trackIndex = skillTracks.findIndex(
-              t => t.playerId === anchor.playerId && t.actionId === anchor.actionId
-            )
+            const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
             if (trackIndex === -1) return null
 
             const x = annotation.time * zoomLevel

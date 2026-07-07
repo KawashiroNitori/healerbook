@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { deriveSkillTracks } from './skillTracks'
-import type { Composition } from '@/types/timeline'
+import {
+  deriveSkillTracks,
+  trackKey,
+  buildTrackIndexMap,
+  groupCastEventsByTrack,
+} from './skillTracks'
+import type { SkillTrack } from './skillTracks'
+import type { Composition, CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 
 const makeAction = (
@@ -56,5 +62,39 @@ describe('deriveSkillTracks', () => {
     const actions = [makeAction(100, ['WHM']), makeAction(101, ['WHM']), makeAction(102, ['WHM'])]
     const result = deriveSkillTracks({ players: [{ id: 1, job: 'WHM' }] }, new Set(), actions)
     expect(result.map(t => t.actionId)).toEqual([100, 101, 102])
+  })
+})
+
+const tracks = [
+  { playerId: 1, actionId: 100 },
+  { playerId: 1, actionId: 200 },
+  { playerId: 2, actionId: 100 },
+] as SkillTrack[]
+
+describe('buildTrackIndexMap', () => {
+  it('(playerId, actionId) → 下标，未知键取 ?? -1 兜底', () => {
+    const m = buildTrackIndexMap(tracks)
+    expect(m.get(trackKey(1, 200))).toBe(1)
+    expect(m.get(trackKey(2, 100))).toBe(2)
+    expect(m.get(trackKey(9, 9)) ?? -1).toBe(-1)
+  })
+})
+
+describe('groupCastEventsByTrack', () => {
+  it('按 (playerId, effectiveTrackGroup) 分组，变体归并父轨道', () => {
+    const actions = new Map<number, MitigationAction>([
+      [100, { id: 100 } as MitigationAction],
+      [101, { id: 101, trackGroup: 100 } as MitigationAction],
+    ])
+    const casts = [
+      { id: 'a', playerId: 1, actionId: 100, timestamp: 5 },
+      { id: 'b', playerId: 1, actionId: 101, timestamp: 3 },
+      { id: 'c', playerId: 2, actionId: 100, timestamp: 1 },
+      { id: 'd', playerId: 1, actionId: 999, timestamp: 2 }, // 未知 action 丢弃
+    ] as CastEvent[]
+    const g = groupCastEventsByTrack(casts, actions)
+    expect(g.get(trackKey(1, 100))!.map(c => c.id)).toEqual(['a', 'b'])
+    expect(g.get(trackKey(2, 100))!.map(c => c.id)).toEqual(['c'])
+    expect(g.size).toBe(2)
   })
 })

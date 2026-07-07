@@ -186,7 +186,7 @@ export default function TimelineTableView() {
             if (ce.timestamp > event.time) return false
             const ca = actionsById.get(ce.actionId)
             if (!ca) return false
-            return (ca.trackGroup ?? ca.id) === groupId
+            return effectiveTrackGroup(ca) === groupId
           })
           .sort((a, b) => b.timestamp - a.timestamp)[0]
         if (matching) removeCastEvent(matching.id)
