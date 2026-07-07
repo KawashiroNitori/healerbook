@@ -1,7 +1,7 @@
 import { effectiveTrackGroup } from '@/types/mitigation'
 import type { MitigationAction } from '@/types/mitigation'
 import { TIME_EPS } from '@/utils/placement/types'
-import type { Interval, PlacementEngine } from '@/utils/placement/types'
+import type { Interval, PlacementEngine } from '@/types/placement'
 import { isInScope } from './scope'
 import type { OptimizeInput, Candidate } from './types'
 

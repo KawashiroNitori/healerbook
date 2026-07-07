@@ -4,7 +4,7 @@ import { whileStatus, not } from './combinators'
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { StatusInterval } from '@/types/status'
-import type { StatusTimelineByPlayer } from './types'
+import type { StatusTimelineByPlayer } from '@/types/placement'
 
 const INF = Number.POSITIVE_INFINITY
 const NEG_INF = Number.NEGATIVE_INFINITY

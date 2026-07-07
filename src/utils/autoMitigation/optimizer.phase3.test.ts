@@ -4,7 +4,7 @@ import { mulberry32 } from './prng'
 import type { OptimizeInput, Candidate, EvalResult, OptimizeDeps } from './types'
 import type { MitigationAction } from '@/types/mitigation'
 import type { DamageEvent, CastEvent } from '@/types/timeline'
-import type { PlacementEngine } from '@/utils/placement/types'
+import type { PlacementEngine } from '@/types/placement'
 
 const act = (id: number): MitigationAction =>
   ({

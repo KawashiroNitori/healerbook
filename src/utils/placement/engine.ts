@@ -9,7 +9,7 @@ import type {
   PlacementContext,
   PlacementEngine,
   StatusTimelineByPlayer,
-} from './types'
+} from '@/types/placement'
 import { TIME_EPS } from './types'
 import { complement, intersect, mergeOverlapping, sortIntervals } from './intervals'
 import { deriveResourceEvents } from '@/utils/resource/compute'

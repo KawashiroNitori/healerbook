@@ -28,7 +28,7 @@ import {
   useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
-import type { PlacementEngine } from '@/utils/placement/types'
+import type { PlacementEngine } from '@/types/placement'
 import {
   computeCastMarkerCells,
   computeCdCellsByEvent,

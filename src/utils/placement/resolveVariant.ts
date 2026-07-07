@@ -1,6 +1,6 @@
 import type { MitigationAction } from '@/types/mitigation'
 import type { MitigationStatus, StatusInterval } from '@/types/status'
-import type { PlacementContext } from './types'
+import type { PlacementContext } from '@/types/placement'
 
 /**
  * 按「截至 t 时刻、该玩家自身 active 的 buff」推导 trackGroup 内应使用的变体。

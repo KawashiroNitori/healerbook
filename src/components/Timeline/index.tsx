@@ -26,7 +26,7 @@ import {
   useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
-import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
+import type { InvalidCastEventSummary, PlacementEngine } from '@/types/placement'
 import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'

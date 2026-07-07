@@ -1,4 +1,4 @@
-import type { Interval } from './types'
+import type { Interval } from '@/types/placement'
 
 export function sortIntervals(intervals: Interval[]): Interval[] {
   return [...intervals].sort((a, b) => a.from - b.from)

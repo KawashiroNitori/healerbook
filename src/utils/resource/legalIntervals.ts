@@ -6,7 +6,7 @@
 
 import type { MitigationAction } from '@/types/mitigation'
 import type { ResourceDefinition, ResourceEffect, ResourceEvent } from '@/types/resource'
-import type { Interval } from '@/utils/placement/types'
+import type { Interval } from '@/types/placement'
 import { complement, intersect, mergeOverlapping, sortIntervals } from '@/utils/placement/intervals'
 import { computeResourceTrace, effectsForAction, resolveDef } from './compute'
 

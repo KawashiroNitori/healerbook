@@ -7,7 +7,7 @@
 import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { ResourceDefinition, ResourceExhaustion } from '@/types/resource'
-import type { StatusTimelineByPlayer } from '@/utils/placement/types'
+import type { StatusTimelineByPlayer } from '@/types/placement'
 import { computeResourceTrace, deriveResourceEvents, syntheticCdDef } from './compute'
 import { isSynthCdResource, synthCdActionId } from './synthCd'
 

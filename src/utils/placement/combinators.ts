@@ -1,4 +1,4 @@
-import type { Placement, PlacementContext } from './types'
+import type { Placement, PlacementContext } from '@/types/placement'
 import { complement, intersect, mergeOverlapping, subtractIntervals } from './intervals'
 
 /**

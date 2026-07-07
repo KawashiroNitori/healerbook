@@ -12,7 +12,8 @@ import type {
   ResourceEvent,
   ResourceSnapshot,
 } from '@/types/resource'
-import { TIME_EPS, type StatusTimelineByPlayer } from '@/utils/placement/types'
+import { TIME_EPS } from '@/utils/placement/types'
+import type { StatusTimelineByPlayer } from '@/types/placement'
 import { synthCdResourceId, isSynthCdResource } from './synthCd'
 
 /**

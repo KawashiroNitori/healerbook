@@ -3,7 +3,7 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { PartyState } from '@/types/partyState'
 import type { TimelineStatData } from '@/types/statData'
 import type { StatusInterval } from '@/types/status'
-import type { PlacementEngine } from '@/utils/placement/types'
+import type { PlacementEngine } from '@/types/placement'
 
 export interface OptimizeOptions {
   timeBudgetMs?: number // 默认 ≈ 3000

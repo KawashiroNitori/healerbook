@@ -22,7 +22,7 @@ import {
 import type { Annotation, CastEvent, Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { InvalidCastEventSummary, PlacementEngine } from '@/utils/placement/types'
+import type { InvalidCastEventSummary, PlacementEngine } from '@/types/placement'
 import { TIME_EPS } from '@/utils/placement/types'
 import { subtractIntervals, sortIntervals, mergeOverlapping } from '@/utils/placement/intervals'
 import { effectiveTrackGroup } from '@/types/mitigation'

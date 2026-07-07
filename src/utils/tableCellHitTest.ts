@@ -4,7 +4,7 @@
 
 import type { DamageEvent, CastEvent } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
-import type { Interval } from '@/utils/placement/types'
+import type { Interval } from '@/types/placement'
 import type { SkillTrack } from '@/utils/skillTracks'
 
 /**

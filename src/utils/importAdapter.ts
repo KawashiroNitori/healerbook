@@ -7,7 +7,7 @@
 
 import type { Timeline, DamageEvent, CastEvent, SyncEvent, Composition } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
-import type { StatusTimelineByPlayer, PlacementEngine } from '@/utils/placement/types'
+import type { StatusTimelineByPlayer, PlacementEngine } from '@/types/placement'
 import type { createPlacementEngine } from '@/utils/placement/engine'
 
 export interface ImportableSubset {

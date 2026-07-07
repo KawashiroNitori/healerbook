@@ -9,7 +9,7 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
 import type { KonvaContextMenuEvent } from '@/types/konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { InvalidReason } from '@/utils/placement/types'
+import type { InvalidReason } from '@/types/placement'
 
 interface CastEventIconProps {
   castEvent: CastEvent

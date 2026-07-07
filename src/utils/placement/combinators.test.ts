@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { whileStatus, timeRange, anyOf, allOf, not, difference } from './combinators'
-import type { PlacementContext, StatusTimelineByPlayer } from './types'
+import type { PlacementContext, StatusTimelineByPlayer } from '@/types/placement'
 
 function buildCtx(overrides: Partial<PlacementContext> = {}): PlacementContext {
   const timeline: StatusTimelineByPlayer = overrides.statusTimelineByPlayer ?? new Map()

@@ -3,7 +3,7 @@ import { generateCandidates, isGcdMit } from './candidates'
 import type { OptimizeInput } from './types'
 import type { MitigationAction } from '@/types/mitigation'
 import type { DamageEvent } from '@/types/timeline'
-import type { PlacementEngine, Interval } from '@/utils/placement/types'
+import type { PlacementEngine, Interval } from '@/types/placement'
 
 const action = (over: Partial<MitigationAction>): MitigationAction =>
   ({
