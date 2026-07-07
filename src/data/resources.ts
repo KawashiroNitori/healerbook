@@ -7,6 +7,7 @@
  */
 
 import type { ResourceDefinition } from '@/types/resource'
+import { isSynthCdResource } from '@/utils/resource/synthCd'
 
 export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
   'sch:consolation': {
@@ -100,7 +101,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
 
 // 模块导入时校验命名空间：每条显式 id 不得以 __cd__: 开头（保留给 compute 层合成的单充能池）。
 for (const id of Object.keys(RESOURCE_REGISTRY)) {
-  if (id.startsWith('__cd__:')) {
+  if (isSynthCdResource(id)) {
     throw new Error(`Resource id "${id}" conflicts with synthetic CD resource namespace`)
   }
 }

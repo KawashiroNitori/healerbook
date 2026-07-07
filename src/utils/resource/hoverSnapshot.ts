@@ -12,6 +12,7 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { ResourceDefinition, ResourceEvent, ResourceStyle } from '@/types/resource'
 import type { SkillTrack } from '@/utils/skillTracks'
 import { effectsForAction, resolveDef, computeResourceStateAt } from './compute'
+import { isSynthCdResource } from './synthCd'
 
 export interface ResourceWidget {
   resourceId: string
@@ -113,7 +114,7 @@ export function computeResourceSnapshots(
       if (action.cooldown < 30) continue
       const consumes = effectsForAction(action).filter(e => e.delta < 0)
       // 代表消耗：优先自身 __cd__，否则首个 delta<0
-      const consume = consumes.find(e => e.resourceId.startsWith('__cd__:')) ?? consumes[0]
+      const consume = consumes.find(e => isSynthCdResource(e.resourceId)) ?? consumes[0]
       if (!consume) continue
       const def = resolveDef(consume.resourceId, registry, action)
       if (!def || def.style !== 'cooldown') continue // 多档共享池由 pools 表达

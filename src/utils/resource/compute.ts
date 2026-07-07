@@ -13,6 +13,7 @@ import type {
   ResourceSnapshot,
 } from '@/types/resource'
 import { TIME_EPS, type StatusTimelineByPlayer } from '@/utils/placement/types'
+import { synthCdResourceId, isSynthCdResource } from './synthCd'
 
 /**
  * 判断 (playerId, statusId) 在时刻 t 是否激活。
@@ -50,7 +51,7 @@ export function effectsForAction(action: MitigationAction): ResourceEffect[] {
     return action.resourceEffects ?? []
   }
   const synthetic: ResourceEffect = {
-    resourceId: `__cd__:${action.id}`,
+    resourceId: synthCdResourceId(action.id),
     delta: -1,
     required: true,
   }
@@ -235,7 +236,7 @@ export function resolveDef(
 ): ResourceDefinition | null {
   const explicit = registry[resourceId]
   if (explicit) return explicit
-  if (resourceId.startsWith('__cd__:')) {
+  if (isSynthCdResource(resourceId)) {
     return syntheticCdDef(resourceId, actionForSynthCd.cooldown)
   }
   return null

@@ -9,6 +9,7 @@ import type { CastEvent } from '@/types/timeline'
 import type { ResourceDefinition, ResourceExhaustion } from '@/types/resource'
 import type { StatusTimelineByPlayer } from '@/utils/placement/types'
 import { computeResourceTrace, deriveResourceEvents, syntheticCdDef } from './compute'
+import { isSynthCdResource, synthCdActionId } from './synthCd'
 
 /**
  * 返回所有因资源不足被判非法的 cast。
@@ -38,8 +39,9 @@ export function findResourceExhaustedCasts(
     if (events.length === 0) continue
     const resourceId = events[0].resourceId
     let def = registry[resourceId]
-    if (!def && resourceId.startsWith('__cd__:')) {
-      const actionId = Number(resourceId.slice('__cd__:'.length))
+    if (!def && isSynthCdResource(resourceId)) {
+      const actionId = synthCdActionId(resourceId)
+      if (actionId === undefined) continue
       const action = actions.get(actionId)
       if (!action) continue
       def = syntheticCdDef(resourceId, action.cooldown)
