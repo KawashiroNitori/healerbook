@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { CalculationResult } from '@/types/calculation'
 import type { Timeline } from '@/types/timeline'
 import type { StatusInterval } from '@/types/status'
 import type { HealSnapshot } from '@/types/healSnapshot'

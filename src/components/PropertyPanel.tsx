@@ -34,7 +34,7 @@ import {
   type DamageEvent,
 } from '@/types/timeline'
 import type { MitigationStatus } from '@/types/status'
-import type { HpSimulationSnapshot } from '@/utils/mitigationCalculator'
+import type { HpSimulationSnapshot } from '@/types/calculation'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 
 interface BranchViewData {

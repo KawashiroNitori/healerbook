@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { MitigationCalculator } from '@/utils/mitigationCalculator'
-import type { SimulateOutput } from '@/utils/mitigationCalculator'
+import type { SimulateOutput } from '@/types/calculation'
 import { runOptimize } from '@/utils/autoMitigation'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import type {

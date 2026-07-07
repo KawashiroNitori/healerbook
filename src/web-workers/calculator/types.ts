@@ -2,7 +2,7 @@
  * Calculator Worker 通信协议
  */
 
-import type { SimulateInput, SimulateOutput } from '@/utils/mitigationCalculator'
+import type { SimulateInput, SimulateOutput } from '@/types/calculation'
 import type { StatusInterval } from '@/types/status'
 import type { OptimizeInput, OptimizeOutput, OptimizeProgress } from '@/utils/autoMitigation'
 

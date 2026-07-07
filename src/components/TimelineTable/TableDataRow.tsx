@@ -16,7 +16,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { CalculationResult } from '@/types/calculation'
 import type { MitigationAction } from '@/types/mitigation'
 import {
   TIME_COL_WIDTH,

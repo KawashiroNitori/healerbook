@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { deriveLethalDangerous } from './lethalDanger'
-import type { HpSimulationSnapshot } from './mitigationCalculator'
+import type { HpSimulationSnapshot } from '@/types/calculation'
 
 const snap = (over: Partial<HpSimulationSnapshot>): HpSimulationSnapshot => ({
   hpBefore: 100000,

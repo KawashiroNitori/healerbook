@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { CalculationResult } from '@/types/calculation'
 import type { DamageCalculationResult, StatusTimelineByPlayer } from '@/hooks/useDamageCalculation'
 
 const emptyContext: DamageCalculationResult = {

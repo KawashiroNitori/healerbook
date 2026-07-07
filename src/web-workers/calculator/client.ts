@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { SimulateInput } from '@/utils/mitigationCalculator'
+import type { SimulateInput } from '@/types/calculation'
 import type { OptimizeOutput, OptimizeProgress } from '@/utils/autoMitigation'
 import type {
   SimulateBundle,

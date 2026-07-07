@@ -6,7 +6,7 @@ import ExcelJS from 'exceljs'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { SkillTrack } from '@/utils/skillTracks'
-import type { CalculationResult } from '@/utils/mitigationCalculator'
+import type { CalculationResult } from '@/types/calculation'
 import { mergeAndSortRows } from '@/utils/tableRows'
 import {
   computeLitCellsByEvent,
