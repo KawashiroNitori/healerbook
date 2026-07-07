@@ -17,6 +17,7 @@ import {
   type ShareState,
 } from '@/api/timelineShareApi'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 
 interface SharePopoverAuthorProps {
   timelineId: string
@@ -28,7 +29,9 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useCopyToClipboard({
+    onError: () => toast.error('复制失败，请手动复制链接'),
+  })
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -54,16 +57,6 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
   useEffect(() => {
     if (state) useTimelineStore.setState({ pendingRequestCount: state.applicants.length })
   }, [state])
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error('复制失败，请手动复制链接')
-    }
-  }
 
   const handleToggle = async (next: boolean) => {
     if (!state) return
@@ -128,7 +121,7 @@ export default function SharePopoverAuthor({ timelineId, shareUrl }: SharePopove
           value={shareUrl}
           className="flex-1 px-2 py-1 text-xs border rounded bg-muted font-mono truncate"
         />
-        <Button variant="outline" size="sm" onClick={handleCopy}>
+        <Button variant="outline" size="sm" onClick={() => copy(shareUrl)}>
           {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         </Button>
       </div>

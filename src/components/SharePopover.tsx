@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useAuth } from '@/hooks/useAuth'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useAuthStore } from '@/store/authStore'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { Timeline } from '@/types/timeline'
@@ -71,7 +72,9 @@ export default function SharePopover({
   // 共享按钮角标计数:GET /:id 播种、WS 实时推送、popover 内审批后回写,统一收敛到 store
   const pendingRequestCount = useTimelineStore(s => s.pendingRequestCount)
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useCopyToClipboard({
+    onError: () => toast.error('复制失败，请手动复制链接'),
+  })
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [requesting, setRequesting] = useState(false)
   const [requested, setRequested] = useState(false)
@@ -100,16 +103,6 @@ export default function SharePopover({
       ? `${SHARE_BASE_URL}/timeline/${timeline.id}${viewMode === 'table' ? '?view=table' : ''}`
       : ''
   const pendingRequest = hasPendingRequest || requested
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error('复制失败，请手动复制链接')
-    }
-  }
 
   const handlePublish = async () => {
     if (!accessToken) return
@@ -167,7 +160,7 @@ export default function SharePopover({
   const triggerLabel = trigger === 'editor' ? '可编辑' : trigger === 'viewer' ? '只能查看' : '共享'
 
   const copyButton = (
-    <Button variant="outline" size="sm" onClick={handleCopy}>
+    <Button variant="outline" size="sm" onClick={() => copy(shareUrl)}>
       {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
       复制分享链接
     </Button>

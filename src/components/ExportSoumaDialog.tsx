@@ -5,7 +5,7 @@
  * 时间轴模块直接导入的压缩字符串，一键复制。
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Copy, HelpCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
@@ -33,6 +33,7 @@ import { exportSoumaTimeline } from '@/utils/soumaExporter'
 import { track } from '@/utils/analytics'
 import type { Timeline } from '@/types/timeline'
 import { cn } from '@/lib/utils'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 
 interface ExportSoumaDialogProps {
   open: boolean
@@ -252,30 +253,15 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
     setActionIdsForJob(currentJob, Array.from(next))
   }
 
-  const [copied, setCopied] = useState(false)
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
-    }
-  }, [])
-
-  const handleCopy = async () => {
-    if (!hasSelection) return
-    try {
-      await navigator.clipboard.writeText(exportString)
-      setCopied(true)
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
-      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
+  const { copied, copy } = useCopyToClipboard({
+    onCopied: () =>
       track('souma-export-copy', {
         job: currentJob,
         skillCount: selected.size,
         ttsEnabled,
-      })
-    } catch {
-      toast.error('复制失败，请手动选中文本')
-    }
-  }
+      }),
+    onError: () => toast.error('复制失败，请手动选中文本'),
+  })
 
   const actions = MITIGATION_DATA.actions.filter(a => usedActionIds.has(a.id))
 
@@ -368,7 +354,9 @@ function SkillSection({ timeline, playerId, currentJob, usedActionIds }: SkillSe
             variant="outline"
             size="icon"
             aria-label="复制"
-            onClick={handleCopy}
+            onClick={() => {
+              if (hasSelection) void copy(exportString)
+            }}
             disabled={!hasSelection}
           >
             {copied ? <Check /> : <Copy />}

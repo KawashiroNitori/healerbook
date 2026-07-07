@@ -11,6 +11,7 @@ import { parseFFLogsUrl } from '@/utils/fflogsParser'
 import { createNewTimeline, buildFFLogsSourceIndex } from '@/utils/timelineStorage'
 import type { LocalDocMeta } from '@/collab/types'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
+import { timelineToLocalInit } from '@/collab/timelineToLocalInit'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { track } from '@/utils/analytics'
 import { apiClient } from '@/api/apiClient'
@@ -118,21 +119,7 @@ export default function ImportFFLogsDialog({
       const newTimeline = parseFromAny(raw, { id: generateId() })
       newTimeline.description = `导入自 ${url}`
 
-      const newId = await createLocalTimeline({
-        name: newTimeline.name,
-        description: newTimeline.description,
-        encounter: newTimeline.encounter,
-        fflogsSource: newTimeline.fflogsSource,
-        gameZoneId: newTimeline.gameZoneId,
-        syncEvents: newTimeline.syncEvents,
-        isReplayMode: newTimeline.isReplayMode,
-        composition: newTimeline.composition,
-        damageEvents: newTimeline.damageEvents,
-        castEvents: newTimeline.castEvents,
-        annotations: newTimeline.annotations ?? [],
-        statData: newTimeline.statData,
-        createdAt: newTimeline.createdAt,
-      })
+      const newId = await createLocalTimeline(timelineToLocalInit(newTimeline))
       track('fflogs-import', { success: true, encounterId: newTimeline.encounter?.id ?? 0 })
 
       window.open(`/timeline/${newId}`, '_blank')
@@ -253,21 +240,7 @@ export default function ImportFFLogsDialog({
       }
 
       // 保存时间轴
-      const newId = await createLocalTimeline({
-        name: newTimeline.name,
-        description: newTimeline.description,
-        encounter: newTimeline.encounter,
-        fflogsSource: newTimeline.fflogsSource,
-        gameZoneId: newTimeline.gameZoneId,
-        syncEvents: newTimeline.syncEvents,
-        isReplayMode: newTimeline.isReplayMode,
-        composition: newTimeline.composition,
-        damageEvents: newTimeline.damageEvents,
-        castEvents: newTimeline.castEvents,
-        annotations: newTimeline.annotations ?? [],
-        statData: newTimeline.statData,
-        createdAt: newTimeline.createdAt,
-      })
+      const newId = await createLocalTimeline(timelineToLocalInit(newTimeline))
       track('fflogs-import', { success: true, encounterId: fight.encounterID ?? 0 })
 
       // 跳转到编辑器

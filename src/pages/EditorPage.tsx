@@ -18,6 +18,7 @@ import { setSyncScrollProgress } from '@/utils/syncScrollProgress'
 import { fetchSharedTimeline } from '@/api/timelineShareApi'
 import type { ShareRoleInfo } from '@/types/apiContracts'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
+import { timelineToLocalInit } from '@/collab/timelineToLocalInit'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
 import { generateId } from '@/utils/id'
 import { useEncounterStatistics } from '@/hooks/useEncounterStatistics'
@@ -221,21 +222,12 @@ export default function EditorPage() {
   const handleCreateCopy = async () => {
     if (!timeline) return
     try {
-      const newId = await createLocalTimeline({
-        name: `${timeline.name}(副本)`,
-        description: timeline.description,
-        encounter: timeline.encounter,
-        fflogsSource: timeline.fflogsSource,
-        gameZoneId: timeline.gameZoneId,
-        syncEvents: timeline.syncEvents,
-        isReplayMode: timeline.isReplayMode,
-        composition: timeline.composition,
-        damageEvents: timeline.damageEvents,
-        castEvents: timeline.castEvents,
-        annotations: timeline.annotations ?? [],
-        statData: timeline.statData,
-        createdAt: Math.floor(Date.now() / 1000),
-      })
+      const newId = await createLocalTimeline(
+        timelineToLocalInit(timeline, {
+          name: `${timeline.name}(副本)`,
+          createdAt: Math.floor(Date.now() / 1000),
+        })
+      )
       track('timeline-create-copy', { encounterId: timeline.encounter?.id })
       navigate(`/timeline/${newId}`)
     } catch (err) {

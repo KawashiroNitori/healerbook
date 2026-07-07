@@ -11,6 +11,7 @@ import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { toast } from 'sonner'
 import { createNewTimeline } from '@/utils/timelineStorage'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
+import { timelineToLocalInit } from '@/collab/timelineToLocalInit'
 import { useUIStore } from '@/store/uiStore'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import {
@@ -83,21 +84,7 @@ export default function CreateTimelineDialog({
     const initialEvents = cached?.events
 
     const base = createNewTimeline(encounterId, name.trim(), initialEvents)
-    const newId = await createLocalTimeline({
-      name: base.name,
-      description: base.description,
-      encounter: base.encounter,
-      fflogsSource: base.fflogsSource,
-      gameZoneId: base.gameZoneId,
-      syncEvents: base.syncEvents,
-      isReplayMode: base.isReplayMode,
-      composition: base.composition,
-      damageEvents: base.damageEvents,
-      castEvents: base.castEvents,
-      annotations: base.annotations ?? [],
-      statData: base.statData,
-      createdAt: base.createdAt,
-    })
+    const newId = await createLocalTimeline(timelineToLocalInit(base))
     useUIStore.setState({ manualLock: false })
     track('timeline-create', { method: 'manual', encounterId: encounterIdNum })
     onCreated()
