@@ -2,9 +2,8 @@
  * FFLogs 导入对话框
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Loader2, Info } from 'lucide-react'
-import { parseFFLogsUrl } from '@/utils/fflogsParser'
 // fflogsClient / fflogsImporter 仅 ?client_import=1 才用，且该参数仅开发环境生效，
 // 改为 dynamic import：生产构建经 Vite 的 import.meta.env.DEV 常量折叠 + DCE，
 // 不会进 bundle。
@@ -14,10 +13,8 @@ import { createLocalTimeline } from '@/collab/createLocalTimeline'
 import { timelineToLocalInit } from '@/collab/timelineToLocalInit'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { track } from '@/utils/analytics'
-import { apiClient } from '@/api/apiClient'
-import { parseFromAny } from '@/utils/timelineFormat'
-import { generateId } from '@/utils/id'
-import { parseApiError } from '@/api/parseApiError'
+import { fetchFFLogsImport } from '@/api/fflogsImport'
+import { useFFLogsUrlInput } from '@/hooks/useFFLogsUrlInput'
 
 interface ImportFFLogsDialogProps {
   open: boolean
@@ -33,15 +30,11 @@ export default function ImportFFLogsDialog({
   onImported,
   initialUrl,
 }: ImportFFLogsDialogProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [url, setUrl] = useState(initialUrl ?? '')
+  const { inputRef, url, setUrl, parsed, isValid } = useFFLogsUrlInput({ initialUrl })
   const [isLoading, setIsLoading] = useState(false)
   const [loadingStep, setLoadingStep] = useState('')
   const [error, setError] = useState('')
 
-  // 实时解析 URL，判断是否合法
-  const parsed = url ? parseFFLogsUrl(url) : null
-  const isValid = !!parsed?.reportCode
   const validationError = url && !isValid ? '无法识别 FFLogs 链接，请检查 URL 格式' : ''
 
   // 查找本地是否已导入相同 reportCode+fightId 的时间轴
@@ -62,29 +55,6 @@ export default function ImportFFLogsDialog({
     }
   }, [parsed?.reportCode, parsed?.fightId, parsed?.isLastFight])
 
-  // 自动聚焦输入框并检测剪贴板
-  useEffect(() => {
-    inputRef.current?.focus()
-
-    // 如果已有预填 URL，则跳过剪贴板检测
-    if (initialUrl) return
-
-    // 尝试读取剪贴板
-    const readClipboard = async () => {
-      try {
-        const text = await navigator.clipboard.readText()
-        if (text && /fflogs\.com\/reports\//.test(text)) {
-          setUrl(text)
-        }
-      } catch (err) {
-        // 剪贴板读取失败（权限问题或不支持），静默忽略
-        console.debug('无法读取剪贴板:', err)
-      }
-    }
-
-    readClipboard()
-  }, [initialUrl])
-
   // 仅开发环境支持 ?client_import=1；生产环境短路为 false，下方 handleClientSubmit
   // 永远进不去，配合 dynamic import 保证 fflogsImporter / fflogsClient 不进 bundle
   const clientImport =
@@ -100,23 +70,11 @@ export default function ImportFFLogsDialog({
     setLoadingStep('正在解析战斗事件...')
 
     try {
-      const params = new URLSearchParams({ reportCode: parsed.reportCode })
-      if (!parsed.isLastFight && parsed.fightId !== null) {
-        params.set('fightId', String(parsed.fightId))
-      }
-
-      const response = await apiClient.get(`fflogs/import?${params}`, {
-        timeout: 120000,
-        throwHttpErrors: false,
+      const newTimeline = await fetchFFLogsImport({
+        reportCode: parsed.reportCode,
+        fightId: parsed.fightId,
+        isLastFight: parsed.isLastFight,
       })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as unknown
-        throw new Error(parseApiError(body, response.status))
-      }
-
-      const raw = await response.json()
-      const newTimeline = parseFromAny(raw, { id: generateId() })
       newTimeline.description = `导入自 ${url}`
 
       const newId = await createLocalTimeline(timelineToLocalInit(newTimeline))

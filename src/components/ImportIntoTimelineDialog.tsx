@@ -7,7 +7,7 @@
  * 详见 design/superpowers/specs/2026-05-29-editor-import-design.md
  */
 
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { track } from '@/utils/analytics'
@@ -16,11 +16,8 @@ import { Button } from '@/components/ui/button'
 import { TimeInput } from '@/components/ui/time-input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { apiClient } from '@/api/apiClient'
-import { parseFFLogsUrl } from '@/utils/fflogsParser'
-import { parseFromAny } from '@/utils/timelineFormat'
-import { parseApiError } from '@/api/parseApiError'
-import { generateId } from '@/utils/id'
+import { fetchFFLogsImport } from '@/api/fflogsImport'
+import { useFFLogsUrlInput } from '@/hooks/useFFLogsUrlInput'
 import {
   extractImportableFromTimeline,
   buildPlayerIdMap,
@@ -48,10 +45,17 @@ type Step = 1 | 2
 type SourceKind = 'fflogs' | 'template'
 
 export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTimelineDialogProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const {
+    inputRef,
+    url,
+    setUrl,
+    parsed: parsedUrl,
+    isValid: urlValid,
+  } = useFFLogsUrlInput({
+    enabled: open,
+  })
   const [step, setStep] = useState<Step>(1)
   const [source, setSource] = useState<SourceKind>('fflogs')
-  const [url, setUrl] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState('')
   const [parsed, setParsed] = useState<ImportableSubset | null>(null)
@@ -129,20 +133,6 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
     }
   }, [parsed, timeline, range, includeDamage, includeCast, mitigationActions, calc])
 
-  // 自动聚焦 + 剪贴板探测
-  useEffect(() => {
-    if (!open) return
-    inputRef.current?.focus()
-    void (async () => {
-      try {
-        const text = await navigator.clipboard.readText()
-        if (text && /fflogs\.com\/reports\//.test(text)) setUrl(text)
-      } catch {
-        /* 剪贴板权限拒绝，静默 */
-      }
-    })()
-  }, [open])
-
   // 关闭时重置内部态
   useEffect(() => {
     if (!open) {
@@ -154,7 +144,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       setIsParsing(false)
       setSource('fflogs')
     }
-  }, [open])
+  }, [open, setUrl])
 
   // prefetch 副本模板
   useEffect(() => {
@@ -196,9 +186,6 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
     }
     setIncludeDamage(true)
   }, [step, timeline, source])
-
-  const parsedUrl = url ? parseFFLogsUrl(url) : null
-  const urlValid = !!parsedUrl?.reportCode
 
   const templateAvailable = (templateEvents?.length ?? 0) > 0
   const showSegmented = !!currentEncounter && templateAvailable
@@ -263,26 +250,25 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       if (!parsedUrl?.reportCode) return
       setIsParsing(true)
       try {
-        const params = new URLSearchParams({ reportCode: parsedUrl.reportCode })
-        if (!parsedUrl.isLastFight && parsedUrl.fightId !== null) {
-          params.set('fightId', String(parsedUrl.fightId))
-        }
-        const response = await apiClient.get(`fflogs/import?${params}`, {
-          timeout: 120000,
-          throwHttpErrors: false,
+        const fullTimeline = await fetchFFLogsImport({
+          reportCode: parsedUrl.reportCode,
+          fightId: parsedUrl.fightId,
+          isLastFight: parsedUrl.isLastFight,
         })
-        if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as unknown
-          throw new Error(parseApiError(body, response.status))
-        }
-        const raw = await response.json()
-        const fullTimeline = parseFromAny(raw, { id: generateId() })
         const extracted = extractImportableFromTimeline(fullTimeline)
         setParsed(extracted)
         setParsedKey(url)
         setStep(2)
       } catch (err) {
-        setError(err instanceof Error ? err.message : '解析失败')
+        if (err instanceof Error) {
+          if (err.message.includes('API Token') || err.message.includes('API Key')) {
+            setError('FFLogs 连接配置错误，请联系开发者')
+          } else {
+            setError(err.message)
+          }
+        } else {
+          setError('解析失败')
+        }
       } finally {
         setIsParsing(false)
       }
