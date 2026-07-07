@@ -4,10 +4,10 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2, Info } from 'lucide-react'
-// fflogsClient / fflogsImporter 仅 ?client_import=1 才用，且该参数仅开发环境生效，
-// 改为 dynamic import：生产构建经 Vite 的 import.meta.env.DEV 常量折叠 + DCE，
-// 不会进 bundle。
-import { createNewTimeline, buildFFLogsSourceIndex } from '@/utils/timelineStorage'
+// devClientImport（内部 fflogsClient / fflogsImporter）仅 ?client_import=1 才用，
+// 且该参数仅开发环境生效，经 dynamic import 引入：生产构建经 Vite 的
+// import.meta.env.DEV 常量折叠 + DCE，不会进 bundle。
+import { buildFFLogsSourceIndex } from '@/utils/timelineStorage'
 import type { LocalDocMeta } from '@/collab/types'
 import { createLocalTimeline } from '@/collab/createLocalTimeline'
 import { timelineToLocalInit } from '@/collab/timelineToLocalInit'
@@ -112,94 +112,18 @@ export default function ImportFFLogsDialog({
     setLoadingStep('正在获取报告信息...')
 
     try {
-      // 仅在此处异步加载，生产 bundle 不引这两条链路
-      const [{ createFFLogsClient }, importer] = await Promise.all([
-        import('@/api/fflogsClient'),
-        import('@/utils/fflogsImporter'),
-      ])
-      const { parseFightImport, resolveImportTimelineName } = importer
-
-      // 获取报告数据
-      const client = createFFLogsClient()
-      const report = await client.getReport(parsed.reportCode)
-
-      // 确定战斗 ID
-      let fightId = parsed.fightId
-      if (parsed.isLastFight) {
-        // 获取最后一个战斗
-        if (!report.fights || report.fights.length === 0) {
-          throw new Error('报告中没有战斗记录')
-        }
-        fightId = report.fights[report.fights.length - 1].id
-      }
-
-      // 查找指定的战斗
-      const fight = report.fights?.find(f => f.id === fightId)
-      if (!fight) {
-        throw new Error(`战斗 #${fightId} 不存在`)
-      }
-
-      // 创建时间轴名称（优先从 raidEncounters.ts 查询副本名称）
-      const timelineName = resolveImportTimelineName(fight)
-
-      // 创建新时间轴
-      const newTimeline = createNewTimeline(fight.encounterID?.toString() || '0', timelineName)
-
-      // 更新战斗信息
-      newTimeline.encounter = {
-        id: fight.encounterID || 0,
-        name: fight.name,
-        displayName: fight.name,
-        zone: report.title || '',
-        damageEvents: [],
-      }
-
-      // 写入 gameZoneId（仅当 FFLogs 返回该字段时）
-      if (fight.gameZoneId != null) {
-        newTimeline.gameZoneId = fight.gameZoneId
-      }
-
-      // 获取伤害事件（自动分页）
-      setLoadingStep('正在获取战斗事件...')
-
-      try {
-        const eventsData = await client.getAllEvents(parsed.reportCode, {
-          start: fight.startTime,
-          end: fight.endTime,
-        })
-
-        setLoadingStep(`正在解析数据...`)
-
-        // 与服务端 /import 共用同一套解析编排
-        const { composition, damageEvents, castEvents, syncEvents } = parseFightImport(
-          report,
-          fight,
-          eventsData.events || []
-        )
-        newTimeline.composition = composition
-        newTimeline.damageEvents = damageEvents
-        newTimeline.castEvents = castEvents
-        newTimeline.syncEvents = syncEvents
-
-        // 设置为回放模式
-        newTimeline.isReplayMode = true
-
-        // 预填 description：记录导入来源
-        newTimeline.description = `导入自 ${url}`
-
-        // 记录 FFLogs 来源（parsed.reportCode 已在 handleSubmit 开头验证非 null）
-        newTimeline.fflogsSource = {
-          reportCode: parsed.reportCode!,
-          fightId: fightId!,
-        }
-      } catch (eventError) {
-        console.error('Failed to fetch events:', eventError)
-        throw eventError
-      }
+      const { runClientFFLogsImport } = await import('@/utils/devClientImport')
+      const newTimeline = await runClientFFLogsImport({
+        reportCode: parsed.reportCode,
+        fightId: parsed.fightId,
+        isLastFight: parsed.isLastFight,
+        sourceUrl: url,
+        onStep: setLoadingStep,
+      })
 
       // 保存时间轴
       const newId = await createLocalTimeline(timelineToLocalInit(newTimeline))
-      track('fflogs-import', { success: true, encounterId: fight.encounterID ?? 0 })
+      track('fflogs-import', { success: true, encounterId: newTimeline.encounter?.id ?? 0 })
 
       // 跳转到编辑器
       window.open(`/timeline/${newId}`, '_blank')
