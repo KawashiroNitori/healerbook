@@ -1,0 +1,8 @@
+# 仅在 push 到 main 分支时运行测试。
+# git 通过 stdin 传入待推送的 ref，格式：<local ref> <local sha1> <remote ref> <remote sha1>
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    pnpm test:run
+    exit $?
+  fi
+done
