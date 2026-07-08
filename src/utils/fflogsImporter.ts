@@ -79,8 +79,11 @@ function findLimitBreakTimestamp(events: FFLogsEvent[]): number | undefined {
 /**
  * 决定单场战斗的零时间：优先首个 limitbreakupdate（贴近战斗起点），
  * 无则回退首次伤害时间。limitbreakupdate 事件由 getEvents 在抓取阶段并入 events。
+ *
+ * 前端 parseFightImport 与 workers top100Sync 共用此零点口径，保证参考模板的事件
+ * 时间与用户导入时间轴同轴对齐。
  */
-function resolveFightStartTime(events: FFLogsEvent[], fallback: number): number {
+export function resolveFightStartTime(events: FFLogsEvent[], fallback: number): number {
   return findLimitBreakTimestamp(events) ?? findFirstDamageTimestamp(events, fallback)
 }
 

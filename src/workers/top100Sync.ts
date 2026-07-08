@@ -20,6 +20,7 @@ import {
   extractShieldData,
   extractHealData,
   extractMaxHPData,
+  resolveFightStartTime,
 } from '@/utils/fflogsImporter'
 import {
   getTop100KVKey,
@@ -98,11 +99,15 @@ export function extractFightStats(
   const composition = parseComposition(report, fight.id, participantIds)
   const enemyNames = new Map<number, string>()
   report.enemies?.forEach(e => enemyNames.set(e.id, e.name))
-  // 注意：此调用点有意少传 bossIds / targetability / bossCasts（且零时间用 fight.startTime
-  // 而非解析后的 fightStartTime）——与 parseFightImport 的 9 字段口径差异是刻意的，勿补全。
+  // 有意少传 bossIds / targetability / bossCasts：它们在 parseDamageEvents 里只产出
+  // targetMitigationDisabled / castStartTime / castEndTime，而本调用点最终经
+  // slimDamageEvents 只保留统计字段，这些 enrichment 会被丢弃——传了是白算 +
+  // 白扫全量事件重建区间，勿补全。
+  // fightStartTime 用 resolveFightStartTime（与前端 parseFightImport 同口径）：模板事件
+  // 时间会流向 slimDamageEvents.time / snapshotTime，零点须与用户导入时间轴同轴对齐。
   const fullDamageEvents = parseDamageEvents({
     events,
-    fightStartTime: fight.startTime,
+    fightStartTime: resolveFightStartTime(events, fight.startTime),
     playerMap,
     abilityMap,
     composition,
