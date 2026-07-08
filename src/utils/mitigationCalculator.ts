@@ -11,22 +11,11 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { HealSnapshot } from '@/types/healSnapshot'
 import type {
   PerTankResult,
-  HpSimulationSnapshot,
   CalculationResult,
   CalculateOptions,
   SimulateInput,
   SimulateOutput,
 } from '@/types/calculation'
-
-// 过渡兜底 re-export：既有消费者的 '@/utils/mitigationCalculator' 类型 import 路径保持可用
-export type {
-  PerTankResult,
-  HpSimulationSnapshot,
-  CalculationResult,
-  CalculateOptions,
-  SimulateInput,
-  SimulateOutput,
-}
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplierFiltered } from '@/executors/healMath'
@@ -422,10 +411,8 @@ export function simulate(input: SimulateInput): SimulateOutput {
 
 /**
  * 计算指定事件在给定过滤条件下的参考 HP（基线 × 活跃 buff maxHP 累乘）。
- *
- * @internal 导出仅供 simulation/ 兄弟模块使用，不属于公共 API。
  */
-export function computeReferenceMaxHP(
+function computeReferenceMaxHP(
   event: DamageEvent,
   partyState: PartyState,
   base: number,
@@ -445,10 +432,8 @@ export function computeReferenceMaxHP(
  * 单路径分别复刻旧口径：
  *   multiplierFilter（Phase 1/2/5）→ !(isTankOnly && !includeTankOnly)
  *   shieldFilter（Phase 3）→ isTankOnly === includeTankOnly
- *
- * @internal 导出仅供 simulation/ 兄弟模块使用，不属于公共 API。
  */
-export function runSingleBranch(
+function runSingleBranch(
   event: DamageEvent,
   partyState: PartyState,
   opts: {
