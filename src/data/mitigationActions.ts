@@ -1363,7 +1363,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['SGE'],
       category: ['partywide', 'heal'],
       duration: 20,
-      cooldown: 120,
+      cooldown: 180,
       executor: createRegenExecutor(3899, 20),
       statDataEntries: [{ type: 'heal', key: 1003899, label: '幸福' }],
     },
