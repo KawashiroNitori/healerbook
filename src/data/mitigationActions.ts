@@ -692,7 +692,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 20,
       cooldown: 180,
       placement: not(whileStatus(791)),
-      executor: createRegenExecutor(3885, 30),
+      executor: createRegenExecutor(3885, 20),
       statDataEntries: [{ type: 'heal', key: 1003885 }],
     },
 
