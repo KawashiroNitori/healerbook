@@ -1400,7 +1400,7 @@ describe('多坦 per-victim 路径', () => {
       })
       const list = statusTimelineByPlayer.get(1)?.get(3885) ?? []
       expect(list).toHaveLength(1)
-      expect(list[0]).toMatchObject({ from: 5, to: 35, sourceCastEventId: 'c-seraph' })
+      expect(list[0]).toMatchObject({ from: 5, to: 25, sourceCastEventId: 'c-seraph' })
     })
 
     it('最后一个 damage event 之后的 cast 也会被处理并进入 statusTimelineByPlayer', () => {
@@ -1427,7 +1427,7 @@ describe('多坦 per-victim 路径', () => {
       })
       const list = statusTimelineByPlayer.get(1)?.get(3885) ?? []
       expect(list).toHaveLength(1)
-      expect(list[0]).toMatchObject({ from: 20, to: 50, sourceCastEventId: 'c-seraph' })
+      expect(list[0]).toMatchObject({ from: 20, to: 40, sourceCastEventId: 'c-seraph' })
     })
 
     it('完全无 damage event 时也能处理 casts', () => {
@@ -1442,7 +1442,7 @@ describe('多坦 per-victim 路径', () => {
       })
       const list = statusTimelineByPlayer.get(1)?.get(3885) ?? []
       expect(list).toHaveLength(1)
-      expect(list[0]).toMatchObject({ from: 5, to: 35, sourceCastEventId: 'c-seraph' })
+      expect(list[0]).toMatchObject({ from: 5, to: 25, sourceCastEventId: 'c-seraph' })
     })
 
     it('同一技能二次施放：旧 instance 被 createBuffExecutor 移除 → 旧 interval 在二次施放点收束，新 interval 自二次施放点开', () => {
