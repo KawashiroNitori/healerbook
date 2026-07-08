@@ -9,7 +9,6 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import { getStatusById } from '@/utils/statusRegistry'
 import { computeFinalHeal } from './healMath'
 import { addStatus } from './statusHelpers'
 
@@ -34,8 +33,7 @@ export function createRegenExecutor(
       baseTickAmount,
       ctx.partyState,
       ctx.sourcePlayerId,
-      ctx.useTime,
-      getStatusById
+      ctx.useTime
     )
 
     return addStatus(ctx.partyState, {

@@ -1,5 +1,4 @@
 import { computeFinalHeal } from '@/executors/healMath'
-import { getStatusById } from '@/utils/statusRegistry'
 import type { MitigationAction } from '@/types/mitigation'
 import {
   applyDirectHeal,
@@ -450,7 +449,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
             sourcePlayerId: ctx.sourcePlayerId,
             time: ctx.useTime,
           },
-          getStatusById,
           ctx.recordHeal
         )
         return removeStatus(stateAfterHeal, bell.instanceId)
@@ -614,13 +612,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const rawHeal = hasRecitation
           ? (ctx.statistics?.critHealByAbility[185] ?? 10000)
           : (ctx.statistics?.healByAbility[185] ?? 10000)
-        const baseHeal = computeFinalHeal(
-          rawHeal,
-          ctx.partyState,
-          ctx.sourcePlayerId,
-          ctx.useTime,
-          getStatusById
-        )
+        const baseHeal = computeFinalHeal(rawHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
         const barrier = Math.round(baseHeal * 1.8)
         // recitationId 入 uniqueGroup：施盾前一并移除秘策，即消耗秘策
         return createShieldExecutor(baseShieldId, 30, {
@@ -664,13 +656,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         baseHeal = hasRecitation
           ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
           : (ctx.statistics?.healByAbility[37013] ?? 10000)
-        baseHeal = computeFinalHeal(
-          baseHeal,
-          ctx.partyState,
-          ctx.sourcePlayerId,
-          ctx.useTime,
-          getStatusById
-        )
+        baseHeal = computeFinalHeal(baseHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
         const partyState = createHealExecutor()(ctx)
 
         const barrier = Math.round(baseHeal * 1.8)
@@ -728,8 +714,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
           ctx.statistics?.healByAbility[37016] ?? 10000,
           ctx.partyState,
           ctx.sourcePlayerId,
-          ctx.useTime,
-          getStatusById
+          ctx.useTime
         )
         const barrier = Math.round(baseHeal * 1.8)
         const partyState = createHealExecutor()(ctx)
@@ -796,7 +781,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
             sourcePlayerId: ctx.sourcePlayerId,
             time: ctx.useTime,
           },
-          getStatusById,
           ctx.recordHeal
         )
       },

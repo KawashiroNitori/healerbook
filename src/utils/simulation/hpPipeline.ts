@@ -28,7 +28,7 @@ import { formatTimeWithDecimal } from '@/utils/formatters'
  */
 function recomputeHpMax(state: PartyState): PartyState {
   if (!state.hp) return state
-  const newMultiplier = computeMaxHpMultiplier(state.statuses, state.timestamp, getStatusById)
+  const newMultiplier = computeMaxHpMultiplier(state.statuses, state.timestamp)
   const prevMultiplier = state.hp.max / state.hp.base
   if (Math.abs(newMultiplier - prevMultiplier) < 1e-9) return state
 

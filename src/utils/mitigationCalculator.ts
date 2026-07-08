@@ -435,13 +435,7 @@ export function computeReferenceMaxHP(
   // referenceMaxHP 按 event.time 算（与 simulate 主循环维护的 hp.max 同步）。
   // snapshotTime 只决定 Phase 1 % 减伤的 buff 选择，与 HP 上限无关——DOT 期间
   // 已过期的 maxHP buff 不应继续把坦克"理论 HP 上限"撑大。
-  const m = computeMaxHpMultiplierFiltered(
-    partyState.statuses,
-    event.time,
-    'closed',
-    getStatusById,
-    filter
-  )
+  const m = computeMaxHpMultiplierFiltered(partyState.statuses, event.time, 'closed', filter)
   return Math.round(base * m)
 }
 

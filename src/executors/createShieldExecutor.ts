@@ -3,7 +3,6 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
-import { getStatusById } from '@/utils/statusRegistry'
 import { addStatus } from './statusHelpers'
 import { computeFinalHeal } from './healMath'
 
@@ -37,13 +36,7 @@ export function createShieldExecutor(
 
   return ctx => {
     const baseBarrier = fixedBarrier ?? ctx.statistics?.shieldByAbility?.[statusId] ?? 10000
-    const barrier = computeFinalHeal(
-      baseBarrier,
-      ctx.partyState,
-      ctx.sourcePlayerId,
-      ctx.useTime,
-      getStatusById
-    )
+    const barrier = computeFinalHeal(baseBarrier, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
 
     return addStatus(ctx.partyState, {
       statusId,

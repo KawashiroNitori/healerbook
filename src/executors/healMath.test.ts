@@ -1,12 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   computeFinalHeal,
   computeMaxHpMultiplier,
   computeMaxHpMultiplierFiltered,
-  type GetStatusMeta,
 } from './healMath'
 import type { PartyState } from '@/types/partyState'
 import type { MitigationStatus, MitigationStatusMetadata } from '@/types/status'
+import { getStatusById } from '@/utils/statusRegistry'
+
+vi.mock('@/utils/statusRegistry', () => ({
+  getStatusById: vi.fn(),
+}))
 
 const mkStatus = (overrides: Partial<MitigationStatus>): MitigationStatus => ({
   instanceId: 'inst-' + Math.random(),
@@ -25,156 +29,148 @@ const mkMeta = (overrides: Partial<MitigationStatusMetadata>): MitigationStatusM
     ...overrides,
   }) as MitigationStatusMetadata
 
-/** 所有 statusId 都返回同一份 meta 的查询函数 */
-const metaAlways =
-  (meta: MitigationStatusMetadata): GetStatusMeta =>
-  () =>
-    meta
-
 const partyStateOf = (statuses: MitigationStatus[]): PartyState => ({
   statuses,
   timestamp: 0,
 })
 
 describe('computeFinalHeal', () => {
+  beforeEach(() => vi.mocked(getStatusById).mockReset())
+
   it('无 buff 时返回 baseAmount', () => {
-    expect(computeFinalHeal(10000, partyStateOf([]), 1, 5, () => undefined)).toBe(10000)
+    expect(computeFinalHeal(10000, partyStateOf([]), 1, 5)).toBe(10000)
   })
 
   it('单个全队 heal buff 累乘', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, heal: 1.2 } })
     )
     const ps = partyStateOf([mkStatus({ sourcePlayerId: 2 })])
-    expect(computeFinalHeal(10000, ps, 1, 5, getMeta)).toBe(12000)
+    expect(computeFinalHeal(10000, ps, 1, 5)).toBe(12000)
   })
 
   it('selfHeal 仅在 sourcePlayer 匹配时生效', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, selfHeal: 1.3 } })
     )
     const ps = partyStateOf([mkStatus({ sourcePlayerId: 7 })])
 
     // 持有者 cast：×1.3
-    expect(computeFinalHeal(10000, ps, 7, 5, getMeta)).toBe(13000)
+    expect(computeFinalHeal(10000, ps, 7, 5)).toBe(13000)
     // 非持有者 cast：×1
-    expect(computeFinalHeal(10000, ps, 8, 5, getMeta)).toBe(10000)
+    expect(computeFinalHeal(10000, ps, 8, 5)).toBe(10000)
   })
 
   it('heal + selfHeal 同时（持有者 cast）累乘两者', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, heal: 1.2, selfHeal: 1.3 } })
     )
     const ps = partyStateOf([mkStatus({ sourcePlayerId: 7 })])
-    expect(computeFinalHeal(10000, ps, 7, 5, getMeta)).toBeCloseTo(15600, 5)
+    expect(computeFinalHeal(10000, ps, 7, 5)).toBeCloseTo(15600, 5)
   })
 
   it('heal + selfHeal 同时（非持有者 cast）只累乘 heal', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, heal: 1.2, selfHeal: 1.3 } })
     )
     const ps = partyStateOf([mkStatus({ sourcePlayerId: 7 })])
-    expect(computeFinalHeal(10000, ps, 8, 5, getMeta)).toBe(12000)
+    expect(computeFinalHeal(10000, ps, 8, 5)).toBe(12000)
   })
 
   it('isTankOnly buff 永远不参与累乘', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({
         isTankOnly: true,
         performance: { physics: 1, magic: 1, darkness: 1, heal: 1.5, selfHeal: 1.5 },
       })
     )
     const ps = partyStateOf([mkStatus({ sourcePlayerId: 7 })])
-    expect(computeFinalHeal(10000, ps, 7, 5, getMeta)).toBe(10000)
-    expect(computeFinalHeal(10000, ps, 8, 5, getMeta)).toBe(10000)
+    expect(computeFinalHeal(10000, ps, 7, 5)).toBe(10000)
+    expect(computeFinalHeal(10000, ps, 8, 5)).toBe(10000)
   })
 
   it('过期 / 未开始 buff 不参与', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, heal: 1.2 } })
     )
     // endTime <= castTime
     const expired = partyStateOf([mkStatus({ endTime: 5 })])
-    expect(computeFinalHeal(10000, expired, 1, 5, getMeta)).toBe(10000)
+    expect(computeFinalHeal(10000, expired, 1, 5)).toBe(10000)
     // startTime > castTime
     const notYet = partyStateOf([mkStatus({ startTime: 10 })])
-    expect(computeFinalHeal(10000, notYet, 1, 5, getMeta)).toBe(10000)
+    expect(computeFinalHeal(10000, notYet, 1, 5)).toBe(10000)
   })
 
   it('多个 buff 累乘', () => {
-    const getMeta: GetStatusMeta = (id: number) => {
+    vi.mocked(getStatusById).mockImplementation((id: number) => {
       if (id === 100)
         return mkMeta({ id: 100, performance: { physics: 1, magic: 1, darkness: 1, heal: 1.2 } })
       if (id === 200)
         return mkMeta({ id: 200, performance: { physics: 1, magic: 1, darkness: 1, heal: 1.1 } })
       return undefined
-    }
+    })
     const ps = partyStateOf([
       mkStatus({ statusId: 100, sourcePlayerId: 1 }),
       mkStatus({ statusId: 200, sourcePlayerId: 2 }),
     ])
-    expect(computeFinalHeal(10000, ps, 3, 5, getMeta)).toBeCloseTo(13200, 5)
+    expect(computeFinalHeal(10000, ps, 3, 5)).toBeCloseTo(13200, 5)
   })
 })
 
 describe('computeMaxHpMultiplier', () => {
+  beforeEach(() => vi.mocked(getStatusById).mockReset())
+
   it('无 buff 返回 1', () => {
-    expect(computeMaxHpMultiplier([], 5, () => undefined)).toBe(1)
+    expect(computeMaxHpMultiplier([], 5)).toBe(1)
   })
 
   it('单个 maxHP buff 累乘', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.1 } })
     )
-    expect(computeMaxHpMultiplier([mkStatus({})], 5, getMeta)).toBeCloseTo(1.1, 5)
+    expect(computeMaxHpMultiplier([mkStatus({})], 5)).toBeCloseTo(1.1, 5)
   })
 
   it('isTankOnly maxHP buff 永远不参与', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ isTankOnly: true, performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.1 } })
     )
-    expect(computeMaxHpMultiplier([mkStatus({})], 5, getMeta)).toBe(1)
+    expect(computeMaxHpMultiplier([mkStatus({})], 5)).toBe(1)
   })
 
   it('过期 buff 不参与', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.1 } })
     )
-    expect(computeMaxHpMultiplier([mkStatus({ endTime: 5 })], 5, getMeta)).toBe(1)
+    expect(computeMaxHpMultiplier([mkStatus({ endTime: 5 })], 5)).toBe(1)
   })
 })
 
 describe('computeMaxHpMultiplierFiltered', () => {
+  beforeEach(() => vi.mocked(getStatusById).mockReset())
+
   const acceptAll = () => true
 
   it('t === endTime 时 boundary 分叉：excludeEnd 不计入，closed 计入', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.1 } })
     )
     const statuses = [mkStatus({ endTime: 5 })]
-    expect(computeMaxHpMultiplierFiltered(statuses, 5, 'excludeEnd', getMeta, acceptAll)).toBe(1)
-    expect(computeMaxHpMultiplierFiltered(statuses, 5, 'closed', getMeta, acceptAll)).toBeCloseTo(
-      1.1,
-      5
-    )
+    expect(computeMaxHpMultiplierFiltered(statuses, 5, 'excludeEnd', acceptAll)).toBe(1)
+    expect(computeMaxHpMultiplierFiltered(statuses, 5, 'closed', acceptAll)).toBeCloseTo(1.1, 5)
   })
 
   it('filter 拒绝的 status 不参与累乘', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ isTankOnly: true, performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.2 } })
     )
     const statuses = [mkStatus({})]
-    expect(
-      computeMaxHpMultiplierFiltered(statuses, 3, 'closed', getMeta, meta => !meta.isTankOnly)
-    ).toBe(1)
-    expect(computeMaxHpMultiplierFiltered(statuses, 3, 'closed', getMeta, acceptAll)).toBeCloseTo(
-      1.2,
-      5
-    )
+    expect(computeMaxHpMultiplierFiltered(statuses, 3, 'closed', meta => !meta.isTankOnly)).toBe(1)
+    expect(computeMaxHpMultiplierFiltered(statuses, 3, 'closed', acceptAll)).toBeCloseTo(1.2, 5)
   })
 
   it('filter 能接收 status 参数（按 sourcePlayerId 过滤）', () => {
-    const getMeta = metaAlways(
+    vi.mocked(getStatusById).mockReturnValue(
       mkMeta({ performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.3 } })
     )
     const statuses = [mkStatus({ sourcePlayerId: 7 })]
@@ -183,7 +179,6 @@ describe('computeMaxHpMultiplierFiltered', () => {
         statuses,
         3,
         'closed',
-        getMeta,
         (_meta, status) => status.sourcePlayerId === 7
       )
     ).toBeCloseTo(1.3, 5)
@@ -192,7 +187,6 @@ describe('computeMaxHpMultiplierFiltered', () => {
         statuses,
         3,
         'closed',
-        getMeta,
         (_meta, status) => status.sourcePlayerId === 8
       )
     ).toBe(1)
