@@ -14,6 +14,10 @@ export interface Env {
   /** 来自 wrangler.toml [env.*.vars]，"production" 触发严格 CORS allowlist；其余值走 *  */
   ENVIRONMENT?: string
   SENSITIVE_WORDS_HMAC_KEY?: string
+  /** FFLogs 反向代理 base URL（如 https://ffproxy.example.com）；未设则直连 FFLogs */
+  FFLOGS_PROXY_BASE?: string
+  /** 与代理约定的门禁 secret；配合 FFLOGS_PROXY_BASE 生效 */
+  FFLOGS_PROXY_SECRET?: string
 }
 
 export type AppEnv = {
@@ -31,5 +35,7 @@ export function createClient(env: Env): FFLogsClientV2 {
     clientId: env.FFLOGS_CLIENT_ID,
     clientSecret: env.FFLOGS_CLIENT_SECRET,
     kv: env.healerbook,
+    proxyBase: env.FFLOGS_PROXY_BASE,
+    proxySecret: env.FFLOGS_PROXY_SECRET,
   })
 }

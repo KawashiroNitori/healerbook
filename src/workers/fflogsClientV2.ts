@@ -12,11 +12,14 @@ import type {
 import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from '@/types/fflogs'
 import type { RankingEntry } from '@/types/apiContracts'
 import { buildComposition } from '@/utils/rosterUtils'
+import { fflogsFetch } from './fflogsProxy'
 
 export interface FFLogsV2Config {
   clientId: string
   clientSecret: string
   kv?: KVNamespace
+  proxyBase?: string
+  proxySecret?: string
 }
 
 /**
@@ -191,11 +194,15 @@ export class FFLogsClientV2 {
   private clientId: string
   private clientSecret: string
   private kv?: KVNamespace
+  private proxyBase?: string
+  private proxySecret?: string
 
   constructor(config: FFLogsV2Config) {
     this.clientId = config.clientId
     this.clientSecret = config.clientSecret
     this.kv = config.kv
+    this.proxyBase = config.proxyBase
+    this.proxySecret = config.proxySecret
   }
 
   /**
@@ -237,14 +244,18 @@ export class FFLogsClientV2 {
     const tokenUrl = 'https://www.fflogs.com/oauth/token'
     const credentials = btoa(`${this.clientId}:${this.clientSecret}`)
 
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const response = await fflogsFetch(
+      tokenUrl,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
       },
-      body: 'grant_type=client_credentials',
-    })
+      { proxyBase: this.proxyBase, proxySecret: this.proxySecret }
+    )
 
     if (!response.ok) {
       throw new Error(`FFLogs OAuth error: ${response.statusText}`)
@@ -286,14 +297,18 @@ export class FFLogsClientV2 {
     const graphqlUrl = `https://${region}.fflogs.com/api/v2/client`
 
     const doRequest = async (token: string) => {
-      return fetch(graphqlUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      return fflogsFetch(
+        graphqlUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ query, variables }),
         },
-        body: JSON.stringify({ query, variables }),
-      })
+        { proxyBase: this.proxyBase, proxySecret: this.proxySecret }
+      )
     }
 
     let token = await this.getAccessToken()
