@@ -39,6 +39,8 @@ new_sqlite_classes = ["TimelineDoc"]
 [env.development.vars]
 ENVIRONMENT = "development"
 FFLOGS_CLIENT_ID = "a15cca7c-686d-4c4b-9d90-c1ee194b7638"
+# FFLogs 反向代理（可选）：设置后 FFLogs 请求经此转发以规避共享 IP 限速；不设则直连
+# FFLOGS_PROXY_BASE = "https://ffproxy.xivhealer.com"
 
 [[env.development.kv_namespaces]]
 binding = "healerbook"
@@ -63,6 +65,8 @@ name = "healerbook"
 [env.production.vars]
 ENVIRONMENT = "production"
 FFLOGS_CLIENT_ID = "a1263e4f-6950-4100-9a79-f7ebfb94363c"
+# FFLogs 反向代理（可选）：设置后 FFLogs 请求经此转发以规避共享 IP 限速；不设则直连
+# FFLOGS_PROXY_BASE = "https://ffproxy.xivhealer.com"
 
 [[env.production.kv_namespaces]]
 binding = "healerbook"
@@ -87,6 +91,7 @@ database_id = "d5c7c316-c36a-42c7-a00e-aa43ceaba3c8"
 #
 # 手动同步接口鉴权
 # wrangler secret put SYNC_AUTH_TOKEN
+# wrangler secret put FFLOGS_PROXY_SECRET   # 与 Caddy 侧同值，代理门禁
 
 [observability]
 enabled = false

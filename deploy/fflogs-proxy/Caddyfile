@@ -1,0 +1,26 @@
+# FFLogs 反向代理 —— 详见 design/superpowers/specs/2026-07-09-fflogs-proxy-design.md
+# 启动：FFLOGS_PROXY_SECRET=<值> caddy run --config Caddyfile
+
+ffproxy.xivhealer.com {
+	# 门禁：header 里的 secret 必须匹配，否则 403
+	@authorized header X-Proxy-Secret "{env.FFLOGS_PROXY_SECRET}"
+
+	handle @authorized {
+		# /www/* → www.fflogs.com（OAuth token / user / www 区 GraphQL）
+		handle_path /www/* {
+			reverse_proxy https://www.fflogs.com {
+				header_up Host www.fflogs.com
+			}
+		}
+		# /cn/* → cn.fflogs.com（国服 GraphQL）
+		handle_path /cn/* {
+			reverse_proxy https://cn.fflogs.com {
+				header_up Host cn.fflogs.com
+			}
+		}
+		respond "Not Found" 404
+	}
+
+	# secret 不匹配 → 拒绝
+	respond "Forbidden" 403
+}
