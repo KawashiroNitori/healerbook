@@ -61,6 +61,10 @@ FFLOGS_PROXY_SECRET=<上一步生成的值> caddy run --config Caddyfile
 证书由 Caddy 自动申请并续期（域名已是 `ffproxy.xivhealer.com`）。生产建议用 systemd 常驻并通过
 `Environment=` 注入 secret。
 
+> ⚠️ 若日后为排障给 Caddyfile 加 `log` 指令：Caddy 对 `Authorization` / `Cookie` 有内置脱敏，但对
+> 自定义的 `X-Proxy-Secret` **没有**，会明文写入日志文件。如需开日志，先在 `log` 块里配置
+> `header { request >X-Proxy-Secret REDACTED }`（或等效脱敏规则）再上线。
+
 ### 5. 配置 Worker
 
 ```bash

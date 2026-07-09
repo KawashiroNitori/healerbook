@@ -10,12 +10,14 @@ ffproxy.xivhealer.com {
 		handle_path /www/* {
 			reverse_proxy https://www.fflogs.com {
 				header_up Host www.fflogs.com
+				header_up -X-Proxy-Secret
 			}
 		}
 		# /cn/* → cn.fflogs.com（国服 GraphQL）
 		handle_path /cn/* {
 			reverse_proxy https://cn.fflogs.com {
 				header_up Host cn.fflogs.com
+				header_up -X-Proxy-Secret
 			}
 		}
 		respond "Not Found" 404

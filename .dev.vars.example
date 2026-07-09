@@ -23,3 +23,10 @@ JWT_SECRET=your_jwt_secret_here
 # 生成方式: openssl rand -base64 32
 # 本地 .dev.vars 与线上 Workers Secret 两处必须同值
 SENSITIVE_WORDS_HMAC_KEY=your_hmac_key_here
+
+# FFLogs 反向代理（可选，默认留空）
+# 留空时 FFLogs 请求直连上游——本地开发通常保持留空即可。
+# 仅在需要本地验证代理链路时才填：两项必须同时填，且 SECRET 与 Caddy 侧同值。
+# 部署与 Caddy 配置见 deploy/fflogs-proxy/README.md
+# FFLOGS_PROXY_BASE=https://ffproxy.xivhealer.com
+# FFLOGS_PROXY_SECRET=your_proxy_secret_here
