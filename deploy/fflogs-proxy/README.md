@@ -54,12 +54,38 @@ openssl rand -hex 32
 
 ### 4. 启动 Caddy
 
+快速验证可以前台跑：
+
 ```bash
 FFLOGS_PROXY_SECRET=<上一步生成的值> caddy run --config Caddyfile
 ```
 
-证书由 Caddy 自动申请并续期（域名已是 `ffproxy.xivhealer.com`）。生产建议用 systemd 常驻并通过
-`Environment=` 注入 secret。
+证书由 Caddy 自动申请并续期（域名已是 `ffproxy.xivhealer.com`）。
+
+**生产用 systemd**。apt 安装的 `caddy` 包自带 unit，但它有两个必须覆盖的默认值：
+
+```bash
+sudo mkdir -p /etc/systemd/system/caddy.service.d
+sudo tee /etc/systemd/system/caddy.service.d/override.conf > /dev/null <<'EOF'
+[Service]
+Environment=FFLOGS_PROXY_SECRET=<上一步生成的值>
+# 包自带 ExecStart 含 --environ，会把所有环境变量（含本 secret）明文打进 journald
+ExecStart=
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+# 包自带 unit 没有重启策略，Caddy 崩溃后不会被拉起
+Restart=on-failure
+RestartSec=5s
+EOF
+sudo chmod 600 /etc/systemd/system/caddy.service.d/override.conf
+sudo systemctl daemon-reload && sudo systemctl enable --now caddy
+```
+
+> ⚠️ **`--environ` 陷阱**：若照搬包自带的 `ExecStart`，`journalctl -u caddy` 里会有一行明文
+> `FFLOGS_PROXY_SECRET=…`，且 `/var/log/journal` 默认持久化。已经踩过一次就得
+> `journalctl --rotate && journalctl --vacuum-time=1s` 清理，并**轮换 secret**。
+
+> ⚠️ secret 未注入时 Caddy 仍会正常启动，但门禁静默降级（`{env.X}` 展开为空串，带空值
+> `X-Proxy-Secret` header 的请求可绕过）。把 secret 固化在 `override.conf` 里正是为了避免手工遗漏。
 
 > ⚠️ 若日后为排障给 Caddyfile 加 `log` 指令：Caddy 对 `Authorization` / `Cookie` 有内置脱敏，但对
 > 自定义的 `X-Proxy-Secret` **没有**，会明文写入日志文件。如需开日志，先在 `log` 块里配置
@@ -67,11 +93,15 @@ FFLOGS_PROXY_SECRET=<上一步生成的值> caddy run --config Caddyfile
 
 ### 5. 配置 Worker
 
+> ⚠️ **顺序不能反**：必须先完成下面「验证」一节、确认代理可用，再设置 `FFLOGS_PROXY_BASE`。
+> 一旦设了 BASE 而代理不可用，线上所有 FFLogs 请求都会失败。
+
 ```bash
-pnpm exec wrangler secret put FFLOGS_PROXY_SECRET   # 填与上面同一个值
+pnpm exec wrangler secret put FFLOGS_PROXY_SECRET --env production   # 填与上面同一个值
 ```
 
-并在 `wrangler.toml` 对应环境的 `[vars]` 设置：
+secret 单独存在时是惰性的（`fflogsFetch` 要求 base 与 secret 同时配置才注入 header），可以放心先放。
+确认代理健康后，再在 `wrangler.toml` 对应环境的 `[vars]` 设置：
 
 ```toml
 FFLOGS_PROXY_BASE = "https://ffproxy.xivhealer.com"
@@ -91,5 +121,23 @@ FFLOGS_PROXY_BASE = "https://ffproxy.xivhealer.com"
 
   ```bash
   curl -i https://ffproxy.xivhealer.com/www/api/v2/client            # 期望 403
-  curl -i -H "X-Proxy-Secret: <值>" https://ffproxy.xivhealer.com/www/api/v2/client  # 期望到达上游（401/400 属正常，说明已转发）
+  curl -i -H "X-Proxy-Secret: <值>" https://ffproxy.xivhealer.com/www/api/v2/client  # 期望到达上游
   ```
+
+  **注意状态码不足以判断是否转发成功**：代理自身的「前缀未命中」也返回 404，而 FFLogs 对
+  `GET /api/v2/client` 同样返回 404。看响应头区分：
+
+  | 响应头                          | 含义                     |
+  | ------------------------------- | ------------------------ |
+  | `server: Caddy`                 | 被代理兜底，**没有**转发 |
+  | `server: cloudflare` + `cf-ray` | 已穿透到 FFLogs          |
+
+- **出站地址族**：若机器有 IPv6，Caddy 默认走 IPv6 出站，FFLogs 看到的就是 IPv6 而非 A 记录里那个
+  IPv4。云厂商的 IPv6 `/64` 常在客户间共享，若上游按 `/64` 聚合限速，规避效果会打折。检查：
+
+  ```bash
+  curl -sS -o /dev/null -w "local=%{local_ip}\n" https://www.fflogs.com/api/v2/client
+  ```
+
+- **不要把共享 IP 送给上游**：Caddy 的 `reverse_proxy` 默认追加 `X-Forwarded-For`（值为 Worker 的
+  Cloudflare 出口 IP）。Caddyfile 已用 `header_up -X-Forwarded-*` 剥除——这是本方案能生效的前提之一。

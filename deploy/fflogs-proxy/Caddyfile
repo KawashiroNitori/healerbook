@@ -10,7 +10,13 @@ ffproxy.xivhealer.com {
 		handle_path /www/* {
 			reverse_proxy https://www.fflogs.com {
 				header_up Host www.fflogs.com
+				# 门禁 secret 不外泄给上游
 				header_up -X-Proxy-Secret
+				# 关键：不把 Worker 的 Cloudflare 共享 IP 以 XFF 形式送给 FFLogs，
+				# 否则限速规避失效（Caddy 默认会追加这些头）
+				header_up -X-Forwarded-For
+				header_up -X-Forwarded-Host
+				header_up -X-Forwarded-Proto
 			}
 		}
 		# /cn/* → cn.fflogs.com（国服 GraphQL）
@@ -18,6 +24,9 @@ ffproxy.xivhealer.com {
 			reverse_proxy https://cn.fflogs.com {
 				header_up Host cn.fflogs.com
 				header_up -X-Proxy-Secret
+				header_up -X-Forwarded-For
+				header_up -X-Forwarded-Host
+				header_up -X-Forwarded-Proto
 			}
 		}
 		respond "Not Found" 404
