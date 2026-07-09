@@ -65,8 +65,9 @@ name = "healerbook"
 [env.production.vars]
 ENVIRONMENT = "production"
 FFLOGS_CLIENT_ID = "a1263e4f-6950-4100-9a79-f7ebfb94363c"
-# FFLogs 反向代理（可选）：设置后 FFLogs 请求经此转发以规避共享 IP 限速；不设则直连
-# FFLOGS_PROXY_BASE = "https://ffproxy.xivhealer.com"
+# FFLogs 反向代理：请求经此转发以规避共享 IP 限速。删除本行并重新部署即回退直连。
+# 门禁 secret 见 `wrangler secret list`，与 Caddy 侧 override.conf 同值。
+FFLOGS_PROXY_BASE = "https://ffproxy.xivhealer.com"
 
 [[env.production.kv_namespaces]]
 binding = "healerbook"
