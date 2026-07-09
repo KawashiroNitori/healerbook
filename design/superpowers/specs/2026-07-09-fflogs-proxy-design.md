@@ -137,7 +137,9 @@ ffproxy.你的域名 {
 
 ## 部署要点
 
-1. **DNS**：`ffproxy.你的域名` 加 A 记录指向独立 IP。
+1. **DNS**：`ffproxy.xivhealer.com`（xivhealer.com 托管在 Cloudflare）加 A 记录指向独立 IP，
+   **必须设为 DNS only（灰云 / `proxied: false`）**——若开橙云代理，Worker→代理会绕回 Cloudflare
+   共享 IP，且 Caddy 的 HTTP-01 证书挑战会被拦截失败。可用 Cloudflare API / `flarectl` 命令行创建。
 2. **端口**：放行 `80`（ACME 证书签发）+ `443`。
 3. **生成 secret**：`openssl rand -hex 32`。
 4. **跑 Caddy**：systemd 或 docker，注入 `FFLOGS_PROXY_SECRET=<值>`，`caddy run --config Caddyfile`，证书自动申请与续期。
