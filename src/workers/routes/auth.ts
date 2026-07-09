@@ -8,6 +8,7 @@ import type { Env } from '../env'
 import { isAllowedOrigin } from '../allowedOrigins'
 import { signAccessToken, signRefreshToken, verifyToken } from '../jwt'
 import { loginWithOAuth } from '../userCredentials'
+import { fflogsFetch } from '../fflogsProxy'
 
 interface FFLogsTokenResponse {
   access_token: string
@@ -62,11 +63,15 @@ async function exchangeCodeForToken(
     code,
   })
 
-  const response = await fetch('https://www.fflogs.com/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  })
+  const response = await fflogsFetch(
+    'https://www.fflogs.com/oauth/token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    },
+    { proxyBase: env.FFLOGS_PROXY_BASE, proxySecret: env.FFLOGS_PROXY_SECRET }
+  )
 
   if (!response.ok) {
     throw new Error(`FFLogs token exchange failed: ${response.status}`)
@@ -74,15 +79,22 @@ async function exchangeCodeForToken(
   return response.json() as Promise<FFLogsTokenResponse>
 }
 
-async function fetchFFLogsUser(accessToken: string): Promise<{ id: number; name: string }> {
-  const response = await fetch('https://www.fflogs.com/api/v2/user', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+async function fetchFFLogsUser(
+  accessToken: string,
+  env: Env
+): Promise<{ id: number; name: string }> {
+  const response = await fflogsFetch(
+    'https://www.fflogs.com/api/v2/user',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ query: '{ userData { currentUser { id name } } }' }),
     },
-    body: JSON.stringify({ query: '{ userData { currentUser { id name } } }' }),
-  })
+    { proxyBase: env.FFLOGS_PROXY_BASE, proxySecret: env.FFLOGS_PROXY_SECRET }
+  )
 
   if (!response.ok) {
     throw new Error(`FFLogs user info failed: ${response.status}`)
@@ -113,7 +125,7 @@ app.post('/callback', vValidator('json', CallbackSchema), async c => {
   let tokenResponse: FFLogsTokenResponse
   try {
     tokenResponse = await exchangeCodeForToken(code, redirectUri, c.env)
-    user = await fetchFFLogsUser(tokenResponse.access_token)
+    user = await fetchFFLogsUser(tokenResponse.access_token, c.env)
   } catch (error) {
     console.error('[Auth] callback error:', error)
     return c.json({ error: 'OAuth callback failed' }, 400)
