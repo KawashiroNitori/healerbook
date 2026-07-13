@@ -27,8 +27,9 @@ function forbidForEffect(
   events: ResourceEvent[],
   def: ResourceDefinition
 ): Interval[] {
-  if (effect.delta >= 0 || effect.required === false) return []
-  // 产出不贡献 forbid；required=false 的软消费者也不贡献（与 validator 语义对齐）
+  if (effect.delta >= 0 || effect.required === false || def.allowForcePlacement) return []
+  // 产出不贡献 forbid；required=false 的软消费者也不贡献（与 validator 语义对齐）；
+  // allowForcePlacement 的池不挖洞——放开 placement 拦截，标红仍由 validator 负责（可放置但仍标红）。
   const threshold = -effect.delta
 
   // 自耗尽段：枚举"amount 跌到 <threshold"的持续时段。

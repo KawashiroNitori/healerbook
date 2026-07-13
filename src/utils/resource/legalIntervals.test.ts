@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resourceLegalIntervals } from './legalIntervals'
+import { findResourceExhaustedCasts } from './validator'
 import { computeResourceTrace, deriveResourceEvents } from './compute'
 import type { ResourceDefinition } from '@/types/resource'
 import { makeAction, makeCast } from './__tests__/helpers'
@@ -158,6 +159,46 @@ describe('resourceLegalIntervals — required=false 软消费者', () => {
     expect(resourceLegalIntervals(action, 10, events, registry)).toEqual([
       { from: NEG_INF, to: INF },
     ])
+  })
+})
+
+describe('resourceLegalIntervals — allowForcePlacement 可放置但仍标红', () => {
+  // 核心不变量：开了 allowForcePlacement 的池不挖 placement 洞（legal 全时间），
+  // 但同一耗尽场景 validator 仍把该 cast 判非法（标红）——区别于 required=false 的完全不校验。
+  const makePool = (allowForcePlacement?: boolean): ResourceDefinition => ({
+    id: 'x:forcible',
+    name: 'X',
+    job: 'SCH',
+    initial: 0, // 开场为空 → t=10 的消费者必然耗尽
+    max: 1,
+    style: 'cooldown',
+    allowForcePlacement,
+  })
+  const action = makeAction({
+    id: 1,
+    cooldown: 0,
+    resourceEffects: [{ resourceId: 'x:forcible', delta: -1 }], // required 默认 true
+  })
+  const casts = [makeCast({ id: 'c', actionId: 1, timestamp: 10 })]
+  const actionMap = new Map([[1, action]])
+
+  it('allowForcePlacement=true：placement 不挖洞（legal 全时间），validator 仍标红', () => {
+    const registry = { 'x:forcible': makePool(true) }
+    const events = deriveResourceEvents(casts, actionMap)
+    // 放置层：不挖洞
+    expect(resourceLegalIntervals(action, 10, events, registry)).toEqual([
+      { from: NEG_INF, to: INF },
+    ])
+    // 校验层：仍判该 cast 非法（红框）
+    const exhausted = findResourceExhaustedCasts(casts, actionMap, registry)
+    expect(exhausted.map(e => e.castEventId)).toEqual(['c'])
+  })
+
+  it('对照 allowForcePlacement 省略（默认 false）：同场景 placement 被挖洞', () => {
+    const registry = { 'x:forcible': makePool(undefined) }
+    const events = deriveResourceEvents(casts, actionMap)
+    // 自耗尽 [10, ∞) ∪ 下游 M=-1 → (−∞, 10)（无 regen 窗口延到 −∞）= 全时间 forbid
+    expect(resourceLegalIntervals(action, 10, events, registry)).toEqual([])
   })
 })
 

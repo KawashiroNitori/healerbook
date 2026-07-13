@@ -41,6 +41,7 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     regen: { interval: 60, amount: 3 },
     tint: '#4ade80', // 游戏内以太超流宝石为薄荷绿
     unmetMessage: '以太超流档数不足',
+    allowForcePlacement: true,
   },
   'drk:oblation': {
     id: 'drk:oblation',

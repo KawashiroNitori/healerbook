@@ -49,6 +49,19 @@ export interface ResourceDefinition {
    * compute 层合成的 `__cd__:` 资源不消费此字段（普通 cooldown 不足走通用文案）。
    */
   unmetMessage?: string
+  /**
+   * 可选：该池不足时是否允许强制放置（默认 false）。
+   * - false（默认）：不足即从 placement 合法区挖洞——双击无法添加、拖入被判非法且落在阴影区。
+   * - true：不再挖洞，可强行添加 / 拖入原本的阴影区；但该 cast 仍被 validator 判为
+   *   `resource_exhausted`（红框），提示超额使用。
+   *
+   * 与 `ResourceEffect.required === false` 的区别：后者完全不校验该消费（不拦截**也不**标红）；
+   * 本字段只放开 placement 层的拦截，保留标红提示。
+   *
+   * 作用域仅限「本池不足」这一门：若某 action 同时受自身合成 `__cd__:` 池 gating（双门），
+   * 合成池无此标记，仍会照常拦截。仅显式资源消费此字段；合成 `__cd__:` 池不读。
+   */
+  allowForcePlacement?: boolean
 }
 
 /** action 对资源的影响声明 */
