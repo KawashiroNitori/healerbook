@@ -128,6 +128,11 @@ export type AnnotationAnchor =
 - cast 备注独立的时间编辑。
 - 对旧 V2 存档的 cast id 追溯还原。
 
+## 已知限制
+
+- **表格视图角标依赖后续伤害事件**：表格里 cast 角标寄生于 marker 单元格（cast 之后第一个伤害事件的格子）。若某 cast 之后没有任何伤害事件（如时间轴末尾的 cast），它在表格视图不生成 marker 格，其 cast 备注角标也就不显示——此时时间轴（画布）视图仍正常显示该备注。属表格渲染模型的固有约束，非缺陷。
+- **协作实时拖拽 ghost 不含 cast 备注**：他人正在拖动一个挂了 cast 备注的 cast 时，peer 的备注气泡在拖拽过程中停在原位、松手 commit 后归位。与既有「peer 拖拽 ghost 不覆盖 damageTrack 备注」的限制一致，留作后续协作打磨。
+
 ## 测试要点
 
 - V2 往返（`toV2`→`fromV2`）后 cast id 与 cast 锚定备注保持关联。

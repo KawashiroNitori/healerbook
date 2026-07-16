@@ -268,7 +268,7 @@ export default function TableDataRow({
                 className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
               />
             )}
-            {isMarker && marker.castId && castAnnotationTextByCastId.has(marker.castId) && (
+            {isMarker && castAnnotationTextByCastId.has(marker.castId) && (
               <span
                 className="pointer-events-none absolute top-0.5 right-0.5 flex items-center justify-center rounded-sm bg-blue-500/80 p-[1px] shadow"
                 title={castAnnotationTextByCastId.get(marker.castId)}
