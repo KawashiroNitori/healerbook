@@ -8,6 +8,7 @@
  * - 对编辑 / 回放、AoE / 死刑四种情况处理伤害数值来源
  */
 
+import { MessageSquareText } from 'lucide-react'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { GameIcon } from '@/components/GameIcon'
 import { cellKey, type CastMarker } from '@/utils/tableCellHitTest'
@@ -43,6 +44,8 @@ interface TableDataRowProps {
    * 用于显示正确的变体图标，如 buff 期的 37016）和使用时刻（悬浮资源预览用）。
    */
   markerCells: Map<string, CastMarker>
+  /** cast 锚定备注文本（castId → 合并文本）；marker 格右上角显示角标 */
+  castAnnotationTextByCastId: Map<string, string>
   /** 用于按 actionId 查找变体真实图标 */
   actionsById: Map<number, MitigationAction>
   calculationResult: CalculationResult | undefined
@@ -101,6 +104,7 @@ export default function TableDataRow({
   cdCells,
   shadowCells,
   markerCells,
+  castAnnotationTextByCastId,
   actionsById,
   calculationResult,
   showOriginalDamage,
@@ -263,6 +267,14 @@ export default function TableDataRow({
                 alt={markerAction?.name ?? track.actionName}
                 className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
               />
+            )}
+            {isMarker && marker.castId && castAnnotationTextByCastId.has(marker.castId) && (
+              <span
+                className="pointer-events-none absolute top-0.5 right-0.5 flex items-center justify-center rounded-sm bg-blue-500/80 p-[1px] shadow"
+                title={castAnnotationTextByCastId.get(marker.castId)}
+              >
+                <MessageSquareText className="h-2.5 w-2.5 text-white" />
+              </span>
             )}
           </td>
         )

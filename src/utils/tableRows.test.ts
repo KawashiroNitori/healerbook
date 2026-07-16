@@ -46,4 +46,13 @@ describe('mergeAndSortRows', () => {
   it('空输入返回空数组', () => {
     expect(mergeAndSortRows([], [])).toEqual([])
   })
+
+  it('mergeAndSortRows 收到的备注若含 cast 锚定也会成行（过滤由调用方负责）', () => {
+    // 契约说明：mergeAndSortRows 不认识 anchor 类型，cast 过滤在 TimelineTableView 完成
+    const rows = mergeAndSortRows(
+      [],
+      [{ id: 'a1', text: 'x', time: 1, anchor: { type: 'cast', castId: 'c1' } }]
+    )
+    expect(rows).toHaveLength(1)
+  })
 })

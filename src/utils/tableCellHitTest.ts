@@ -74,10 +74,11 @@ export function computeLitCellsByEvent(
   return result
 }
 
-/** cast 起点格的载荷：显示变体 id + cast 的使用时刻（悬浮资源预览用） */
+/** cast 起点格的载荷：显示变体 id + cast 的使用时刻（悬浮资源预览用）+ cast 稳定 id（角标用） */
 export interface CastMarker {
   actionId: number
   castTime: number
+  castId: string
 }
 
 /**
@@ -113,7 +114,7 @@ export function computeCastMarkerCells(
       result.set(firstAfter.id, map)
     }
     const variantId = resolvedVariantByCastId.get(castEvent.id) ?? castEvent.actionId
-    map.set(key, { actionId: variantId, castTime: castEvent.timestamp })
+    map.set(key, { actionId: variantId, castTime: castEvent.timestamp, castId: castEvent.id })
   }
   return result
 }

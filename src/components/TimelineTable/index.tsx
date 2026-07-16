@@ -224,8 +224,20 @@ export default function TimelineTableView() {
 
   const rows = useMemo(() => {
     if (!timeline) return []
-    return mergeAndSortRows(filteredDamageEvents, timeline.annotations ?? [])
+    const nonCast = (timeline.annotations ?? []).filter(a => a.anchor.type !== 'cast')
+    return mergeAndSortRows(filteredDamageEvents, nonCast)
   }, [filteredDamageEvents, timeline])
+
+  // cast 锚定备注：castId → 合并文本（角标 title 用）
+  const castAnnotationTextByCastId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const a of timeline?.annotations ?? []) {
+      if (a.anchor.type !== 'cast') continue
+      const prev = m.get(a.anchor.castId)
+      m.set(a.anchor.castId, prev ? `${prev}\n${a.text}` : a.text)
+    }
+    return m
+  }, [timeline])
 
   // "添加伤害事件"行的对话框开关；默认时间取最后一个伤害事件的 time，空表格则 0
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -431,6 +443,7 @@ export default function TimelineTableView() {
                   cdCells={cdCellsByEvent.get(row.id) ?? new Set()}
                   shadowCells={shadowCellsByEvent.get(row.id) ?? new Set()}
                   markerCells={markerCellsByEvent.get(row.id) ?? new Map()}
+                  castAnnotationTextByCastId={castAnnotationTextByCastId}
                   actionsById={actionsById}
                   calculationResult={calculationResults.get(row.id)}
                   showOriginalDamage={showOriginalDamage}
