@@ -264,6 +264,7 @@ export interface CastEvent {
 export type AnnotationAnchor =
   | { type: 'damageTrack' }
   | { type: 'skillTrack'; playerId: number; actionId: number }
+  | { type: 'cast'; castId: string }
 
 /**
  * 备注
@@ -273,7 +274,11 @@ export interface Annotation {
   id: string
   /** 备注文本（最大 200 字符，允许换行） */
   text: string
-  /** 锚定时间（秒） */
+  /**
+   * 锚定时间（秒，相对战斗起点）。
+   * 对 damageTrack / skillTrack 为权威坐标；对 cast 锚定不参与定位（位置实时从
+   * 被引用 CastEvent.timestamp 推导），仅作创建时的冗余快照。
+   */
   time: number
   /** 锚定目标 */
   anchor: AnnotationAnchor

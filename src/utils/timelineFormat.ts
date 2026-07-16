@@ -145,18 +145,16 @@ function toV2CastEvents(events: CastEvent[], remap: Map<number, number>): V2Cast
     a: sorted.map(e => e.actionId),
     t: sorted.map(e => e.timestamp),
     p: sorted.map(e => remap.get(e.playerId) ?? e.playerId),
+    i: sorted.map(e => e.id),
   }
 }
 
 function toV2Annotation(a: Annotation, remap: Map<number, number>): V2Annotation {
-  return {
-    x: a.text,
-    t: a.time,
-    k:
-      a.anchor.type === 'damageTrack'
-        ? 0
-        : [remap.get(a.anchor.playerId) ?? a.anchor.playerId, a.anchor.actionId],
-  }
+  let k: V2Annotation['k']
+  if (a.anchor.type === 'damageTrack') k = 0
+  else if (a.anchor.type === 'cast') k = { c: a.anchor.castId }
+  else k = [remap.get(a.anchor.playerId) ?? a.anchor.playerId, a.anchor.actionId]
+  return { x: a.text, t: a.time, k }
 }
 
 function toV2SyncEvent(e: SyncEvent): V2SyncEvent {
@@ -301,7 +299,7 @@ function fromV2CastEvents(ce: V2CastEvents): CastEvent[] {
   const out: CastEvent[] = new Array(len)
   for (let i = 0; i < len; i++) {
     out[i] = {
-      id: generateObjectId(),
+      id: ce.i?.[i] ?? generateObjectId(),
       // 读取归一：旧文档持久化的子变体 id 读入即归一为 trackGroup 父 id（变体运行时推导）
       actionId: normalizeActionId(ce.a[i]),
       timestamp: ce.t[i],
@@ -312,8 +310,10 @@ function fromV2CastEvents(ce: V2CastEvents): CastEvent[] {
 }
 
 function fromV2Annotation(a: V2Annotation): Annotation {
-  const anchor: Annotation['anchor'] =
-    a.k === 0 ? { type: 'damageTrack' } : { type: 'skillTrack', playerId: a.k[0], actionId: a.k[1] }
+  let anchor: Annotation['anchor']
+  if (a.k === 0) anchor = { type: 'damageTrack' }
+  else if (Array.isArray(a.k)) anchor = { type: 'skillTrack', playerId: a.k[0], actionId: a.k[1] }
+  else anchor = { type: 'cast', castId: a.k.c }
   return {
     id: generateObjectId(),
     text: a.x,

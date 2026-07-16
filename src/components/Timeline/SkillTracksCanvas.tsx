@@ -157,6 +157,11 @@ export default function SkillTracksCanvas({
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
   const trackIndexMap = useMemo(() => buildTrackIndexMap(skillTracks), [skillTracks])
+  const castById = useMemo(() => {
+    const m = new Map<string, CastEvent>()
+    for (const c of timeline.castEvents) m.set(c.id, c)
+    return m
+  }, [timeline.castEvents])
   const { filteredDamageEvents } = useFilteredTimelineView()
   const castEffectiveEnd = useCastEffectiveEnd()
   // simulate 推导出的每个 cast 的实际变体 id（cast 持久化的是父 id，具体变体显示要查这个 map）。
@@ -722,6 +727,75 @@ export default function SkillTracksCanvas({
                 onDragMove={newX => onAnnotationDragMove?.(annotation.id, newX)}
                 onDragEnd={newX => onAnnotationDragEnd(annotation.id, newX)}
                 y={y}
+                onMouseEnter={(e: KonvaEventObject<MouseEvent>) => {
+                  const stage = e.target.getStage()
+                  if (!stage) return
+                  const box = stage.container().getBoundingClientRect()
+                  const parent = e.target.getParent()
+                  if (!parent) return
+                  const absPos = parent.getAbsolutePosition()
+                  onAnnotationHover(annotation, box.left + absPos.x + 8, box.top + absPos.y + 8)
+                }}
+                onMouseLeave={onAnnotationHoverEnd}
+                onClick={(e: KonvaEventObject<MouseEvent>) => {
+                  const stage = e.target.getStage()
+                  if (!stage) return
+                  const box = stage.container().getBoundingClientRect()
+                  const parent = e.target.getParent()
+                  if (!parent) return
+                  const absPos = parent.getAbsolutePosition()
+                  onAnnotationClick(annotation, box.left + absPos.x + 8, box.top + absPos.y + 8)
+                }}
+                onContextMenu={(e: KonvaEventObject<PointerEvent>) => {
+                  e.evt.preventDefault()
+                  onAnnotationContextMenu(
+                    annotation.id,
+                    e.evt.clientX,
+                    e.evt.clientY,
+                    annotation.time
+                  )
+                }}
+              />
+            )
+          })}
+
+        {/* cast 锚定备注图标（悬挂在技能图标右上角；锁定不可拖） */}
+        {annotations
+          .filter(a => {
+            if (a.anchor.type !== 'cast') return false
+            if (peerDraggingIds?.has(a.id)) return false
+            const cast = castById.get(a.anchor.castId)
+            if (!cast) return false
+            const x =
+              cast.timestamp * zoomLevel +
+              (selectedCastEventIds.includes(a.anchor.castId) ? groupDragDelta : 0)
+            return x >= visibleMinX && x <= visibleMaxX
+          })
+          .map(annotation => {
+            const anchor = annotation.anchor as { type: 'cast'; castId: string }
+            const cast = castById.get(anchor.castId)
+            if (!cast) return null
+            const castAction = actionMap?.get(cast.actionId)
+            const groupId = castAction?.trackGroup ?? cast.actionId
+            const trackIndex = trackIndexMap.get(trackKey(cast.playerId, groupId)) ?? -1
+            if (trackIndex === -1) return null
+
+            // 拖拽跟随：cast 图标节点自身随 draggable 平移，但备注是独立 Konva 节点，
+            // 需要对所有被选中的 cast（含 handle 本身）叠加同款偏移才能连续跟随，
+            // 不能像 CastEventIcon 的 dragOffsetX 那样排除 groupDraggedCastId。
+            const dragOffset = selectedCastEventIds.includes(cast.id) ? groupDragDelta : 0
+
+            // 技能图标 center 在 (castX, trackY)，偏移到右上角
+            const x = cast.timestamp * zoomLevel + 12 + dragOffset
+            const y = trackIndex * trackHeight + trackHeight / 2 - 12
+
+            return (
+              <AnnotationIcon
+                key={`cast-annotation-${annotation.id}`}
+                x={x}
+                y={y}
+                isPinned={pinnedAnnotationId === annotation.id}
+                draggable={false}
                 onMouseEnter={(e: KonvaEventObject<MouseEvent>) => {
                   const stage = e.target.getStage()
                   if (!stage) return

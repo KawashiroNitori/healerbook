@@ -65,6 +65,12 @@ function makeEditorTimeline(): Timeline {
         time: 25,
         anchor: { type: 'skillTrack', playerId: 2, actionId: 7432 },
       },
+      {
+        id: 'e6',
+        text: '这一发要点名',
+        time: 8,
+        anchor: { type: 'cast', castId: 'e3' },
+      },
     ],
     createdAt: 1000,
     updatedAt: 2000,
@@ -88,10 +94,12 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
       a: [7432, 7433],
       t: [5, 8],
       p: [2, 3],
+      i: ['e2', 'e3'],
     })
-    expect(v2.an).toHaveLength(2)
+    expect(v2.an).toHaveLength(3)
     expect(v2.an?.[0]).toMatchObject({ x: 'remind', t: 20, k: 0 })
     expect(v2.an?.[1]).toMatchObject({ x: 'WHM 礼仪', t: 25, k: [2, 7432] })
+    expect(v2.an?.[2]).toMatchObject({ x: '这一发要点名', t: 8, k: { c: 'e3' } })
     expect(v2.r).toBeUndefined()
     expect(v2.ca).toBe(1000)
     expect(v2.ua).toBe(2000)
@@ -115,12 +123,17 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     expect(back.damageEvents[1].snapshotTime).toBe(14.5)
     expect(back.castEvents).toHaveLength(2)
     expect(back.castEvents[0]).toMatchObject({ actionId: 7432, timestamp: 5, playerId: 2 })
-    expect(back.annotations).toHaveLength(2)
+    expect(back.annotations).toHaveLength(3)
     expect(back.annotations[0].anchor).toEqual({ type: 'damageTrack' })
     expect(back.annotations[1].anchor).toEqual({
       type: 'skillTrack',
       playerId: 2,
       actionId: 7432,
+    })
+    expect(back.castEvents.find(c => c.timestamp === 8)?.id).toBe('e3')
+    expect(back.annotations.find(a => a.text === '这一发要点名')?.anchor).toEqual({
+      type: 'cast',
+      castId: 'e3',
     })
   })
 
@@ -263,7 +276,7 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
       annotations: [],
     }
     const v2 = toV2(tl)
-    expect(v2.ce).toEqual({ a: [], t: [], p: [] })
+    expect(v2.ce).toEqual({ a: [], t: [], p: [], i: [] })
     expect(v2.an).toBeUndefined()
     const back = hydrateFromV2(v2, { id: 'tl_xxx' })
     expect(back.castEvents).toEqual([])
@@ -330,6 +343,16 @@ describe('toV2 / hydrateFromV2 (editor mode)', () => {
     expect(restored.damageEvents[0].targetMitigationDisabled).toBe(true)
     // 未设置的事件保持省略（不被写成 false）
     expect(restored.damageEvents[1].targetMitigationDisabled).toBeUndefined()
+  })
+
+  it('旧 V2 存档缺 i 列时 cast id 重新发号且不崩', () => {
+    const tl = makeEditorTimeline()
+    const v2 = toV2(tl)
+    delete (v2.ce as { i?: string[] }).i // 模拟旧存档
+    const back = hydrateFromV2(v2, { id: 'tl_xxx' })
+    expect(back.castEvents).toHaveLength(2)
+    expect(back.castEvents[0].id).toBeTruthy()
+    expect(back.castEvents[1].id).not.toBe(back.castEvents[0].id)
   })
 })
 

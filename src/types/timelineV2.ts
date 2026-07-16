@@ -85,10 +85,12 @@ export interface V2CastEvents {
   t: number[]
   /** playerId 列 */
   p: number[]
+  /** cast 稳定 id 列（与 a/t/p 同序）；旧存档缺省，读入时重生成 */
+  i?: string[]
 }
 
-/** Annotation anchor：0=damageTrack，[playerId, actionId]=skillTrack */
-export type V2AnnotationAnchor = 0 | [number, number]
+/** Annotation anchor：0=damageTrack，[playerId, actionId]=skillTrack，{c: castId}=cast */
+export type V2AnnotationAnchor = 0 | [number, number] | { c: string }
 
 export interface V2Annotation {
   /** text */

@@ -1369,15 +1369,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     (time: number, anchor: AnnotationAnchor) => {
       const menuX = contextMenu?.x ?? 0
       const menuY = contextMenu?.y ?? 0
+      // cast 锚定：time 只是冗余快照，取 cast 的真实 timestamp（定位实时从 cast 推导）
+      const snapTime =
+        anchor.type === 'cast'
+          ? (timeline?.castEvents.find(c => c.id === anchor.castId)?.timestamp ?? time)
+          : time
       setEditingAnnotation({
         annotation: null,
-        time,
+        time: snapTime,
         anchor,
         screenX: menuX,
         screenY: menuY,
       })
     },
-    [contextMenu, setEditingAnnotation]
+    [contextMenu, setEditingAnnotation, timeline]
   )
 
   const handleDeleteAnnotation = useCallback(
@@ -1513,8 +1518,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const damageTrackAnnotations = (timeline.annotations ?? []).filter(
     a => a.anchor.type === 'damageTrack'
   )
-  const skillTrackAnnotations = (timeline.annotations ?? []).filter(
-    a => a.anchor.type === 'skillTrack'
+  const skillAreaAnnotations = (timeline.annotations ?? []).filter(
+    a => a.anchor.type === 'skillTrack' || a.anchor.type === 'cast'
   )
 
   // 计算备注 popover 的基准位置（不含滚动偏移，供 CSS calc() 使用）
@@ -1528,6 +1533,23 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         x: rect.left + timePixels,
         y: rect.top + timeRulerHeight + eventTrackHeight - 20,
         scrollY: false, // 伤害轨道不随垂直滚动
+      }
+    } else if (annotation.anchor.type === 'cast') {
+      // cast 锚定：位置从被引用 cast 实时推导，落在技能图标右上角
+      const castAnchor = annotation.anchor
+      const cast = timeline.castEvents.find(c => c.id === castAnchor.castId)
+      if (!cast) return null
+      const castAction = actionMap.get(cast.actionId)
+      const groupId = castAction?.trackGroup ?? cast.actionId
+      const trackIndex = trackIndexMap.get(trackKey(cast.playerId, groupId)) ?? -1
+      if (trackIndex === -1) return null
+      const container = stageRef.current?.container()
+      if (!container) return null
+      const rect = container.getBoundingClientRect()
+      return {
+        x: rect.left + cast.timestamp * zoomLevel + 12,
+        y: rect.top + trackIndex * skillTrackHeight + skillTrackHeight / 2 - 12,
+        scrollY: true,
       }
     } else {
       const anchor = annotation.anchor as { type: 'skillTrack'; playerId: number; actionId: number }
@@ -1619,7 +1641,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           y0: cy - ANNOTATION_ICON_HALF,
           y1: cy + ANNOTATION_ICON_HALF,
         })
-      } else {
+      } else if (annotation.anchor.type === 'skillTrack') {
         const anchor = annotation.anchor
         const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
         if (trackIndex === -1) continue
@@ -1634,6 +1656,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           y1: cy + ANNOTATION_ICON_HALF,
         })
       }
+      // cast 锚定备注：v1 不参与框选（锁定不可拖，删除走右键/级联）
     }
     return objs
   }
@@ -2062,7 +2085,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                     actionMap={actionMap}
                     trackHeight={skillTrackHeight}
                     skillTracksHeight={skillTracksHeight}
-                    annotations={skillTrackAnnotations}
+                    annotations={skillAreaAnnotations}
                     damageEvents={filteredDamageEvents}
                   />
                 }
@@ -2074,7 +2097,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onHoverActionEnd={hideTooltip}
                 onClickAction={handleClickAction}
                 isReadOnly={isReadOnly}
-                annotations={skillTrackAnnotations}
+                annotations={skillAreaAnnotations}
                 pinnedAnnotationId={pinnedAnnotationId}
                 onAnnotationHover={handleAnnotationHover}
                 onAnnotationHoverEnd={handleAnnotationHoverEnd}

@@ -125,16 +125,26 @@ export default function TimelineContextMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" className="min-w-[120px] text-[11px]">
         {menu.type === 'castEvent' && (
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={() => {
-              onDeleteCast(menu.castEventId)
-              onClose()
-            }}
-          >
-            删除
-            <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              onClick={() => {
+                onAddAnnotation(menu.time, { type: 'cast', castId: menu.castEventId })
+                onClose()
+              }}
+            >
+              在此技能上添加备注
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => {
+                onDeleteCast(menu.castEventId)
+                onClose()
+              }}
+            >
+              删除
+              <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </>
         )}
 
         {menu.type === 'multiSelection' && (

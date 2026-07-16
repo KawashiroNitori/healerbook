@@ -102,7 +102,7 @@ function projectCollection<T extends { id: string }>(
 
 // ─── granular mutators ───────────────────────────────────────────────────────
 
-function mapOf(doc: Y.Doc, name: string) {
+export function mapOf(doc: Y.Doc, name: string) {
   return doc.getMap<Y.Map<unknown>>(name)
 }
 
@@ -154,6 +154,12 @@ export function yUpdateCastEvent(doc: Y.Doc, id: string, patch: Partial<CastEven
 export function yRemoveCastEvent(doc: Y.Doc, id: string): void {
   doc.transact(() => {
     mapOf(doc, Y_MAP.castEvents).delete(id)
+    // 级联:删掉锚定在这次 cast 上的备注
+    const an = mapOf(doc, Y_MAP.annotations)
+    for (const [aid, am] of [...an.entries()]) {
+      const anchor = am.get('anchor') as { type: string; castId?: string }
+      if (anchor?.type === 'cast' && anchor.castId === id) an.delete(aid)
+    }
   }, LOCAL_ORIGIN)
 }
 
@@ -212,13 +218,18 @@ export function yReplaceComposition(doc: Y.Doc, players: { id: number; job: stri
     }
     const keepIds = new Set(players.map(p => p.id))
     const ce = mapOf(doc, Y_MAP.castEvents)
+    const removedCastIds = new Set<string>()
     for (const [id, cm] of [...ce.entries()]) {
-      if (!keepIds.has(cm.get('playerId') as number)) ce.delete(id)
+      if (!keepIds.has(cm.get('playerId') as number)) {
+        ce.delete(id)
+        removedCastIds.add(id)
+      }
     }
     const an = mapOf(doc, Y_MAP.annotations)
     for (const [id, am] of [...an.entries()]) {
-      const anchor = am.get('anchor') as { type: string; playerId?: number }
+      const anchor = am.get('anchor') as { type: string; playerId?: number; castId?: string }
       if (anchor?.type === 'skillTrack' && !keepIds.has(anchor.playerId!)) an.delete(id)
+      else if (anchor?.type === 'cast' && removedCastIds.has(anchor.castId!)) an.delete(id)
     }
   }, LOCAL_ORIGIN)
 }
@@ -289,13 +300,15 @@ export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
     })
     .sort((a, b) => a.timestamp - b.timestamp)
 
+  const castIds = new Set(castEvents.map(c => c.id))
   const annotations = projectCollection<Annotation>(
     doc.getMap<Y.Map<unknown>>(Y_MAP.annotations).values(),
     indexById(prev?.annotations)
-  ).filter(
-    a =>
-      a.anchor.type !== 'skillTrack' || playerIds.has((a.anchor as { playerId: number }).playerId)
-  ) // sanitizer
+  ).filter(a => {
+    if (a.anchor.type === 'skillTrack') return playerIds.has(a.anchor.playerId)
+    if (a.anchor.type === 'cast') return castIds.has(a.anchor.castId)
+    return true
+  }) // sanitizer
 
   const statData =
     doc.getMap(Y_MAP.statData).size > 0

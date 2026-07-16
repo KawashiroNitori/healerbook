@@ -7,6 +7,11 @@ import {
   yUpdateDamageEvent,
   yRemoveDamageEvent,
   yExitReplayMode,
+  yAddCastEvent,
+  yAddAnnotation,
+  yRemoveCastEvent,
+  yReplaceComposition,
+  mapOf,
 } from './docSchema'
 import { Y_MAP, LOCAL_ORIGIN } from './constants'
 import type { TimelineContent } from './types'
@@ -216,5 +221,59 @@ describe('yExitReplayMode', () => {
     undoManager.undo()
     // EXIT_REPLAY_ORIGIN 不被跟踪,undo 不应回退此变更
     expect(projectTimeline(doc).isReplayMode).toBeFalsy()
+  })
+})
+
+describe('cast 锚定备注的级联删除', () => {
+  it('删除 cast 时级联删除其 cast 锚定备注', () => {
+    const doc = new Y.Doc()
+    yAddCastEvent(doc, { id: 'cast-1', actionId: 7432, timestamp: 5, playerId: 2 })
+    yAddAnnotation(doc, {
+      id: 'anno-1',
+      text: '点名',
+      time: 5,
+      anchor: { type: 'cast', castId: 'cast-1' },
+    })
+    yAddAnnotation(doc, {
+      id: 'anno-2',
+      text: '无关',
+      time: 9,
+      anchor: { type: 'damageTrack' },
+    })
+    yRemoveCastEvent(doc, 'cast-1')
+    const anns = mapOf(doc, Y_MAP.annotations)
+    expect(anns.has('anno-1')).toBe(false)
+    expect(anns.has('anno-2')).toBe(true)
+  })
+
+  it('换阵容移除玩家时级联删除其 cast 的 cast 锚定备注', () => {
+    const doc = new Y.Doc()
+    yReplaceComposition(doc, [
+      { id: 2, job: 'WHM' },
+      { id: 3, job: 'SCH' },
+    ])
+    yAddCastEvent(doc, { id: 'cast-2', actionId: 7432, timestamp: 5, playerId: 2 })
+    yAddAnnotation(doc, {
+      id: 'anno-3',
+      text: '点名',
+      time: 5,
+      anchor: { type: 'cast', castId: 'cast-2' },
+    })
+    yReplaceComposition(doc, [{ id: 3, job: 'SCH' }]) // 移除玩家 2
+    const anns = mapOf(doc, Y_MAP.annotations)
+    expect(anns.has('anno-3')).toBe(false)
+  })
+
+  it('projectTimeline 丢弃指向不存在 cast 的孤儿 cast 备注', () => {
+    const doc = new Y.Doc()
+    yReplaceComposition(doc, [{ id: 2, job: 'WHM' }])
+    yAddAnnotation(doc, {
+      id: 'anno-orphan',
+      text: '孤儿',
+      time: 5,
+      anchor: { type: 'cast', castId: 'missing-cast' },
+    })
+    const tl = projectTimeline(doc)
+    expect(tl.annotations.find(a => a.id === 'anno-orphan')).toBeUndefined()
   })
 })
