@@ -1,5 +1,5 @@
 /**
- * 注释图标 Konva 组件
+ * 备注图标 Konva 组件
  * Lucide message-square-text 图标
  */
 

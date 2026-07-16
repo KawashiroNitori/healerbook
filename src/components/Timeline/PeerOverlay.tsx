@@ -101,7 +101,7 @@ export function PeerOverlayFixed({
     return map
   }, [damageEvents])
 
-  // 构建 annotationId → Annotation 快速查找（仅伤害轨道注释）
+  // 构建 annotationId → Annotation 快速查找（仅伤害轨道备注）
   const annotationById = useMemo(() => {
     const map = new Map<string, Annotation>()
     for (const a of annotations) {
@@ -207,11 +207,11 @@ export function PeerOverlayFixed({
       }
     }
 
-    // ── 注释拖动 ghost（伤害轨道） ──
+    // ── 备注拖动 ghost（伤害轨道） ──
     if (peer.dragging?.kind === 'annotation') {
       const { id: dragId, time: dragTime } = peer.dragging
       const annotation = annotationById.get(dragId)
-      // 只处理 damageTrack 锚定的注释（skillTrack 注释由 PeerOverlayMain 负责）
+      // 只处理 damageTrack 锚定的备注（skillTrack 备注由 PeerOverlayMain 负责）
       if (annotation?.anchor.type === 'damageTrack') {
         const ICON_SIZE = 22
         const ghostX = dragTime * zoomLevel - ICON_SIZE / 2
@@ -242,7 +242,7 @@ export function PeerOverlayFixed({
       }
     }
 
-    // ── 群组拖动随动 ghost（伤害 + 伤害轨道注释，不画昵称） ──
+    // ── 群组拖动随动 ghost（伤害 + 伤害轨道备注，不画昵称） ──
     // delta 由抓手 dragging（已平滑）派生；随动对象在 各自原始时间 + delta 处画 ghost。
     const delta = groupDragDelta(peer.dragging, (id, kind) =>
       kind === 'damage'
@@ -278,7 +278,7 @@ export function PeerOverlayFixed({
           />
         )
       }
-      // 随动伤害轨道注释
+      // 随动伤害轨道备注
       for (const annId of peer.dragGroup.annotationIds) {
         const annotation = annotationById.get(annId)
         if (annotation?.anchor.type !== 'damageTrack') continue
@@ -369,7 +369,7 @@ export function PeerOverlayMain({
     return map
   }, [castEvents])
 
-  // 构建 annotationId → Annotation 快速查找（仅技能轨道注释）
+  // 构建 annotationId → Annotation 快速查找（仅技能轨道备注）
   const annotationById = useMemo(() => {
     const map = new Map<string, Annotation>()
     for (const a of annotations) {
@@ -500,11 +500,11 @@ export function PeerOverlayMain({
       }
     }
 
-    // ── 注释拖动 ghost（技能轨道） ──
+    // ── 备注拖动 ghost（技能轨道） ──
     if (peer.dragging?.kind === 'annotation') {
       const { id: dragId, time: dragTime } = peer.dragging
       const annotation = annotationById.get(dragId)
-      // 只处理 skillTrack 锚定的注释（damageTrack 注释由 PeerOverlayFixed 负责）
+      // 只处理 skillTrack 锚定的备注（damageTrack 备注由 PeerOverlayFixed 负责）
       if (annotation?.anchor.type === 'skillTrack') {
         const anchor = annotation.anchor
         const trackIndex = trackIndexMap.get(trackKey(anchor.playerId, anchor.actionId)) ?? -1
@@ -540,7 +540,7 @@ export function PeerOverlayMain({
       }
     }
 
-    // ── 群组拖动随动 ghost（cast + 技能轨道注释，不画昵称） ──
+    // ── 群组拖动随动 ghost（cast + 技能轨道备注，不画昵称） ──
     const delta = groupDragDelta(peer.dragging, (id, kind) =>
       kind === 'cast'
         ? castEventById.get(id)?.timestamp
@@ -574,7 +574,7 @@ export function PeerOverlayMain({
           />
         )
       }
-      // 随动技能轨道注释
+      // 随动技能轨道备注
       for (const annId of peer.dragGroup.annotationIds) {
         const annotation = annotationById.get(annId)
         if (annotation?.anchor.type !== 'skillTrack') continue

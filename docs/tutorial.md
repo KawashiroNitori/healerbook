@@ -196,5 +196,5 @@ HP 条下方有一个彩色横条，展示伤害的构成：
 
 - 想参考大佬的减伤方案？→ [如何参考 TOP100 方案](./howto/top100)
 - 需要调整队伍职业？→ [如何管理小队阵容](./howto/manage-composition)
-- 想给队友标注重点？→ [如何使用注释](./howto/annotations)
+- 想给队友标注重点？→ [如何使用备注](./howto/annotations)
 - 键盘快捷键不够熟？→ [键盘快捷键速查](./howto/keyboard-shortcuts)

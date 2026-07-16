@@ -311,7 +311,7 @@ describe('annotation CRUD', () => {
     useTimelineStore.getState().reset()
   })
 
-  it('addAnnotation 应该添加注释', async () => {
+  it('addAnnotation 应该添加备注', async () => {
     await useTimelineStore
       .getState()
       .openTimeline('test-ann-add', { role: 'local', seedContent: baseContent })
@@ -327,7 +327,7 @@ describe('annotation CRUD', () => {
     expect(annotations[0].text).toBe('注意减伤')
   })
 
-  it('updateAnnotation 应该更新注释文本', async () => {
+  it('updateAnnotation 应该更新备注文本', async () => {
     await useTimelineStore.getState().openTimeline('test-ann-update', {
       role: 'local',
       seedContent: {
@@ -341,7 +341,7 @@ describe('annotation CRUD', () => {
     expect(annotation.time).toBe(10)
   })
 
-  it('removeAnnotation 应该删除注释', async () => {
+  it('removeAnnotation 应该删除备注', async () => {
     await useTimelineStore.getState().openTimeline('test-ann-remove', {
       role: 'local',
       seedContent: {
@@ -353,7 +353,7 @@ describe('annotation CRUD', () => {
     expect(useTimelineStore.getState().timeline!.annotations).toHaveLength(0)
   })
 
-  it('updateComposition 应该过滤掉不在新阵容中的 skillTrack 注释', async () => {
+  it('updateComposition 应该过滤掉不在新阵容中的 skillTrack 备注', async () => {
     await useTimelineStore.getState().openTimeline('test-ann-comp', {
       role: 'local',
       seedContent: {
@@ -361,17 +361,17 @@ describe('annotation CRUD', () => {
         annotations: [
           {
             id: 'ann-1',
-            text: '坦克注释',
+            text: '坦克备注',
             time: 10,
             anchor: { type: 'skillTrack', playerId: 1, actionId: 100 },
           },
           {
             id: 'ann-2',
-            text: '治疗注释',
+            text: '治疗备注',
             time: 20,
             anchor: { type: 'skillTrack', playerId: 2, actionId: 200 },
           },
-          { id: 'ann-3', text: '伤害注释', time: 30, anchor: { type: 'damageTrack' } },
+          { id: 'ann-3', text: '伤害备注', time: 30, anchor: { type: 'damageTrack' } },
         ],
       },
     })

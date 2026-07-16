@@ -24,7 +24,7 @@ const sample: TimelineContent = {
     { id: 'd1', name: 'AOE', time: 10, damage: 1000, type: 'aoe', damageType: 'magical' },
   ],
   castEvents: [{ id: 'c1', actionId: 100, timestamp: 5, playerId: 1 }],
-  annotations: [{ id: 'a1', text: '注释', time: 8, anchor: { type: 'damageTrack' } }],
+  annotations: [{ id: 'a1', text: '备注', time: 8, anchor: { type: 'damageTrack' } }],
   createdAt: 1000,
 }
 
@@ -77,7 +77,7 @@ describe('projectTimeline', () => {
     expect(out.castEvents).toHaveLength(1)
   })
 
-  it('sanitizer:丢弃玩家已不在的 skillTrack 注释', () => {
+  it('sanitizer:丢弃玩家已不在的 skillTrack 备注', () => {
     const doc = buildYDoc(sample)
     const orphan = new Y.Map<unknown>()
     orphan.set('id', 'a-orphan')

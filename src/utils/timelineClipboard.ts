@@ -70,7 +70,7 @@ export interface PasteResult {
   skipped: number
 }
 
-/** 反序列化 + 职业映射 + 时间平移；落不了位的 cast/skillTrack 注释跳过并计数 */
+/** 反序列化 + 职业映射 + 时间平移；落不了位的 cast/skillTrack 备注跳过并计数 */
 export function remapClipboardForPaste(
   payload: TimelineClipboard,
   args: PasteRemapArgs

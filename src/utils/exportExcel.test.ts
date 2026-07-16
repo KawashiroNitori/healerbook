@@ -317,7 +317,7 @@ describe('exportTimelineToExcel', () => {
     }
   })
 
-  it('注释行正确导出', async () => {
+  it('备注行正确导出', async () => {
     const annotation: Annotation = {
       id: 'ann1',
       text: '这里要用减伤',
@@ -340,7 +340,7 @@ describe('exportTimelineToExcel', () => {
     await wb.xlsx.load(buffer as unknown as Buffer)
     const ws = wb.worksheets[0]
 
-    // 注释在 time=30，事件在 time=65.3，所以注释在 row3，事件在 row4
+    // 备注在 time=30，事件在 time=65.3，所以备注在 row3，事件在 row4
     const row3 = ws.getRow(3)
     expect(row3.getCell(1).value).toBe('0:30.0')
     expect(row3.getCell(2).value).toBe('这里要用减伤')

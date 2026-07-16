@@ -180,7 +180,7 @@ describe('buildSoumaTimelineText', () => {
     expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('')
   })
 
-  it('注释输出为 # 前缀行带时间标签，按时间合并到技能之间', () => {
+  it('备注输出为 # 前缀行带时间标签，按时间合并到技能之间', () => {
     const timeline = makeTimeline({
       castEvents: [
         makeCast({ actionId: 16536, timestamp: 10 }),
@@ -200,7 +200,7 @@ describe('buildSoumaTimelineText', () => {
     ])
   })
 
-  it('同一时间点注释排在技能之前', () => {
+  it('同一时间点备注排在技能之前', () => {
     const timeline = makeTimeline({
       castEvents: [makeCast({ actionId: 16536, timestamp: 20 })],
       annotations: [{ id: 'a1', text: '提示', time: 20, anchor: { type: 'damageTrack' } }],
@@ -210,7 +210,7 @@ describe('buildSoumaTimelineText', () => {
     expect(lines[1]).toMatch(/^00:20\.0 "<.+>~"$/)
   })
 
-  it('多行注释每行独立前缀 # 且都带时间标签', () => {
+  it('多行备注每行独立前缀 # 且都带时间标签', () => {
     const timeline = makeTimeline({
       annotations: [
         { id: 'a1', text: '第一行\n第二行\n第三行', time: 5, anchor: { type: 'damageTrack' } },
@@ -220,28 +220,28 @@ describe('buildSoumaTimelineText', () => {
     expect(lines).toEqual(['# 00:05.0 第一行', '# 00:05.0 第二行', '# 00:05.0 第三行'])
   })
 
-  it('没有技能但有注释时仍输出注释', () => {
+  it('没有技能但有备注时仍输出备注', () => {
     const timeline = makeTimeline({
-      annotations: [{ id: 'a1', text: '单独注释', time: 0, anchor: { type: 'damageTrack' } }],
+      annotations: [{ id: 'a1', text: '单独备注', time: 0, anchor: { type: 'damageTrack' } }],
     })
-    expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('# 00:00.0 单独注释')
+    expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('# 00:00.0 单独备注')
   })
 
-  it('skillTrack anchor 的注释前缀加上技能 icon 语法', () => {
+  it('skillTrack anchor 的备注前缀加上技能 icon 语法', () => {
     const timeline = makeTimeline({
       annotations: [
         {
           id: 'a1',
-          text: '绑定技能注释',
+          text: '绑定技能备注',
           time: 5,
           anchor: { type: 'skillTrack', playerId: 1, actionId: 16536 },
         },
       ],
     })
-    expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('# 00:05.0 <节制>绑定技能注释')
+    expect(buildSoumaTimelineText(timeline, 1, [], false)).toBe('# 00:05.0 <节制>绑定技能备注')
   })
 
-  it('skillTrack 多行注释每行都带 icon 前缀', () => {
+  it('skillTrack 多行备注每行都带 icon 前缀', () => {
     const timeline = makeTimeline({
       annotations: [
         {
@@ -342,7 +342,7 @@ describe('buildSoumaTimelineText', () => {
     expect(lines[3]).toMatch(/^00:35\.0 "<.+>~"$/) // 技能
   })
 
-  it('同秒撞车时 sync 排在注释和技能之后', () => {
+  it('同秒撞车时 sync 排在备注和技能之后', () => {
     const timeline = makeTimeline({
       castEvents: [makeCast({ actionId: 16536, timestamp: 20 })],
       annotations: [{ id: 'a1', text: '提示', time: 20, anchor: { type: 'damageTrack' } }],

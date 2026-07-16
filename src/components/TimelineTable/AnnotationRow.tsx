@@ -1,7 +1,7 @@
 /**
- * 表格视图的注释行
+ * 表格视图的备注行
  *
- * 独占一行，时间列显示 mm:ss.f；其余所有列合并为一格展示注释文本。
+ * 独占一行，时间列显示 mm:ss.f；其余所有列合并为一格展示备注文本。
  */
 
 import { StickyNote } from 'lucide-react'
@@ -15,9 +15,9 @@ interface AnnotationRowProps {
   restColSpan: number
   /** 外层滚动容器可视宽度 */
   wrapperWidth: number
-  /** 表格总宽度（所有列宽之和），用于避免注释 div 撑开表格 */
+  /** 表格总宽度（所有列宽之和），用于避免备注 div 撑开表格 */
   tableWidth: number
-  /** 是否显示咏唱开始时间列（注释行需补一个占位前导列并右移时间列） */
+  /** 是否显示咏唱开始时间列（备注行需补一个占位前导列并右移时间列） */
   showCastStartTime: boolean
 }
 

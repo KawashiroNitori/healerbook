@@ -286,7 +286,7 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         }
       })
 
-      // 绘制注释标记（minimap 顶部）
+      // 绘制备注标记（minimap 顶部）
       const annotations = timeline.annotations ?? []
       if (annotations.length > 0) {
         const iconSize = 10

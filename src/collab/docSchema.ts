@@ -192,7 +192,7 @@ export function ySetMeta(doc: Y.Doc, patch: Record<string, unknown>): void {
 }
 
 /**
- * 替换阵容,并级联清理:删掉不在新阵容的玩家的 castEvent / skillTrack 注释。
+ * 替换阵容,并级联清理:删掉不在新阵容的玩家的 castEvent / skillTrack 备注。
  * statData 的清理交由调用方在同事务内补充(本阶段先做引用清理)。
  */
 export function yReplaceComposition(doc: Y.Doc, players: { id: number; job: string }[]): void {
@@ -256,7 +256,7 @@ export function yExitReplayMode(doc: Y.Doc): void {
 /**
  * Y.Doc → Timeline 形状的普通对象。
  * 读路径强制跨集合不变量(sanitizer):丢弃引用了不存在玩家的 castEvent /
- * skillTrack 注释。见设计文档 §5.2。
+ * skillTrack 备注。见设计文档 §5.2。
  */
 export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
   const meta = doc.getMap(Y_MAP.meta)

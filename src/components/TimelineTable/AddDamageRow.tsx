@@ -1,7 +1,7 @@
 /**
  * 表格视图的"添加伤害事件"行
  *
- * 固定置于所有数据行 / 注释行之下，仅编辑模式可见。点击打开 AddEventDialog。
+ * 固定置于所有数据行 / 备注行之下，仅编辑模式可见。点击打开 AddEventDialog。
  * 排版策略同 AnnotationRow：colSpan 整行 + 内部 sticky div，保证横向滚动时按钮
  * 始终在可视区内居中。
  */

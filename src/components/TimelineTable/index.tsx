@@ -3,7 +3,7 @@
  * 表格视图主组件
  *
  * 数据流：
- * - useTimelineStore → timeline（伤害事件、注释、castEvents）
+ * - useTimelineStore → timeline（伤害事件、备注、castEvents）
  * - ACTIONS（构造 actionsById Map）
  * - useSkillTracks() → 列顺序
  * - useDamageCalculationResults() → 编辑/回放模式的伤害数值
@@ -238,7 +238,7 @@ export default function TimelineTableView() {
     return max
   }, [timeline])
 
-  // 跟踪外层滚动容器的尺寸：用于右侧阴影显隐和注释内容宽度
+  // 跟踪外层滚动容器的尺寸：用于右侧阴影显隐和备注内容宽度
   const wrapperRef = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
   const [showRightShadow, setShowRightShadow] = useState(false)
@@ -373,7 +373,7 @@ export default function TimelineTableView() {
   const restColSpan =
     1 /* 事件名 */ + (showOriginalDamage ? 1 : 0) + (showActualDamage ? 1 : 0) + skillTracks.length
 
-  // 表格各列显式宽度之和，用于限定注释行 sticky div 的最大宽度
+  // 表格各列显式宽度之和，用于限定备注行 sticky div 的最大宽度
   const tableWidth =
     (showCastStartTime ? CAST_START_COL_WIDTH : 0) +
     TIME_COL_WIDTH +

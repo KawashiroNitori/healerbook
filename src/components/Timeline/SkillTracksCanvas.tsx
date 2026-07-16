@@ -53,7 +53,7 @@ interface SkillTracksCanvasProps {
   groupDraggedCastId?: string | null
   /** 选中的伤害事件 id（群组拖动时其红色竖线随同偏移） */
   selectedEventIds?: string[]
-  /** 选中的注释 id（群组拖动时随同偏移） */
+  /** 选中的备注 id（群组拖动时随同偏移） */
   selectedAnnotationIds?: string[]
   draggingEventPosition: { eventId: string; x: number } | null
   scrollLeft: number
@@ -691,7 +691,7 @@ export default function SkillTracksCanvas({
           )
         })}
 
-        {/* 注释图标（视口裁剪；他人拖动中的注释隐藏） */}
+        {/* 备注图标（视口裁剪；他人拖动中的备注隐藏） */}
         {annotations
           .filter(a => {
             if (a.anchor.type !== 'skillTrack') return false

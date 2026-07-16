@@ -1,5 +1,5 @@
 /**
- * 注释查看/编辑 Popover
+ * 备注查看/编辑 Popover
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -85,7 +85,7 @@ export default function AnnotationPopover({
             value={editText}
             onChange={e => setEditText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入注释..."
+            placeholder="输入备注..."
           />
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground">

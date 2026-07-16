@@ -16,7 +16,7 @@ interface DamageEventTrackProps {
   groupDragDelta?: number
   /** 群组拖动的「抓手」伤害事件 id（其卡片由 Konva 自身驱动，不重复施加偏移） */
   groupDraggedId?: string | null
-  /** 选中的注释 id（群组拖动时随同偏移） */
+  /** 选中的备注 id（群组拖动时随同偏移） */
   selectedAnnotationIds?: string[]
   zoomLevel: number
   timelineWidth: number
@@ -243,7 +243,7 @@ export default function DamageEventTrack({
             />
           )
         })}
-      {/* 注释图标（视口裁剪；他人拖动中的注释隐藏） */}
+      {/* 备注图标（视口裁剪；他人拖动中的备注隐藏） */}
       {annotations
         .filter(annotation => {
           if (peerDraggingIds?.has(annotation.id)) return false

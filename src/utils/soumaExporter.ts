@@ -27,8 +27,8 @@ export function formatSoumaTime(t: number): string {
 /**
  * 将指定玩家在时间轴上使用过的技能转换为 Souma 时间轴文本。
  * - 技能行：`mm:ss.d "<技能名>~"[ tts]`
- * - 注释行：`# mm:ss.d 注释文本`（多行注释自动拆成多条 # 行）
- * 注释与技能按时间合并排序；同一时间注释排在技能之前。
+ * - 备注行：`# mm:ss.d 备注文本`（多行备注自动拆成多条 # 行）
+ * 备注与技能按时间合并排序；同一时间备注排在技能之前。
  */
 export function buildSoumaTimelineText(
   timeline: Timeline,
@@ -42,7 +42,7 @@ export function buildSoumaTimelineText(
   type Entry = { time: number; order: number; text: string }
   const entries: Entry[] = []
 
-  // 注释（全部包含，skillTrack anchor 会额外带上绑定技能的图标语法）
+  // 备注（全部包含，skillTrack anchor 会额外带上绑定技能的图标语法）
   for (const ann of timeline.annotations ?? []) {
     const timeLabel = formatSoumaTime(ann.time)
     let iconPrefix = ''
@@ -97,7 +97,7 @@ export function buildSoumaTimelineText(
 
   if (entries.length === 0) return ''
 
-  // 同一 time 内注释排在技能之前；相同 order 保持插入顺序（stable sort）
+  // 同一 time 内备注排在技能之前；相同 order 保持插入顺序（stable sort）
   entries.sort((a, b) => a.time - b.time || a.order - b.order)
 
   return entries.map(e => e.text).join('\n')

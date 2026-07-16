@@ -9,8 +9,8 @@ export type TableRow =
   | { kind: 'annotation'; id: string; time: number; annotation: Annotation }
 
 /**
- * 合并伤害事件和注释为统一行列表，按 time 升序。
- * 相同 time 时注释行排在伤害事件之前。组内保持输入顺序（稳定排序）。
+ * 合并伤害事件和备注为统一行列表，按 time 升序。
+ * 相同 time 时备注行排在伤害事件之前。组内保持输入顺序（稳定排序）。
  */
 export function mergeAndSortRows(
   damageEvents: DamageEvent[],

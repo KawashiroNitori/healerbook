@@ -79,7 +79,7 @@ export interface Timeline {
   castEvents: CastEvent[]
   /** 状态事件列表（编辑模式专用） */
   statusEvents: StatusEvent[]
-  /** 注释列表 */
+  /** 备注列表 */
   annotations: Annotation[]
   /** 时间轴内部统计数据（盾值、治疗量、安全血量） */
   statData?: TimelineStatData
@@ -259,19 +259,19 @@ export interface CastEvent {
 }
 
 /**
- * 注释锚定目标
+ * 备注锚定目标
  */
 export type AnnotationAnchor =
   | { type: 'damageTrack' }
   | { type: 'skillTrack'; playerId: number; actionId: number }
 
 /**
- * 注释
+ * 备注
  */
 export interface Annotation {
-  /** 注释 ID */
+  /** 备注 ID */
   id: string
-  /** 注释文本（最大 200 字符，允许换行） */
+  /** 备注文本（最大 200 字符，允许换行） */
   text: string
   /** 锚定时间（秒） */
   time: number

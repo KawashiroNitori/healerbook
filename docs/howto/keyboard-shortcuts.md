@@ -11,10 +11,10 @@ title: 键盘快捷键速查
 | `Ctrl + Shift + Z`     | 重做                       |
 | `Ctrl + C`             | 复制选中的伤害事件         |
 | `Ctrl + V`             | 粘贴伤害事件到光标位置     |
-| `Delete` / `Backspace` | 删除选中的事件、技能或注释 |
+| `Delete` / `Backspace` | 删除选中的事件、技能或备注 |
 | `Escape`               | 取消选择 / 关闭弹出框      |
 | `Enter`                | 确认输入（标题编辑等）     |
-| `Ctrl + Enter`         | 保存注释                   |
+| `Ctrl + Enter`         | 保存备注                   |
 | 鼠标滚轮               | 左右平移时间轴             |
 | `Shift` + 鼠标滚轮     | 上下滚动技能轨道           |
 | `Ctrl` + 鼠标滚轮      | 缩放时间轴                 |

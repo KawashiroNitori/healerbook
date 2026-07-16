@@ -186,7 +186,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加注释
+              添加备注
             </DropdownMenuItem>
             {onPasteSelection && (
               <DropdownMenuItem
@@ -284,7 +284,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加注释
+              添加备注
             </DropdownMenuItem>
             {onPasteSelection && (
               <DropdownMenuItem

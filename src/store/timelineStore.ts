@@ -2,7 +2,7 @@
  * 时间轴状态管理
  *
  * 真相源是 `SyncEngine` 持有的 `Y.Doc`;本 store 的 `timeline` 字段是它的
- * **只读投影**。内容类 mutation(增删改伤害事件 / cast / 注释 / 阵容 / 数值设置)
+ * **只读投影**。内容类 mutation(增删改伤害事件 / cast / 备注 / 阵容 / 数值设置)
  * 不再做不可变 `set`,而是调用 `docSchema` 的 granular mutator 改 `Y.Doc`,改动
  * 经 `Y.Doc` 的 `update` 事件 → `reproject` → `set({ timeline })` 流回。
  *
@@ -94,7 +94,7 @@ interface TimelineState {
   selectedEventIds: string[]
   /** 选中的技能使用事件 ID 列表 */
   selectedCastEventIds: string[]
-  /** 选中的注释 ID 列表 */
+  /** 选中的备注 ID 列表 */
   selectedAnnotationIds: string[]
   /** 当前选择是否由「全选 / 全选技能 / 全选伤害事件」操作产生（决定复制后粘贴用绝对时间） */
   selectionFromSelectAll: boolean
@@ -174,11 +174,11 @@ interface TimelineState {
   updateCastEvent: (castEventId: string, updates: Partial<CastEvent>) => void
   /** 删除技能使用事件 */
   removeCastEvent: (castEventId: string) => void
-  /** 添加注释 */
+  /** 添加备注 */
   addAnnotation: (annotation: Annotation) => void
-  /** 更新注释 */
+  /** 更新备注 */
   updateAnnotation: (id: string, updates: Partial<Pick<Annotation, 'text' | 'time'>>) => void
-  /** 删除注释 */
+  /** 删除备注 */
   removeAnnotation: (id: string) => void
   /** 批量平移选中对象的时间（同一事务，单步 undo） */
   bulkMoveSelection: (delta: number) => void
@@ -645,7 +645,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       const statData = get().timeline?.statData
       engine.doc.transact(() => {
         yReplaceComposition(engine.doc, composition.players)
-        // yReplaceComposition 已级联清理 castEvent / skillTrack 注释;
+        // yReplaceComposition 已级联清理 castEvent / skillTrack 备注;
         // statData 的阵容内清理在此补充(mutator 不碰 statData)
         if (statData) {
           replaceStatData(engine.doc, cleanupStatData(statData, composition))

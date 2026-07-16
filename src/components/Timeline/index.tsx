@@ -78,7 +78,7 @@ interface TimelineCanvasProps {
   height: number
 }
 
-// 注释文字气泡（悬浮/固定两种场景共用）
+// 备注文字气泡（悬浮/固定两种场景共用）
 function AnnotationBubble({
   text,
   basePos,
@@ -126,9 +126,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     screenY: number
   } | null>(null)
   const [hoverAnnotationId, setHoverAnnotationId] = useState<string | null>(null)
-  // 点击固定显示的注释 ID（位置在渲染时动态计算）
+  // 点击固定显示的备注 ID（位置在渲染时动态计算）
   const [pinnedAnnotationId, setPinnedAnnotationId] = useState<string | null>(null)
-  // 用于区分注释 icon 点击和空白点击
+  // 用于区分备注 icon 点击和空白点击
   const annotationClickedRef = useRef(false)
   const [isDraggingAnnotation, setIsDraggingAnnotation] = useState(false)
   const [draggingEventPosition, setDraggingEventPosition] = useState<{
@@ -340,7 +340,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     }
     // 滚动条 thumb 同步
     scrollbarRef.current?.updateScrollTop(newScrollTop)
-    // 固定展示的注释 popover 实时跟随滚动（通过 CSS 自定义属性驱动 calc()）
+    // 固定展示的备注 popover 实时跟随滚动（通过 CSS 自定义属性驱动 calc()）
     if (timelineContainerRef.current) {
       timelineContainerRef.current.style.setProperty('--tl-scroll-x', `${newScrollLeft}px`)
       timelineContainerRef.current.style.setProperty('--tl-scroll-y', `${newScrollTop}px`)
@@ -859,7 +859,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     preventDefault: true,
   })
 
-  // 全选：选中时间轴所有伤害事件 / 技能 cast / 注释（mod+a 快捷键与空白处右键菜单共用）
+  // 全选：选中时间轴所有伤害事件 / 技能 cast / 备注（mod+a 快捷键与空白处右键菜单共用）
   const selectAll = useCallback(() => {
     const s = useTimelineStore.getState()
     const tl = s.timeline
@@ -888,7 +888,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       .setSelection({ castEventIds: filteredCastEvents.map(c => c.id) }, { fromSelectAll: true })
   }, [filteredCastEvents])
 
-  // 删除：多选时批量删除，否则删单个选中项或固定注释
+  // 删除：多选时批量删除，否则删单个选中项或固定备注
   useHotkeys(
     'delete, backspace',
     () => {
@@ -1008,7 +1008,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   }
 
   // 群组拖动：若被拖动对象（damage/cast 抓手）属于一个总数 >1 的多选，则记录抓手起点
-  // 并进入群组拖动态。total 计入 annotation —— 注释只能作为随动对象，不能作抓手。
+  // 并进入群组拖动态。total 计入 annotation —— 备注只能作为随动对象，不能作抓手。
   // 返回是否进入群组拖动（供调用方决定是否走单体逻辑）。
   const tryBeginGroupDrag = useCallback(
     (kind: 'damage' | 'cast', id: string, anchorX: number): boolean => {
@@ -1415,7 +1415,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         sel.selectedCastEventIds.length +
         sel.selectedAnnotationIds.length
       if (total > 1 && sel.selectedAnnotationIds.includes(annotationId)) {
-        // 右键命中多选集合内注释：弹批量菜单（只读也弹，仅显示复制），return 避免塌缩多选
+        // 右键命中多选集合内备注：弹批量菜单（只读也弹，仅显示复制），return 避免塌缩多选
         setContextMenu({ type: 'multiSelection', count: total, x: clientX, y: clientY, time })
         return
       }
@@ -1517,7 +1517,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     a => a.anchor.type === 'skillTrack'
   )
 
-  // 计算注释 popover 的基准位置（不含滚动偏移，供 CSS calc() 使用）
+  // 计算备注 popover 的基准位置（不含滚动偏移，供 CSS calc() 使用）
   const getAnnotationBasePos = (annotation: { time: number; anchor: AnnotationAnchor }) => {
     const timePixels = annotation.time * zoomLevel
     if (annotation.anchor.type === 'damageTrack') {
@@ -1558,8 +1558,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   // 坐标公式与渲染层一致：
   //   canvasLeft = labelColumnWidth + SCROLLBAR_WIDTH（标签列宽，画布内容从此处开始）
   //   x = canvasLeft + time*zoomLevel - scrollLeft
-  //   伤害轨/伤害注释 y：固定区，不随垂直滚动（timeRulerHeight 起）
-  //   技能轨/技能注释 y：fixedAreaHeight + trackIndex*skillTrackHeight + ... - scrollTop
+  //   伤害轨/伤害备注 y：固定区，不随垂直滚动（timeRulerHeight 起）
+  //   技能轨/技能备注 y：fixedAreaHeight + trackIndex*skillTrackHeight + ... - scrollTop
   const canvasLeft = labelColumnWidth + SCROLLBAR_WIDTH
   // DamageEventCard: Group y = yOffset + row*LANE_ROW_HEIGHT + LANE_ROW_HEIGHT/2 (=18)
   // Rect local y=-15, height=30 → real span [base+3, base+33] where base = timeRulerHeight + row*LANE_ROW_HEIGHT
@@ -1604,7 +1604,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         y1: y0 + CAST_ICON_SIZE,
       })
     }
-    // 注释（按 anchor 区分固定区 / 技能区）
+    // 备注（按 anchor 区分固定区 / 技能区）
     // AnnotationIcon 是 center-anchored：Group 放在 (x - ICON_SIZE/2, y - ICON_SIZE/2)，
     // 因此传入的 (x, y) 即图标中心，hit-box 对称展开 ±ANNOTATION_ICON_HALF。
     for (const annotation of timeline.annotations ?? []) {
@@ -2152,17 +2152,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onCancel={() => setPendingPaste(null)}
       />
 
-      {/* 注释悬浮查看（pointer-events: none，通过 CSS 变量实时跟随滚动） */}
+      {/* 备注悬浮查看（pointer-events: none，通过 CSS 变量实时跟随滚动） */}
       {hoverAnnotation && hoverBasePos && !editingAnnotation && !pinnedAnnotation && (
         <AnnotationBubble text={hoverAnnotation.text} basePos={hoverBasePos} />
       )}
 
-      {/* 注释固定显示（点击切换，通过 CSS 变量实时跟随滚动） */}
+      {/* 备注固定显示（点击切换，通过 CSS 变量实时跟随滚动） */}
       {pinnedAnnotation && pinnedBasePos && !editingAnnotation && !isDraggingAnnotation && (
         <AnnotationBubble text={pinnedAnnotation.text} basePos={pinnedBasePos} />
       )}
 
-      {/* 注释编辑 */}
+      {/* 备注编辑 */}
       {editingAnnotation && (
         <AnnotationPopover
           key={editingAnnotation.annotation?.id ?? 'new'}
