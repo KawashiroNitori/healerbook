@@ -124,6 +124,11 @@ export function remapClipboardForPaste(
 
   const annotations: Omit<Annotation, 'id'>[] = []
   for (const a of hydrated.annotations ?? []) {
+    if (a.anchor.type === 'cast') {
+      // cast 锚定引用具体 cast 实例，粘贴后目标 cast 是新实例、id 无法重映射 → 丢弃计数
+      skipped++
+      continue
+    }
     if (a.anchor.type === 'skillTrack') {
       const mapped = map.get(a.anchor.playerId)
       if (mapped === undefined) {

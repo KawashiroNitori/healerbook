@@ -144,4 +144,34 @@ describe('remapClipboardForPaste', () => {
     expect(out.castEvents).toHaveLength(0)
     expect(out.skipped).toBe(1)
   })
+
+  it('cast 锚定备注：粘贴时丢弃并计数，不误伤 damageTrack 备注', () => {
+    const tlWithCastAnnotation: Timeline = {
+      ...timeline,
+      annotations: [
+        { id: 'a1', text: 'n', time: 14, anchor: { type: 'damageTrack' } },
+        { id: 'a2', text: 'cast-note', time: 12, anchor: { type: 'cast', castId: 'c1' } },
+      ],
+    } as unknown as Timeline
+    const p = buildClipboardPayload(tlWithCastAnnotation, {
+      eventIds: ['d1'],
+      castEventIds: ['c1'],
+      annotationIds: ['a1', 'a2'],
+    })
+    const cur: Composition = {
+      players: [
+        { id: 7, job: 'PLD' },
+        { id: 9, job: 'WHM' },
+      ],
+    }
+    const out = remapClipboardForPaste(p, {
+      currentComposition: cur,
+      targetTime: 100,
+      validActionIds,
+    })
+    // cast 锚定备注（castId 无法重映射）被丢弃，damageTrack 备注正常保留
+    expect(out.annotations).toHaveLength(1)
+    expect(out.annotations[0].anchor).toEqual({ type: 'damageTrack' })
+    expect(out.skipped).toBe(1)
+  })
 })

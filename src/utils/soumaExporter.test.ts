@@ -256,6 +256,27 @@ describe('buildSoumaTimelineText', () => {
     expect(lines).toEqual(['# 00:05.0 <节制>第一行', '# 00:05.0 <节制>第二行'])
   })
 
+  it('cast 锚定备注按绑定技能的时刻和图标导出', () => {
+    const timeline = makeTimeline({
+      castEvents: [makeCast({ actionId: 16536, timestamp: 5 })],
+      annotations: [
+        { id: 'a1', text: '开团减伤', time: 0, anchor: { type: 'cast', castId: 'c-16536-5' } },
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [], false)
+    expect(text).toBe('# 00:05.0 <节制>开团减伤')
+  })
+
+  it('cast 锚定引用的 cast 不存在时不加图标前缀，时间用备注自身 time', () => {
+    const timeline = makeTimeline({
+      annotations: [
+        { id: 'a1', text: '孤立备注', time: 8, anchor: { type: 'cast', castId: 'missing' } },
+      ],
+    })
+    const text = buildSoumaTimelineText(timeline, 1, [], false)
+    expect(text).toBe('# 00:08.0 孤立备注')
+  })
+
   it('syncEvents 输出 cactbot 风格 sync 行', () => {
     const timeline = makeTimeline({
       syncEvents: [

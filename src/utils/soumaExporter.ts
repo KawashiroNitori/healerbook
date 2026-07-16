@@ -42,17 +42,26 @@ export function buildSoumaTimelineText(
   type Entry = { time: number; order: number; text: string }
   const entries: Entry[] = []
 
-  // 备注（全部包含，skillTrack anchor 会额外带上绑定技能的图标语法）
+  // 备注（全部包含；skillTrack / cast 锚定会带上绑定技能的图标语法与真实时刻）
   for (const ann of timeline.annotations ?? []) {
-    const timeLabel = formatSoumaTime(ann.time)
+    let annTime = ann.time
     let iconPrefix = ''
     if (ann.anchor.type === 'skillTrack') {
       const anchorActionId = ann.anchor.actionId
       const action = MITIGATION_DATA.actions.find(a => a.id === anchorActionId)
       if (action) iconPrefix = `<${action.name}>`
+    } else if (ann.anchor.type === 'cast') {
+      const anchorCastId = ann.anchor.castId
+      const cast = timeline.castEvents.find(c => c.id === anchorCastId)
+      if (cast) {
+        annTime = cast.timestamp
+        const action = MITIGATION_DATA.actions.find(a => a.id === cast.actionId)
+        if (action) iconPrefix = `<${action.name}>`
+      }
     }
+    const timeLabel = formatSoumaTime(annTime)
     for (const line of ann.text.split('\n')) {
-      entries.push({ time: ann.time, order: 0, text: `# ${timeLabel} ${iconPrefix}${line}` })
+      entries.push({ time: annTime, order: 0, text: `# ${timeLabel} ${iconPrefix}${line}` })
     }
   }
 
