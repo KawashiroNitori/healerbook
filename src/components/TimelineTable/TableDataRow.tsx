@@ -9,6 +9,7 @@
  */
 
 import { MessageSquareText } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { GameIcon } from '@/components/GameIcon'
 import { cellKey, type CastMarker } from '@/utils/tableCellHitTest'
@@ -45,7 +46,7 @@ interface TableDataRowProps {
    */
   markerCells: Map<string, CastMarker>
   /** cast 锚定备注文本（castId → 合并文本）；marker 格右上角显示角标 */
-  castAnnotationTextByCastId: Map<string, string>
+  castAnnotationByCastId: Map<string, { id: string; text: string }>
   /** 用于按 actionId 查找变体真实图标 */
   actionsById: Map<number, MitigationAction>
   calculationResult: CalculationResult | undefined
@@ -58,6 +59,13 @@ interface TableDataRowProps {
   onCellToggle: (track: SkillTrack, event: DamageEvent, isLit: boolean) => void
   /** 只读模式下禁止切换 */
   isReadOnly: boolean
+  /** 右键 marker 单元格（cast）：弹出与时间轴一致的 castEvent 菜单 */
+  onCastContextMenu?: (
+    castEventId: string,
+    castTime: number,
+    clientX: number,
+    clientY: number
+  ) => void
 }
 
 const EMPTY = '—'
@@ -104,7 +112,7 @@ export default function TableDataRow({
   cdCells,
   shadowCells,
   markerCells,
-  castAnnotationTextByCastId,
+  castAnnotationByCastId,
   actionsById,
   calculationResult,
   showOriginalDamage,
@@ -113,6 +121,7 @@ export default function TableDataRow({
   onSelect,
   onCellToggle,
   isReadOnly,
+  onCastContextMenu,
 }: TableDataRowProps) {
   const { original, actual } = resolveDamageNumbers(event, timeline, calculationResult)
 
@@ -251,6 +260,15 @@ export default function TableDataRow({
               e.stopPropagation()
               onCellToggle(track, event, isMarker)
             }}
+            onContextMenu={
+              marker !== undefined && onCastContextMenu
+                ? e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onCastContextMenu(marker.castId, marker.castTime, e.clientX, e.clientY)
+                  }
+                : undefined
+            }
             onMouseMove={marker !== undefined ? hoverAt(marker.castTime) : undefined}
             onMouseLeave={marker !== undefined ? clearHover : undefined}
           >
@@ -268,13 +286,27 @@ export default function TableDataRow({
                 className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
               />
             )}
-            {isMarker && castAnnotationTextByCastId.has(marker.castId) && (
-              <span
-                className="pointer-events-none absolute top-0.5 right-0.5 flex items-center justify-center rounded-sm bg-blue-500/80 p-[1px] shadow"
-                title={castAnnotationTextByCastId.get(marker.castId)}
-              >
-                <MessageSquareText className="h-2.5 w-2.5 text-white" />
-              </span>
+            {isMarker && castAnnotationByCastId.has(marker.castId) && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="查看备注"
+                    // 阻止冒泡到单元格 onClick（否则会误触发移除 cast）
+                    onClick={e => e.stopPropagation()}
+                    className="absolute top-0.5 right-0.5 z-10 flex items-center justify-center rounded-sm bg-blue-500/80 p-0.5 shadow hover:bg-blue-500 cursor-pointer"
+                  >
+                    <MessageSquareText className="h-3 w-3 text-white" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-auto max-w-xs whitespace-pre-wrap p-2 text-xs"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {castAnnotationByCastId.get(marker.castId)?.text}
+                </PopoverContent>
+              </Popover>
             )}
           </td>
         )

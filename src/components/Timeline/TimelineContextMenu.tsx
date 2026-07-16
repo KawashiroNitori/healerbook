@@ -63,6 +63,11 @@ interface TimelineContextMenuProps {
   menu: ContextMenuState | null
   isReadOnly: boolean
   onClose: () => void
+  /**
+   * castEvent 菜单：该 cast 已有的备注 id（一个 cast 至多一条）。
+   * 有值时菜单项显示「编辑备注」走 onEditAnnotation，否则显示「给技能添加备注」走 onAddAnnotation。
+   */
+  castAnnotationId?: string | null
   onDeleteCast: (castEventId: string) => void
   onAddCast: (actionId: number, playerId: number, time: number) => void
   onCopyDamageEventText: (eventId: string) => void
@@ -89,6 +94,7 @@ export default function TimelineContextMenu({
   menu,
   isReadOnly,
   onClose,
+  castAnnotationId = null,
   onDeleteCast,
   onAddCast,
   onCopyDamageEventText,
@@ -126,13 +132,18 @@ export default function TimelineContextMenu({
       <DropdownMenuContent align="start" side="bottom" className="min-w-[120px] text-[11px]">
         {menu.type === 'castEvent' && (
           <>
+            {/* 一个 cast 只允许一条备注：已有则改为编辑（原地更新），无则新增 */}
             <DropdownMenuItem
               onClick={() => {
-                onAddAnnotation(menu.time, { type: 'cast', castId: menu.castEventId })
+                if (castAnnotationId) {
+                  onEditAnnotation(castAnnotationId)
+                } else {
+                  onAddAnnotation(menu.time, { type: 'cast', castId: menu.castEventId })
+                }
                 onClose()
               }}
             >
-              在此技能上添加备注
+              {castAnnotationId ? '编辑备注' : '给技能添加备注'}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"

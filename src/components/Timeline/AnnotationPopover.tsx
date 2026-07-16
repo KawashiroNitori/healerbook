@@ -11,6 +11,8 @@ interface AnnotationPopoverProps {
   screenX: number
   screenY: number
   onConfirm?: (text: string) => void
+  /** 仅编辑既有备注时传入；传入才渲染「删除」按钮 */
+  onDelete?: () => void
   onClose: () => void
 }
 
@@ -20,6 +22,7 @@ export default function AnnotationPopover({
   screenX,
   screenY,
   onConfirm,
+  onDelete,
   onClose,
 }: AnnotationPopoverProps) {
   const [editText, setEditText] = useState(text)
@@ -92,6 +95,17 @@ export default function AnnotationPopover({
               {editText.length}/{ANNOTATION_TEXT_MAX_LENGTH}
             </span>
             <div className="flex gap-1">
+              {onDelete && (
+                <button
+                  className="px-2 py-0.5 text-[11px] rounded border border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    onDelete()
+                    onClose()
+                  }}
+                >
+                  删除
+                </button>
+              )}
               <button
                 className="px-2 py-0.5 text-[11px] rounded border hover:bg-muted"
                 onClick={onClose}
@@ -103,7 +117,7 @@ export default function AnnotationPopover({
                 disabled={!editText.trim()}
                 onClick={handleConfirm}
               >
-                确定
+                保存
               </button>
             </div>
           </div>

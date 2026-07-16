@@ -2,7 +2,7 @@
  * 技能轨道 Canvas 区域组件
  */
 
-import { type ReactElement, type ReactNode, type RefObject, useMemo } from 'react'
+import { type ReactElement, type ReactNode, type RefObject, useMemo, useState } from 'react'
 import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
 import AnnotationIcon from './AnnotationIcon'
@@ -154,6 +154,8 @@ export default function SkillTracksCanvas({
 }: SkillTracksCanvasProps) {
   const draggingId = useUIStore(s => s.draggingId)
   const setDraggingId = useUIStore(s => s.setDraggingId)
+  // 被拖 cast 的实时 x（Layer 坐标），仅拖动期间非 null；用于 cast 锚定备注逐帧跟随
+  const [draggingCastX, setDraggingCastX] = useState<number | null>(null)
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
   const trackIndexMap = useMemo(() => buildTrackIndexMap(skillTracks), [skillTracks])
@@ -668,10 +670,19 @@ export default function SkillTracksCanvas({
               onSelect={() => onSelectCastEvent(castEvent.id)}
               onDragStart={() => {
                 setDraggingId(castEvent.id)
+                setDraggingCastX(null)
                 onCastDragStart?.(castEvent.id)
               }}
-              onDragMove={x => onCastDragMove?.(castEvent.id, x)}
-              onDragEnd={x => onUpdateCastEvent(castEvent.id, x)}
+              onDragMove={x => {
+                // 记录被拖 cast 的实时 x，供其 cast 锚定备注逐帧跟随（备注是独立 Konva
+                // 节点，不随 cast 图标节点自身的 draggable 平移，需靠此实时值重定位）
+                setDraggingCastX(x)
+                onCastDragMove?.(castEvent.id, x)
+              }}
+              onDragEnd={x => {
+                setDraggingCastX(null)
+                onUpdateCastEvent(castEvent.id, x)
+              }}
               onContextMenu={e => {
                 e.evt.preventDefault()
                 // 只读模式也要派发：命中多选时 handleContextMenu 会弹「复制」批量菜单；
@@ -767,8 +778,10 @@ export default function SkillTracksCanvas({
             const cast = castById.get(a.anchor.castId)
             if (!cast) return false
             const x =
-              cast.timestamp * zoomLevel +
-              (selectedCastEventIds.includes(a.anchor.castId) ? groupDragDelta : 0)
+              draggingId === cast.id && draggingCastX !== null
+                ? draggingCastX
+                : cast.timestamp * zoomLevel +
+                  (selectedCastEventIds.includes(a.anchor.castId) ? groupDragDelta : 0)
             return x >= visibleMinX && x <= visibleMaxX
           })
           .map(annotation => {
@@ -780,14 +793,19 @@ export default function SkillTracksCanvas({
             const trackIndex = trackIndexMap.get(trackKey(cast.playerId, groupId)) ?? -1
             if (trackIndex === -1) return null
 
-            // 拖拽跟随：cast 图标节点自身随 draggable 平移，但备注是独立 Konva 节点，
-            // 需要对所有被选中的 cast（含 handle 本身）叠加同款偏移才能连续跟随，
-            // 不能像 CastEventIcon 的 dragOffsetX 那样排除 groupDraggedCastId。
-            const dragOffset = selectedCastEventIds.includes(cast.id) ? groupDragDelta : 0
+            // 拖拽跟随：备注是独立 Konva 节点，不随 cast 图标节点自身的 draggable 平移。
+            // - 单拖 / 群拖 handle：draggingId 命中，用被拖 cast 的实时 x（draggingCastX）逐帧跟随；
+            // - 群拖 sibling（非 handle）：用 groupDragDelta 偏移。
+            const isDraggingThis = draggingId === cast.id && draggingCastX !== null
+            const baseX = isDraggingThis
+              ? draggingCastX
+              : cast.timestamp * zoomLevel +
+                (selectedCastEventIds.includes(cast.id) ? groupDragDelta : 0)
 
-            // 技能图标 center 在 (castX, trackY)，偏移到右上角
-            const x = cast.timestamp * zoomLevel + 12 + dragOffset
-            const y = trackIndex * trackHeight + trackHeight / 2 - 12
+            // 技能图标 Group 原点在 (castX, trackY)，图标本体占局部 [0..30]×[-15..+15]
+            // （左边缘对齐 castX），故右上角 = (castX+30, trackY-15)。备注气泡中心略压在角上。
+            const x = baseX + 26
+            const y = trackIndex * trackHeight + trackHeight / 2 - 11
 
             return (
               <AnnotationIcon

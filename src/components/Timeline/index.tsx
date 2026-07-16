@@ -1547,8 +1547,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       if (!container) return null
       const rect = container.getBoundingClientRect()
       return {
-        x: rect.left + cast.timestamp * zoomLevel + 12,
-        y: rect.top + trackIndex * skillTrackHeight + skillTrackHeight / 2 - 12,
+        x: rect.left + cast.timestamp * zoomLevel + 26,
+        y: rect.top + trackIndex * skillTrackHeight + skillTrackHeight / 2 - 11,
         scrollY: true,
       }
     } else {
@@ -2148,6 +2148,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         menu={contextMenu}
         isReadOnly={isReadOnly}
         onClose={handleContextMenuClose}
+        castAnnotationId={
+          contextMenu?.type === 'castEvent'
+            ? ((timeline.annotations ?? []).find(
+                a => a.anchor.type === 'cast' && a.anchor.castId === contextMenu.castEventId
+              )?.id ?? null)
+            : null
+        }
         onDeleteCast={removeCastEvent}
         onAddCast={handleContextMenuAddCast}
         onCopyDamageEventText={handleCopyDamageEventText}
@@ -2194,6 +2201,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           screenX={editingAnnotation.screenX}
           screenY={editingAnnotation.screenY}
           onConfirm={handleAnnotationConfirm}
+          // 仅编辑既有备注时给出删除入口
+          onDelete={
+            editingAnnotation.annotation
+              ? () => handleDeleteAnnotation(editingAnnotation.annotation!.id)
+              : undefined
+          }
           onClose={() => setEditingAnnotation(null)}
         />
       )}

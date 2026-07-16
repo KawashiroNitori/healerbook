@@ -46,6 +46,15 @@ import TableDataRow from './TableDataRow'
 import AnnotationRow from './AnnotationRow'
 import AddDamageRow from './AddDamageRow'
 import AddEventDialog from '../AddEventDialog'
+import AnnotationPopover from '../Timeline/AnnotationPopover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { deleteKeyLabel } from '@/utils/platform'
 import {
   HEADER_HEIGHT,
   TIME_COL_WIDTH,
@@ -64,6 +73,9 @@ export default function TimelineTableView() {
   const selectEvent = useTimelineStore(s => s.selectEvent)
   const addCastEvent = useTimelineStore(s => s.addCastEvent)
   const removeCastEvent = useTimelineStore(s => s.removeCastEvent)
+  const addAnnotation = useTimelineStore(s => s.addAnnotation)
+  const updateAnnotation = useTimelineStore(s => s.updateAnnotation)
+  const removeAnnotation = useTimelineStore(s => s.removeAnnotation)
   const actions = ACTIONS
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const showActualDamage = useUIStore(s => s.showActualDamage)
@@ -228,16 +240,41 @@ export default function TimelineTableView() {
     return mergeAndSortRows(filteredDamageEvents, nonCast)
   }, [filteredDamageEvents, timeline])
 
-  // cast 锚定备注：castId → 合并文本（角标 title 用）
-  const castAnnotationTextByCastId = useMemo(() => {
-    const m = new Map<string, string>()
+  // cast 锚定备注：castId → 该 cast 的备注（一个 cast 至多一条；历史多余数据取首条）
+  const castAnnotationByCastId = useMemo(() => {
+    const m = new Map<string, { id: string; text: string }>()
     for (const a of timeline?.annotations ?? []) {
       if (a.anchor.type !== 'cast') continue
-      const prev = m.get(a.anchor.castId)
-      m.set(a.anchor.castId, prev ? `${prev}\n${a.text}` : a.text)
+      if (!m.has(a.anchor.castId)) m.set(a.anchor.castId, { id: a.id, text: a.text })
     }
     return m
   }, [timeline])
+
+  // 右键 cast marker 的上下文菜单（与时间轴 castEvent 菜单一致）
+  const [castMenu, setCastMenu] = useState<{
+    x: number
+    y: number
+    castEventId: string
+    castTime: number
+  } | null>(null)
+  // cast 备注文本录入（复用画布的 AnnotationPopover，edit 模式）。
+  // annotationId 有值 = 编辑既有备注（原地更新）；为 null = 新增。
+  const [editingCast, setEditingCast] = useState<{
+    castEventId: string
+    castTime: number
+    annotationId: string | null
+    initialText: string
+    screenX: number
+    screenY: number
+  } | null>(null)
+
+  const handleCastContextMenu = useCallback(
+    (castEventId: string, castTime: number, clientX: number, clientY: number) => {
+      if (isReadOnly) return
+      setCastMenu({ x: clientX, y: clientY, castEventId, castTime })
+    },
+    [isReadOnly]
+  )
 
   // "添加伤害事件"行的对话框开关；默认时间取最后一个伤害事件的 time，空表格则 0
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -399,6 +436,9 @@ export default function TimelineTableView() {
       ref={wrapperRef}
       onScroll={handleScroll}
       onClick={() => selectEvent(null)}
+      // 表格内除 cast marker 单元格外一律禁用原生右键菜单（marker 格自身 stopPropagation
+      // 后弹出自定义菜单，不会冒泡到此）
+      onContextMenu={e => e.preventDefault()}
       className="h-full w-full overflow-auto bg-neutral-200 dark:bg-neutral-900"
     >
       <div className="relative inline-block align-top bg-background">
@@ -443,7 +483,7 @@ export default function TimelineTableView() {
                   cdCells={cdCellsByEvent.get(row.id) ?? new Set()}
                   shadowCells={shadowCellsByEvent.get(row.id) ?? new Set()}
                   markerCells={markerCellsByEvent.get(row.id) ?? new Map()}
-                  castAnnotationTextByCastId={castAnnotationTextByCastId}
+                  castAnnotationByCastId={castAnnotationByCastId}
                   actionsById={actionsById}
                   calculationResult={calculationResults.get(row.id)}
                   showOriginalDamage={showOriginalDamage}
@@ -452,6 +492,7 @@ export default function TimelineTableView() {
                   onSelect={selectEvent}
                   onCellToggle={handleCellToggle}
                   isReadOnly={isReadOnly}
+                  onCastContextMenu={handleCastContextMenu}
                 />
               ) : (
                 <AnnotationRow
@@ -489,6 +530,74 @@ export default function TimelineTableView() {
       </div>
       {showAddDialog && (
         <AddEventDialog open onClose={() => setShowAddDialog(false)} defaultTime={lastDamageTime} />
+      )}
+
+      {/* 右键 cast marker 菜单：与时间轴 castEvent 菜单一致（给技能添加备注 / 删除） */}
+      {castMenu && !isReadOnly && (
+        <DropdownMenu open onOpenChange={open => !open && setCastMenu(null)}>
+          <DropdownMenuTrigger asChild>
+            <div
+              className="fixed pointer-events-none"
+              style={{ left: castMenu.x, top: castMenu.y, width: 1, height: 1 }}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="bottom" className="min-w-[120px] text-[11px]">
+            {/* 一个 cast 只允许一条备注：已有则改为编辑（原地更新），无则新增 */}
+            <DropdownMenuItem
+              onClick={() => {
+                const existing = castAnnotationByCastId.get(castMenu.castEventId)
+                setEditingCast({
+                  castEventId: castMenu.castEventId,
+                  castTime: castMenu.castTime,
+                  annotationId: existing?.id ?? null,
+                  initialText: existing?.text ?? '',
+                  screenX: castMenu.x,
+                  screenY: castMenu.y,
+                })
+                setCastMenu(null)
+              }}
+            >
+              {castAnnotationByCastId.has(castMenu.castEventId) ? '编辑备注' : '给技能添加备注'}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => {
+                removeCastEvent(castMenu.castEventId)
+                setCastMenu(null)
+              }}
+            >
+              删除
+              <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* cast 备注文本录入（复用画布 AnnotationPopover） */}
+      {editingCast && (
+        <AnnotationPopover
+          mode="edit"
+          text={editingCast.initialText}
+          screenX={editingCast.screenX}
+          screenY={editingCast.screenY}
+          onConfirm={text => {
+            if (editingCast.annotationId) {
+              updateAnnotation(editingCast.annotationId, { text })
+            } else {
+              addAnnotation({
+                id: generateObjectId(),
+                text,
+                time: editingCast.castTime,
+                anchor: { type: 'cast', castId: editingCast.castEventId },
+              })
+            }
+          }}
+          // 仅编辑既有备注时给出删除入口
+          onDelete={
+            editingCast.annotationId ? () => removeAnnotation(editingCast.annotationId!) : undefined
+          }
+          onClose={() => setEditingCast(null)}
+        />
       )}
     </div>
   )
