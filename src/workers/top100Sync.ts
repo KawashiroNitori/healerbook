@@ -85,7 +85,7 @@ export function extractFightStats(
   const damageByAbility = extractDamageData(events)
   const shieldByAbility = extractShieldData(events)
   const maxHPByJob = extractMaxHPData(events, playerMap)
-  const healByAbility = extractHealData(events)
+  const { healByAbility } = extractHealData(events)
 
   // composition 必须按本场实际参战玩家过滤：report.friendlies 是整份 report
   // 所有 pull 的玩家并集，往往多于本场 8 人。不过滤会让 classifyPartialAOE 的

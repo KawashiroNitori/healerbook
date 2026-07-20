@@ -26,7 +26,12 @@ import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.js
 import actionExtraRaw from '@/data/action.json'
 import { JOB_MAP } from '@/data/jobMap'
 import { getTankJobs, getJobRole, type Job } from '@/data/jobs'
-import { calculatePercentile } from './stats'
+import {
+  calculatePercentile,
+  computeNormalHeal,
+  computeCritHeal,
+  HEAL_CRIT_HIT_TYPE,
+} from './stats'
 import { normalizeActionId } from './normalizeActionId'
 import { classifyPartialAOE } from './partialAoeClassifier'
 import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
@@ -915,17 +920,23 @@ export function extractShieldData(events: FFLogsEvent[]): Record<number, number[
 }
 
 /**
- * 从事件列表提取治疗原始样本（按 heal 事件原始 abilityGameID 聚样，排除 overheal）。
+ * 从事件列表提取治疗原始样本，按 hitType 分暴击/非暴击两桶
+ * （按 heal 事件原始 abilityGameID 聚样，排除 overheal）。
  */
-export function extractHealData(events: FFLogsEvent[]): Record<number, number[]> {
+export function extractHealData(events: FFLogsEvent[]): {
+  healByAbility: Record<number, number[]>
+  critHealByAbility: Record<number, number[]>
+} {
   const healByAbility: Record<number, number[]> = {}
+  const critHealByAbility: Record<number, number[]> = {}
   for (const event of events) {
     if (event.type === 'heal' && !event.overheal && event.abilityGameID && event.amount) {
-      if (!healByAbility[event.abilityGameID]) healByAbility[event.abilityGameID] = []
-      healByAbility[event.abilityGameID].push(event.amount)
+      const bucket = event.hitType === HEAL_CRIT_HIT_TYPE ? critHealByAbility : healByAbility
+      if (!bucket[event.abilityGameID]) bucket[event.abilityGameID] = []
+      bucket[event.abilityGameID].push(event.amount)
     }
   }
-  return healByAbility
+  return { healByAbility, critHealByAbility }
 }
 
 /**
@@ -991,11 +1002,16 @@ export function parseStatData(
     if (shieldKeys.has(key)) shieldByAbility[key] = calculatePercentile(samples, 50)
     if (critShieldKeys.has(key)) critShieldByAbility[key] = calculatePercentile(samples, 90)
   }
-  for (const [k, samples] of Object.entries(rawHeal)) {
-    if (!samples.length) continue
-    const key = Number(k)
-    if (healKeys.has(key)) healByAbility[key] = calculatePercentile(samples, 50)
-    if (critHealKeys.has(key)) critHealByAbility[key] = calculatePercentile(samples, 90)
+  const healKeysUnion = new Set<number>([
+    ...Object.keys(rawHeal.healByAbility).map(Number),
+    ...Object.keys(rawHeal.critHealByAbility).map(Number),
+  ])
+  for (const key of healKeysUnion) {
+    const nonCrit = rawHeal.healByAbility[key] ?? []
+    const crit = rawHeal.critHealByAbility[key] ?? []
+    if (!nonCrit.length && !crit.length) continue
+    if (healKeys.has(key)) healByAbility[key] = computeNormalHeal(nonCrit, crit)
+    if (critHealKeys.has(key)) critHealByAbility[key] = computeCritHeal(nonCrit, crit)
   }
 
   // 4. 血量：每职业 p50 → 非坦/坦克分别取 min

@@ -2162,10 +2162,24 @@ describe('extractHealData', () => {
       { type: 'heal', abilityGameID: 1002108, amount: 800 }, // HoT（1e6+status）原样保留
     ] as unknown as Parameters<typeof extractHealData>[0]
 
-    const result = extractHealData(events)
+    const { healByAbility } = extractHealData(events)
 
-    expect(result[7388]).toEqual([3000])
-    expect(result[1002108]).toEqual([800])
+    expect(healByAbility[7388]).toEqual([3000])
+    expect(healByAbility[1002108]).toEqual([800])
+  })
+})
+
+describe('extractHealData 按 hitType 分桶', () => {
+  it('暴击(hitType=2)入暴击桶，其余入非暴击桶，overheal 整条剔除', () => {
+    const events = [
+      { type: 'heal', abilityGameID: 100, amount: 10000, hitType: 1 },
+      { type: 'heal', abilityGameID: 100, amount: 30000, hitType: 2 },
+      { type: 'heal', abilityGameID: 100, amount: 12000 }, // 无 hitType → 非暴击
+      { type: 'heal', abilityGameID: 100, amount: 99999, hitType: 2, overheal: 500 }, // 剔除
+    ] as unknown as Parameters<typeof extractHealData>[0]
+    const { healByAbility, critHealByAbility } = extractHealData(events)
+    expect(healByAbility[100]).toEqual([10000, 12000])
+    expect(critHealByAbility[100]).toEqual([30000])
   })
 })
 
@@ -2255,21 +2269,29 @@ describe('parseStatData', () => {
     expect(parseStatData(events, playerMap, composition)).toBeUndefined()
   })
 
-  it('暴击治疗走 p90，与普通治疗 p50 区分', () => {
+  it('暴击/非暴击按 hitType 分别取 p50', () => {
     const playerMap = new Map([[3, { id: 3, name: 'S', type: 'Scholar' }]])
     const composition: Composition = { players: [{ id: 3, job: 'SCH' }] }
     // SCH 意气轩昂之策 37013 同时声明 heal 与 critHeal
-    const events = [10000, 20000, 30000, 40000, 50000].map(amount => ({
+    const nonCrit = [10000, 20000, 30000].map(amount => ({
       type: 'heal',
       abilityGameID: 37013,
       amount,
-    })) as unknown as Parameters<typeof parseStatData>[0]
+      hitType: 1,
+    }))
+    const crit = [40000, 50000, 60000].map(amount => ({
+      type: 'heal',
+      abilityGameID: 37013,
+      amount,
+      hitType: 2,
+    }))
+    const events = [...nonCrit, ...crit] as unknown as Parameters<typeof parseStatData>[0]
 
     const result = parseStatData(events, playerMap, composition)
 
     expect(result).toBeDefined()
-    expect(result!.healByAbility[37013]).toBe(30000) // p50
-    expect(result!.critHealByAbility[37013]).toBe(46000) // p90
+    expect(result!.healByAbility[37013]).toBe(20000) // 非暴击 p50
+    expect(result!.critHealByAbility[37013]).toBe(50000) // 暴击 p50
   })
 })
 
