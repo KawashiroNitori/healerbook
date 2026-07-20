@@ -30,6 +30,7 @@ import {
 } from './kvKeys'
 import { type EncounterSamples, calculatePercentiles, mergeRecord } from './encounterStats'
 import { type EncounterTemplate, buildEncounterTemplate } from './encounterTemplate'
+import { computeHealStats } from '@/utils/stats'
 
 /**
  * 将 parseDamageEvents 输出的完整 DamageEvent 精简为存储格式
@@ -58,6 +59,7 @@ export interface ExtractedFightData {
   maxHPByJob: Record<Job, number[]>
   shieldByAbility: Record<number, number[]>
   healByAbility: Record<number, number[]>
+  critHealByAbility: Record<number, number[]>
   durationMs: number
   damageEvents: StoredDamageEvent[]
   /** 本场战斗是否击杀（FFLogs fight.kill），用于 template 覆盖优先级与"已更新完成"展示 */
@@ -85,7 +87,7 @@ export function extractFightStats(
   const damageByAbility = extractDamageData(events)
   const shieldByAbility = extractShieldData(events)
   const maxHPByJob = extractMaxHPData(events, playerMap)
-  const { healByAbility } = extractHealData(events)
+  const { healByAbility, critHealByAbility } = extractHealData(events)
 
   // composition 必须按本场实际参战玩家过滤：report.friendlies 是整份 report
   // 所有 pull 的玩家并集，往往多于本场 8 人。不过滤会让 classifyPartialAOE 的
@@ -121,6 +123,7 @@ export function extractFightStats(
     shieldByAbility,
     maxHPByJob,
     healByAbility,
+    critHealByAbility,
     durationMs,
     damageEvents,
     kill: fight.kill ?? false,
@@ -248,12 +251,17 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
     maxHPByJob: {} as Record<Job, number[]>,
     shieldByAbility: {},
     healByAbility: {},
+    critHealByAbility: {},
     updatedAt: '',
   }
 
   const mergedDamage = mergeRecord(oldSamples.damageByAbility, extracted.damageByAbility)
   const mergedShield = mergeRecord(oldSamples.shieldByAbility, extracted.shieldByAbility)
   const mergedHeal = mergeRecord(oldSamples.healByAbility ?? {}, extracted.healByAbility)
+  const mergedCritHeal = mergeRecord(
+    oldSamples.critHealByAbility ?? {},
+    extracted.critHealByAbility
+  )
   const mergedMaxHP = mergeRecord<Job>(oldSamples.maxHPByJob, extracted.maxHPByJob)
 
   const newSamples: EncounterSamples = {
@@ -262,6 +270,7 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
     maxHPByJob: mergedMaxHP,
     shieldByAbility: mergedShield,
     healByAbility: mergedHeal,
+    critHealByAbility: mergedCritHeal,
     updatedAt: new Date().toISOString(),
   }
   await kv.put(getSamplesKVKey(encounterId), JSON.stringify(newSamples))
@@ -280,14 +289,19 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
     abilityFightCount[id] = (abilityFightCount[id] ?? 0) + 1
   }
 
+  const { healByAbility: healStat, critHealByAbility: critHealStat } = computeHealStats(
+    mergedHeal,
+    mergedCritHeal
+  )
+
   const statistics: EncounterStatistics = {
     encounterId,
     encounterName,
     damageByAbility: calculatePercentiles(mergedDamage),
     maxHPByJob: calculatePercentiles(mergedMaxHP),
     shieldByAbility: calculatePercentiles(mergedShield),
-    healByAbility: calculatePercentiles(mergedHeal),
-    critHealByAbility: calculatePercentiles(mergedHeal, 90),
+    healByAbility: healStat,
+    critHealByAbility: critHealStat,
     critShieldByAbility: calculatePercentiles(mergedShield, 90),
     sampleSize: Object.values(mergedDamage).reduce((sum, arr) => sum + arr.length, 0),
     abilityFightCount,

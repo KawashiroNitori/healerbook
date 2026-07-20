@@ -12,6 +12,8 @@ export interface EncounterSamples {
   shieldByAbility: Record<number, number[]>
   /** 每个治疗技能的原始样本值，每个 ability 独立限制 MAX_SAMPLES 条 */
   healByAbility: Record<number, number[]>
+  /** 每个治疗技能的暴击样本值（hitType===2），reservoir 独立限流 */
+  critHealByAbility: Record<number, number[]>
   updatedAt: string
 }
 

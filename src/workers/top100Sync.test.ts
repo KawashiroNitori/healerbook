@@ -233,6 +233,7 @@ describe('processOneSample', () => {
       shieldByAbility: { 2613: [3000] },
       maxHPByJob: { WHM: [80_000] } as Record<Job, number[]>,
       healByAbility: { 50: [1000, 1500] },
+      critHealByAbility: {},
       durationMs: 120_000,
       kill: false,
       damageEvents: [
@@ -319,6 +320,7 @@ describe('processOneSample', () => {
         shieldByAbility: {},
         maxHPByJob: {} as Record<Job, number[]>,
         healByAbility: {},
+        critHealByAbility: {},
         durationMs: 300_000, // 比旧 wipe 短
         kill: true,
         damageEvents: [
@@ -387,6 +389,7 @@ describe('processOneSample', () => {
       shieldByAbility: {},
       maxHPByJob: {} as Record<Job, number[]>,
       healByAbility: {},
+      critHealByAbility: {},
       durationMs: 100_000,
       kill: false,
       damageEvents: [
@@ -455,6 +458,7 @@ describe('processOneSample', () => {
         shieldByAbility: {},
         maxHPByJob: {} as Record<Job, number[]>,
         healByAbility: {},
+        critHealByAbility: {},
         durationMs: 100_000,
         kill: false,
         damageEvents: [],
@@ -502,6 +506,63 @@ function makeMockD1WithRow(row: SampleQueueRow): D1Database {
     }),
   } as unknown as D1Database
 }
+
+describe('暴击治疗全链路', () => {
+  it('extractFightStats 按 hitType 分桶治疗样本', () => {
+    const report = {
+      friendlies: [{ id: 3, name: 'S', type: 'Scholar' }],
+      abilities: [],
+      fights: [{ id: 1, name: 'x', startTime: 0, endTime: 1000 }],
+    } as unknown as Parameters<typeof extractFightStats>[0]
+    const fight = report.fights[0]
+    const events = [
+      { type: 'heal', abilityGameID: 37013, amount: 10000, hitType: 1 },
+      { type: 'heal', abilityGameID: 37013, amount: 40000, hitType: 2 },
+    ] as unknown as Parameters<typeof extractFightStats>[2]
+    const extracted = extractFightStats(report, fight, events)
+    expect(extracted.healByAbility[37013]).toEqual([10000])
+    expect(extracted.critHealByAbility[37013]).toEqual([40000])
+  })
+
+  it('processOneSample 暴击治疗取暴击桶 p50', async () => {
+    const encounterId = 1234
+    const encounterName = 'Test Encounter'
+    const kv = createMockKV()
+    const db = makeMockD1WithRow({
+      id: 1,
+      encounter_id: encounterId,
+      report_code: 'A',
+      fight_id: 1,
+      duration_ms: 120_000,
+      sampled: 0,
+      sampled_at: null,
+      created_at: 0,
+      updated_at: 0,
+    })
+    const extracted: ExtractedFightData = {
+      damageByAbility: {},
+      shieldByAbility: {},
+      maxHPByJob: {} as Record<Job, number[]>,
+      healByAbility: { 37013: [10000, 20000, 30000] },
+      critHealByAbility: { 37013: [40000, 50000, 60000] },
+      durationMs: 120_000,
+      kill: false,
+      damageEvents: [],
+    }
+
+    const ranOnce = await processOneSample({
+      db,
+      kv,
+      fetchExtracted: async () => extracted,
+      lookupEncounterName: () => encounterName,
+    })
+    expect(ranOnce).toBe(true)
+
+    const stats = (await kv.get(getStatisticsKVKey(encounterId), 'json')) as EncounterStatistics
+    expect(stats.healByAbility[37013]).toBe(20000)
+    expect(stats.critHealByAbility[37013]).toBe(50000)
+  })
+})
 
 describe('syncEncounter (new behavior)', () => {
   it('写 top100 KV（无 TTL）+ 入队所有 entries 到 D1', async () => {
