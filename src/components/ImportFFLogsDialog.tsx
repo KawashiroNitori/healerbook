@@ -124,6 +124,7 @@ export default function ImportFFLogsDialog({
         isLastFight: parsed.isLastFight,
         sourceUrl: url,
         onStep: setLoadingStep,
+        t,
       })
 
       // 保存时间轴

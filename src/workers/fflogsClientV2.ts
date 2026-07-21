@@ -348,7 +348,9 @@ export class FFLogsClientV2 {
   async getReport(params: GetReportParams): Promise<FFLogsReport> {
     const { reportCode } = params
 
-    // i18n 扩展点：本查询内 translate: false 为 i18n 扩展点，未来可依据 params.lang 切换；当前保持 false 不改变输出。
+    // i18n 扩展点：translate: false 未来可依据 params.lang 切换，当前保持 false 不改变输出。
+    // lang 至此尚无消费点，但整条 Accept-Language → lang 管道是 P2 数据双语化的预留，
+    // 勿按「死参数」清理（参见 design/superpowers/specs/2026-06-24-i18n-design.md）。
     const query = `
       query GetReport($code: String!) {
         reportData {
@@ -519,7 +521,7 @@ export class FFLogsClientV2 {
   async getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse> {
     const { reportCode, start, end } = params
 
-    // i18n 扩展点：本查询内 translate: false 为 i18n 扩展点，未来可依据 lang 切换；当前保持 false 不改变输出。
+    // i18n 扩展点：同 getReport，translate: false 未来依 lang 切换；lang 管道为 P2 预留，勿作死参数清理。
     const query = `
       query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $hostilityType: HostilityType, $includeResources: Boolean, $limit: Int, $filterExpression: String) {
         reportData {

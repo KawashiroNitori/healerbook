@@ -5,6 +5,7 @@
  * fflogsClient / fflogsImporter 不进生产 bundle。
  */
 import type { Timeline } from '@/types/timeline'
+import type { TFunc } from '@/api/parseApiError'
 import { createNewTimeline } from '@/utils/timelineStorage'
 
 export interface ClientImportInput {
@@ -14,6 +15,8 @@ export interface ClientImportInput {
   /** 导入来源 URL，写进 description */
   sourceUrl: string
   onStep: (step: string) => void
+  /** 由组件传入：本模块在 React 树外，文案经 t 本地化 */
+  t: TFunc
 }
 
 export async function runClientFFLogsImport(input: ClientImportInput): Promise<Timeline> {
@@ -35,7 +38,7 @@ export async function runClientFFLogsImport(input: ClientImportInput): Promise<T
   if (input.isLastFight) {
     // 获取最后一个战斗
     if (!report.fights || report.fights.length === 0) {
-      throw new Error('报告中没有战斗记录')
+      throw new Error(input.t('import:importFflogs.noFightsInReport'))
     }
     fightId = report.fights[report.fights.length - 1].id
   }
@@ -43,7 +46,7 @@ export async function runClientFFLogsImport(input: ClientImportInput): Promise<T
   // 查找指定的战斗
   const fight = report.fights?.find(f => f.id === fightId)
   if (!fight) {
-    throw new Error(`战斗 #${fightId} 不存在`)
+    throw new Error(input.t('import:importFflogs.fightNotFound', { fightId }))
   }
 
   // 创建时间轴名称（优先从 raidEncounters.ts 查询副本名称）
@@ -67,15 +70,16 @@ export async function runClientFFLogsImport(input: ClientImportInput): Promise<T
   }
 
   // 获取伤害事件（自动分页）
-  input.onStep('正在获取战斗事件...')
+  input.onStep(input.t('import:importFflogs.stepFetchingEvents'))
 
   try {
     const eventsData = await client.getAllEvents(input.reportCode, {
       start: fight.startTime,
       end: fight.endTime,
+      lang: report.lang,
     })
 
-    input.onStep(`正在解析数据...`)
+    input.onStep(input.t('import:importFflogs.stepParsingData'))
 
     // 与服务端 /import 共用同一套解析编排
     const { composition, damageEvents, castEvents, syncEvents } = parseFightImport(
@@ -92,7 +96,7 @@ export async function runClientFFLogsImport(input: ClientImportInput): Promise<T
     newTimeline.isReplayMode = true
 
     // 预填 description：记录导入来源
-    newTimeline.description = `导入自 ${input.sourceUrl}`
+    newTimeline.description = input.t('import:importFflogs.importedFrom', { url: input.sourceUrl })
 
     // 记录 FFLogs 来源（input.reportCode 已在 handleSubmit 开头验证非 null）
     newTimeline.fflogsSource = {
