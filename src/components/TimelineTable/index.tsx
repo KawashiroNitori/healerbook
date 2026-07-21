@@ -561,7 +561,9 @@ export default function TimelineTableView() {
                 setCastMenu(null)
               }}
             >
-              {castAnnotationByCastId.has(castMenu.castEventId) ? '编辑备注' : '给技能添加备注'}
+              {castAnnotationByCastId.has(castMenu.castEventId)
+                ? t('editor:contextMenu.editAnnotation')
+                : t('editor:contextMenu.addCastAnnotation')}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -570,7 +572,7 @@ export default function TimelineTableView() {
                 setCastMenu(null)
               }}
             >
-              删除
+              {t('editor:contextMenu.delete')}
               <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuContent>

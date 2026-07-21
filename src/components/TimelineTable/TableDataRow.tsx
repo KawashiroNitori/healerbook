@@ -9,6 +9,7 @@
  */
 
 import { MessageSquareText } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatTimeWithDecimal, formatDamageValue } from '@/utils/formatters'
 import { GameIcon } from '@/components/GameIcon'
@@ -123,6 +124,7 @@ export default function TableDataRow({
   isReadOnly,
   onCastContextMenu,
 }: TableDataRowProps) {
+  const { t } = useTranslation(['editor'])
   const { original, actual } = resolveDamageNumbers(event, timeline, calculationResult)
 
   // 与时间轴视图一致的配色与警示逻辑（见 Timeline/DamageEventCard.tsx）
@@ -291,7 +293,7 @@ export default function TableDataRow({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    aria-label="查看备注"
+                    aria-label={t('editor:timelineTable.viewAnnotation')}
                     // 阻止冒泡到单元格 onClick（否则会误触发移除 cast）
                     onClick={e => e.stopPropagation()}
                     className="absolute top-0.5 right-0.5 z-10 flex items-center justify-center rounded-sm bg-blue-500/80 p-0.5 shadow hover:bg-blue-500 cursor-pointer"

@@ -613,7 +613,9 @@ export default function PropertyPanel() {
         {/* 读条窗口：开始（时间格式）+ 时长（浮点秒）；both-or-neither */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">咏唱开始</label>
+            <label className="block text-xs text-muted-foreground mb-1">
+              {t('editor:propertyPanel.castStart')}
+            </label>
             <TimeInput
               value={castStartValue}
               onChange={v => {
@@ -625,7 +627,9 @@ export default function PropertyPanel() {
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">咏唱时长</label>
+            <label className="block text-xs text-muted-foreground mb-1">
+              {t('editor:propertyPanel.castDuration')}
+            </label>
             <input
               type="number"
               step="0.1"

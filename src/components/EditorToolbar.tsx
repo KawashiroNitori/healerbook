@@ -98,7 +98,6 @@ export default function EditorToolbar({
   const undo = useTimelineStore(s => s.undo)
   const redo = useTimelineStore(s => s.redo)
 
-
   const {
     showActualDamage,
     showOriginalDamage,
@@ -458,7 +457,7 @@ export default function EditorToolbar({
                         toggleShowCastStartTime()
                       }}
                     >
-                      咏唱开始时间
+                      {t('editor:editorToolbar.showCastStartTime')}
                     </DropdownMenuCheckboxItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
@@ -479,7 +478,7 @@ export default function EditorToolbar({
                     toggleShowResourceHover()
                   }}
                 >
-                  资源预览
+                  {t('editor:editorToolbar.showResourceHover')}
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>

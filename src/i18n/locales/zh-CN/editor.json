@@ -21,6 +21,8 @@
   "addEvent": {
     "addSuccess": "事件已添加",
     "attackTypeLabel": "攻击类型",
+    "castDurationLabel": "咏唱时长(秒)",
+    "castStartLabel": "咏唱开始时间(秒)",
     "damageLabel": "伤害值",
     "damageTypeLabel": "伤害类型",
     "damageTypeMagical": "魔法",
@@ -29,12 +31,14 @@
     "nameLabel": "事件名称",
     "namePlaceholder": "例如: 全屏 AOE",
     "nameRequired": "请输入事件名称",
+    "optionalPlaceholder": "可选",
     "snapshotTime": "快照时刻",
     "submit": "添加",
-    "timeLabel": "时间",
+    "timeLabel": "判定时间",
     "title": "添加伤害事件"
   },
   "annotationPopover": {
+    "delete": "删除",
     "placeholder": "输入备注...",
     "save": "保存"
   },
@@ -153,6 +157,8 @@
     "replayModeDescPrefix": "当前正处于 FFLogs 回放模式下，记录并再现了本次战斗中玩家所受到的所有伤害与当时的减伤情况。你可以快速寻找并分析某处的减伤是否欠缺，并检查队友的减伤执行情况。",
     "replayModeTitle": "回放模式",
     "selectTool": "框选",
+    "showCastStartTime": "咏唱开始时间",
+    "showResourceHover": "资源预览",
     "statData": "数值设置",
     "switchToEdit": "切换为编辑模式",
     "switchToReadOnly": "切换为只读模式",
@@ -230,6 +236,8 @@
   },
   "propertyPanel": {
     "attackType": "攻击类型",
+    "castDuration": "咏唱时长",
+    "castStart": "咏唱开始",
     "damageSource": "伤害来源",
     "damageType": "伤害类型",
     "damageTypeMagical": "魔法",
@@ -261,9 +269,12 @@
     "snapshotTime": "快照时刻",
     "targetMitigationEnabled": "目标减有效",
     "tiled": "平铺",
-    "time": "时间",
+    "time": "判定时间",
     "title": "伤害事件",
     "unknownStatus": "未知状态"
+  },
+  "resourceHover": {
+    "title": "资源预览"
   },
   "sortablePreset": {
     "confirmDelete": "确认删除？",
@@ -286,9 +297,10 @@
   },
   "tableHeader": {
     "actualDamage": "实际伤害",
+    "castStart": "咏唱开始",
     "damageEvent": "伤害事件",
     "originalDamage": "原始伤害",
-    "time": "时间"
+    "time": "判定时间"
   },
   "tempMitigation": {
     "addAriaLabel": "添加临时减伤",
@@ -337,6 +349,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "无法添加技能",
-    "conditionNotMet": "此时刻不满足发动条件"
+    "conditionNotMet": "此时刻不满足发动条件",
+    "viewAnnotation": "查看备注"
   }
 }

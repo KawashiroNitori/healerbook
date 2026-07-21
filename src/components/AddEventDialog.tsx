@@ -103,23 +103,27 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">咏唱开始时间(秒)</label>
+              <label className="block text-sm font-medium mb-1">
+                {t('editor:addEvent.castStartLabel')}
+              </label>
               <input
                 type="number"
                 value={castStartInput}
                 onChange={e => setCastStartInput(e.target.value)}
-                placeholder="可选"
+                placeholder={t('editor:addEvent.optionalPlaceholder')}
                 className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 step="0.1"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">咏唱时长(秒)</label>
+              <label className="block text-sm font-medium mb-1">
+                {t('editor:addEvent.castDurationLabel')}
+              </label>
               <input
                 type="number"
                 value={castDurationInput}
                 onChange={e => setCastDurationInput(e.target.value)}
-                placeholder="可选"
+                placeholder={t('editor:addEvent.optionalPlaceholder')}
                 className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 min="0"
                 step="0.1"

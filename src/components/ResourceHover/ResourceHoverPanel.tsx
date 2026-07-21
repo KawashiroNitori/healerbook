@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 import JobIcon from '@/components/JobIcon'
 import { getJobName } from '@/data/jobs'
@@ -35,6 +36,7 @@ function renderWidget(w: ResourceWidget) {
 }
 
 export default function ResourceHoverPanel() {
+  const { t } = useTranslation(['editor'])
   const time = useResourceHoverStore(s => s.time)
   const cursor = useResourceHoverStore(s => s.cursor)
   const showResourceHover = useUIStore(s => s.showResourceHover)
@@ -79,7 +81,7 @@ export default function ResourceHoverPanel() {
       style={{ left: pos.left, top: pos.top, width: PANEL_WIDTH }}
     >
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="text-sm font-bold">资源预览</span>
+        <span className="text-sm font-bold">{t('editor:resourceHover.title')}</span>
         <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
           <Clock className="h-3 w-3" />
           {formatTimeWithDecimal(time)}

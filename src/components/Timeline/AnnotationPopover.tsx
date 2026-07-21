@@ -105,7 +105,7 @@ export default function AnnotationPopover({
                     onClose()
                   }}
                 >
-                  删除
+                  {t('annotationPopover.delete')}
                 </button>
               )}
               <button

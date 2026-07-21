@@ -69,7 +69,7 @@ export default function TableHeader({
             className={`${stickyCellClass} top-0 z-30 text-right px-2`}
             style={{ width: CAST_START_COL_WIDTH, minWidth: CAST_START_COL_WIDTH, left: castLeft }}
           >
-            咏唱开始
+            {t('tableHeader.castStart')}
           </th>
         )}
         <th
