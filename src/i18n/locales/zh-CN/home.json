@@ -41,7 +41,7 @@
   "timelineCard": {
     "deleteLocal": "删除",
     "deletePublished": "取消发布并删除",
-    "lastViewed": "最后查看 {{time}}",
+    "lastViewed": "最后查看 {time}",
     "local": "本地",
     "noComposition": "无阵容信息",
     "published": "已发布",
@@ -57,7 +57,7 @@
     "collapse": "收起（显示前 10 条）",
     "comingSoon": "敬请期待！",
     "duration": "时长",
-    "expandAll": "展开全部 {{count}} 条",
+    "expandAll": "展开全部 {count} 条",
     "filterDescription": "只看你们小队有的减伤",
     "filterTitle": "阵容过滤",
     "import": "导入",
@@ -79,6 +79,6 @@
     "timelineProgress": "伤害时间轴更新进度",
     "timelineUpdated": "伤害时间轴已更新完成",
     "title": "TOP100 参考方案",
-    "updatedAt": "更新于 {{time}}"
+    "updatedAt": "更新于 {time}"
   }
 }

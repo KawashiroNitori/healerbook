@@ -9,7 +9,7 @@
   },
   "callback": {
     "completing": "正在完成登录...",
-    "loginFailed": "登录失败：{{message}}",
+    "loginFailed": "登录失败：{message}",
     "missingCode": "授权失败：缺少 code 参数",
     "stateMismatch": "授权失败：state 不匹配"
   },
@@ -18,7 +18,7 @@
   "confirm": "确定",
   "copy": "复制",
   "errorBoundary": {
-    "renderError": "渲染错误：{{message}}（详情见控制台）"
+    "renderError": "渲染错误：{message}（详情见控制台）"
   },
   "notFound": {
     "backHome": "返回首页",
@@ -28,11 +28,11 @@
   "timeInput": {
     "label": "时间",
     "minutes": "分钟",
-    "minutesValue": "{{value}} 分",
+    "minutesValue": "{value} 分",
     "seconds": "秒",
-    "secondsValue": "{{value}} 秒",
+    "secondsValue": "{value} 秒",
     "tenths": "十分之一秒",
-    "tenthsValue": "{{value}} 十分之一秒"
+    "tenthsValue": "{value} 十分之一秒"
   },
   "unknownError": "未知错误"
 }
