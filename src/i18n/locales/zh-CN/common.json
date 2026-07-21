@@ -20,6 +20,13 @@
   "errorBoundary": {
     "renderError": "渲染错误：{message}（详情见控制台）"
   },
+  "fflogsError": {
+    "forbidden": "没有访问权限",
+    "networkFailed": "网络连接失败，请检查网络设置",
+    "reportNotFound": "报告不存在或已被删除",
+    "timeout": "请求超时，请稍后重试",
+    "tooManyRequests": "请求过于频繁，请稍后重试"
+  },
   "notFound": {
     "backHome": "返回首页",
     "message": "页面不存在"

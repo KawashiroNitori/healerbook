@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select'
 import {
   DAMAGE_EVENT_TYPES,
-  DAMAGE_EVENT_TYPE_LABELS,
+  DAMAGE_EVENT_TYPE_LABEL_KEYS,
   type DamageType,
   type DamageEventType,
   type DamageEvent,
@@ -690,9 +690,9 @@ export default function PropertyPanel() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="item-aligned">
-                {DAMAGE_EVENT_TYPES.map(t => (
-                  <SelectItem key={t} value={t}>
-                    {DAMAGE_EVENT_TYPE_LABELS[t]}
+                {DAMAGE_EVENT_TYPES.map(type => (
+                  <SelectItem key={type} value={type}>
+                    {t(DAMAGE_EVENT_TYPE_LABEL_KEYS[type])}
                   </SelectItem>
                 ))}
               </SelectContent>

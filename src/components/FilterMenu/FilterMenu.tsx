@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 import { useFilterStore, BUILTIN_PRESETS } from '@/store/filterStore'
+import { presetLabel } from './presetLabel'
 import ManagePresetsDialog from './ManagePresetsDialog'
 import { track } from '@/utils/analytics'
 
@@ -33,8 +34,7 @@ export default function FilterMenu() {
   const [manageOpen, setManageOpen] = useState(false)
 
   const handleChange = (id: string) => {
-    const name = [...BUILTIN_PRESETS, ...customPresets].find(p => p.id === id)?.name ?? id
-    track('filter-change', { name })
+    track('filter-change', { name: id })
     setActiveFilter(id)
   }
 
@@ -46,7 +46,9 @@ export default function FilterMenu() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2">
                 <Filter className="w-4 h-4 shrink-0" />
-                <span className="text-xs max-w-[8rem] truncate">{activePreset.name}</span>
+                <span className="text-xs max-w-[8rem] truncate">
+                  {presetLabel(activePreset, t)}
+                </span>
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
@@ -56,13 +58,13 @@ export default function FilterMenu() {
           <DropdownMenuRadioGroup value={activeFilterId} onValueChange={handleChange}>
             {BUILTIN_PRESETS.map(p => (
               <DropdownMenuRadioItem key={p.id} value={p.id}>
-                {p.name}
+                {presetLabel(p, t)}
               </DropdownMenuRadioItem>
             ))}
             {customPresets.length > 0 && <DropdownMenuSeparator />}
             {customPresets.map(p => (
               <DropdownMenuRadioItem key={p.id} value={p.id}>
-                {p.name}
+                {presetLabel(p, t)}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

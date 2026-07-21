@@ -49,7 +49,9 @@
     "resultDamage": "{count} 伤害",
     "skippedSuffix": "（跳过 {count} 条）",
     "sourceFflogs": "FFLogs 战斗",
+    "sourceFight": "战斗 #{fightId}",
     "sourceLabel": "来源",
+    "sourceReport": "报告 {code}",
     "sourceTemplate": "云端模板",
     "stepImport": "② 数据导入",
     "stepSource": "① 选择来源",
@@ -57,6 +59,7 @@
     "timeRangeLabel": "时间范围",
     "timelineParty": "时间轴阵容",
     "title": "导入到当前时间轴",
+    "unknownSource": "未知来源",
     "untilTimelineEnd": "至时间轴结尾"
   }
 }

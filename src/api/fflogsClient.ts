@@ -4,6 +4,7 @@
  * 只负责调用 Worker 的 HTTP 接口，不包含任何 FFLogs API 调用逻辑
  */
 
+import i18n from '@/i18n'
 import { TimeoutError } from 'ky'
 import type { FFLogsReport, FFLogsEvent, FFLogsEventsResponse } from '@/types/fflogs'
 import { apiClient } from './apiClient'
@@ -106,15 +107,18 @@ export class FFLogsClient {
    * 错误处理
    */
   private handleError(error: unknown): Error {
-    if (error instanceof TimeoutError) return new Error('请求超时，请稍后重试')
+    if (error instanceof TimeoutError) return new Error(i18n.t('common:fflogsError.timeout'))
     if (error instanceof Error) {
-      if (error.message.includes('403')) return new Error('没有访问权限')
-      if (error.message.includes('404')) return new Error('报告不存在或已被删除')
-      if (error.message.includes('429')) return new Error('请求过于频繁，请稍后重试')
-      if (error.message.includes('fetch')) return new Error('网络连接失败，请检查网络设置')
+      if (error.message.includes('403')) return new Error(i18n.t('common:fflogsError.forbidden'))
+      if (error.message.includes('404'))
+        return new Error(i18n.t('common:fflogsError.reportNotFound'))
+      if (error.message.includes('429'))
+        return new Error(i18n.t('common:fflogsError.tooManyRequests'))
+      if (error.message.includes('fetch'))
+        return new Error(i18n.t('common:fflogsError.networkFailed'))
       return error
     }
-    return new Error('未知错误')
+    return new Error(i18n.t('common:unknownError'))
   }
 }
 

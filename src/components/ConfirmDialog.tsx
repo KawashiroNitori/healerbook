@@ -2,6 +2,7 @@
  * 确认对话框组件
  */
 
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,11 +30,12 @@ export default function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmText = '确定',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   variant = 'default',
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation(['common'])
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -42,7 +44,7 @@ export default function ConfirmDialog({
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel>{cancelText ?? t('common:cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             className={
@@ -51,7 +53,7 @@ export default function ConfirmDialog({
                 : undefined
             }
           >
-            {confirmText}
+            {confirmText ?? t('common:confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

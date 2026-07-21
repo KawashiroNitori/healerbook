@@ -23,6 +23,10 @@ export interface CustomFilterRule {
   selectedActionsByJob: Partial<Record<Job, number[]>>
 }
 
+/**
+ * 内置预设存翻译键（`nameKey`），自定义预设存用户输入的字面名（`name`）——
+ * 前者随 UI 语言切换，后者是用户数据不可翻译。取展示名统一走 `presetLabel`。
+ */
 export type FilterPreset =
-  | { kind: 'builtin'; id: string; name: string; rule: BuiltinFilterRule }
+  | { kind: 'builtin'; id: string; nameKey: string; rule: BuiltinFilterRule }
   | { kind: 'custom'; id: string; name: string; rule: CustomFilterRule }

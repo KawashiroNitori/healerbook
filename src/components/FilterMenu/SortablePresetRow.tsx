@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { presetLabel } from './presetLabel'
 import { GripVertical, Pencil, Trash2 } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -51,7 +52,7 @@ export default function SortablePresetRow({ preset, onEdit, onDelete }: Props) {
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <span className="flex-1 text-sm truncate">{preset.name}</span>
+      <span className="flex-1 text-sm truncate">{presetLabel(preset, t)}</span>
       <Button
         size="sm"
         variant="ghost"

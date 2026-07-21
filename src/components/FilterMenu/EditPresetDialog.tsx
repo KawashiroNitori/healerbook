@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils'
 import type { FilterPreset, CustomFilterRule } from '@/types/filter'
 import {
   DAMAGE_EVENT_TYPES,
-  DAMAGE_EVENT_TYPE_LABELS,
+  DAMAGE_EVENT_TYPE_LABEL_KEYS,
   type DamageEventType,
 } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
@@ -199,13 +199,13 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t('editor:editPreset.damageTypesLabel')}</label>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-2 py-1">
-              {DAMAGE_EVENT_TYPES.map(t => (
-                <label key={t} className="flex items-center gap-2 cursor-pointer">
+              {DAMAGE_EVENT_TYPES.map(type => (
+                <label key={type} className="flex items-center gap-2 cursor-pointer">
                   <Switch
-                    checked={damageTypes.includes(t)}
-                    onCheckedChange={() => toggleDamageType(t)}
+                    checked={damageTypes.includes(type)}
+                    onCheckedChange={() => toggleDamageType(type)}
                   />
-                  <span className="text-sm">{DAMAGE_EVENT_TYPE_LABELS[t]}</span>
+                  <span className="text-sm">{t(DAMAGE_EVENT_TYPE_LABEL_KEYS[type])}</span>
                 </label>
               ))}
             </div>

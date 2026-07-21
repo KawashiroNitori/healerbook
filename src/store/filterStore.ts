@@ -22,7 +22,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:all',
-    name: '全部',
+    nameKey: 'editor:filterPreset.all',
     rule: {
       damage: () => true,
       action: () => true,
@@ -31,7 +31,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:raidwide',
-    name: '仅团减',
+    nameKey: 'editor:filterPreset.raidwide',
     rule: {
       damage: e => RAID_DAMAGE_TYPES.includes(e.type),
       action: a =>
@@ -42,7 +42,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:dps',
-    name: '仅 DPS',
+    nameKey: 'editor:filterPreset.dps',
     rule: {
       damage: e => RAID_DAMAGE_TYPES.includes(e.type),
       action: (_a, job) => {
@@ -54,7 +54,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:tank',
-    name: '仅坦克',
+    nameKey: 'editor:filterPreset.tank',
     rule: {
       damage: e => TANK_DAMAGE_TYPES.includes(e.type),
       action: (a, job) =>
@@ -65,7 +65,7 @@ export const BUILTIN_PRESETS: FilterPreset[] = [
   {
     kind: 'builtin',
     id: 'builtin:healer',
-    name: '仅治疗',
+    nameKey: 'editor:filterPreset.healer',
     rule: {
       damage: e => RAID_DAMAGE_TYPES.includes(e.type),
       action: (_a, job) => getJobRole(job) === 'healer',

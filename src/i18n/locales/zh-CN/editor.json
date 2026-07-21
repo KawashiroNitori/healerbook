@@ -96,6 +96,13 @@
     "selectAllCasts": "全选技能",
     "selectAllDamageEvents": "全选伤害事件"
   },
+  "damageEventType": {
+    "aoe": "全员 AOE",
+    "auto": "普通攻击",
+    "partial_aoe": "部分 AOE",
+    "partial_final_aoe": "部分 AOE（结算）",
+    "tankbuster": "死刑"
+  },
   "editPreset": {
     "actionsLabel": "技能选择",
     "createTitle": "新建过滤预设",
@@ -170,6 +177,8 @@
   },
   "exportExcel": {
     "actualDamage": "实际伤害",
+    "colEvent": "事件",
+    "colTime": "时间",
     "columnsLabel": "显示列",
     "compositionLabel": "导出阵容",
     "defaultFileName": "减伤表",
@@ -204,6 +213,13 @@
   "filterMenu": {
     "customize": "自定义…",
     "tooltip": "过滤"
+  },
+  "filterPreset": {
+    "all": "全部",
+    "dps": "仅 DPS",
+    "healer": "仅治疗",
+    "raidwide": "仅团减",
+    "tank": "仅坦克"
   },
   "idle": "空转 {sec}s",
   "managePresets": {

@@ -37,13 +37,16 @@ export const DAMAGE_EVENT_TYPES = [
 ] as const
 export type DamageEventType = (typeof DAMAGE_EVENT_TYPES)[number]
 
-/** 攻击类型的中文展示标签（UI 下拉与过滤器 Switch 共用） */
-export const DAMAGE_EVENT_TYPE_LABELS: Record<DamageEventType, string> = {
-  aoe: '全员 AOE',
-  partial_aoe: '部分 AOE',
-  partial_final_aoe: '部分 AOE（结算）',
-  tankbuster: '死刑',
-  auto: '普通攻击',
+/**
+ * 攻击类型的展示标签翻译键（UI 下拉与过滤器 Switch 共用）。
+ * 存 key 而非文案：types 层不引 i18n 运行时，由消费方的 t 取值。
+ */
+export const DAMAGE_EVENT_TYPE_LABEL_KEYS: Record<DamageEventType, string> = {
+  aoe: 'editor:damageEventType.aoe',
+  partial_aoe: 'editor:damageEventType.partial_aoe',
+  partial_final_aoe: 'editor:damageEventType.partial_final_aoe',
+  tankbuster: 'editor:damageEventType.tankbuster',
+  auto: 'editor:damageEventType.auto',
 }
 
 /**

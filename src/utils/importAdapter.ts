@@ -5,6 +5,7 @@
  * 收窄成「可追加到当前时间轴」的子集，并提供过滤 / 职业映射 / cast 校验 / sync 去重。
  */
 
+import i18n from '@/i18n'
 import type { Timeline, DamageEvent, CastEvent, SyncEvent, Composition } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { StatusTimelineByPlayer, PlacementEngine } from '@/types/placement'
@@ -143,8 +144,10 @@ export function dedupeSyncEvents(
 export function extractImportableFromTimeline(t: Timeline): ImportableSubset {
   const parts: string[] = []
   if (t.fflogsSource) {
-    parts.push(`报告 ${t.fflogsSource.reportCode}`)
-    parts.push(`战斗 #${t.fflogsSource.fightId}`)
+    parts.push(
+      i18n.t('import:importIntoTimeline.sourceReport', { code: t.fflogsSource.reportCode })
+    )
+    parts.push(i18n.t('import:importIntoTimeline.sourceFight', { fightId: t.fflogsSource.fightId }))
   }
   if (t.encounter?.name) parts.push(t.encounter.name)
 
@@ -154,6 +157,6 @@ export function extractImportableFromTimeline(t: Timeline): ImportableSubset {
     syncEvents: t.syncEvents ?? [],
     encounter: t.encounter ?? null,
     composition: t.composition ?? { players: [] },
-    sourceLabel: parts.join(' / ') || '未知来源',
+    sourceLabel: parts.join(' / ') || i18n.t('import:importIntoTimeline.unknownSource'),
   }
 }

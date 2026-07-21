@@ -3,6 +3,7 @@
  */
 
 import ExcelJS from 'exceljs'
+import i18n from '@/i18n'
 import type { Timeline } from '@/types/timeline'
 import type { MitigationAction } from '@/types/mitigation'
 import type { SkillTrack } from '@/utils/skillTracks'
@@ -69,14 +70,18 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
   } = options
 
   const wb = new ExcelJS.Workbook()
-  const sanitized = (fileName || '减伤表').replace(/[\\/?*[\]:]/g, '_')
-  const sheetName = sanitized.slice(0, 31) || '减伤表'
+  const defaultFileName = i18n.t('editor:exportExcel.defaultFileName')
+  const sanitized = (fileName || defaultFileName).replace(/[\\/?*[\]:]/g, '_')
+  const sheetName = sanitized.slice(0, 31) || defaultFileName
   const ws = wb.addWorksheet(sheetName)
 
   // 计算固定列数
-  const fixedCols: string[] = ['时间', '事件']
-  if (showOriginalDamage) fixedCols.push('原始伤害')
-  if (showActualDamage) fixedCols.push('实际伤害')
+  const fixedCols: string[] = [
+    i18n.t('editor:exportExcel.colTime'),
+    i18n.t('editor:exportExcel.colEvent'),
+  ]
+  if (showOriginalDamage) fixedCols.push(i18n.t('editor:exportExcel.originalDamage'))
+  if (showActualDamage) fixedCols.push(i18n.t('editor:exportExcel.actualDamage'))
   const fixedColCount = fixedCols.length
   const totalCols = fixedColCount + skillTracks.length
 
