@@ -11,6 +11,7 @@ import type {
 } from '@/types/fflogs'
 import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from '@/types/fflogs'
 import type { RankingEntry } from '@/types/apiContracts'
+import type { AppLanguage } from '@/types/i18n'
 import { buildComposition } from '@/utils/rosterUtils'
 import { fflogsFetch } from './fflogsProxy'
 
@@ -27,6 +28,7 @@ export interface FFLogsV2Config {
  */
 export interface GetReportParams {
   reportCode: string
+  lang?: AppLanguage
 }
 
 /**
@@ -36,6 +38,7 @@ export interface GetEventsParams {
   reportCode: string
   start: number
   end: number
+  lang?: AppLanguage
   dataType?: FFLogsEventDataType[]
 }
 
@@ -345,6 +348,7 @@ export class FFLogsClientV2 {
   async getReport(params: GetReportParams): Promise<FFLogsReport> {
     const { reportCode } = params
 
+    // i18n 扩展点：本查询内 translate: false 为 i18n 扩展点，未来可依据 params.lang 切换；当前保持 false 不改变输出。
     const query = `
       query GetReport($code: String!) {
         reportData {
@@ -515,6 +519,7 @@ export class FFLogsClientV2 {
   async getEvents(params: GetEventsParams): Promise<FFLogsEventsResponse> {
     const { reportCode, start, end } = params
 
+    // i18n 扩展点：本查询内 translate: false 为 i18n 扩展点，未来可依据 lang 切换；当前保持 false 不改变输出。
     const query = `
       query GetEvents($code: String!, $startTime: Float, $endTime: Float, $dataType: EventDataType!, $hostilityType: HostilityType, $includeResources: Boolean, $limit: Int, $filterExpression: String) {
         reportData {

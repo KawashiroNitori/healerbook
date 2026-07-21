@@ -3,6 +3,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../env'
 import { createClient } from '../env'
+import { readLanguage } from '../middleware/readLanguage'
 import { parseFightImport, resolveImportTimelineName, parseStatData } from '@/utils/fflogsImporter'
 import { getStatisticsKVKey } from '../kvKeys'
 import type { Timeline } from '@/types/timeline'
@@ -11,10 +12,12 @@ import { serializeForServer } from '@/utils/timelineFormat'
 
 const app = new Hono<AppEnv>()
 
+app.use('*', readLanguage)
+
 app.get('/report/:reportCode', async c => {
   const reportCode = c.req.param('reportCode')
   const client = createClient(c.env)
-  const data = await client.getReport({ reportCode })
+  const data = await client.getReport({ reportCode, lang: c.get('lang') })
   return c.json(data)
 })
 
@@ -22,6 +25,7 @@ app.get('/events/:reportCode', async c => {
   const reportCode = c.req.param('reportCode')
   const start = c.req.query('start')
   const end = c.req.query('end')
+  const lang = c.get('lang')
 
   if (!start || !end) {
     return c.json({ error: 'Missing start or end parameter' }, 400)
@@ -32,6 +36,7 @@ app.get('/events/:reportCode', async c => {
     reportCode,
     start: parseFloat(start),
     end: parseFloat(end),
+    lang,
   })
   return c.json(data)
 })
@@ -46,7 +51,7 @@ app.get('/import', async c => {
 
   try {
     const client = createClient(c.env)
-    const report = await client.getReport({ reportCode })
+    const report = await client.getReport({ reportCode, lang: c.get('lang') })
 
     let fightId: number
     if (fightIdParam) {
@@ -56,20 +61,24 @@ app.get('/import', async c => {
       }
     } else {
       if (!report.fights || report.fights.length === 0) {
-        return c.json({ error: '报告中没有战斗记录' }, 404)
+        return c.json({ error: '报告中没有战斗记录', code: 'fflogs.noFights' }, 404)
       }
       fightId = report.fights[report.fights.length - 1].id
     }
 
     const fight = report.fights?.find(f => f.id === fightId)
     if (!fight) {
-      return c.json({ error: `战斗 #${fightId} 不存在` }, 404)
+      return c.json(
+        { error: `战斗 #${fightId} 不存在`, code: 'fflogs.fightNotFound', fightId },
+        404
+      )
     }
 
     const eventsData = await client.getEvents({
       reportCode,
       start: fight.startTime,
       end: fight.endTime,
+      lang: c.get('lang'),
     })
     const events = eventsData.events || []
 
@@ -122,7 +131,13 @@ app.get('/import', async c => {
     return c.json(serializeForServer(timeline))
   } catch (error) {
     console.error('[FFLogs Import] Error:', error)
-    return c.json({ error: error instanceof Error ? error.message : 'FFLogs API 调用失败' }, 502)
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'FFLogs API 调用失败',
+        code: 'fflogs.apiFailed',
+      },
+      502
+    )
   }
 })
 

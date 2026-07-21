@@ -3,6 +3,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronRight } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
@@ -43,6 +44,7 @@ interface Props {
 const MAX_NAME = 20
 
 export default function EditPresetDialog({ open, onClose, preset }: Props) {
+  const { t } = useTranslation(['editor', 'common'])
   const allActions = ACTIONS
   const addPreset = useFilterStore(s => s.addPreset)
   const updatePreset = useFilterStore(s => s.updatePreset)
@@ -150,7 +152,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
         actionsCount,
         jobsCount,
       })
-      toast.success('已保存')
+      toast.success(t('editor:editPreset.saved'))
     } else {
       addPreset(name.trim(), rule)
       track('filter-preset-save', {
@@ -159,7 +161,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
         actionsCount,
         jobsCount,
       })
-      toast.success('已创建')
+      toast.success(t('editor:editPreset.created'))
     }
     onClose()
   }
@@ -170,18 +172,22 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
     <Modal open={open} onClose={onClose} maxWidth="2xl">
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>{preset?.kind === 'custom' ? '编辑过滤预设' : '新建过滤预设'}</ModalTitle>
+          <ModalTitle>
+            {preset?.kind === 'custom'
+              ? t('editor:editPreset.editTitle')
+              : t('editor:editPreset.createTitle')}
+          </ModalTitle>
         </ModalHeader>
 
         <div className="space-y-5 py-2">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">预设名称</label>
+            <label className="text-sm font-medium">{t('editor:editPreset.nameLabel')}</label>
             <div className="relative">
               <Input
                 value={name}
                 onChange={e => setName(e.target.value.slice(0, MAX_NAME))}
                 maxLength={MAX_NAME}
-                placeholder="输入预设名称"
+                placeholder={t('editor:editPreset.namePlaceholder')}
                 className="pr-14"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
@@ -191,7 +197,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">伤害事件类型</label>
+            <label className="text-sm font-medium">{t('editor:editPreset.damageTypesLabel')}</label>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-2 py-1">
               {DAMAGE_EVENT_TYPES.map(t => (
                 <label key={t} className="flex items-center gap-2 cursor-pointer">
@@ -206,7 +212,7 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
           </div>
 
           <div className="space-y-3">
-            <label className="text-sm font-medium">技能选择</label>
+            <label className="text-sm font-medium">{t('editor:editPreset.actionsLabel')}</label>
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
               {ROLE_ORDER.map(role => {
                 const jobsInRole = jobsByRole[role]
@@ -247,7 +253,9 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                           className="h-6 px-2 text-xs"
                           onClick={() => toggleRoleAll(jobsInRole)}
                         >
-                          {roleAllSelected ? '取消全选' : '全选'}
+                          {roleAllSelected
+                            ? t('editor:editPreset.deselectAll')
+                            : t('editor:editPreset.selectAll')}
                         </Button>
                       )}
                     </div>
@@ -271,7 +279,9 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
                                 className="h-6 px-2 text-xs shrink-0"
                                 onClick={() => toggleJobAll(job)}
                               >
-                                {allSelected ? '取消全选' : '全选'}
+                                {allSelected
+                                  ? t('editor:editPreset.deselectAll')
+                                  : t('editor:editPreset.selectAll')}
                               </Button>
                             </div>
                             <div className="flex flex-wrap gap-1.5 mt-1.5 pl-6">
@@ -325,10 +335,10 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
 
         <ModalFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            {t('common:cancel')}
           </Button>
           <Button onClick={handleSave} disabled={!canSave}>
-            保存
+            {t('editor:editPreset.save')}
           </Button>
         </ModalFooter>
       </ModalContent>

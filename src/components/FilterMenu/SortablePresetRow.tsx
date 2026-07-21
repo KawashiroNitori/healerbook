@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GripVertical, Pencil, Trash2 } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function SortablePresetRow({ preset, onEdit, onDelete }: Props) {
+  const { t } = useTranslation(['editor', 'common'])
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: preset.id,
   })
@@ -45,12 +47,18 @@ export default function SortablePresetRow({ preset, onEdit, onDelete }: Props) {
         className="cursor-grab text-muted-foreground hover:text-foreground"
         {...attributes}
         {...listeners}
-        aria-label="拖动"
+        aria-label={t('sortablePreset.drag')}
       >
         <GripVertical className="h-4 w-4" />
       </button>
       <span className="flex-1 text-sm truncate">{preset.name}</span>
-      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onEdit} aria-label="编辑">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 w-7 p-0"
+        onClick={onEdit}
+        aria-label={t('sortablePreset.edit')}
+      >
         <Pencil className="h-3.5 w-3.5" />
       </Button>
       <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -59,19 +67,19 @@ export default function SortablePresetRow({ preset, onEdit, onDelete }: Props) {
             size="sm"
             variant="ghost"
             className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-            aria-label="删除"
+            aria-label={t('sortablePreset.delete')}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="end" className="w-auto p-3 space-y-2">
-          <p className="text-sm">确认删除？</p>
+          <p className="text-sm">{t('sortablePreset.confirmDelete')}</p>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>
-              取消
+              {t('common:cancel')}
             </Button>
             <Button variant="destructive" size="sm" onClick={handleConfirm}>
-              删除
+              {t('sortablePreset.delete')}
             </Button>
           </div>
         </PopoverContent>

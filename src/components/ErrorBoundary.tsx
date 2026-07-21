@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import i18n from '@/i18n'
 
 interface Props {
   children: ReactNode
@@ -27,7 +28,9 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         this.props.fallback ?? (
           <div className="flex items-center justify-center h-full text-destructive text-sm p-4">
-            渲染错误：{this.state.error?.message}（详情见控制台）
+            {i18n.t('common:errorBoundary.renderError', {
+              message: this.state.error?.message ?? '',
+            })}
           </div>
         )
       )

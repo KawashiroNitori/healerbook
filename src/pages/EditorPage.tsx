@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { House } from 'lucide-react'
@@ -37,6 +38,7 @@ import FullScreenLoader from '@/components/FullScreenLoader'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '@/lib/constants'
 import ThemeToggle from '@/components/ThemeToggle'
+import LanguageToggle from '@/components/LanguageToggle'
 import PresenceAvatars from '@/components/PresenceAvatars'
 import { track } from '@/utils/analytics'
 import { decideOpen, type ServerOutcome } from './editorOpenDecision'
@@ -59,6 +61,7 @@ function buildVisitedMeta(id: string, snapshot: Timeline): LocalDocMeta {
 }
 
 export default function EditorPage() {
+  const { t } = useTranslation(['editor', 'common'])
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -127,7 +130,7 @@ export default function EditorPage() {
           const moved = await store.getMeta(localId)
           if (moved) await store.putMeta({ ...moved, kind: 'local' })
           if (ignore) return
-          toast.info('该时间轴已被作者取消发布，已转为本地时间轴')
+          toast.info(t('editor:editorPage.unpublishedToLocal'))
           navigate(`/timeline/${localId}`, { replace: true })
           return
         }
@@ -188,7 +191,7 @@ export default function EditorPage() {
     return () => {
       ignore = true
     }
-  }, [id, openTimeline, setViewerSnapshot, navigate])
+  }, [id, openTimeline, setViewerSnapshot, navigate, t])
 
   // 卸载 / 切 id 时重置 store(断开 WS、销毁引擎)
   useEffect(() => {
@@ -224,14 +227,18 @@ export default function EditorPage() {
     try {
       const newId = await createLocalTimeline(
         timelineToLocalInit(timeline, {
-          name: `${timeline.name}(副本)`,
+          name: t('editor:editorPage.copyName', { name: timeline.name }),
           createdAt: Math.floor(Date.now() / 1000),
         })
       )
       track('timeline-create-copy', { encounterId: timeline.encounter?.id })
       navigate(`/timeline/${newId}`)
     } catch (err) {
-      toast.error('创建副本失败:' + (err instanceof Error ? err.message : '未知错误'))
+      toast.error(
+        t('editor:editorPage.createCopyFailed', {
+          message: err instanceof Error ? err.message : t('common:unknownError'),
+        })
+      )
     }
   }
 
@@ -305,10 +312,10 @@ export default function EditorPage() {
   if (mode === 'not_found') {
     return (
       <div className="flex min-h-screen items-center justify-center flex-col gap-4">
-        <p className="text-muted-foreground">时间轴不存在或已删除</p>
+        <p className="text-muted-foreground">{t('editor:editorPage.notFound')}</p>
         <Button variant="outline" onClick={() => navigate('/')}>
           <House className="w-4 h-4 mr-2" />
-          返回首页
+          {t('editor:editorPage.backHome')}
         </Button>
       </div>
     )
@@ -317,11 +324,11 @@ export default function EditorPage() {
   if (mode === 'network_error') {
     return (
       <div className="flex min-h-screen items-center justify-center flex-col gap-4">
-        <p className="text-muted-foreground">加载失败,请检查网络连接</p>
-        <Button onClick={() => window.location.reload()}>重试</Button>
+        <p className="text-muted-foreground">{t('editor:editorPage.networkError')}</p>
+        <Button onClick={() => window.location.reload()}>{t('editor:editorPage.retry')}</Button>
         <Button variant="outline" onClick={() => navigate('/')}>
           <House className="w-4 h-4 mr-2" />
-          返回首页
+          {t('editor:editorPage.backHome')}
         </Button>
       </div>
     )
@@ -348,14 +355,14 @@ export default function EditorPage() {
           <div>
             <div className="flex items-center gap-2">
               <EditableTitle
-                value={timeline?.name || '时间轴编辑器'}
+                value={timeline?.name || t('editor:editorPage.defaultTitle')}
                 onChange={updateTimelineName}
                 className="text-lg font-bold"
                 readOnly={!editLock.can('metadata')}
               />
               {isViewMode && authorName && (
                 <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-                  By {authorName}
+                  {t('editor:editorPage.byAuthor', { name: authorName })}
                 </span>
               )}
             </div>
@@ -369,6 +376,7 @@ export default function EditorPage() {
           <div className="ml-auto flex items-center gap-3">
             <PresenceAvatars />
             <ThemeToggle />
+            <LanguageToggle />
           </div>
         </div>
       </header>
@@ -395,7 +403,7 @@ export default function EditorPage() {
                 </ErrorBoundary>
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">加载中...</p>
+                  <p className="text-muted-foreground">{t('editor:editorPage.loading')}</p>
                 </div>
               )}
             </div>

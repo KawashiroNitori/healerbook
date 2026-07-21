@@ -32,6 +32,7 @@ import {
   useResolvedVariantByCastId,
 } from '@/contexts/DamageCalculationContext'
 import { useUIStore } from '@/store/uiStore'
+import i18n, { getKonvaFontFamily } from '@/i18n'
 
 interface SkillTracksCanvasProps {
   timeline: Timeline
@@ -156,6 +157,8 @@ export default function SkillTracksCanvas({
   const setDraggingId = useUIStore(s => s.setDraggingId)
   // 被拖 cast 的实时 x（Layer 坐标），仅拖动期间非 null；用于 cast 锚定备注逐帧跟随
   const [draggingCastX, setDraggingCastX] = useState<number | null>(null)
+  const locale = useUIStore(s => s.locale)
+  const konvaFont = getKonvaFontFamily(locale)
   const colors = useCanvasColors()
   const skillTracksHeight = skillTracks.length * trackHeight
   const trackIndexMap = useMemo(() => buildTrackIndexMap(skillTracks), [skillTracks])
@@ -489,11 +492,11 @@ export default function SkillTracksCanvas({
                   <Text
                     x={centerX}
                     y={trackY - 6}
-                    text={`空转 ${firstIdleTime.toFixed(1)}s`}
+                    text={i18n.t('editor:idle', { sec: firstIdleTime.toFixed(1) })}
                     fontSize={11}
                     fill="#f59e0b"
                     fontStyle="bold"
-                    fontFamily="Arial, sans-serif"
+                    fontFamily={konvaFont}
                     align="center"
                     offsetX={30}
                     perfectDrawEnabled={false}
@@ -552,11 +555,11 @@ export default function SkillTracksCanvas({
                 <Text
                   x={centerX}
                   y={trackY - 6}
-                  text={`空转 ${idleTime.toFixed(1)}s`}
+                  text={i18n.t('editor:idle', { sec: idleTime.toFixed(1) })}
                   fontSize={11}
                   fill="#f59e0b"
                   fontStyle="bold"
-                  fontFamily="Arial, sans-serif"
+                  fontFamily={konvaFont}
                   align="center"
                   offsetX={30}
                   perfectDrawEnabled={false}

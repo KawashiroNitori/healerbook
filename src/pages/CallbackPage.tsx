@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { track } from '@/utils/analytics'
@@ -10,6 +11,7 @@ const AUTH_CALLBACK_URL = '/api/auth/callback'
 export default function CallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { t } = useTranslation(['common'])
   const setTokens = useAuthStore(s => s.setTokens)
   const handledRef = useRef(false)
 
@@ -23,7 +25,7 @@ export default function CallbackPage() {
 
     // 验证 state 防 CSRF
     if (!state || state !== savedState) {
-      toast.error('授权失败：state 不匹配')
+      toast.error(t('callback.stateMismatch'))
       navigate('/', { replace: true })
       return
     }
@@ -43,7 +45,7 @@ export default function CallbackPage() {
     }
 
     if (!code) {
-      toast.error('授权失败：缺少 code 参数')
+      toast.error(t('callback.missingCode'))
       navigate(returnTo, { replace: true })
       return
     }
@@ -71,14 +73,18 @@ export default function CallbackPage() {
         navigate(returnTo, { replace: true })
       })
       .catch((err: unknown) => {
-        toast.error(`登录失败：${err instanceof Error ? err.message : '未知错误'}`)
+        toast.error(
+          t('callback.loginFailed', {
+            message: err instanceof Error ? err.message : t('unknownError'),
+          })
+        )
         navigate(returnTo, { replace: true })
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-muted-foreground">正在完成登录...</p>
+      <p className="text-muted-foreground">{t('callback.completing')}</p>
     </div>
   )
 }

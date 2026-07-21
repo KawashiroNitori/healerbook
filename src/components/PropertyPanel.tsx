@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
@@ -46,6 +47,7 @@ interface BranchViewData {
 }
 
 export default function PropertyPanel() {
+  const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const selectedEventId = useTimelineStore(s => s.selectedEventId)
   const updateDamageEvent = useTimelineStore(s => s.updateDamageEvent)
@@ -153,9 +155,13 @@ export default function PropertyPanel() {
           <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 px-3 py-2">
             <Skull className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-red-700 dark:text-red-400">致死</p>
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                {t('editor:propertyPanel.lethal')}
+              </p>
               <p className="text-xs text-red-600/80 dark:text-red-400/80">
-                伤害溢出 {(branch.finalDamage - maxHP).toLocaleString()} HP，需要更多减伤
+                {t('editor:propertyPanel.lethalOverflow', {
+                  overflow: (branch.finalDamage - maxHP).toLocaleString(),
+                })}
               </p>
             </div>
           </div>
@@ -164,9 +170,14 @@ export default function PropertyPanel() {
           <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-3 py-2">
             <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">危险</p>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                {t('editor:propertyPanel.dangerous')}
+              </p>
               <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
-                伤害后仅剩 {remainHP.toLocaleString()} HP（{survivePct.toFixed(1)}%）
+                {t('editor:propertyPanel.dangerousRemain', {
+                  remain: remainHP.toLocaleString(),
+                  pct: survivePct.toFixed(1),
+                })}
               </p>
             </div>
           </div>
@@ -217,9 +228,13 @@ export default function PropertyPanel() {
           <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 px-3 py-2">
             <Skull className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-red-700 dark:text-red-400">致死</p>
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                {t('editor:propertyPanel.lethal')}
+              </p>
               <p className="text-xs text-red-600/80 dark:text-red-400/80">
-                伤害溢出 {(overkill ?? 0).toLocaleString()} HP，需要更多减伤 / 治疗
+                {t('editor:propertyPanel.lethalOverflowAccumulative', {
+                  overflow: (overkill ?? 0).toLocaleString(),
+                })}
               </p>
             </div>
           </div>
@@ -228,9 +243,14 @@ export default function PropertyPanel() {
           <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-3 py-2">
             <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">危险</p>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                {t('editor:propertyPanel.dangerous')}
+              </p>
               <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
-                伤害后仅剩 {hpAfter.toLocaleString()} HP（{survivePct.toFixed(1)}%）
+                {t('editor:propertyPanel.dangerousRemain', {
+                  remain: hpAfter.toLocaleString(),
+                  pct: survivePct.toFixed(1),
+                })}
               </p>
             </div>
           </div>
@@ -329,7 +349,9 @@ export default function PropertyPanel() {
     return (
       <div className="space-y-1">
         <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">减伤构成</span>
+          <span className="text-muted-foreground">
+            {t('editor:propertyPanel.mitigationComposition')}
+          </span>
           <span className="tabular-nums">
             <span className="font-medium text-red-500">
               {Math.round(finalDamageScaled).toLocaleString()}
@@ -346,22 +368,34 @@ export default function PropertyPanel() {
               {
                 pct: overkillPct,
                 color: 'rgb(55, 55, 55)',
-                label: `溢出伤害 ${Math.round(overkill).toLocaleString()} (${overkillPct.toFixed(1)}%)`,
+                label: t('editor:propertyPanel.segmentOverkill', {
+                  value: Math.round(overkill).toLocaleString(),
+                  pct: overkillPct.toFixed(1),
+                }),
               },
               {
                 pct: effectivePct,
                 color: 'rgb(239, 68, 68)',
-                label: `有效伤害 ${Math.round(effectiveDamage).toLocaleString()} (${effectivePct.toFixed(1)}%)`,
+                label: t('editor:propertyPanel.segmentEffective', {
+                  value: Math.round(effectiveDamage).toLocaleString(),
+                  pct: effectivePct.toFixed(1),
+                }),
               },
               {
                 pct: shieldPct,
                 color: 'rgb(234, 179, 8)',
-                label: `护盾减免 ${Math.round(shieldAbsorb).toLocaleString()} (${shieldPct.toFixed(1)}%)`,
+                label: t('editor:propertyPanel.segmentShield', {
+                  value: Math.round(shieldAbsorb).toLocaleString(),
+                  pct: shieldPct.toFixed(1),
+                }),
               },
               {
                 pct: multiplierPct,
                 color: 'rgb(59, 130, 246)',
-                label: `百分比减免 ${Math.round(pctMitigation).toLocaleString()} (${multiplierPct.toFixed(1)}%)`,
+                label: t('editor:propertyPanel.segmentMultiplier', {
+                  value: Math.round(pctMitigation).toLocaleString(),
+                  pct: multiplierPct.toFixed(1),
+                }),
               },
             ]
               .filter(s => s.pct > 0)
@@ -417,10 +451,13 @@ export default function PropertyPanel() {
     const renderIcon = (status: MitigationStatus, index: number) => {
       const meta = getStatusById(status.statusId)
       const iconUrl = getStatusIconUrl(status.statusId)
-      const statusName = getStatusName(status.statusId) || meta?.name || '未知状态'
+      const statusName =
+        getStatusName(status.statusId) || meta?.name || t('editor:propertyPanel.unknownStatus')
       let mitigationText = ''
       if (status.remainingBarrier !== undefined) {
-        mitigationText = `盾: ${status.remainingBarrier.toLocaleString()}`
+        mitigationText = t('editor:propertyPanel.shieldValue', {
+          value: status.remainingBarrier.toLocaleString(),
+        })
       } else if (meta?.type === 'multiplier') {
         const perf = status.performance ?? meta.performance
         const m = getMultiplierForDamageType(perf, damageType)
@@ -455,7 +492,9 @@ export default function PropertyPanel() {
           {multiplierStatuses.length > 0 && (
             <div className="space-y-0.5">
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">百分比</span>
+                <span className="text-muted-foreground">
+                  {t('editor:propertyPanel.percentage')}
+                </span>
                 <span className="text-green-500 font-medium tabular-nums">-{pctReduction}%</span>
               </div>
               <div className="flex flex-wrap gap-0.5">
@@ -466,7 +505,7 @@ export default function PropertyPanel() {
           {shieldStatuses.length > 0 && (
             <div className="space-y-0.5">
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">盾</span>
+                <span className="text-muted-foreground">{t('editor:propertyPanel.shield')}</span>
                 <span className="text-yellow-500 font-medium tabular-nums">
                   {totalShield.toLocaleString()}
                   <span className="text-muted-foreground ml-1">({shieldEquivPct}%)</span>
@@ -503,7 +542,7 @@ export default function PropertyPanel() {
     <div className="fixed right-4 top-[136px] bottom-[112px] w-[22rem] hidden md:flex flex-col bg-background/95 backdrop-blur border rounded-xl shadow-lg z-40 overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between">
-        <h2 className="font-semibold">伤害事件</h2>
+        <h2 className="font-semibold">{t('editor:propertyPanel.title')}</h2>
         {!isReadOnly && (
           <button
             onClick={() => removeDamageEvent(event.id)}
@@ -517,7 +556,9 @@ export default function PropertyPanel() {
       {/* Properties */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-custom">
         <div>
-          <label className="block text-xs text-muted-foreground mb-1">事件名称</label>
+          <label className="block text-xs text-muted-foreground mb-1">
+            {t('editor:propertyPanel.eventName')}
+          </label>
           <input
             type="text"
             value={nameDraft}
@@ -535,7 +576,9 @@ export default function PropertyPanel() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">判定时间</label>
+            <label className="block text-xs text-muted-foreground mb-1">
+              {t('editor:propertyPanel.time')}
+            </label>
             <TimeInput
               value={event.time}
               onChange={v => updateDamageEvent(event.id, { time: v })}
@@ -545,7 +588,9 @@ export default function PropertyPanel() {
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">原始伤害</label>
+            <label className="block text-xs text-muted-foreground mb-1">
+              {t('editor:propertyPanel.originalDamage')}
+            </label>
             <input
               type="number"
               value={damageDraft}
@@ -596,7 +641,9 @@ export default function PropertyPanel() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">伤害类型</label>
+            <label className="block text-xs text-muted-foreground mb-1">
+              {t('editor:propertyPanel.damageType')}
+            </label>
             <Select
               value={event.damageType || 'physical'}
               onValueChange={v =>
@@ -610,14 +657,22 @@ export default function PropertyPanel() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="item-aligned">
-                <SelectItem value="physical">物理</SelectItem>
-                <SelectItem value="magical">魔法</SelectItem>
-                <SelectItem value="darkness">特殊</SelectItem>
+                <SelectItem value="physical">
+                  {t('editor:propertyPanel.damageTypePhysical')}
+                </SelectItem>
+                <SelectItem value="magical">
+                  {t('editor:propertyPanel.damageTypeMagical')}
+                </SelectItem>
+                <SelectItem value="darkness">
+                  {t('editor:propertyPanel.damageTypeSpecial')}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">攻击类型</label>
+            <label className="block text-xs text-muted-foreground mb-1">
+              {t('editor:propertyPanel.attackType')}
+            </label>
             <Select
               value={event.type || 'aoe'}
               onValueChange={v =>
@@ -657,7 +712,9 @@ export default function PropertyPanel() {
           <span className="text-xs text-muted-foreground shrink-0">DoT</span>
           {event.snapshotTime != null && (
             <>
-              <span className="text-xs text-muted-foreground shrink-0 ml-auto">快照时刻</span>
+              <span className="text-xs text-muted-foreground shrink-0 ml-auto">
+                {t('editor:propertyPanel.snapshotTime')}
+              </span>
               <TimeInput
                 value={event.snapshotTime}
                 onChange={v => updateDamageEvent(event.id, { snapshotTime: v })}
@@ -681,10 +738,14 @@ export default function PropertyPanel() {
             }
             disabled={isReadOnly}
           />
-          <span className="text-xs text-muted-foreground shrink-0">目标减有效</span>
+          <span className="text-xs text-muted-foreground shrink-0">
+            {t('editor:propertyPanel.targetMitigationEnabled')}
+          </span>
           {!event.targetMitigationDisabled && (
             <>
-              <span className="text-xs text-muted-foreground shrink-0 ml-auto">伤害来源</span>
+              <span className="text-xs text-muted-foreground shrink-0 ml-auto">
+                {t('editor:propertyPanel.damageSource')}
+              </span>
               <input
                 type="text"
                 value={event.damageSource ?? ''}
@@ -716,22 +777,30 @@ export default function PropertyPanel() {
             const settlement = Math.max(0, event.damage - segOriginalMaxBefore)
             return (
               <div className="pt-3 border-t space-y-2">
-                <h3 className="text-sm font-semibold">部分 AOE 伤害详情</h3>
+                <h3 className="text-sm font-semibold">
+                  {t('editor:propertyPanel.partialAoeTitle')}
+                </h3>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="space-y-0.5">
-                    <div className="text-muted-foreground">最高区间伤害</div>
+                    <div className="text-muted-foreground">
+                      {t('editor:propertyPanel.maxSegmentDamage')}
+                    </div>
                     <div className="text-sm font-medium tabular-nums">
                       {segOriginalMax.toLocaleString()}
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <div className="text-muted-foreground">本事件原始伤害</div>
+                    <div className="text-muted-foreground">
+                      {t('editor:propertyPanel.eventOriginalDamage')}
+                    </div>
                     <div className="text-sm font-medium tabular-nums">
                       {event.damage.toLocaleString()}
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <div className="text-muted-foreground">本事件应用伤害</div>
+                    <div className="text-muted-foreground">
+                      {t('editor:propertyPanel.eventAppliedDamage')}
+                    </div>
                     <div className="text-sm font-medium tabular-nums">
                       {settlement.toLocaleString()}
                     </div>
@@ -745,7 +814,9 @@ export default function PropertyPanel() {
         {!timeline.isReplayMode && result && (
           <div className="pt-3 border-t space-y-3">
             <div className="flex items-center gap-1">
-              <h3 className="text-sm font-semibold">预估减伤效果</h3>
+              <h3 className="text-sm font-semibold">
+                {t('editor:propertyPanel.estimatedMitigation')}
+              </h3>
               <Popover open={helpOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -764,8 +835,9 @@ export default function PropertyPanel() {
                   onMouseLeave={() => setHelpOpen(false)}
                 >
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    该计算结果为基于部分统计数据的<b>估算效果</b>
-                    ，与游戏中的实际伤害可能会有差异，仅供参考。
+                    {t('editor:propertyPanel.helpTextBefore')}
+                    <b>{t('editor:propertyPanel.helpTextEmphasis')}</b>
+                    {t('editor:propertyPanel.helpTextAfter')}
                   </p>
                 </PopoverContent>
               </Popover>
@@ -849,7 +921,9 @@ export default function PropertyPanel() {
                           </SelectContent>
                         </Select>
                         <Switch checked={isTiled} onCheckedChange={setIsTiled} />
-                        <span className="text-xs text-muted-foreground shrink-0">平铺</span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {t('editor:propertyPanel.tiled')}
+                        </span>
                       </div>
 
                       {isTiled ? (

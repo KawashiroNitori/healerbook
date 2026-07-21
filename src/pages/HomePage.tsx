@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Download, CircleHelp, Info } from 'lucide-react'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
@@ -13,6 +14,7 @@ import { APP_NAME } from '@/lib/constants'
 import TimelineCard from '@/components/TimelineCard'
 import AuthButton from '@/components/AuthButton'
 import ThemeToggle from '@/components/ThemeToggle'
+import LanguageToggle from '@/components/LanguageToggle'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchMyTimelines, deleteSharedTimeline } from '@/api/timelineShareApi'
@@ -27,6 +29,7 @@ const AboutDialog = lazy(() => import('@/components/AboutDialog'))
 
 export default function HomePage() {
   useChangelogToast()
+  const { t } = useTranslation(['home', 'common'])
   const navigate = useNavigate()
 
   const { isLoggedIn } = useAuth()
@@ -90,14 +93,18 @@ export default function HomePage() {
       await loadMetas()
       toast.success(
         item.kind === 'published'
-          ? '已取消发布'
+          ? t('home:homePage.unpublishSuccess')
           : item.kind === 'visited'
-            ? '已从列表移除'
-            : '时间轴已删除'
+            ? t('home:homePage.removeFromListSuccess')
+            : t('home:homePage.deleteSuccess')
       )
       setPendingDelete(null)
     } catch (err) {
-      toast.error(`操作失败：${err instanceof Error ? err.message : '未知错误'}`)
+      toast.error(
+        t('common:operationFailed', {
+          message: err instanceof Error ? err.message : t('common:unknownError'),
+        })
+      )
     }
   }
 
@@ -111,7 +118,7 @@ export default function HomePage() {
             <img src="/icon.png" alt="Healerbook" className="w-10 h-10" />
             <div>
               <h1 className="text-2xl font-bold">{APP_NAME}</h1>
-              <p className="hidden sm:block text-sm text-muted-foreground">FF14 减伤规划工具</p>
+              <p className="hidden sm:block text-sm text-muted-foreground">{t('home:subtitle')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -123,7 +130,7 @@ export default function HomePage() {
               onClick={() => track('help-click')}
             >
               <CircleHelp className="w-4 h-4" />
-              <span className="hidden sm:inline">帮助</span>
+              <span className="hidden sm:inline">{t('home:help')}</span>
             </a>
             <button
               onClick={() => {
@@ -137,13 +144,16 @@ export default function HomePage() {
               className="relative inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <Info className="w-4 h-4" />
-              <span className="hidden sm:inline">关于</span>
+              <span className="hidden sm:inline">{t('home:about')}</span>
               {showAboutTip && (
                 <div className="absolute top-full right-0 mt-2 w-48 rounded-md border border-foreground/20 bg-popover p-3 text-xs text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95">
                   <div className="absolute -top-1.5 right-4 h-3 w-3 rotate-45 border-l border-t border-foreground/20 bg-popover" />
                   <p className="text-left">
-                    我建了一个 QQ 群，欢迎加入反馈意见、关注新功能更新
-                    <del className="text-muted-foreground">催更</del>、以及交流各自的减伤轴~
+                    {t('home:homePage.qqGroupTipPrefix')}
+                    <del className="text-muted-foreground">
+                      {t('home:homePage.qqGroupTipStrike')}
+                    </del>
+                    {t('home:homePage.qqGroupTipSuffix')}
                   </p>
                 </div>
               )}
@@ -161,6 +171,7 @@ export default function HomePage() {
               <span className="hidden sm:inline font-mono text-xs">{__COMMIT_HASH__}</span>
             </a>
             <ThemeToggle />
+            <LanguageToggle />
             <AuthButton />
           </div>
         </div>
@@ -175,8 +186,10 @@ export default function HomePage() {
             className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
           >
             <Download className="w-12 h-12 mb-2 text-muted-foreground" />
-            <span className="font-medium">从 FFLogs 导入</span>
-            <span className="text-sm text-muted-foreground">导入战斗记录</span>
+            <span className="font-medium">{t('home:homePage.importFromFFLogs')}</span>
+            <span className="text-sm text-muted-foreground">
+              {t('home:homePage.importFromFFLogsDesc')}
+            </span>
           </button>
 
           <button
@@ -184,15 +197,17 @@ export default function HomePage() {
             className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors"
           >
             <Plus className="w-12 h-12 mb-2 text-muted-foreground" />
-            <span className="font-medium">新建时间轴</span>
-            <span className="text-sm text-muted-foreground">从空白开始</span>
+            <span className="font-medium">{t('home:homePage.createNewTimeline')}</span>
+            <span className="text-sm text-muted-foreground">
+              {t('home:homePage.createNewTimelineDesc')}
+            </span>
           </button>
         </div>
 
         {/* 统一时间轴列表 */}
         {timelineList.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-xl font-semibold mb-4">我的时间轴</h2>
+            <h2 className="text-xl font-semibold mb-4">{t('home:homePage.myTimelines')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {timelineList.map(item => (
                 <TimelineCard
@@ -253,17 +268,17 @@ export default function HomePage() {
         onOpenChange={open => !open && setPendingDelete(null)}
         title={
           pendingDelete?.kind === 'published'
-            ? '取消发布'
+            ? t('home:homePage.unpublishTitle')
             : pendingDelete?.kind === 'visited'
-              ? '从列表移除'
-              : '删除时间轴'
+              ? t('home:homePage.removeFromListTitle')
+              : t('home:homePage.deleteTitle')
         }
         description={
           pendingDelete?.kind === 'published'
-            ? '取消发布后，获得链接的人将无法再访问该时间轴。确定要取消发布吗？'
+            ? t('home:homePage.unpublishDescription')
             : pendingDelete?.kind === 'visited'
-              ? '仅从你的本地列表移除该时间轴的记录，不影响原时间轴。'
-              : '确定要删除这个时间轴吗？'
+              ? t('home:homePage.removeFromListDescription')
+              : t('home:homePage.deleteDescription')
         }
         variant="destructive"
         onConfirm={handleDeleteConfirm}

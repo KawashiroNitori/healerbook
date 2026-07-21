@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { FFLogsClientV2 } from './fflogsClientV2'
+import type { AppLanguage } from '@/types/i18n'
 
 export interface Env {
   FFLOGS_CLIENT_ID?: string
@@ -24,6 +25,8 @@ export type AppEnv = {
   Bindings: Env
   Variables: {
     auth?: { userId: string; username: string }
+    /** 由 readLanguage 中间件解析的请求语言 */
+    lang?: AppLanguage
   }
 }
 

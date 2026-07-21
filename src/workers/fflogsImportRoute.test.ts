@@ -9,6 +9,8 @@ import type { FFLogsReport } from '../types/fflogs'
 
 interface JsonBody {
   error?: string
+  code?: string
+  fightId?: number
   // V2 format fields
   v?: number
   n?: string
@@ -143,6 +145,7 @@ describe('handleFFLogsImport', () => {
       expect(response.status).toBe(404)
       const body = (await response.json()) as JsonBody
       expect(body.error).toContain('没有战斗记录')
+      expect(body.code).toBe('fflogs.noFights')
     })
 
     it('指定的 fightId 不存在应返回 404', async () => {
@@ -156,6 +159,8 @@ describe('handleFFLogsImport', () => {
       expect(response.status).toBe(404)
       const body = (await response.json()) as JsonBody
       expect(body.error).toContain('99')
+      expect(body.code).toBe('fflogs.fightNotFound')
+      expect(body.fightId).toBe(99)
     })
   })
 
@@ -186,11 +191,12 @@ describe('handleFFLogsImport', () => {
       expect(timeline.ua).toBeTypeOf('number')
 
       // 验证调用参数
-      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'ABC123' })
+      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'ABC123', lang: 'zh-CN' })
       expect(mockGetEvents).toHaveBeenCalledWith({
         reportCode: 'ABC123',
         start: 0,
         end: 300000,
+        lang: 'zh-CN',
       })
     })
 
@@ -278,7 +284,7 @@ describe('handleFFLogsImport', () => {
       const response = await app.fetch(request, mockEnv)
 
       expect(response.status).toBe(200)
-      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'a:ABC123' })
+      expect(mockGetReport).toHaveBeenCalledWith({ reportCode: 'a:ABC123', lang: 'zh-CN' })
     })
   })
 
@@ -296,6 +302,7 @@ describe('handleFFLogsImport', () => {
       expect(response.status).toBe(502)
       const body = (await response.json()) as JsonBody
       expect(body.error).toContain('FFLogs API timeout')
+      expect(body.code).toBe('fflogs.apiFailed')
     })
 
     it('getEvents 失败应返回 502', async () => {

@@ -3,6 +3,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TIMELINE_NAME_MAX_LENGTH } from '@/constants/limits'
 import { Check, X, Pencil } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -20,6 +21,7 @@ export default function EditableTitle({
   className = '',
   readOnly = false,
 }: EditableTitleProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -102,7 +104,7 @@ export default function EditableTitle({
               <Check className="w-4 h-4 text-green-600" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>保存</TooltipContent>
+          <TooltipContent>{t('editableTitle.save')}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -113,7 +115,7 @@ export default function EditableTitle({
               <X className="w-4 h-4 text-red-600" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>取消</TooltipContent>
+          <TooltipContent>{t('common:cancel')}</TooltipContent>
         </Tooltip>
       </div>
     )
@@ -132,7 +134,7 @@ export default function EditableTitle({
               <Pencil className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>编辑标题</TooltipContent>
+          <TooltipContent>{t('editableTitle.edit')}</TooltipContent>
         </Tooltip>
       )}
     </div>

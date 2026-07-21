@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { TIMELINE_DESCRIPTION_MAX_LENGTH } from '@/constants/limits'
 
@@ -22,6 +23,7 @@ export default function EditableDescription({
   onChange,
   readOnly,
 }: EditableDescriptionProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(value)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
@@ -79,9 +81,10 @@ export default function EditableDescription({
         ref={triggerRef}
         onClick={() => (open ? setOpen(false) : handleOpen())}
         className="text-xs text-muted-foreground cursor-text hover:text-foreground transition-colors truncate max-w-xs"
-        title={value || (readOnly ? undefined : '点击添加说明')}
+        title={value || (readOnly ? undefined : t('editableDescription.clickToAdd'))}
       >
-        {value || (!readOnly && <span className="opacity-40">添加说明...</span>)}
+        {value ||
+          (!readOnly && <span className="opacity-40">{t('editableDescription.addHint')}</span>)}
       </p>
 
       {open &&
@@ -108,7 +111,7 @@ export default function EditableDescription({
                   }}
                   rows={8}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-sm resize-none bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="为这个时间轴添加说明..."
+                  placeholder={t('editableDescription.placeholder')}
                 />
                 <div className="flex justify-end gap-2">
                   <button
@@ -116,14 +119,14 @@ export default function EditableDescription({
                     onClick={() => setOpen(false)}
                     className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground hover:bg-accent transition-colors"
                   >
-                    取消
+                    {t('common:cancel')}
                   </button>
                   <button
                     type="button"
                     onClick={handleSave}
                     className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                   >
-                    保存
+                    {t('editableDescription.save')}
                   </button>
                 </div>
               </div>

@@ -3,6 +3,7 @@
  */
 
 import { Trash2, HardDrive, Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import JobIcon from './JobIcon'
 import type { Composition } from '@/types/timeline'
 import { sortJobsByOrder } from '@/data/jobs'
@@ -24,6 +25,7 @@ interface TimelineCardProps {
 }
 
 export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCardProps) {
+  const { t } = useTranslation(['home', 'common'])
   const composition = timeline.composition
 
   // 按职业顺序排序
@@ -33,10 +35,10 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
 
   const deleteLabel =
     timeline.kind === 'local'
-      ? '删除'
+      ? t('timelineCard.deleteLocal')
       : timeline.kind === 'published'
-        ? '取消发布并删除'
-        : '从列表移除'
+        ? t('timelineCard.deletePublished')
+        : t('timelineCard.removeFromList')
 
   return (
     <div
@@ -46,10 +48,16 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-1.5 min-w-0">
           {timeline.kind === 'local' && (
-            <HardDrive className="w-4 h-4 shrink-0 text-muted-foreground" aria-label="本地" />
+            <HardDrive
+              className="w-4 h-4 shrink-0 text-muted-foreground"
+              aria-label={t('timelineCard.local')}
+            />
           )}
           {timeline.kind === 'published' && (
-            <Globe className="w-4 h-4 shrink-0 text-muted-foreground" aria-label="已发布" />
+            <Globe
+              className="w-4 h-4 shrink-0 text-muted-foreground"
+              aria-label={t('timelineCard.published')}
+            />
           )}
           <h3 className="font-medium group-hover:text-primary line-clamp-1" title={timeline.name}>
             {timeline.name}
@@ -75,17 +83,18 @@ export default function TimelineCard({ timeline, onClick, onDelete }: TimelineCa
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground mb-2">无阵容信息</p>
+        <p className="text-sm text-muted-foreground mb-2">{t('timelineCard.noComposition')}</p>
       )}
 
       <p className="text-xs text-muted-foreground">
-        最后查看{' '}
-        {new Date(timeline.lastViewedAt * 1000).toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
+        {t('timelineCard.lastViewed', {
+          time: new Date(timeline.lastViewedAt * 1000).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
         })}
       </p>
     </div>

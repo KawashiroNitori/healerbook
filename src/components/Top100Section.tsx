@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   Clock,
@@ -86,17 +87,18 @@ function CompositionFilter({
   selectedJobs: Job[]
   onJobsChange: (jobs: Job[]) => void
 }) {
+  const { t } = useTranslation(['home', 'common'])
   const dpsJobs = getDPSJobs()
   const meleeJobs = dpsJobs.filter(job => getJobRole(job) === 'melee')
   const rangedJobs = dpsJobs.filter(job => getJobRole(job) === 'ranged')
   const casterJobs = dpsJobs.filter(job => getJobRole(job) === 'caster')
 
-  const jobsByRole = {
-    坦克: getTankJobs(),
-    治疗: getHealerJobs(),
-    近战: meleeJobs,
-    远敏: rangedJobs,
-    法系: casterJobs,
+  const jobsByRole: Record<string, Job[]> = {
+    tank: getTankJobs(),
+    healer: getHealerJobs(),
+    melee: meleeJobs,
+    ranged: rangedJobs,
+    caster: casterJobs,
   }
 
   const toggleJob = (job: Job) => {
@@ -115,8 +117,8 @@ function CompositionFilter({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-semibold">阵容过滤</h4>
-          <p className="text-xs text-muted-foreground">只看你们小队有的减伤</p>
+          <h4 className="text-sm font-semibold">{t('home:top100.filterTitle')}</h4>
+          <p className="text-xs text-muted-foreground">{t('home:top100.filterDescription')}</p>
         </div>
         <div className="flex items-center gap-2">
           {selectedJobs.length > 0 && (
@@ -131,7 +133,7 @@ function CompositionFilter({
                     <Eraser className="w-4 h-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>清空</TooltipContent>
+                <TooltipContent>{t('home:top100.clear')}</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -142,7 +144,9 @@ function CompositionFilter({
       <div className="space-y-3">
         {Object.entries(jobsByRole).map(([role, jobs]) => (
           <div key={role}>
-            <h4 className="text-xs font-medium text-muted-foreground mb-2">{role}</h4>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">
+              {t(`home:top100.role.${role}`)}
+            </h4>
             <div className="flex flex-wrap gap-2">
               {jobs.map(job => {
                 const isSelected = selectedJobs.includes(job)
@@ -194,6 +198,7 @@ function EncounterTable({
   /** 选项卡下只有一个榜单时默认展开 */
   defaultOpen?: boolean
 }) {
+  const { t } = useTranslation(['home', 'common'])
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [showAll, setShowAll] = useState(false)
 
@@ -231,7 +236,9 @@ function EncounterTable({
       {isOpen && (
         <div>
           {!hasData ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">暂无数据</div>
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              {t('home:top100.noData')}
+            </div>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -239,14 +246,14 @@ function EncounterTable({
                   <thead>
                     <tr className="border-b bg-muted/20 text-muted-foreground text-xs">
                       <th className="text-right px-3 py-2 w-10">#</th>
-                      <th className="text-left px-3 py-2">治疗组合</th>
-                      <th className="text-left px-3 py-2">阵容</th>
-                      <th className="text-right px-3 py-2">合计 rDPS</th>
+                      <th className="text-left px-3 py-2">{t('home:top100.colHealers')}</th>
+                      <th className="text-left px-3 py-2">{t('home:top100.colComposition')}</th>
+                      <th className="text-right px-3 py-2">{t('home:top100.colTotalRDps')}</th>
                       <th className="text-right px-3 py-2">
                         <Clock className="w-3 h-3 inline mr-1" />
-                        时长
+                        {t('home:top100.colDuration')}
                       </th>
-                      <th className="text-center px-3 py-2">操作</th>
+                      <th className="text-center px-3 py-2">{t('home:top100.colAction')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -286,7 +293,7 @@ function EncounterTable({
                             </div>
                             {importedSources.has(`${entry.reportCode}:${entry.fightID}`) && (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                已导入
+                                {t('home:top100.imported')}
                               </span>
                             )}
                           </div>
@@ -320,7 +327,7 @@ function EncounterTable({
                             }}
                             className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
                           >
-                            导入
+                            {t('home:top100.import')}
                           </button>
                         </td>
                       </tr>
@@ -338,7 +345,9 @@ function EncounterTable({
                     setShowAll(v => !v)
                   }}
                 >
-                  {showAll ? `收起（显示前 10 条）` : `展开全部 ${data?.entries.length ?? 0} 条`}
+                  {showAll
+                    ? t('home:top100.collapse')
+                    : t('home:top100.expandAll', { count: data?.entries.length ?? 0 })}
                 </button>
               )}
             </>
@@ -368,6 +377,7 @@ function ProgressEncounterPanel({
   importedSources: Set<string>
   onImport: (url: string) => void
 }) {
+  const { t } = useTranslation(['home', 'common'])
   const encounter = tier.encounters[0]
   const { data, isLoading } = useEncounterTemplate(encounter?.id ?? 0)
   const isKilled = data?.kill === true
@@ -386,7 +396,7 @@ function ProgressEncounterPanel({
                 className="text-sm text-muted-foreground inline-flex items-center"
                 aria-hidden={i > 0}
               >
-                🤡 最新进度绝赞更新中 🤡
+                {t('home:top100.marquee')}
                 <span className="mx-6 opacity-50">•</span>
               </span>
             ))}
@@ -404,8 +414,10 @@ function ProgressEncounterPanel({
           className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 hover:bg-accent transition-colors"
         >
           <div>
-            <div className="font-medium text-sm">MogTalk 进度榜单</div>
-            <div className="text-xs text-muted-foreground">查看全球小队最新进度排名</div>
+            <div className="font-medium text-sm">{t('home:top100.mogtalkTitle')}</div>
+            <div className="text-xs text-muted-foreground">
+              {t('home:top100.mogtalkDescription')}
+            </div>
           </div>
           <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
         </a>
@@ -416,9 +428,9 @@ function ProgressEncounterPanel({
         <div className="rounded-lg border px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium text-sm">伤害时间轴更新进度</span>
+            <span className="font-medium text-sm">{t('home:top100.timelineProgress')}</span>
           </div>
-          <div className="text-sm text-muted-foreground">加载中...</div>
+          <div className="text-sm text-muted-foreground">{t('home:top100.loading')}</div>
         </div>
       )}
       {/* 已通关：不显示时长进度条，直接显示"已更新完成" */}
@@ -427,10 +439,10 @@ function ProgressEncounterPanel({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span className="font-medium text-sm">伤害时间轴已更新完成</span>
+              <span className="font-medium text-sm">{t('home:top100.timelineUpdated')}</span>
             </div>
             <span className="text-xs text-muted-foreground font-mono">
-              更新于 {formatUpdatedAt(data.updatedAt)}
+              {t('home:top100.updatedAt', { time: formatUpdatedAt(data.updatedAt) })}
             </span>
           </div>
         </div>
@@ -442,15 +454,15 @@ function ProgressEncounterPanel({
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-sm">伤害时间轴更新进度</span>
+              <span className="font-medium text-sm">{t('home:top100.timelineProgress')}</span>
             </div>
             <span className="text-xs text-muted-foreground font-mono">
-              更新于 {formatUpdatedAt(data.updatedAt)}
+              {t('home:top100.updatedAt', { time: formatUpdatedAt(data.updatedAt) })}
             </span>
           </div>
           <div>
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-              <span>时长</span>
+              <span>{t('home:top100.duration')}</span>
               <span className="font-mono">{formatDuration(data.templateSourceDurationMs)}</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -484,6 +496,7 @@ function ProgressEncounterPanel({
 // ---- 主组件 ----
 
 export default function Top100Section() {
+  const { t } = useTranslation(['home', 'common'])
   const [importUrl, setImportUrl] = useState<string | null>(null)
   // 默认最新"已发布"赛季——避免用户打开页面直接落到 comingSoon 占位 Tab。
   const [activeTierIdx, setActiveTierIdx] = useState(() => {
@@ -544,7 +557,7 @@ export default function Top100Section() {
     <section>
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
-          <h2 className="text-xl font-semibold">TOP100 参考方案</h2>
+          <h2 className="text-xl font-semibold">{t('home:top100.title')}</h2>
           <TooltipProvider>
             <Popover>
               <Tooltip>
@@ -564,7 +577,7 @@ export default function Top100Section() {
                     </button>
                   </PopoverTrigger>
                 </TooltipTrigger>
-                <TooltipContent>阵容过滤</TooltipContent>
+                <TooltipContent>{t('home:top100.filterTitle')}</TooltipContent>
               </Tooltip>
               <PopoverContent
                 align="start"
@@ -576,7 +589,7 @@ export default function Top100Section() {
             </Popover>
           </TooltipProvider>
         </div>
-        <p className="text-sm text-muted-foreground">拿不定主意？看看别人怎么做的</p>
+        <p className="text-sm text-muted-foreground">{t('home:top100.subtitle')}</p>
       </div>
 
       {/* 赛季 Tab */}
@@ -599,7 +612,9 @@ export default function Top100Section() {
       {/* 内容区 */}
       {activeTier.comingSoon ? (
         <div className="text-center py-12">
-          <span className="rainbow-marquee text-2xl font-bold tracking-wider">敬请期待！</span>
+          <span className="rainbow-marquee text-2xl font-bold tracking-wider">
+            {t('home:top100.comingSoon')}
+          </span>
         </div>
       ) : activeTier.mogtalkUrl ? (
         <ProgressEncounterPanel
@@ -613,11 +628,11 @@ export default function Top100Section() {
       ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
           <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-          加载中...
+          {t('home:top100.loading')}
         </div>
       ) : isError ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
-          <p>加载失败</p>
+          <p>{t('home:top100.loadFailed')}</p>
         </div>
       ) : (
         <div className="space-y-2">

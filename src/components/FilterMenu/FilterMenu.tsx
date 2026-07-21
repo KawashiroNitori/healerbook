@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -20,6 +21,7 @@ import ManagePresetsDialog from './ManagePresetsDialog'
 import { track } from '@/utils/analytics'
 
 export default function FilterMenu() {
+  const { t } = useTranslation(['editor', 'common'])
   const activeFilterId = useFilterStore(s => s.activeFilterId)
   const setActiveFilter = useFilterStore(s => s.setActiveFilter)
   const customPresets = useFilterStore(s => s.customPresets)
@@ -48,7 +50,7 @@ export default function FilterMenu() {
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent side="bottom">过滤</TooltipContent>
+          <TooltipContent side="bottom">{t('filterMenu.tooltip')}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
           <DropdownMenuRadioGroup value={activeFilterId} onValueChange={handleChange}>
@@ -71,7 +73,7 @@ export default function FilterMenu() {
               setManageOpen(true)
             }}
           >
-            自定义…
+            {t('filterMenu.customize')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

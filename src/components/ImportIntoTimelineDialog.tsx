@@ -8,6 +8,7 @@
  */
 
 import { useContext, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { track } from '@/utils/analytics'
@@ -45,6 +46,7 @@ type Step = 1 | 2
 type SourceKind = 'fflogs' | 'template'
 
 export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTimelineDialogProps) {
+  const { t } = useTranslation(['import', 'common'])
   const {
     inputRef,
     url,
@@ -196,11 +198,11 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
   const nextLabel =
     step === 1
       ? source === 'template'
-        ? '下一步'
+        ? t('import:importIntoTimeline.next')
         : parsed && !needReparse
-          ? '下一步'
-          : '解析'
-      : '确认导入'
+          ? t('import:importIntoTimeline.next')
+          : t('import:importIntoTimeline.parse')
+      : t('import:importIntoTimeline.confirmImport')
 
   const rangeInvalid = rangeMode === 'range' && !rangeEndUnlimited && rangeStart >= rangeEnd
   const typesAllUnchecked = !includeDamage && (source !== 'fflogs' || !includeCast)
@@ -234,13 +236,19 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       rangeMode,
     })
     const segs: string[] = []
-    if (includeDamage) segs.push(`${preview.damageCount} 伤害`)
+    if (includeDamage)
+      segs.push(t('import:importIntoTimeline.resultDamage', { count: preview.damageCount }))
     if (source === 'fflogs' && includeCast) {
       segs.push(
-        `${preview.castKept} 技能${preview.castSkipped > 0 ? `（跳过 ${preview.castSkipped}）` : ''}`
+        preview.castSkipped > 0
+          ? t('import:importIntoTimeline.resultCastWithSkipped', {
+              count: preview.castKept,
+              skipped: preview.castSkipped,
+            })
+          : t('import:importIntoTimeline.resultCast', { count: preview.castKept })
       )
     }
-    toast.success(`导入完成：${segs.join(' / ')}`)
+    toast.success(t('import:importIntoTimeline.importSuccess', { summary: segs.join(' / ') }))
     onClose()
   }
 
@@ -250,11 +258,14 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       if (!parsedUrl?.reportCode) return
       setIsParsing(true)
       try {
-        const fullTimeline = await fetchFFLogsImport({
-          reportCode: parsedUrl.reportCode,
-          fightId: parsedUrl.fightId,
-          isLastFight: parsedUrl.isLastFight,
-        })
+        const fullTimeline = await fetchFFLogsImport(
+          {
+            reportCode: parsedUrl.reportCode,
+            fightId: parsedUrl.fightId,
+            isLastFight: parsedUrl.isLastFight,
+          },
+          t
+        )
         const extracted = extractImportableFromTimeline(fullTimeline)
         setParsed(extracted)
         setParsedKey(url)
@@ -262,12 +273,12 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       } catch (err) {
         if (err instanceof Error) {
           if (err.message.includes('API Token') || err.message.includes('API Key')) {
-            setError('FFLogs 连接配置错误，请联系开发者')
+            setError(t('import:importFflogs.connectionConfigError'))
           } else {
             setError(err.message)
           }
         } else {
-          setError('解析失败')
+          setError(t('import:importIntoTimeline.parseFailed'))
         }
       } finally {
         setIsParsing(false)
@@ -281,7 +292,9 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
         syncEvents: [],
         encounter: currentEncounter ?? null,
         composition: timeline?.composition ?? { players: [] },
-        sourceLabel: `模板「${currentEncounter?.name ?? ''}」`,
+        sourceLabel: t('import:importIntoTimeline.templateSourceLabel', {
+          name: currentEncounter?.name ?? '',
+        }),
       })
       setParsedKey(`template:${currentEncounter?.id}`)
       setStep(2)
@@ -302,15 +315,19 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
       {/* 标题区 —— 保持 Task 7 的无 ModalContent 结构，以便 stepper border-b 贴边 */}
       <div className="px-6 pt-6 pb-4">
         <ModalHeader className="mb-0">
-          <ModalTitle>导入到当前时间轴</ModalTitle>
+          <ModalTitle>{t('import:importIntoTimeline.title')}</ModalTitle>
         </ModalHeader>
       </div>
 
       {/* Stepper —— border-b 需要全宽贴边，不能被 ModalContent 的 padding 截断 */}
       <div className="px-6 py-3 border-b bg-muted/30 flex items-center gap-3 text-sm">
-        <span className={step === 1 ? 'font-semibold' : 'text-muted-foreground'}>① 选择来源</span>
+        <span className={step === 1 ? 'font-semibold' : 'text-muted-foreground'}>
+          {t('import:importIntoTimeline.stepSource')}
+        </span>
         <span className="text-muted-foreground">→</span>
-        <span className={step === 2 ? 'font-semibold' : 'text-muted-foreground'}>② 数据导入</span>
+        <span className={step === 2 ? 'font-semibold' : 'text-muted-foreground'}>
+          {t('import:importIntoTimeline.stepImport')}
+        </span>
       </div>
 
       {/* 内容区 */}
@@ -318,13 +335,13 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
         {step === 1 && (
           <>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              本功能旨在将其他战斗记录所产生的伤害与技能使用快速导入到已有时间轴，由于每场战斗的实际战斗时长和伤害出现时机可能不同，导入后可能会出现重复的伤害事件与技能，请仔细甄别导入结果是否准确，并人工修正可能出现的错误。
+              {t('import:importIntoTimeline.intro')}
             </p>
 
             {showSegmented && (
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                  来源
+                  {t('import:importIntoTimeline.sourceLabel')}
                 </label>
                 <div className="inline-flex border border-border rounded-md p-0.5 bg-muted/30">
                   <button
@@ -332,14 +349,14 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                     onClick={() => handleSourceChange('fflogs')}
                     className={`px-3 py-1 rounded text-xs ${source === 'fflogs' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
                   >
-                    FFLogs 战斗
+                    {t('import:importIntoTimeline.sourceFflogs')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSourceChange('template')}
                     className={`px-3 py-1 rounded text-xs ${source === 'template' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
                   >
-                    云端模板
+                    {t('import:importIntoTimeline.sourceTemplate')}
                   </button>
                 </div>
               </div>
@@ -351,7 +368,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
               aria-hidden={source !== 'fflogs'}
             >
               <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                FFLogs 链接
+                {t('import:importIntoTimeline.fflogsLinkLabel')}
               </label>
               <input
                 ref={inputRef}
@@ -364,14 +381,18 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                 tabIndex={source === 'fflogs' ? undefined : -1}
               />
               {url && !urlValid && (
-                <p className="text-xs text-destructive mt-1">无法识别 FFLogs 链接</p>
+                <p className="text-xs text-destructive mt-1">
+                  {t('import:importIntoTimeline.fflogsLinkInvalid')}
+                </p>
               )}
             </div>
 
             {(isParsing || templatePrefetching) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {isParsing ? '正在解析...' : '正在加载模板...'}
+                {isParsing
+                  ? t('import:importIntoTimeline.parsing')
+                  : t('import:importIntoTimeline.loadingTemplate')}
               </div>
             )}
 
@@ -387,12 +408,11 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
           <div className="space-y-5">
             {partyMismatch && (
               <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300 space-y-2">
-                <div>
-                  ⚠
-                  该报告的阵容与当前时间轴阵容不一致，导入的技能可能无法正确归属到对应玩家，请仔细核对
-                </div>
+                <div>⚠ {t('import:importIntoTimeline.partyMismatch')}</div>
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-xs text-muted-foreground w-16">报告阵容</span>
+                  <span className="shrink-0 text-xs text-muted-foreground w-16">
+                    {t('import:importIntoTimeline.reportParty')}
+                  </span>
                   <div className="flex flex-wrap items-center gap-1">
                     {sortJobsByOrder(parsed?.composition?.players ?? [], p => p.job).map((p, i) => (
                       <JobIcon key={i} job={p.job} size="sm" />
@@ -400,7 +420,9 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-xs text-muted-foreground w-16">时间轴阵容</span>
+                  <span className="shrink-0 text-xs text-muted-foreground w-16">
+                    {t('import:importIntoTimeline.timelineParty')}
+                  </span>
                   <div className="flex flex-wrap items-center gap-1">
                     {sortJobsByOrder(timeline?.composition?.players ?? [], p => p.job).map(
                       (p, i) => (
@@ -414,25 +436,33 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
 
             {encounterMismatch && (
               <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
-                ⚠ 该报告的副本与当前时间轴的副本不一致
+                ⚠ {t('import:importIntoTimeline.encounterMismatch')}
               </div>
             )}
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                数据类型
+                {t('import:importIntoTimeline.dataTypeLabel')}
               </label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={includeDamage} onCheckedChange={v => setIncludeDamage(!!v)} />
-                  伤害事件{' '}
-                  <span className="text-muted-foreground">（{parsed.damageEvents.length} 条）</span>
+                  {t('import:importIntoTimeline.damageEvents')}{' '}
+                  <span className="text-muted-foreground">
+                    {t('import:importIntoTimeline.countParenthesized', {
+                      count: parsed.damageEvents.length,
+                    })}
+                  </span>
                 </label>
                 {source === 'fflogs' && (
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox checked={includeCast} onCheckedChange={v => setIncludeCast(!!v)} />
-                    技能使用{' '}
-                    <span className="text-muted-foreground">（{parsed.castEvents.length} 条）</span>
+                    {t('import:importIntoTimeline.castEvents')}{' '}
+                    <span className="text-muted-foreground">
+                      {t('import:importIntoTimeline.countParenthesized', {
+                        count: parsed.castEvents.length,
+                      })}
+                    </span>
                   </label>
                 )}
               </div>
@@ -440,7 +470,7 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                时间范围
+                {t('import:importIntoTimeline.timeRangeLabel')}
               </label>
               <RadioGroup
                 value={rangeMode}
@@ -448,10 +478,10 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                 className="flex gap-4 mb-2"
               >
                 <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="range" /> 时间区间
+                  <RadioGroupItem value="range" /> {t('import:importIntoTimeline.rangeModeRange')}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="all" /> 全部
+                  <RadioGroupItem value="all" /> {t('import:importIntoTimeline.rangeModeAll')}
                 </label>
               </RadioGroup>
 
@@ -484,43 +514,51 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
                         checked={rangeEndUnlimited}
                         onCheckedChange={v => setRangeEndUnlimited(!!v)}
                       />
-                      至时间轴结尾
+                      {t('import:importIntoTimeline.untilTimelineEnd')}
                     </label>
                   </div>
                   {rangeInvalid && (
-                    <p className="text-xs text-destructive mt-1">起始时间必须小于结束时间</p>
+                    <p className="text-xs text-destructive mt-1">
+                      {t('import:importIntoTimeline.rangeInvalid')}
+                    </p>
                   )}
                 </>
               ) : (
                 <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
-                  ⚠ 全部模式可能与时间轴已有事件重复。建议改用「时间区间」并选择空白时间段。
+                  ⚠ {t('import:importIntoTimeline.allModeWarning')}
                 </div>
               )}
             </div>
 
             {preview && (
               <div className="rounded-md bg-muted/40 px-3 py-2 font-mono text-xs leading-6">
-                <div className="text-muted-foreground">本次将导入：</div>
+                <div className="text-muted-foreground">
+                  {t('import:importIntoTimeline.previewTitle')}
+                </div>
                 {includeDamage && (
                   <div>
                     {'　'}
-                    伤害事件{'　'}
+                    {t('import:importIntoTimeline.damageEvents')}
+                    {'　'}
                     <span className="text-green-600 dark:text-green-400">
-                      {preview.damageCount} 条
+                      {t('import:importIntoTimeline.countSuffix', { count: preview.damageCount })}
                     </span>
                   </div>
                 )}
                 {source === 'fflogs' && includeCast && (
                   <div>
                     {'　'}
-                    技能使用{'　'}
+                    {t('import:importIntoTimeline.castEvents')}
+                    {'　'}
                     <span className="text-green-600 dark:text-green-400">
-                      {preview.castKept} 条
+                      {t('import:importIntoTimeline.countSuffix', { count: preview.castKept })}
                     </span>
                     {preview.castSkipped > 0 && (
                       <span className="text-yellow-600 dark:text-yellow-400">
                         {' '}
-                        （跳过 {preview.castSkipped} 条）
+                        {t('import:importIntoTimeline.skippedSuffix', {
+                          count: preview.castSkipped,
+                        })}
                       </span>
                     )}
                   </div>
@@ -536,11 +574,11 @@ export default function ImportIntoTimelineDialog({ open, onClose }: ImportIntoTi
         <ModalFooter>
           {step === 2 && (
             <Button variant="outline" onClick={() => setStep(1)} disabled={isParsing}>
-              ‹ 上一步
+              {t('import:importIntoTimeline.prev')}
             </Button>
           )}
           <Button variant="outline" onClick={onClose} disabled={isParsing}>
-            取消
+            {t('common:cancel')}
           </Button>
           <Button
             onClick={handleNext}

@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
 import { generateObjectId } from '@/utils/shortId'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -30,6 +31,7 @@ interface TempMitigationSectionProps {
 }
 
 export default function TempMitigationSection({ event }: TempMitigationSectionProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const updateDamageEvent = useTimelineStore(s => s.updateDamageEvent)
   const isReadOnly = useEditorReadOnly()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -66,34 +68,36 @@ export default function TempMitigationSection({ event }: TempMitigationSectionPr
     })
   }
 
-  const formatAmount = (t: TempMitigation) =>
-    t.type === 'percent' ? `-${t.value}%` : `盾 ${t.value.toLocaleString()}`
+  const formatAmount = (item: TempMitigation) =>
+    item.type === 'percent'
+      ? `-${item.value}%`
+      : t('editor:tempMitigation.shieldAmount', { amount: item.value.toLocaleString() })
 
   return (
     <div className="pt-3 border-t space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">临时减伤</h3>
+        <h3 className="text-sm font-semibold">{t('editor:tempMitigation.title')}</h3>
         <button
           onClick={() => setDialogOpen(true)}
           className="p-1 hover:bg-accent rounded transition-colors"
-          aria-label="添加临时减伤"
+          aria-label={t('editor:tempMitigation.addAriaLabel')}
         >
           <Plus className="w-4 h-4" />
         </button>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">暂无临时减伤</p>
+        <p className="text-xs text-muted-foreground">{t('editor:tempMitigation.empty')}</p>
       ) : (
         <div className="space-y-1">
-          {items.map(t => (
-            <div key={t.id} className="flex items-center gap-2 text-xs">
-              <span className="flex-1 truncate">{t.name}</span>
-              <span className="tabular-nums text-green-500 font-medium">{formatAmount(t)}</span>
+          {items.map(item => (
+            <div key={item.id} className="flex items-center gap-2 text-xs">
+              <span className="flex-1 truncate">{item.name}</span>
+              <span className="tabular-nums text-green-500 font-medium">{formatAmount(item)}</span>
               <button
-                onClick={() => handleDelete(t.id)}
+                onClick={() => handleDelete(item.id)}
                 className="p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
-                aria-label={`删除 ${t.name}`}
+                aria-label={t('editor:tempMitigation.deleteAriaLabel', { name: item.name })}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -111,32 +115,38 @@ export default function TempMitigationSection({ event }: TempMitigationSectionPr
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>添加临时减伤</DialogTitle>
+            <DialogTitle>{t('editor:tempMitigation.dialogTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">名称</label>
+              <label className="block text-xs text-muted-foreground mb-1">
+                {t('editor:tempMitigation.nameLabel')}
+              </label>
               <Input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="临时减伤名称"
+                placeholder={t('editor:tempMitigation.namePlaceholder')}
               />
             </div>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">减伤类型</label>
+              <label className="block text-xs text-muted-foreground mb-1">
+                {t('editor:tempMitigation.typeLabel')}
+              </label>
               <Select value={type} onValueChange={v => setType(v as TempMitigationType)}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="percent">百分比</SelectItem>
-                  <SelectItem value="shield">盾</SelectItem>
+                  <SelectItem value="percent">{t('editor:tempMitigation.typePercent')}</SelectItem>
+                  <SelectItem value="shield">{t('editor:tempMitigation.typeShield')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">
-                {type === 'percent' ? '减伤效果（百分比）' : '减伤效果（盾量）'}
+                {type === 'percent'
+                  ? t('editor:tempMitigation.effectLabelPercent')
+                  : t('editor:tempMitigation.effectLabelShield')}
               </label>
               <div className="relative">
                 <Input
@@ -146,7 +156,11 @@ export default function TempMitigationSection({ event }: TempMitigationSectionPr
                   step={1}
                   value={value}
                   onChange={e => setValue(e.target.value)}
-                  placeholder={type === 'percent' ? '如 20' : '如 30000'}
+                  placeholder={
+                    type === 'percent'
+                      ? t('editor:tempMitigation.valuePlaceholderPercent')
+                      : t('editor:tempMitigation.valuePlaceholderShield')
+                  }
                   className={type === 'percent' ? 'pr-7' : undefined}
                 />
                 {type === 'percent' && (
@@ -162,7 +176,7 @@ export default function TempMitigationSection({ event }: TempMitigationSectionPr
               onClick={handleAdd}
               className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              添加
+              {t('editor:tempMitigation.addButton')}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -4,7 +4,7 @@
  * 业务处理（新建独立时间轴 vs 合并到当前时间轴）留在各组件。
  */
 import { apiClient } from './apiClient'
-import { parseApiError } from './parseApiError'
+import { resolveApiError, type TFunc } from './parseApiError'
 import { parseFromAny } from '@/utils/timelineFormat'
 import { generateId } from '@/utils/id'
 import type { Timeline } from '@/types/timeline'
@@ -15,8 +15,11 @@ export interface FFLogsImportTarget {
   isLastFight: boolean
 }
 
-/** 服务端一次性解析出完整 Timeline；120s 超时（FFLogs 事件抓取可能较慢） */
-export async function fetchFFLogsImport(target: FFLogsImportTarget): Promise<Timeline> {
+/**
+ * 服务端一次性解析出完整 Timeline；120s 超时（FFLogs 事件抓取可能较慢）。
+ * t 由调用方（组件）传入：Worker 只回稳定 errorCode，本地化在前端完成。
+ */
+export async function fetchFFLogsImport(target: FFLogsImportTarget, t: TFunc): Promise<Timeline> {
   const params = new URLSearchParams({ reportCode: target.reportCode })
   if (!target.isLastFight && target.fightId !== null) {
     params.set('fightId', String(target.fightId))
@@ -29,7 +32,7 @@ export async function fetchFFLogsImport(target: FFLogsImportTarget): Promise<Tim
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as unknown
-    throw new Error(parseApiError(body, response.status))
+    throw new Error(resolveApiError(body, response.status, t))
   }
 
   const raw = await response.json()

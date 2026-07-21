@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
 import { ACTIONS } from '@/data/mitigationActions'
@@ -69,6 +70,7 @@ import {
 const CAST_ANCHOR_LEAD = 0.1
 
 export default function TimelineTableView() {
+  const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const selectEvent = useTimelineStore(s => s.selectEvent)
   const addCastEvent = useTimelineStore(s => s.addCastEvent)
@@ -211,7 +213,9 @@ export default function TimelineTableView() {
         const member = engine.pickUniqueMember(groupId, track.playerId, event.time)
         if (!member) {
           const unmetMsg = engine.getResourceUnmetMessageAt(parent, track.playerId, event.time)
-          toast.error('无法添加技能', { description: unmetMsg ?? '此时刻不满足发动条件' })
+          toast.error(t('timelineTable.cannotAddAction'), {
+            description: unmetMsg ?? t('timelineTable.conditionNotMet'),
+          })
           return
         }
       }
@@ -231,7 +235,7 @@ export default function TimelineTableView() {
         playerId: track.playerId,
       })
     },
-    [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent, engine]
+    [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent, engine, t]
   )
 
   const rows = useMemo(() => {

@@ -7,6 +7,8 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { ChevronDown } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -27,12 +29,12 @@ interface StatDataDialogProps {
 }
 
 /** statDataEntry type → 显示标签 */
-function getEntryLabel(entry: StatDataEntry): string {
+function getEntryLabel(entry: StatDataEntry, t: TFunction): string {
   const baseLabels: Record<string, string> = {
-    shield: '盾量',
-    critShield: '暴击盾量',
-    heal: '治疗量',
-    critHeal: '暴击治疗量',
+    shield: t('editor:statData.entryShield'),
+    critShield: t('editor:statData.entryCritShield'),
+    heal: t('editor:statData.entryHeal'),
+    critHeal: t('editor:statData.entryCritHeal'),
   }
   const baseLabel = baseLabels[entry.type] ?? entry.type
   return entry.label ? `${baseLabel} (${entry.label})` : baseLabel
@@ -174,6 +176,7 @@ function ActionEntryRow({
   onChange: (value: number | undefined) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation(['editor', 'common'])
   return (
     <div className="flex items-center justify-between py-1.5">
       <div className="flex items-center gap-2">
@@ -184,7 +187,7 @@ function ActionEntryRow({
         />
         <div>
           <div className="text-sm">{action.name}</div>
-          <div className="text-xs text-muted-foreground">{getEntryLabel(entry)}</div>
+          <div className="text-xs text-muted-foreground">{getEntryLabel(entry, t)}</div>
         </div>
       </div>
       <NumberInput
@@ -212,6 +215,7 @@ function StatDataDialogInner({
   onClose,
   isReadOnly,
 }: StatDataDialogInnerProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const statistics = useTimelineStore(state => state.statistics)
 
   // 本地编辑态，从 initialData 初始化（组件每次挂载时重新初始化）
@@ -272,9 +276,11 @@ function StatDataDialogInner({
       <div className="flex-1 overflow-y-auto space-y-4 px-0.5">
         {/* 安全血量 */}
         <div>
-          <div className="text-sm font-medium mb-1.5">安全血量</div>
+          <div className="text-sm font-medium mb-1.5">{t('editor:statData.safeHpTitle')}</div>
           <div className="flex items-center justify-between py-1.5">
-            <span className="text-sm text-muted-foreground">非坦职业最低 HP</span>
+            <span className="text-sm text-muted-foreground">
+              {t('editor:statData.nonTankMinHp')}
+            </span>
             <NumberInput
               value={localStatData.referenceMaxHP}
               placeholder={String(getFallbackMaxHP(statistics))}
@@ -283,7 +289,7 @@ function StatDataDialogInner({
             />
           </div>
           <div className="flex items-center justify-between py-1.5">
-            <span className="text-sm text-muted-foreground">坦克职业最低 HP</span>
+            <span className="text-sm text-muted-foreground">{t('editor:statData.tankMinHp')}</span>
             <NumberInput
               value={localStatData.tankReferenceMaxHP}
               placeholder={String(getFallbackTankMaxHP(statistics))}
@@ -296,10 +302,10 @@ function StatDataDialogInner({
         <div className="h-px bg-border" />
 
         {/* 盾技能数值 */}
-        <div className="text-sm font-medium">技能数值</div>
+        <div className="text-sm font-medium">{t('editor:statData.actionValuesTitle')}</div>
 
         {groupedActions.length === 0 && (
-          <p className="text-sm text-muted-foreground">当前阵容中没有需要指定数值的技能</p>
+          <p className="text-sm text-muted-foreground">{t('editor:statData.noActions')}</p>
         )}
 
         {groupedActions.map(({ job, entries }) => (
@@ -340,7 +346,7 @@ function StatDataDialogInner({
           onClick={onClose}
           className="px-4 py-2 border rounded-md hover:bg-accent transition-colors"
         >
-          取消
+          {t('common:cancel')}
         </button>
         <button
           type="button"
@@ -348,7 +354,7 @@ function StatDataDialogInner({
           disabled={isReadOnly}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
         >
-          保存
+          {t('editor:statData.save')}
         </button>
       </ModalFooter>
     </>
@@ -356,6 +362,7 @@ function StatDataDialogInner({
 }
 
 export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const updateStatData = useTimelineStore(s => s.updateStatData)
   const statData = timeline?.statData
@@ -366,7 +373,7 @@ export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
     <Modal open={open} onClose={onClose}>
       <ModalContent className="max-h-[80vh] flex flex-col">
         <ModalHeader>
-          <ModalTitle>数值设置</ModalTitle>
+          <ModalTitle>{t('editor:statData.title')}</ModalTitle>
         </ModalHeader>
         {open && statData && composition && (
           <StatDataDialogInner

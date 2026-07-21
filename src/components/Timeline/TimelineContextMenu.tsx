@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MousePointerClick } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AnnotationAnchor } from '@/types/timeline'
 import { modKey, deleteKeyLabel } from '@/utils/platform'
 
@@ -112,6 +113,7 @@ export default function TimelineContextMenu({
   onSelectAllDamageEvents,
   onSelectAllCasts,
 }: TimelineContextMenuProps) {
+  const { t } = useTranslation(['editor', 'common'])
   if (!menu) return null
 
   // 只读模式下仅保留可读操作的菜单：伤害事件（复制文本/复制）与多选（复制）
@@ -143,7 +145,9 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              {castAnnotationId ? '编辑备注' : '给技能添加备注'}
+              {castAnnotationId
+                ? t('editor:contextMenu.editAnnotation')
+                : t('editor:contextMenu.addCastAnnotation')}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -152,7 +156,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              删除
+              {t('editor:contextMenu.delete')}
               <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </>
@@ -166,7 +170,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              复制全部
+              {t('editor:contextMenu.copyAll')}
               <DropdownMenuShortcut>{modKey}C</DropdownMenuShortcut>
             </DropdownMenuItem>
             {!isReadOnly && (
@@ -177,7 +181,7 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                删除全部
+                {t('editor:contextMenu.deleteAll')}
                 <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
@@ -192,7 +196,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加
+              {t('editor:contextMenu.add')}
               <DropdownMenuShortcut>
                 <MousePointerClick className="size-3" />
               </DropdownMenuShortcut>
@@ -207,7 +211,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加备注
+              {t('editor:contextMenu.addAnnotation')}
             </DropdownMenuItem>
             {onPasteSelection && (
               <DropdownMenuItem
@@ -217,7 +221,8 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                粘贴{pasteAvailable === 'checking' ? '…' : ''}
+                {t('editor:contextMenu.paste')}
+                {pasteAvailable === 'checking' ? '…' : ''}
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
@@ -230,7 +235,7 @@ export default function TimelineContextMenu({
                     onClose()
                   }}
                 >
-                  全选
+                  {t('editor:contextMenu.selectAll')}
                   <DropdownMenuShortcut>{modKey}A</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 {onSelectAllCasts && (
@@ -240,7 +245,7 @@ export default function TimelineContextMenu({
                       onClose()
                     }}
                   >
-                    全选技能
+                    {t('editor:contextMenu.selectAllCasts')}
                   </DropdownMenuItem>
                 )}
               </>
@@ -256,7 +261,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              复制文本
+              {t('editor:contextMenu.copyText')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -264,7 +269,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              复制
+              {t('common:copy')}
               <DropdownMenuShortcut>{modKey}C</DropdownMenuShortcut>
             </DropdownMenuItem>
             {!isReadOnly && (
@@ -277,7 +282,7 @@ export default function TimelineContextMenu({
                     onClose()
                   }}
                 >
-                  删除
+                  {t('editor:contextMenu.delete')}
                   <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </>
@@ -294,7 +299,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加
+              {t('editor:contextMenu.add')}
               <DropdownMenuShortcut>
                 <MousePointerClick className="size-3" />
               </DropdownMenuShortcut>
@@ -305,7 +310,7 @@ export default function TimelineContextMenu({
                 onClose()
               }}
             >
-              添加备注
+              {t('editor:contextMenu.addAnnotation')}
             </DropdownMenuItem>
             {onPasteSelection && (
               <DropdownMenuItem
@@ -315,7 +320,8 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                粘贴{pasteAvailable === 'checking' ? '…' : ''}
+                {t('editor:contextMenu.paste')}
+                {pasteAvailable === 'checking' ? '…' : ''}
                 <DropdownMenuShortcut>{modKey}V</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}
@@ -328,7 +334,7 @@ export default function TimelineContextMenu({
                     onClose()
                   }}
                 >
-                  全选
+                  {t('editor:contextMenu.selectAll')}
                   <DropdownMenuShortcut>{modKey}A</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 {onSelectAllDamageEvents && (
@@ -338,7 +344,7 @@ export default function TimelineContextMenu({
                       onClose()
                     }}
                   >
-                    全选伤害事件
+                    {t('editor:contextMenu.selectAllDamageEvents')}
                   </DropdownMenuItem>
                 )}
               </>
@@ -354,7 +360,7 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                编辑
+                {t('editor:contextMenu.edit')}
               </DropdownMenuItem>
             )}
             {!isReadOnly && (
@@ -365,7 +371,7 @@ export default function TimelineContextMenu({
                   onClose()
                 }}
               >
-                删除
+                {t('editor:contextMenu.delete')}
                 <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
               </DropdownMenuItem>
             )}

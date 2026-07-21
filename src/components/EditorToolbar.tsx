@@ -4,6 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { useTranslation } from 'react-i18next'
 import {
   ZoomIn,
   ZoomOut,
@@ -86,6 +87,7 @@ export default function EditorToolbar({
   onViewModeChange,
   shareRole,
 }: EditorToolbarProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const zoomLevel = useTimelineStore(s => s.zoomLevel)
   const exitReplayMode = useTimelineStore(s => s.exitReplayMode)
@@ -95,6 +97,7 @@ export default function EditorToolbar({
   const selectCastEvent = useTimelineStore(s => s.selectCastEvent)
   const undo = useTimelineStore(s => s.undo)
   const redo = useTimelineStore(s => s.redo)
+
 
   const {
     showActualDamage,
@@ -230,12 +233,12 @@ export default function EditorToolbar({
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">更多</TooltipContent>
+                <TooltipContent side="bottom">{t('editor:editorToolbar.more')}</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
                 <DropdownMenuItem onSelect={() => onCreateCopy()}>
                   <Copy className="w-4 h-4" />
-                  创建副本
+                  {t('editor:editorToolbar.createCopy')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -250,13 +253,13 @@ export default function EditorToolbar({
                       size="icon"
                       className="h-6 w-6"
                       aria-pressed={canvasTool === 'pan'}
-                      aria-label="抓手"
+                      aria-label={t('editor:editorToolbar.panTool')}
                       onClick={() => setCanvasTool('pan')}
                     >
                       <Hand className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">抓手</TooltipContent>
+                  <TooltipContent side="bottom">{t('editor:editorToolbar.panTool')}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -265,13 +268,15 @@ export default function EditorToolbar({
                       size="icon"
                       className="h-6 w-6"
                       aria-pressed={canvasTool === 'select'}
-                      aria-label="框选"
+                      aria-label={t('editor:editorToolbar.selectTool')}
                       onClick={() => setCanvasTool('select')}
                     >
                       <BoxSelect className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">框选</TooltipContent>
+                  <TooltipContent side="bottom">
+                    {t('editor:editorToolbar.selectTool')}
+                  </TooltipContent>
                 </Tooltip>
               </div>
             )}
@@ -294,7 +299,7 @@ export default function EditorToolbar({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="flex items-center gap-1.5">
-                    撤销
+                    {t('editor:editorToolbar.undo')}
                     <KbdGroup>
                       <Kbd>{modKeyLabel}</Kbd>
                       <Kbd>Z</Kbd>
@@ -314,7 +319,7 @@ export default function EditorToolbar({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="flex items-center gap-1.5">
-                    重做
+                    {t('editor:editorToolbar.redo')}
                     <KbdGroup>
                       <Kbd>{modKeyLabel}</Kbd>
                       <Kbd>{shiftKeyLabel}</Kbd>
@@ -342,13 +347,15 @@ export default function EditorToolbar({
                 </PopoverTrigger>
                 <PopoverContent side="bottom" align="start" className="w-80">
                   <div className="space-y-3">
-                    <p className="font-semibold text-sm">回放模式</p>
+                    <p className="font-semibold text-sm">
+                      {t('editor:editorToolbar.replayModeTitle')}
+                    </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      当前正处于 FFLogs
-                      回放模式下，记录并再现了本次战斗中玩家所受到的所有伤害与当时的减伤情况。你可以快速寻找并分析某处的减伤是否欠缺，并检查队友的减伤执行情况。
+                      {t('editor:editorToolbar.replayModeDescPrefix')}
                       <br />
-                      在该模式下，时间轴不可被修改。若要在此基础上修改时间轴，请点击
-                      <b>解除回放模式</b>。
+                      {t('editor:editorToolbar.replayModeDescBefore')}
+                      <b>{t('editor:editorToolbar.exitReplayMode')}</b>
+                      {t('editor:editorToolbar.replayModeDescAfter')}
                     </p>
                     <div className="flex justify-end">
                       <Button
@@ -356,7 +363,7 @@ export default function EditorToolbar({
                         size="sm"
                         onClick={() => setShowExitReplayConfirm(true)}
                       >
-                        解除回放模式
+                        {t('editor:editorToolbar.exitReplayMode')}
                       </Button>
                     </div>
                   </div>
@@ -378,13 +385,13 @@ export default function EditorToolbar({
                 <TooltipContent side="bottom">
                   {lockForced
                     ? contentReason === 'viewer'
-                      ? '只读 · 仅查看'
+                      ? t('editor:editorToolbar.readOnlyViewer')
                       : contentReason === 'offline'
-                        ? '只读 · 连接中断'
-                        : '只读'
+                        ? t('editor:editorToolbar.readOnlyOffline')
+                        : t('editor:editorToolbar.readOnly')
                     : isReadOnly
-                      ? '切换为编辑模式'
-                      : '切换为只读模式'}
+                      ? t('editor:editorToolbar.switchToEdit')
+                      : t('editor:editorToolbar.switchToReadOnly')}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -402,7 +409,7 @@ export default function EditorToolbar({
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">视图</TooltipContent>
+                <TooltipContent side="bottom">{t('editor:editorToolbar.view')}</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
                 <DropdownMenuRadioGroup
@@ -413,12 +420,18 @@ export default function EditorToolbar({
                     onViewModeChange(mode)
                   }}
                 >
-                  <DropdownMenuRadioItem value="timeline">时间轴视图</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="table">表格视图</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="timeline">
+                    {t('editor:editorToolbar.timelineView')}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="table">
+                    {t('editor:editorToolbar.tableView')}
+                  </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>伤害事件</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger>
+                    {t('editor:editorToolbar.damageEvents')}
+                  </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     <DropdownMenuCheckboxItem
                       checked={showActualDamage}
@@ -427,7 +440,7 @@ export default function EditorToolbar({
                         toggleShowActualDamage()
                       }}
                     >
-                      实际伤害
+                      {t('editor:editorToolbar.actualDamage')}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                       checked={showOriginalDamage}
@@ -436,7 +449,7 @@ export default function EditorToolbar({
                         toggleShowOriginalDamage()
                       }}
                     >
-                      原始伤害
+                      {t('editor:editorToolbar.originalDamage')}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                       checked={showCastStartTime}
@@ -457,7 +470,7 @@ export default function EditorToolbar({
                     toggleEnableHpSimulation()
                   }}
                 >
-                  HP 模拟
+                  {t('editor:editorToolbar.hpSimulation')}
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={showResourceHover}
@@ -492,7 +505,7 @@ export default function EditorToolbar({
                   <Settings className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">数值设置</TooltipContent>
+              <TooltipContent side="bottom">{t('editor:editorToolbar.statData')}</TooltipContent>
             </Tooltip>
 
             {/* 共享 */}
@@ -525,7 +538,7 @@ export default function EditorToolbar({
                       className="h-7 w-7"
                       disabled={!editLock.can('content') || isOptimizing}
                       onClick={() => setShowAutoMitigateDisclaimer(true)}
-                      aria-label="自动减伤"
+                      aria-label={t('editor:editorToolbar.autoMitigate')}
                     >
                       {isOptimizing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -534,7 +547,9 @@ export default function EditorToolbar({
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">自动减伤规划（实验性）</TooltipContent>
+                  <TooltipContent side="bottom">
+                    {t('editor:editorToolbar.autoMitigateExperimental')}
+                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -552,12 +567,12 @@ export default function EditorToolbar({
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     {editLock.can('content')
-                      ? '导入'
+                      ? t('editor:editorToolbar.import')
                       : contentReason === 'viewer'
-                        ? '只读 · 仅查看'
+                        ? t('editor:editorToolbar.readOnlyViewer')
                         : contentReason === 'offline'
-                          ? '只读 · 连接中断'
-                          : '只读'}
+                          ? t('editor:editorToolbar.readOnlyOffline')
+                          : t('editor:editorToolbar.readOnly')}
                   </TooltipContent>
                 </Tooltip>
               </>
@@ -582,7 +597,9 @@ export default function EditorToolbar({
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">导出</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {t('editor:editorToolbar.export')}
+                    </TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
                     <DropdownMenuItem
@@ -591,7 +608,7 @@ export default function EditorToolbar({
                         setShowSoumaDialog(true)
                       }}
                     >
-                      Souma 时间轴...
+                      {t('editor:editorToolbar.exportSoumaItem')}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => {
@@ -599,7 +616,7 @@ export default function EditorToolbar({
                         setShowExportDialog(true)
                       }}
                     >
-                      Excel 表格...
+                      {t('editor:editorToolbar.exportExcelItem')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -610,16 +627,18 @@ export default function EditorToolbar({
             <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>解除回放模式</AlertDialogTitle>
-                  <AlertDialogDescription>此操作不可撤销，是否继续？</AlertDialogDescription>
+                  <AlertDialogTitle>{t('editor:editorToolbar.exitReplayMode')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('editor:editorToolbar.exitReplayConfirmDesc')}
+                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleExitReplayMode}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    确认解除
+                    {t('editor:editorToolbar.exitReplayConfirm')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -631,7 +650,7 @@ export default function EditorToolbar({
       {isUnsupportedEncounter && (
         <div className="flex items-center gap-1.5 border-b border-yellow-300 bg-yellow-50 px-4 py-1 text-xs text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
-          <span>该副本暂未支持，部分功能可能无法正常使用</span>
+          <span>{t('editor:editorToolbar.unsupportedEncounter')}</span>
         </div>
       )}
 

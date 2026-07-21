@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { DAMAGE_EVENT_NAME_MAX_LENGTH } from '@/constants/limits'
 import { useTimelineStore } from '@/store/timelineStore'
 import { generateObjectId } from '@/utils/shortId'
@@ -31,6 +32,7 @@ interface AddEventDialogProps {
 }
 
 export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEventDialogProps) {
+  const { t } = useTranslation(['editor', 'common'])
   const addDamageEvent = useTimelineStore(s => s.addDamageEvent)
   const [name, setName] = useState('')
   const [time, setTime] = useState(defaultTime)
@@ -46,7 +48,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
     e.preventDefault()
 
     if (!name.trim()) {
-      toast.error('请输入事件名称')
+      toast.error(t('editor:addEvent.nameRequired'))
       return
     }
 
@@ -65,7 +67,7 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
       ...(hasCast && { castStartTime: castStart, castEndTime: castStart + castDuration }),
     })
 
-    toast.success('事件已添加')
+    toast.success(t('editor:addEvent.addSuccess'))
     onClose()
   }
 
@@ -73,27 +75,29 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
     <Modal open={open} onClose={onClose}>
       <ModalContent>
         <ModalHeader>
-          <ModalTitle>添加伤害事件</ModalTitle>
+          <ModalTitle>{t('editor:addEvent.title')}</ModalTitle>
         </ModalHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              事件名称 <span className="text-destructive">*</span>
+              {t('editor:addEvent.nameLabel')} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               maxLength={DAMAGE_EVENT_NAME_MAX_LENGTH}
-              placeholder="例如: 全屏 AOE"
+              placeholder={t('editor:addEvent.namePlaceholder')}
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">判定时间</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('editor:addEvent.timeLabel')}
+            </label>
             <TimeInput value={time} onChange={setTime} min={-30} />
           </div>
 
@@ -124,7 +128,9 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">伤害值</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('editor:addEvent.damageLabel')}
+            </label>
             <input
               type="number"
               value={damage}
@@ -135,7 +141,9 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">攻击类型</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('editor:addEvent.attackTypeLabel')}
+            </label>
             <Select value={type} onValueChange={v => setType(v as DamageEventType)}>
               <SelectTrigger>
                 <SelectValue />
@@ -151,15 +159,17 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">伤害类型</label>
+            <label className="block text-sm font-medium mb-1">
+              {t('editor:addEvent.damageTypeLabel')}
+            </label>
             <Select value={damageType} onValueChange={v => setDamageType(v as DamageType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="item-aligned">
-                <SelectItem value="physical">物理</SelectItem>
-                <SelectItem value="magical">魔法</SelectItem>
-                <SelectItem value="darkness">特殊</SelectItem>
+                <SelectItem value="physical">{t('editor:addEvent.damageTypePhysical')}</SelectItem>
+                <SelectItem value="magical">{t('editor:addEvent.damageTypeMagical')}</SelectItem>
+                <SelectItem value="darkness">{t('editor:addEvent.damageTypeSpecial')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -175,7 +185,9 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
             <span className="text-sm">DoT</span>
             {isDot && (
               <>
-                <span className="text-xs text-muted-foreground shrink-0 ml-auto">快照时刻</span>
+                <span className="text-xs text-muted-foreground shrink-0 ml-auto">
+                  {t('editor:addEvent.snapshotTime')}
+                </span>
                 <TimeInput
                   value={snapshotTime}
                   onChange={setSnapshotTime}
@@ -192,13 +204,13 @@ export default function AddEventDialog({ open, onClose, defaultTime = 0 }: AddEv
               onClick={onClose}
               className="px-4 py-2 border rounded-md hover:bg-accent transition-colors"
             >
-              取消
+              {t('common:cancel')}
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
             >
-              添加
+              {t('editor:addEvent.submit')}
             </button>
           </ModalFooter>
         </form>
