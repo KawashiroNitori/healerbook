@@ -1,0 +1,43 @@
+{
+  "sharePopover": {
+    "confirmPublishAction": "确认发布",
+    "confirmPublishDescription": "发布后，互联网上获得链接的人都能够访问该时间轴。被加入编辑者名单的人可以协同编辑。",
+    "confirmPublishTitle": "确认发布时间轴",
+    "copyFailed": "复制失败，请手动复制链接",
+    "copyShareLink": "复制分享链接",
+    "createCopy": "创建副本",
+    "editorHint": "你有权限编辑该文档。",
+    "engineNotReady": "引擎未就绪",
+    "heading": "共享时间轴",
+    "loginFflogs": "登录 FFLogs",
+    "loginToPublishHint": "登录后可发布并共享时间轴。",
+    "notSharedHint": "时间轴未共享，仅本设备可查看",
+    "publish": "发布",
+    "publishFailed": "发布失败:{message}",
+    "publishSuccess": "发布成功",
+    "publishedHint": "时间轴已发布，获得链接的人可阅读",
+    "requestEditPermission": "申请编辑权限",
+    "requestFailed": "申请失败:{message}",
+    "requestSubmitted": "已提交申请，等待作者通过",
+    "requested": "已申请",
+    "triggerEditable": "可编辑",
+    "triggerShare": "共享",
+    "triggerViewOnly": "只能查看",
+    "viewerAlreadyEditorHint": "已是该时间轴的编辑者?登录后即可编辑。",
+    "viewerCreateCopyHint": "你只能查看此时间轴，若要编辑时间轴，请创建副本进行编辑。",
+    "viewerRequestOrCopyHint": "你只能查看此时间轴，若要编辑时间轴，请向时间轴作者申请编辑权限或创建副本进行编辑。"
+  },
+  "sharePopoverAuthor": {
+    "actionFailed": "操作失败",
+    "allowEditRequests": "允许申请编辑权限",
+    "allowEditRequestsHelp": "开启后，其他人可以申请成为该时间轴的编辑者",
+    "allowEditRequestsHelpLabel": "什么是允许申请编辑权限",
+    "applicants": "申请编辑权限",
+    "copyFailed": "复制失败，请手动复制链接",
+    "editors": "编辑者",
+    "loadFailed": "加载共享设置失败",
+    "removeFailed": "移除失败",
+    "retry": "重试",
+    "setFailed": "设置失败"
+  }
+}
