@@ -49,6 +49,7 @@
     "placed": "已自動放置 {count} 個減傷"
   },
   "autoMitigateDisclaimer": {
+    "confirmPhrase": "我不會無腦照搬",
     "description": "本功能僅試圖實現理論上的減傷可行解，並未充分考慮實際可執行性、回復量與現實機制差異，自動規劃結果僅供參考，請務必不要無腦照搬。",
     "promptPrefix": "請輸入「",
     "promptSuffix": "」以繼續：",

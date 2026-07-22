@@ -49,6 +49,7 @@
     "placed": "Automatically placed {count} mitigations"
   },
   "autoMitigateDisclaimer": {
+    "confirmPhrase": "I will not copy blindly",
     "description": "This feature only attempts to find a theoretically feasible mitigation solution. It does not fully account for practical execution, healing output, or differences from real in-game mechanics. The generated plan is for reference only, so please do not follow it blindly.",
     "promptPrefix": "Type \"",
     "promptSuffix": "\" to continue:",

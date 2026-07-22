@@ -49,6 +49,7 @@
     "placed": "{count} réductions placées automatiquement"
   },
   "autoMitigateDisclaimer": {
+    "confirmPhrase": "Je ne copierai pas aveuglément",
     "description": "Cette fonction cherche uniquement à produire une solution de réduction viable en théorie : elle ne tient pas suffisamment compte de la faisabilité réelle, des soins ni des différences avec les mécaniques du jeu. Le résultat de la planification automatique n'est fourni qu'à titre indicatif, ne le reprenez surtout pas aveuglément.",
     "promptPrefix": "Veuillez saisir « ",
     "promptSuffix": " » pour continuer : ",

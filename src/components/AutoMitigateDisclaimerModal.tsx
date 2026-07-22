@@ -11,8 +11,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-const CONFIRM_PHRASE = '我不会无脑照搬'
-
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -26,7 +24,9 @@ interface Props {
 export function AutoMitigateDisclaimerModal({ open, onOpenChange, onConfirm }: Props) {
   const { t } = useTranslation(['editor', 'common'])
   const [text, setText] = useState('')
-  const matched = text.trim() === CONFIRM_PHRASE
+  // 短语随语言走：写死中文会让非中文用户无法输入，等于卡死这道确认门
+  const confirmPhrase = t('editor:autoMitigateDisclaimer.confirmPhrase')
+  const matched = text.trim() === confirmPhrase
 
   const handleOpenChange = (next: boolean) => {
     if (!next) setText('') // 关闭时清空，下次重新输入
@@ -52,13 +52,13 @@ export function AutoMitigateDisclaimerModal({ open, onOpenChange, onConfirm }: P
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
             {t('editor:autoMitigateDisclaimer.promptPrefix')}
-            <span className="font-medium text-foreground">{CONFIRM_PHRASE}</span>
+            <span className="font-medium text-foreground">{confirmPhrase}</span>
             {t('editor:autoMitigateDisclaimer.promptSuffix')}
           </p>
           <Input
             value={text}
             onChange={e => setText(e.target.value)}
-            placeholder={CONFIRM_PHRASE}
+            placeholder={confirmPhrase}
             autoFocus
             onKeyDown={e => {
               if (e.key === 'Enter') handleConfirm()

@@ -49,6 +49,7 @@
     "placed": "{count} Schadensminderungen automatisch platziert"
   },
   "autoMitigateDisclaimer": {
+    "confirmPhrase": "Ich übernehme es nicht blind",
     "description": "Diese Funktion versucht lediglich, eine theoretisch mögliche Lösung zur Schadensminderung zu finden. Tatsächliche Ausführbarkeit, Heilungsmengen und Abweichungen von den realen Mechaniken werden dabei nicht ausreichend berücksichtigt. Das Ergebnis der automatischen Planung dient nur als Anhaltspunkt und sollte keinesfalls unbedacht übernommen werden.",
     "promptPrefix": "Zum Fortfahren bitte „",
     "promptSuffix": "“ eingeben:",
