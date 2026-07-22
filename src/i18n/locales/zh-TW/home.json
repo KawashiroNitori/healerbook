@@ -82,11 +82,11 @@
     "updatedAt": "更新於 {time}"
   },
   "translationBanner": {
-    "approved": "審校進度",
-    "cta": "幫助我們進行翻譯！",
-    "description": "本專案使用 Crowdin 進行在地化管理，點擊前往進行在地化翻譯與審校。",
+    "approved": "审校进度",
+    "cta": "帮助我们进行翻译！",
+    "description": "本项目使用 Crowdin 进行本地化管理，点击前往进行本地化翻译与审校。",
     "goToCrowdin": "前往 Crowdin",
-    "title": "參與在地化",
-    "translated": "翻譯進度"
+    "title": "参与本地化",
+    "translated": "翻译进度"
   }
 }

@@ -82,11 +82,11 @@
     "updatedAt": "Aktualisiert {time}"
   },
   "translationBanner": {
-    "approved": "Freigegeben",
-    "cta": "Hilf uns beim Übersetzen!",
-    "description": "Dieses Projekt verwaltet die Lokalisierung über Crowdin. Dort kann übersetzt und geprüft werden.",
-    "goToCrowdin": "Zu Crowdin",
-    "title": "An der Lokalisierung mitwirken",
-    "translated": "Übersetzt"
+    "approved": "审校进度",
+    "cta": "帮助我们进行翻译！",
+    "description": "本项目使用 Crowdin 进行本地化管理，点击前往进行本地化翻译与审校。",
+    "goToCrowdin": "前往 Crowdin",
+    "title": "参与本地化",
+    "translated": "翻译进度"
   }
 }
