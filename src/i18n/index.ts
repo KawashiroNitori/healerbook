@@ -18,8 +18,9 @@ import share from './locales/zh-CN/share.json'
 export const NAMESPACES = ['common', 'home', 'editor', 'import', 'share'] as const
 
 /**
- * 非默认语言的 catalog 按需加载：zh-CN 静态内置保证首屏可用，其余 5 种语言
+ * 非默认语言的 catalog 按需加载：zh-CN 静态内置保证首屏可用，其余语言
  * （各约 32KB × 5 ns）留在独立 chunk 里，避免把全部语料压进主 bundle。
+ * 实际请求哪些语言由 ensureLocaleLoaded 的 AppLanguage 入参决定。
  */
 const lazyCatalogs = import.meta.glob<{ default: Record<string, unknown> }>([
   './locales/*/*.json',
