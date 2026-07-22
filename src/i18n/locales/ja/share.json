@@ -1,0 +1,43 @@
+{
+  "sharePopover": {
+    "confirmPublishAction": "公開する",
+    "confirmPublishDescription": "公開すると、インターネット上でリンクを取得した人は誰でもこのタイムラインにアクセスできます。編集者リストに追加された人は共同編集ができます。",
+    "confirmPublishTitle": "タイムラインを公開しますか",
+    "copyFailed": "コピーに失敗しました。手動でリンクをコピーしてください",
+    "copyShareLink": "共有リンクをコピー",
+    "createCopy": "複製を作成",
+    "editorHint": "このドキュメントを編集する権限があります。",
+    "engineNotReady": "エンジンの準備ができていません",
+    "heading": "タイムラインの共有",
+    "loginFflogs": "FFLogs でログイン",
+    "loginToPublishHint": "ログインするとタイムラインを公開・共有できます。",
+    "notSharedHint": "タイムラインは共有されていません。このデバイスでのみ閲覧できます",
+    "publish": "公開",
+    "publishFailed": "公開に失敗しました：{message}",
+    "publishSuccess": "公開しました",
+    "publishedHint": "タイムラインは公開済みです。リンクを取得した人が閲覧できます",
+    "requestEditPermission": "編集権限をリクエスト",
+    "requestFailed": "リクエストに失敗しました：{message}",
+    "requestSubmitted": "リクエストを送信しました。作者の承認をお待ちください",
+    "requested": "リクエスト済み",
+    "triggerEditable": "編集可能",
+    "triggerShare": "共有",
+    "triggerViewOnly": "閲覧のみ",
+    "viewerAlreadyEditorHint": "すでにこのタイムラインの編集者ですか？ログインすると編集できます。",
+    "viewerCreateCopyHint": "このタイムラインは閲覧のみ可能です。編集したい場合は複製を作成してください。",
+    "viewerRequestOrCopyHint": "このタイムラインは閲覧のみ可能です。編集したい場合は、タイムラインの作者に編集権限をリクエストするか、複製を作成してください。"
+  },
+  "sharePopoverAuthor": {
+    "actionFailed": "操作に失敗しました",
+    "allowEditRequests": "編集権限のリクエストを許可",
+    "allowEditRequestsHelp": "有効にすると、他のユーザーがこのタイムラインの編集者になることをリクエストできます",
+    "allowEditRequestsHelpLabel": "「編集権限のリクエストを許可」とは",
+    "applicants": "編集権限のリクエスト",
+    "copyFailed": "コピーに失敗しました。手動でリンクをコピーしてください",
+    "editors": "編集者",
+    "loadFailed": "共有設定の読み込みに失敗しました",
+    "removeFailed": "削除に失敗しました",
+    "retry": "再試行",
+    "setFailed": "設定に失敗しました"
+  }
+}

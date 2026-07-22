@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "clientIdMissing": "FFLogs の Client ID が未設定です。開発者にお問い合わせください",
+    "loggedOut": "ログアウトしました"
+  },
+  "authButton": {
+    "login": "FFLogs でログイン",
+    "logout": "ログアウト"
+  },
+  "callback": {
+    "completing": "ログインを完了しています…",
+    "loginFailed": "ログインに失敗しました：{message}",
+    "missingCode": "認可に失敗しました：code パラメータがありません",
+    "stateMismatch": "認可に失敗しました：state が一致しません"
+  },
+  "cancel": "キャンセル",
+  "close": "閉じる",
+  "confirm": "OK",
+  "copy": "コピー",
+  "errorBoundary": {
+    "renderError": "レンダリングエラー：{message}（詳細はコンソールを確認してください）"
+  },
+  "fflogsError": {
+    "forbidden": "アクセス権限がありません",
+    "networkFailed": "ネットワーク接続に失敗しました。ネットワーク設定を確認してください",
+    "reportNotFound": "レポートが存在しないか、削除されています",
+    "timeout": "リクエストがタイムアウトしました。しばらくしてから再試行してください",
+    "tooManyRequests": "リクエストが多すぎます。しばらくしてから再試行してください"
+  },
+  "notFound": {
+    "backHome": "ホームに戻る",
+    "message": "ページが見つかりません"
+  },
+  "operationFailed": "操作に失敗しました：{message}",
+  "timeInput": {
+    "label": "時間",
+    "minutes": "分",
+    "minutesValue": "{value} 分",
+    "seconds": "秒",
+    "secondsValue": "{value} 秒",
+    "tenths": "10分の1秒",
+    "tenthsValue": "{value} 10分の1秒"
+  },
+  "unknownError": "不明なエラー"
+}

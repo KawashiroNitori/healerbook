@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "clientIdMissing": "FFLogs Client ID ist nicht konfiguriert, bitte den Entwickler kontaktieren",
+    "loggedOut": "Abgemeldet"
+  },
+  "authButton": {
+    "login": "Bei FFLogs anmelden",
+    "logout": "Abmelden"
+  },
+  "callback": {
+    "completing": "Anmeldung wird abgeschlossen...",
+    "loginFailed": "Anmeldung fehlgeschlagen: {message}",
+    "missingCode": "Autorisierung fehlgeschlagen: Parameter code fehlt",
+    "stateMismatch": "Autorisierung fehlgeschlagen: state stimmt nicht überein"
+  },
+  "cancel": "Abbrechen",
+  "close": "Schließen",
+  "confirm": "Bestätigen",
+  "copy": "Kopieren",
+  "errorBoundary": {
+    "renderError": "Renderfehler: {message} (Details in der Konsole)"
+  },
+  "fflogsError": {
+    "forbidden": "Keine Zugriffsberechtigung",
+    "networkFailed": "Netzwerkverbindung fehlgeschlagen, bitte die Netzwerkeinstellungen prüfen",
+    "reportNotFound": "Bericht existiert nicht oder wurde gelöscht",
+    "timeout": "Zeitüberschreitung der Anfrage, bitte später erneut versuchen",
+    "tooManyRequests": "Zu viele Anfragen, bitte später erneut versuchen"
+  },
+  "notFound": {
+    "backHome": "Zur Startseite",
+    "message": "Seite nicht gefunden"
+  },
+  "operationFailed": "Vorgang fehlgeschlagen: {message}",
+  "timeInput": {
+    "label": "Zeit",
+    "minutes": "Minuten",
+    "minutesValue": "{value} Min.",
+    "seconds": "Sekunden",
+    "secondsValue": "{value} Sek.",
+    "tenths": "Zehntelsekunden",
+    "tenthsValue": "{value} Zehntel"
+  },
+  "unknownError": "Unbekannter Fehler"
+}

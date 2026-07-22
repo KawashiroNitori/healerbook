@@ -4,14 +4,21 @@
  * 使用真实的 mitigationActions 和 deriveSkillTracks 派生技能列
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import ExcelJS from 'exceljs'
+import i18n from '@/i18n'
 import { exportTimelineToExcel } from './exportExcel'
 import type { Timeline, CastEvent, Annotation } from '@/types/timeline'
 import type { CalculationResult } from '@/types/calculation'
 import { deriveSkillTracks } from '@/utils/skillTracks'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import type { MitigationAction } from '@/types/mitigation'
+
+// 表头文案跟随 UI 语言；node 环境下 navigator.language 为 en-US 会被解析成 en，
+// 故显式固定为源语言，使下方中文断言稳定
+beforeAll(async () => {
+  await i18n.changeLanguage('zh-CN')
+})
 
 const actions = MITIGATION_DATA.actions
 const actionsById = new Map<number, MitigationAction>(actions.map(a => [a.id, a]))

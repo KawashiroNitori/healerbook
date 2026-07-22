@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "clientIdMissing": "FFLogs Client ID 未設定，請聯絡開發者",
+    "loggedOut": "已登出"
+  },
+  "authButton": {
+    "login": "登入 FFLogs",
+    "logout": "登出"
+  },
+  "callback": {
+    "completing": "正在完成登入...",
+    "loginFailed": "登入失敗：{message}",
+    "missingCode": "授權失敗：缺少 code 參數",
+    "stateMismatch": "授權失敗：state 不相符"
+  },
+  "cancel": "取消",
+  "close": "關閉",
+  "confirm": "確定",
+  "copy": "複製",
+  "errorBoundary": {
+    "renderError": "算繪錯誤：{message}（詳情見主控台）"
+  },
+  "fflogsError": {
+    "forbidden": "沒有存取權限",
+    "networkFailed": "網路連線失敗，請檢查網路設定",
+    "reportNotFound": "報告不存在或已被刪除",
+    "timeout": "請求逾時，請稍後重試",
+    "tooManyRequests": "請求過於頻繁，請稍後重試"
+  },
+  "notFound": {
+    "backHome": "返回首頁",
+    "message": "頁面不存在"
+  },
+  "operationFailed": "操作失敗：{message}",
+  "timeInput": {
+    "label": "時間",
+    "minutes": "分鐘",
+    "minutesValue": "{value} 分",
+    "seconds": "秒",
+    "secondsValue": "{value} 秒",
+    "tenths": "十分之一秒",
+    "tenthsValue": "{value} 十分之一秒"
+  },
+  "unknownError": "未知錯誤"
+}

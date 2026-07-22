@@ -1,0 +1,43 @@
+{
+  "sharePopover": {
+    "confirmPublishAction": "Confirmer la publication",
+    "confirmPublishDescription": "Une fois publiée, toute personne disposant du lien pourra accéder à cette chronologie. Les personnes ajoutées à la liste des éditeurs pourront la modifier en collaboration.",
+    "confirmPublishTitle": "Confirmer la publication de la chronologie",
+    "copyFailed": "Échec de la copie, copiez le lien manuellement",
+    "copyShareLink": "Copier le lien de partage",
+    "createCopy": "Créer une copie",
+    "editorHint": "Vous avez le droit de modifier ce document.",
+    "engineNotReady": "Moteur non prêt",
+    "heading": "Chronologie partagée",
+    "loginFflogs": "Se connecter à FFLogs",
+    "loginToPublishHint": "Connectez-vous pour publier et partager la chronologie.",
+    "notSharedHint": "Chronologie non partagée, consultable uniquement sur cet appareil",
+    "publish": "Publier",
+    "publishFailed": "Échec de la publication : {message}",
+    "publishSuccess": "Publication réussie",
+    "publishedHint": "Chronologie publiée, les personnes disposant du lien peuvent la consulter",
+    "requestEditPermission": "Demander les droits de modification",
+    "requestFailed": "Échec de la demande : {message}",
+    "requestSubmitted": "Demande envoyée, en attente de validation par l'auteur",
+    "requested": "Demande envoyée",
+    "triggerEditable": "Modifiable",
+    "triggerShare": "Partager",
+    "triggerViewOnly": "Lecture seule",
+    "viewerAlreadyEditorHint": "Déjà éditeur de cette chronologie ? Connectez-vous pour la modifier.",
+    "viewerCreateCopyHint": "Vous ne pouvez que consulter cette chronologie. Pour la modifier, créez-en une copie.",
+    "viewerRequestOrCopyHint": "Vous ne pouvez que consulter cette chronologie. Pour la modifier, demandez les droits de modification à son auteur ou créez-en une copie."
+  },
+  "sharePopoverAuthor": {
+    "actionFailed": "Échec de l'opération",
+    "allowEditRequests": "Autoriser les demandes de modification",
+    "allowEditRequestsHelp": "Une fois activé, d'autres personnes peuvent demander à devenir éditeur de cette chronologie",
+    "allowEditRequestsHelpLabel": "Qu'est-ce qu'autoriser les demandes de modification ?",
+    "applicants": "Demandes de modification",
+    "copyFailed": "Échec de la copie, copiez le lien manuellement",
+    "editors": "Éditeurs",
+    "loadFailed": "Échec du chargement des paramètres de partage",
+    "removeFailed": "Échec du retrait",
+    "retry": "Réessayer",
+    "setFailed": "Échec de la configuration"
+  }
+}

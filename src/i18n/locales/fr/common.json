@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "clientIdMissing": "Le Client ID FFLogs n'est pas configuré, veuillez contacter le développeur",
+    "loggedOut": "Vous êtes déconnecté"
+  },
+  "authButton": {
+    "login": "Se connecter à FFLogs",
+    "logout": "Se déconnecter"
+  },
+  "callback": {
+    "completing": "Connexion en cours...",
+    "loginFailed": "Échec de la connexion : {message}",
+    "missingCode": "Échec de l'autorisation : paramètre code manquant",
+    "stateMismatch": "Échec de l'autorisation : le paramètre state ne correspond pas"
+  },
+  "cancel": "Annuler",
+  "close": "Fermer",
+  "confirm": "Confirmer",
+  "copy": "Copier",
+  "errorBoundary": {
+    "renderError": "Erreur de rendu : {message} (détails dans la console)"
+  },
+  "fflogsError": {
+    "forbidden": "Accès refusé",
+    "networkFailed": "Échec de la connexion réseau, vérifiez vos paramètres réseau",
+    "reportNotFound": "Ce rapport n'existe pas ou a été supprimé",
+    "timeout": "Délai d'attente dépassé, réessayez plus tard",
+    "tooManyRequests": "Requêtes trop fréquentes, réessayez plus tard"
+  },
+  "notFound": {
+    "backHome": "Retour à l'accueil",
+    "message": "Page introuvable"
+  },
+  "operationFailed": "Échec de l'opération : {message}",
+  "timeInput": {
+    "label": "Temps",
+    "minutes": "Minutes",
+    "minutesValue": "{value} min",
+    "seconds": "Secondes",
+    "secondsValue": "{value} s",
+    "tenths": "Dixièmes de seconde",
+    "tenthsValue": "{value} dixièmes"
+  },
+  "unknownError": "Erreur inconnue"
+}

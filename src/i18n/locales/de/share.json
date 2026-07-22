@@ -1,0 +1,43 @@
+{
+  "sharePopover": {
+    "confirmPublishAction": "Veröffentlichen bestätigen",
+    "confirmPublishDescription": "Nach der Veröffentlichung kann jede Person im Internet mit dem Link auf diese Zeitleiste zugreifen. Personen auf der Bearbeiterliste können gemeinsam daran arbeiten.",
+    "confirmPublishTitle": "Zeitleiste veröffentlichen",
+    "copyFailed": "Kopieren fehlgeschlagen, bitte den Link manuell kopieren",
+    "copyShareLink": "Freigabelink kopieren",
+    "createCopy": "Kopie erstellen",
+    "editorHint": "Sie haben Bearbeitungsrechte für dieses Dokument.",
+    "engineNotReady": "Engine nicht bereit",
+    "heading": "Zeitleiste teilen",
+    "loginFflogs": "Bei FFLogs anmelden",
+    "loginToPublishHint": "Nach der Anmeldung kann die Zeitleiste veröffentlicht und geteilt werden.",
+    "notSharedHint": "Zeitleiste ist nicht geteilt, nur auf diesem Gerät sichtbar",
+    "publish": "Veröffentlichen",
+    "publishFailed": "Veröffentlichen fehlgeschlagen: {message}",
+    "publishSuccess": "Erfolgreich veröffentlicht",
+    "publishedHint": "Zeitleiste ist veröffentlicht, Personen mit dem Link können sie lesen",
+    "requestEditPermission": "Bearbeitungsrechte anfragen",
+    "requestFailed": "Anfrage fehlgeschlagen: {message}",
+    "requestSubmitted": "Anfrage gesendet, warten auf Bestätigung durch den Autor",
+    "requested": "Angefragt",
+    "triggerEditable": "Bearbeitbar",
+    "triggerShare": "Teilen",
+    "triggerViewOnly": "Nur Ansicht",
+    "viewerAlreadyEditorHint": "Bereits Bearbeiter dieser Zeitleiste? Nach der Anmeldung ist das Bearbeiten möglich.",
+    "viewerCreateCopyHint": "Diese Zeitleiste kann nur angesehen werden. Zum Bearbeiten bitte eine Kopie erstellen.",
+    "viewerRequestOrCopyHint": "Diese Zeitleiste kann nur angesehen werden. Zum Bearbeiten bitte beim Autor Bearbeitungsrechte anfragen oder eine Kopie erstellen."
+  },
+  "sharePopoverAuthor": {
+    "actionFailed": "Vorgang fehlgeschlagen",
+    "allowEditRequests": "Bearbeitungsanfragen zulassen",
+    "allowEditRequestsHelp": "Wenn aktiviert, können andere anfragen, Bearbeiter dieser Zeitleiste zu werden",
+    "allowEditRequestsHelpLabel": "Was bedeutet „Bearbeitungsanfragen zulassen“",
+    "applicants": "Bearbeitungsanfragen",
+    "copyFailed": "Kopieren fehlgeschlagen, bitte den Link manuell kopieren",
+    "editors": "Bearbeiter",
+    "loadFailed": "Freigabeeinstellungen konnten nicht geladen werden",
+    "removeFailed": "Entfernen fehlgeschlagen",
+    "retry": "Erneut versuchen",
+    "setFailed": "Einstellen fehlgeschlagen"
+  }
+}

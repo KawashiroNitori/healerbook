@@ -1,0 +1,43 @@
+{
+  "sharePopover": {
+    "confirmPublishAction": "確認發布",
+    "confirmPublishDescription": "發布後，網際網路上取得連結的人都能夠存取該時間軸。被加入編輯者名單的人可以協同編輯。",
+    "confirmPublishTitle": "確認發布時間軸",
+    "copyFailed": "複製失敗，請手動複製連結",
+    "copyShareLink": "複製分享連結",
+    "createCopy": "建立副本",
+    "editorHint": "你有權限編輯該文件。",
+    "engineNotReady": "引擎未就緒",
+    "heading": "共享時間軸",
+    "loginFflogs": "登入 FFLogs",
+    "loginToPublishHint": "登入後可發布並共享時間軸。",
+    "notSharedHint": "時間軸未共享，僅本裝置可檢視",
+    "publish": "發布",
+    "publishFailed": "發布失敗:{message}",
+    "publishSuccess": "發布成功",
+    "publishedHint": "時間軸已發布，取得連結的人可閱讀",
+    "requestEditPermission": "申請編輯權限",
+    "requestFailed": "申請失敗:{message}",
+    "requestSubmitted": "已提交申請，等待作者通過",
+    "requested": "已申請",
+    "triggerEditable": "可編輯",
+    "triggerShare": "共享",
+    "triggerViewOnly": "只能檢視",
+    "viewerAlreadyEditorHint": "已是該時間軸的編輯者?登入後即可編輯。",
+    "viewerCreateCopyHint": "你只能檢視此時間軸，若要編輯時間軸，請建立副本進行編輯。",
+    "viewerRequestOrCopyHint": "你只能檢視此時間軸，若要編輯時間軸，請向時間軸作者申請編輯權限或建立副本進行編輯。"
+  },
+  "sharePopoverAuthor": {
+    "actionFailed": "操作失敗",
+    "allowEditRequests": "允許申請編輯權限",
+    "allowEditRequestsHelp": "開啟後，其他人可以申請成為該時間軸的編輯者",
+    "allowEditRequestsHelpLabel": "什麼是允許申請編輯權限",
+    "applicants": "申請編輯權限",
+    "copyFailed": "複製失敗，請手動複製連結",
+    "editors": "編輯者",
+    "loadFailed": "載入共享設定失敗",
+    "removeFailed": "移除失敗",
+    "retry": "重試",
+    "setFailed": "設定失敗"
+  }
+}

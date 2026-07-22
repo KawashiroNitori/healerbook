@@ -1,0 +1,43 @@
+{
+  "sharePopover": {
+    "confirmPublishAction": "Publish",
+    "confirmPublishDescription": "Once published, anyone on the internet with the link can view this timeline. People added to the editor list can edit it collaboratively.",
+    "confirmPublishTitle": "Publish this timeline?",
+    "copyFailed": "Copy failed. Please copy the link manually.",
+    "copyShareLink": "Copy share link",
+    "createCopy": "Create copy",
+    "editorHint": "You have permission to edit this document.",
+    "engineNotReady": "Engine not ready",
+    "heading": "Shared timeline",
+    "loginFflogs": "Log in with FFLogs",
+    "loginToPublishHint": "Log in to publish and share timelines.",
+    "notSharedHint": "This timeline is not shared and is only visible on this device",
+    "publish": "Publish",
+    "publishFailed": "Publish failed: {message}",
+    "publishSuccess": "Published",
+    "publishedHint": "This timeline is published; anyone with the link can read it",
+    "requestEditPermission": "Request edit access",
+    "requestFailed": "Request failed: {message}",
+    "requestSubmitted": "Request submitted, waiting for the author's approval",
+    "requested": "Requested",
+    "triggerEditable": "Editable",
+    "triggerShare": "Share",
+    "triggerViewOnly": "View only",
+    "viewerAlreadyEditorHint": "Already an editor of this timeline? Log in to start editing.",
+    "viewerCreateCopyHint": "You can only view this timeline. To edit it, create a copy and edit that instead.",
+    "viewerRequestOrCopyHint": "You can only view this timeline. To edit it, request edit access from the author or create a copy and edit that instead."
+  },
+  "sharePopoverAuthor": {
+    "actionFailed": "Operation failed",
+    "allowEditRequests": "Allow edit requests",
+    "allowEditRequestsHelp": "When enabled, others can request to become editors of this timeline",
+    "allowEditRequestsHelpLabel": "What are edit requests",
+    "applicants": "Edit requests",
+    "copyFailed": "Copy failed. Please copy the link manually.",
+    "editors": "Editors",
+    "loadFailed": "Failed to load share settings",
+    "removeFailed": "Failed to remove",
+    "retry": "Retry",
+    "setFailed": "Failed to update setting"
+  }
+}

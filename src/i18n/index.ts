@@ -17,6 +17,30 @@ import share from './locales/zh-CN/share.json'
 
 export const NAMESPACES = ['common', 'home', 'editor', 'import', 'share'] as const
 
+/**
+ * 非默认语言的 catalog 按需加载：zh-CN 静态内置保证首屏可用，其余 5 种语言
+ * （各约 32KB × 5 ns）留在独立 chunk 里，避免把全部语料压进主 bundle。
+ */
+const lazyCatalogs = import.meta.glob<{ default: Record<string, unknown> }>([
+  './locales/*/*.json',
+  '!./locales/zh-CN/*.json',
+])
+
+/** 把目标语言的 5 个 namespace 注入 i18next；已加载或为默认语言时直接返回 */
+export async function ensureLocaleLoaded(locale: AppLanguage): Promise<void> {
+  if (locale === DEFAULT_LOCALE) return
+  if (NAMESPACES.every(ns => i18n.hasResourceBundle(locale, ns))) return
+
+  await Promise.all(
+    NAMESPACES.map(async ns => {
+      const load = lazyCatalogs[`./locales/${locale}/${ns}.json`]
+      if (!load) return
+      const mod = await load()
+      i18n.addResourceBundle(locale, ns, mod.default, true, true)
+    })
+  )
+}
+
 /** localStorage('locale') → navigator.language → DEFAULT_LOCALE */
 export function getInitialLocale(): AppLanguage {
   if (typeof localStorage !== 'undefined') {
@@ -60,9 +84,14 @@ void i18n
     defaultNS: 'common',
     returnNull: false,
     interpolation: { escapeValue: false },
+    // 懒加载的 catalog 经 addResourceBundle 注入，需监听 store 事件才会重渲染
+    react: { bindI18nStore: 'added' },
     resources: {
       'zh-CN': { common, home, editor, import: importNs, share },
     },
   })
+
+// 首屏语言若非 zh-CN，init 时其 catalog 尚未就绪（先回退中文），此处异步补齐
+void ensureLocaleLoaded(getInitialLocale())
 
 export default i18n

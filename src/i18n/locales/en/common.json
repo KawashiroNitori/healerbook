@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "clientIdMissing": "FFLogs Client ID is not configured. Please contact the developer.",
+    "loggedOut": "Logged out"
+  },
+  "authButton": {
+    "login": "Log in with FFLogs",
+    "logout": "Log out"
+  },
+  "callback": {
+    "completing": "Completing login...",
+    "loginFailed": "Login failed: {message}",
+    "missingCode": "Authorization failed: missing code parameter",
+    "stateMismatch": "Authorization failed: state mismatch"
+  },
+  "cancel": "Cancel",
+  "close": "Close",
+  "confirm": "Confirm",
+  "copy": "Copy",
+  "errorBoundary": {
+    "renderError": "Render error: {message} (see console for details)"
+  },
+  "fflogsError": {
+    "forbidden": "Access denied",
+    "networkFailed": "Network connection failed. Please check your network settings.",
+    "reportNotFound": "The report does not exist or has been deleted.",
+    "timeout": "Request timed out. Please try again later.",
+    "tooManyRequests": "Too many requests. Please try again later."
+  },
+  "notFound": {
+    "backHome": "Back to home",
+    "message": "Page not found"
+  },
+  "operationFailed": "Operation failed: {message}",
+  "timeInput": {
+    "label": "Time",
+    "minutes": "Minutes",
+    "minutesValue": "{value} min",
+    "seconds": "Seconds",
+    "secondsValue": "{value} sec",
+    "tenths": "Tenths of a second",
+    "tenthsValue": "{value} tenths of a second"
+  },
+  "unknownError": "Unknown error"
+}

@@ -10,7 +10,7 @@ import {
   type IconProviderId,
   type ApiProviderId,
 } from '@/api/providers/registry'
-import i18n, { getInitialLocale } from '@/i18n'
+import i18n, { getInitialLocale, ensureLocaleLoaded } from '@/i18n'
 import type { AppLanguage } from '@/types/i18n'
 
 interface UIState {
@@ -114,7 +114,8 @@ function applyLocale(locale: AppLanguage) {
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('locale', locale)
   }
-  void i18n.changeLanguage(locale)
+  // 非默认语言的 catalog 是按需加载的，切换前先确保已注入，否则会短暂回退中文
+  void ensureLocaleLoaded(locale).then(() => i18n.changeLanguage(locale))
 }
 
 const initialLocale = getInitialLocale()
