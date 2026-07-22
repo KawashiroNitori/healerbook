@@ -90,11 +90,10 @@ describe('LanguageToggle', () => {
     expect(setLocale).toHaveBeenCalledWith('en')
   })
 
-  // 只有 zh-CN catalog 完整，未译语言暂不对生产用户放出
-  it('非开发模式下不渲染入口', () => {
+  // 入口对所有用户开放，不再依赖构建模式（曾因译文未就位而在生产隐藏）
+  it('非开发模式下同样渲染入口', () => {
     vi.stubEnv('DEV', false)
-    const { container } = render(<LanguageToggle />)
-    expect(container.firstChild).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Language' })).toBeNull()
+    render(<LanguageToggle />)
+    expect(screen.getByRole('button', { name: 'Language' })).toBeTruthy()
   })
 })
