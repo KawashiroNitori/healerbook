@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { ReactNode, ReactElement } from 'react'
 import { createContext, useContext, useState, cloneElement, isValidElement } from 'react'
@@ -81,10 +81,20 @@ vi.mock('@/store/uiStore', () => ({
 import LanguageToggle from './LanguageToggle'
 
 describe('LanguageToggle', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
   it('opens menu and switching a language calls setLocale', () => {
     render(<LanguageToggle />)
     fireEvent.click(screen.getByRole('button', { name: 'Language' }))
     fireEvent.click(screen.getByText('English'))
     expect(setLocale).toHaveBeenCalledWith('en')
+  })
+
+  // 只有 zh-CN catalog 完整，未译语言暂不对生产用户放出
+  it('非开发模式下不渲染入口', () => {
+    vi.stubEnv('DEV', false)
+    const { container } = render(<LanguageToggle />)
+    expect(container.firstChild).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Language' })).toBeNull()
   })
 })

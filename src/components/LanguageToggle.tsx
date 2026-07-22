@@ -14,6 +14,11 @@ export default function LanguageToggle() {
   const locale = useUIStore(s => s.locale)
   const setLocale = useUIStore(s => s.setLocale)
 
+  // 仅 zh-CN catalog 是完整的，其余语言待 Crowdin 回流后再放出：
+  // 生产构建里切到未译语言只会看到大面积 key 回退，故非开发模式下不渲染入口。
+  // 放在 hooks 之后以满足 rules-of-hooks；生产构建常量折叠为 false 后整段返回 null。
+  if (!import.meta.env.DEV) return null
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
