@@ -80,5 +80,13 @@
     "timelineUpdated": "傷害時間軸已更新完成",
     "title": "TOP100 參考方案",
     "updatedAt": "更新於 {time}"
+  },
+  "translationBanner": {
+    "approved": "審校進度",
+    "cta": "幫助我們進行翻譯！",
+    "description": "本專案使用 Crowdin 進行在地化管理，點擊前往進行在地化翻譯與審校。",
+    "goToCrowdin": "前往 Crowdin",
+    "title": "參與在地化",
+    "translated": "翻譯進度"
   }
 }

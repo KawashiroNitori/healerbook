@@ -80,5 +80,13 @@
     "timelineUpdated": "Schadens-Zeitleiste vollständig aktualisiert",
     "title": "TOP100-Referenzlösungen",
     "updatedAt": "Aktualisiert {time}"
+  },
+  "translationBanner": {
+    "approved": "Freigegeben",
+    "cta": "Hilf uns beim Übersetzen!",
+    "description": "Dieses Projekt verwaltet die Lokalisierung über Crowdin. Dort kann übersetzt und geprüft werden.",
+    "goToCrowdin": "Zu Crowdin",
+    "title": "An der Lokalisierung mitwirken",
+    "translated": "Übersetzt"
   }
 }

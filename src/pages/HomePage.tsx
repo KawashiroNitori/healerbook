@@ -15,6 +15,7 @@ import TimelineCard from '@/components/TimelineCard'
 import AuthButton from '@/components/AuthButton'
 import ThemeToggle from '@/components/ThemeToggle'
 import LanguageToggle from '@/components/LanguageToggle'
+import TranslationBanner from '@/components/TranslationBanner'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchMyTimelines, deleteSharedTimeline } from '@/api/timelineShareApi'
@@ -176,6 +177,8 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      <TranslationBanner />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

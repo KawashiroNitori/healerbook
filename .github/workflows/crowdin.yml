@@ -32,3 +32,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
+
+      # 进度快照供前端 TranslationBanner 展示，追加到同一个回流分支，
+      # 使「译文」与「进度」始终同批次进仓库。脚本无第三方依赖，无需 pnpm install。
+      - name: 更新翻译进度快照
+        run: |
+          if ! git fetch origin l10n/crowdin; then
+            echo "回流分支不存在（本次无译文变更），跳过"
+            exit 0
+          fi
+          git checkout l10n/crowdin
+          node scripts/fetch-i18n-progress.mjs
+          if git diff --quiet -- src/i18n/progress.json; then
+            echo "进度无变化，跳过提交"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/i18n/progress.json
+          git commit -m "chore(i18n): 更新翻译进度快照"
+          git push origin l10n/crowdin
+        env:
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+          CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}

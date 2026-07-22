@@ -80,5 +80,13 @@
     "timelineUpdated": "ダメージタイムラインの更新が完了しました",
     "title": "TOP100 参考プラン",
     "updatedAt": "{time} に更新"
+  },
+  "translationBanner": {
+    "approved": "校正進捗",
+    "cta": "翻訳にご協力ください！",
+    "description": "本プロジェクトは Crowdin でローカライズを管理しています。クリックすると翻訳・校正ページへ移動します。",
+    "goToCrowdin": "Crowdin へ移動",
+    "title": "ローカライズに参加",
+    "translated": "翻訳進捗"
   }
 }

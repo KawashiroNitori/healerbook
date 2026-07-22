@@ -80,5 +80,13 @@
     "timelineUpdated": "Chronologie de dégâts mise à jour",
     "title": "Solutions de référence TOP100",
     "updatedAt": "Mis à jour {time}"
+  },
+  "translationBanner": {
+    "approved": "Relu",
+    "cta": "Aidez-nous à traduire !",
+    "description": "Ce projet gère sa localisation sur Crowdin. Rendez-vous là-bas pour traduire et relire.",
+    "goToCrowdin": "Aller sur Crowdin",
+    "title": "Participer à la localisation",
+    "translated": "Traduit"
   }
 }

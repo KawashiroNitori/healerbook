@@ -80,5 +80,13 @@
     "timelineUpdated": "Damage timeline is up to date",
     "title": "TOP100 reference plans",
     "updatedAt": "Updated {time}"
+  },
+  "translationBanner": {
+    "approved": "Approved",
+    "cta": "Help us translate!",
+    "description": "This project manages localization on Crowdin. Head over to help translate and review.",
+    "goToCrowdin": "Go to Crowdin",
+    "title": "Join the localization",
+    "translated": "Translated"
   }
 }
