@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { GameIcon } from '@/components/GameIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import { getActionById } from '@/api/xivapi'
+import { useUIStore } from '@/store/uiStore'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import JobIcon from './JobIcon'
 import type { TooltipPlacement } from '@/store/tooltipStore'
@@ -33,6 +34,8 @@ export default function ActionTooltip({
   onMouseLeave,
 }: ActionTooltipProps) {
   const { t } = useTranslation(['editor', 'common'])
+  // 技能名/描述等文案由 XIVAPI 按语言返回，故 locale 变化需重新拉取
+  const locale = useUIStore(s => s.locale)
   // 保留上一次非 null 的数据，用于退出动画期间继续渲染
   const [displayedData, setDisplayedData] = useState<{
     action: MitigationAction
@@ -135,8 +138,8 @@ export default function ActionTooltip({
   }, [])
 
   const { data: apiData, isLoading } = useQuery({
-    queryKey: ['action', displayedData?.action.id ?? 0],
-    queryFn: () => getActionById(displayedData!.action.id),
+    queryKey: ['action', displayedData?.action.id ?? 0, locale],
+    queryFn: () => getActionById(displayedData!.action.id, locale),
     enabled: displayedData !== null,
     staleTime: 1000 * 60 * 60 * 24,
     gcTime: 1000 * 60 * 60 * 24,

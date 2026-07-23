@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { getActionById } from './xivapi'
+import { getActionById, toApiLanguage } from './xivapi'
 
 const RESP = {
   row_id: 16536,
@@ -40,5 +40,32 @@ describe('getActionById', () => {
       vi.fn(async () => badRes())
     )
     expect(await getActionById(16536)).toBeNull()
+  })
+
+  it('en/ja/de/fr 带 language 参数请求', async () => {
+    const fetchMock = vi.fn(async () => okRes(RESP))
+    vi.stubGlobal('fetch', fetchMock)
+    await getActionById(16536, 'ja')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('language=ja')
+  })
+
+  it('zh-CN / zh-TW 不带 language 参数（取镜像默认简体）', async () => {
+    const fetchMock = vi.fn(async () => okRes(RESP))
+    vi.stubGlobal('fetch', fetchMock)
+    await getActionById(16536, 'zh-CN')
+    await getActionById(16536, 'zh-TW')
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain('language=')
+    expect(String(fetchMock.mock.calls[1][0])).not.toContain('language=')
+  })
+})
+
+describe('toApiLanguage', () => {
+  it('en/ja/de/fr 原样返回，中文映射为 null', () => {
+    expect(toApiLanguage('ja')).toBe('ja')
+    expect(toApiLanguage('en')).toBe('en')
+    expect(toApiLanguage('de')).toBe('de')
+    expect(toApiLanguage('fr')).toBe('fr')
+    expect(toApiLanguage('zh-CN')).toBeNull()
+    expect(toApiLanguage('zh-TW')).toBeNull()
   })
 })

@@ -4,6 +4,27 @@
  */
 
 import { requestWithFallback, onApiSuccess } from './providers/apiProvider'
+import type { AppLanguage } from '@/types/i18n'
+
+/**
+ * app 语言 → XIVAPI `language` 查询参数。
+ *
+ * XIVAPI v2 官方数据只有 en/ja/de/fr 四种；国服镜像(xivcdn)在**不带** language
+ * 参数时返回简体中文。FF14 没有独立的繁体中文文本，故 zh-CN / zh-TW 都取简体，
+ * 即返回 null（不带 language，靠 xivcdn 默认）。带非法 language 时两源均 400，
+ * 会被 requestWithFallback 当失败跳过——因此中文必须走「不带参数」这条路。
+ */
+export function toApiLanguage(locale: AppLanguage): 'en' | 'ja' | 'de' | 'fr' | null {
+  switch (locale) {
+    case 'en':
+    case 'ja':
+    case 'de':
+    case 'fr':
+      return locale
+    default: // zh-CN / zh-TW → 简体中文（xivcdn 默认）
+      return null
+  }
+}
 
 /**
  * CafeMaker Action 数据结构（保持原有字段格式）
@@ -85,14 +106,20 @@ function convertResponse(id: number, data: XIVAPIResponse): CafeMakerAction {
 /**
  * 获取技能详细信息
  * @param actionId 技能 ID
+ * @param locale 界面语言，决定返回文案语言（省略则取源默认：xivcdn 简体中文）
  * @returns 技能数据
  */
-export async function getActionById(actionId: number): Promise<CafeMakerAction | null> {
+export async function getActionById(
+  actionId: number,
+  locale?: AppLanguage
+): Promise<CafeMakerAction | null> {
   try {
     const search = new URLSearchParams({
       fields: ACTION_FIELDS,
       transient: 'Description@as(html)',
     })
+    const lang = locale ? toApiLanguage(locale) : null
+    if (lang) search.set('language', lang)
     const path = `/sheet/Action/${actionId}?${search.toString()}`
     const { data, provider } = await requestWithFallback<XIVAPIResponse>(path)
     onApiSuccess(provider)
@@ -108,12 +135,15 @@ export async function getActionById(actionId: number): Promise<CafeMakerAction |
  * @param actionIds 技能 ID 列表
  * @returns 技能数据映射
  */
-export async function getActionsByIds(actionIds: number[]): Promise<Map<number, CafeMakerAction>> {
+export async function getActionsByIds(
+  actionIds: number[],
+  locale?: AppLanguage
+): Promise<Map<number, CafeMakerAction>> {
   const results = new Map<number, CafeMakerAction>()
 
   await Promise.all(
     actionIds.map(async id => {
-      const action = await getActionById(id)
+      const action = await getActionById(id, locale)
       if (action) {
         results.set(id, action)
       }
