@@ -22,6 +22,22 @@ describe('i18n instance', () => {
   it('registers all five namespaces', () => {
     expect(NAMESPACES).toEqual(['common', 'home', 'editor', 'import', 'share'])
   })
+
+  // Crowdin skipUntranslatedStrings=true 会把未翻译的 key 导出为空串；
+  // returnEmptyString=false 必须让空串回退到 zh-CN，而非渲染成空白
+  it('empty-string translation falls back to source instead of rendering blank', async () => {
+    i18n.addResourceBundle(
+      'en',
+      'home',
+      { help: '', notFound: { message: 'Not found' } },
+      true,
+      true
+    )
+    await i18n.changeLanguage('en')
+    expect(i18n.t('home:help')).toBe('帮助') // 空串 → 回退 zh-CN
+    expect(i18n.t('home:notFound.message')).toBe('Not found') // 真实译文保留
+    await i18n.changeLanguage('zh-CN')
+  })
 })
 
 describe('getKonvaFontFamily', () => {

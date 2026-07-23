@@ -23,7 +23,8 @@
     "docs:dev": "vitepress dev docs --port 5174",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "i18n:extract": "i18next"
+    "i18n:extract": "i18next",
+    "i18n:upload": "crowdin upload sources && crowdin upload translations --import-eq-suggestions -l zh-TW -l ja -l en -l de -l fr"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

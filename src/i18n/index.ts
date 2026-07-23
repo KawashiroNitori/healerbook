@@ -84,6 +84,9 @@ void i18n
     ns: NAMESPACES as unknown as string[],
     defaultNS: 'common',
     returnNull: false,
+    // Crowdin 项目设了 skipUntranslatedStrings=true：未翻译的 key 以空串导出。
+    // 关掉 returnEmptyString，让空串走 fallbackLng 回退到 zh-CN，而非渲染成空白。
+    returnEmptyString: false,
     interpolation: { escapeValue: false },
     // 懒加载的 catalog 经 addResourceBundle 注入，需监听 store 事件才会重渲染
     react: { bindI18nStore: 'added' },
