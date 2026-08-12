@@ -1602,10 +1602,19 @@ if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
   })
 }
 
-/** 全部技能（静态数据，直接 import 使用，无需经 store / loadActions） */
+/**
+ * 全部技能的**基线表**（等于 100 级形态）。
+ *
+ * 仅供不关心等级的消费点使用：trackGroup 映射、actionId 识别、名称查找。
+ * 需要感知等级的场景一律走 `resolveActions(level)` / `useResolvedActions()`，
+ * 否则低等级下会拿到不可用技能或未经覆盖的数值。
+ */
 export const ACTIONS = MITIGATION_DATA.actions
 
-/** id → action 索引（数据不可变，模块级建一次） */
+/**
+ * id → 基线 action 索引（数据不可变，模块级建一次）。
+ * 同 ACTIONS：不含等级覆盖，需要等级语义时用 resolveActions(level).actionMap。
+ */
 export const ACTIONS_BY_ID: Map<number, MitigationAction> = new Map(
   MITIGATION_DATA.actions.map(a => [a.id, a])
 )
