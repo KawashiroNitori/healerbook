@@ -85,3 +85,34 @@ describe('useSkillTracks with filter', () => {
     expect(result.current).toEqual([])
   })
 })
+
+describe('useSkillTracks 等级过滤', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useFilterStore.setState({ customPresets: [], activeFilterId: 'builtin:all' })
+  })
+
+  it('90 级下不渲染 minLevel 96 的技能轨道', () => {
+    useTimelineStore.setState({
+      timeline: {
+        ...makeTimeline(),
+        level: 90,
+        composition: { players: [{ id: 1, job: 'WHM' }] },
+      },
+    })
+    const { result } = renderHook(() => useSkillTracks())
+    expect(result.current.some(t => t.actionId === 37010)).toBe(false)
+  })
+
+  it('100 级下渲染该技能轨道', () => {
+    useTimelineStore.setState({
+      timeline: {
+        ...makeTimeline(),
+        level: 100,
+        composition: { players: [{ id: 1, job: 'WHM' }] },
+      },
+    })
+    const { result } = renderHook(() => useSkillTracks())
+    expect(result.current.some(t => t.actionId === 37010)).toBe(true)
+  })
+})

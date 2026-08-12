@@ -4,19 +4,19 @@
 
 import { useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { ACTIONS } from '@/data/mitigationActions'
 import { useFilterStore } from '@/store/filterStore'
+import { useResolvedActions } from './useResolvedActions'
 import { deriveSkillTracks, type SkillTrack } from '@/utils/skillTracks'
 import { matchTrack } from './useFilteredTimelineView'
 
 export function useSkillTracks(): SkillTrack[] {
   const composition = useTimelineStore(s => s.timeline?.composition)
   const activePreset = useFilterStore(s => s.getActivePreset())
+  const { actions, actionMap } = useResolvedActions()
 
   return useMemo(() => {
     if (!composition) return []
-    const tracks = deriveSkillTracks(composition, new Set(), ACTIONS)
-    const actionMap = new Map(ACTIONS.map(a => [a.id, a]))
+    const tracks = deriveSkillTracks(composition, new Set(), actions)
     return tracks.filter(t => matchTrack(t, activePreset, actionMap))
-  }, [composition, activePreset])
+  }, [composition, activePreset, actions, actionMap])
 }

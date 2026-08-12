@@ -12,7 +12,7 @@ import { GameIcon } from '@/components/GameIcon'
 import type { MitigationAction } from '@/types/mitigation'
 import { getActionById } from '@/api/xivapi'
 import { useUIStore } from '@/store/uiStore'
-import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import JobIcon from './JobIcon'
 import type { TooltipPlacement } from '@/store/tooltipStore'
 
@@ -36,6 +36,7 @@ export default function ActionTooltip({
   const { t } = useTranslation(['editor', 'common'])
   // 技能名/描述等文案由 XIVAPI 按语言返回，故 locale 变化需重新拉取
   const locale = useUIStore(s => s.locale)
+  const { actionMap } = useResolvedActions()
   // 保留上一次非 null 的数据，用于退出动画期间继续渲染
   const [displayedData, setDisplayedData] = useState<{
     action: MitigationAction
@@ -199,7 +200,7 @@ export default function ActionTooltip({
 
   // 复唱时间优先取 mitigationActions.ts 中定义的 cooldown（秒）；
   // 文件中缺少该技能（或未定义有效 CD）时回退到 xivapi 的 Recast100ms
-  const localAction = MITIGATION_DATA.actions.find(a => a.id === displayedAction.id)
+  const localAction = actionMap.get(displayedAction.id)
   const localCooldown = localAction && localAction.cooldown > 0 ? localAction.cooldown : null
 
   return (
