@@ -20,6 +20,7 @@ function toContent(t: Timeline): TimelineContent {
   if (t.description !== undefined) content.description = t.description
   if (t.fflogsSource !== undefined) content.fflogsSource = t.fflogsSource
   if (t.gameZoneId !== undefined) content.gameZoneId = t.gameZoneId
+  if (t.level !== undefined) content.level = t.level
   if (t.syncEvents !== undefined) content.syncEvents = t.syncEvents
   if (t.isReplayMode !== undefined) content.isReplayMode = t.isReplayMode
   if (t.statData !== undefined) content.statData = t.statData

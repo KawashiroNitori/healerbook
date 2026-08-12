@@ -117,6 +117,7 @@ export interface V2SyncEvent {
 }
 
 import type { TimelineStatData } from './statData'
+import type { Level } from './level'
 
 export interface V2Timeline {
   v: 2
@@ -128,6 +129,8 @@ export interface V2Timeline {
   fs?: V2FFLogsSource
   /** gameZoneId */
   gz?: number
+  /** level（副本同步等级）；缺席时解码回退 DEFAULT_LEVEL */
+  lv?: Level
   /** encounterId（由 raidEncounters.ts 反查元数据） */
   e: number
   /** composition：固定 8 槽稀疏数组，下标 = playerId，空槽用 ""，允许尾部 truncate */

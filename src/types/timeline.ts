@@ -4,6 +4,7 @@
 
 import type { Job } from '@/data/jobs'
 import type { TimelineStatData } from './statData'
+import type { Level } from './level'
 
 export type { Job } from '@/data/jobs'
 
@@ -68,6 +69,8 @@ export interface Timeline {
    *  FFLogs 导入时从 ReportFight.gameZone.id 取值；本地新建时从 raidEncounters.ts 静态表查表写入。
    *  存量时间轴可能无此字段，导出时将回退至静态表或 "0"。 */
   gameZoneId?: number
+  /** 副本同步等级。省略 = DEFAULT_LEVEL(100)，存量时间轴无此字段 */
+  level?: Level
   /** Souma 导出用的 boss 关键技能 sync 锚点。
    *  FFLogs 导入时由 parseSyncEvents 生成，本地新建时间轴为 undefined。
    *  存量时间轴可能无此字段，导出时不产出 sync 行即可。 */

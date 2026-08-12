@@ -16,6 +16,7 @@ export function timelineToLocalInit(
     encounter: timeline.encounter,
     fflogsSource: timeline.fflogsSource,
     gameZoneId: timeline.gameZoneId,
+    level: timeline.level,
     syncEvents: timeline.syncEvents,
     isReplayMode: timeline.isReplayMode,
     composition: timeline.composition,

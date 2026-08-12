@@ -749,6 +749,35 @@ describe('parseFromAny', () => {
   })
 })
 
+describe('level 字段编解码', () => {
+  it('level 存在时写入 lv 短键', () => {
+    const tl = { ...makeEditorTimeline(), level: 90 as const }
+    expect(toV2(tl).lv).toBe(90)
+  })
+
+  it('level 缺席时不写 lv', () => {
+    const tl = makeEditorTimeline()
+    delete (tl as { level?: number }).level
+    expect(toV2(tl).lv).toBeUndefined()
+  })
+
+  it('lv 往返一致', () => {
+    const tl = { ...makeEditorTimeline(), level: 70 as const }
+    expect(hydrateFromV2(toV2(tl)).level).toBe(70)
+  })
+
+  it('无 lv 的存量数据解码后回退 100', () => {
+    const v2 = toV2(makeEditorTimeline())
+    delete v2.lv
+    expect(hydrateFromV2(v2).level).toBe(100)
+  })
+
+  it('非法 lv 值回退 100', () => {
+    const v2 = { ...toV2(makeEditorTimeline()), lv: 55 as unknown as 70 }
+    expect(hydrateFromV2(v2).level).toBe(100)
+  })
+})
+
 describe('castWindow 序列化', () => {
   function roundtripDamageEvent(ev: import('@/types/timeline').DamageEvent) {
     const tl: Timeline = {
