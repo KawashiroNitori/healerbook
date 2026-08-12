@@ -1592,12 +1592,19 @@ export const MITIGATION_DATA: MitigationDataSource = {
 // Worker runtime 下 import.meta.env 为 undefined，用可选链避免顶层抛错
 if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
   // 异步导入避免生产打包时保留 validate 代码路径
-  void import('@/utils/placement/validate').then(({ validateActions }) => {
-    const issues = validateActions(MITIGATION_DATA.actions)
-    for (const issue of issues) {
-      const msg = `[mitigationActions] ${issue.rule} on action ${issue.actionId}: ${issue.message}`
-      if (issue.level === 'error') console.error(msg)
-      else console.warn(msg)
+  void Promise.all([
+    import('@/utils/placement/validate'),
+    import('@/data/resolveAction'),
+    import('@/types/level'),
+  ]).then(([{ validateActions }, { resolveActions }, { SUPPORTED_LEVELS }]) => {
+    // 逐档位验：技能退出技能池会让同轨组的 placement 覆盖性失效，
+    // 这类问题只在特定等级复现。
+    for (const lv of SUPPORTED_LEVELS) {
+      for (const issue of validateActions(resolveActions(lv).actions)) {
+        const msg = `[mitigationActions][Lv${lv}] ${issue.rule} on action ${issue.actionId}: ${issue.message}`
+        if (issue.level === 'error') console.error(msg)
+        else console.warn(msg)
+      }
     }
   })
 }
