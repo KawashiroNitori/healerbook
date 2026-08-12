@@ -8,6 +8,7 @@ import { generateId } from '@/utils/id'
 import { getEncounterById } from '@/data/raidEncounters'
 import { parseFromAny } from '@/utils/timelineFormat'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
+import { toLevel } from '@/types/level'
 
 const STORAGE_KEY = 'healerbook_timelines'
 
@@ -104,6 +105,7 @@ export function createNewTimeline(
       damageEvents: [],
     },
     gameZoneId: staticEncounter?.gameZoneId,
+    level: toLevel(staticEncounter?.level),
     damageEvents: initialDamageEvents ? [...initialDamageEvents] : [],
     castEvents: [],
     statusEvents: [],
