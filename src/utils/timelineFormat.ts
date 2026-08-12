@@ -36,6 +36,7 @@ import type {
   V2Timeline,
 } from '@/types/timelineV2'
 import { getEncounterById } from '@/data/raidEncounters'
+import { toLevel } from '@/types/level'
 import { generateId } from '@/utils/id'
 import { normalizeActionId } from './normalizeActionId'
 import { generateObjectId } from '@/utils/shortId'
@@ -219,6 +220,7 @@ export function toV2(timeline: Timeline): V2Timeline {
     }
   }
   if (timeline.gameZoneId !== undefined) out.gz = timeline.gameZoneId
+  if (timeline.level !== undefined) out.lv = timeline.level
   const an = (timeline.annotations ?? []).map(a => toV2Annotation(a, remap))
   if (an.length > 0) out.an = an
   const se = (timeline.syncEvents ?? []).map(toV2SyncEvent)
@@ -380,6 +382,7 @@ export function hydrateFromV2(v2: V2Timeline, overrides: Partial<Timeline> = {})
   if (v2.desc !== undefined) base.description = v2.desc
   if (v2.fs) base.fflogsSource = { reportCode: v2.fs.rc, fightId: v2.fs.fi }
   if (v2.gz !== undefined) base.gameZoneId = v2.gz
+  base.level = toLevel(v2.lv)
   if (v2.se) base.syncEvents = v2.se.map(fromV2SyncEvent)
   if (v2.r === 1) base.isReplayMode = true
   if (v2.sd !== undefined) base.statData = v2.sd

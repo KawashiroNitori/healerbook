@@ -19,7 +19,7 @@ const base = {
 } as unknown as Timeline
 
 describe('timelineToLocalInit', () => {
-  it('13 字段透传，annotations 兜底空数组', () => {
+  it('14 字段透传，annotations 兜底空数组', () => {
     const r = timelineToLocalInit(base)
     expect(r.name).toBe('T1')
     expect(r.annotations).toEqual([])
@@ -31,6 +31,7 @@ describe('timelineToLocalInit', () => {
         'encounter',
         'fflogsSource',
         'gameZoneId',
+        'level',
         'syncEvents',
         'isReplayMode',
         'composition',
