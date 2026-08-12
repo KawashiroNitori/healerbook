@@ -43,3 +43,13 @@ export function resolveActions(level: Level): ResolvedActionSet {
   cache.set(level, set)
   return set
 }
+
+/**
+ * 测试专用：清空 memo 缓存。
+ * 生产环境下 ACTIONS 不可变，缓存假设成立；测试若直接 mutate
+ * MITIGATION_DATA.actions（注入临时 fixture action）需要调用本函数，
+ * 强制下一次 resolveActions() 重新读取最新数组，否则会命中缓存里的旧快照。
+ */
+export function __resetResolveActionsCacheForTesting(): void {
+  cache.clear()
+}

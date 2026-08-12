@@ -8,6 +8,7 @@ import type { CastEvent, DamageEvent } from './timeline'
 import type { TimelineStatData } from './statData'
 import type { HealSnapshot } from './healSnapshot'
 import type { HpTimelinePoint } from './hpTimeline'
+import type { Level } from './level'
 
 /**
  * 多坦路径单坦克的计算结果
@@ -155,6 +156,12 @@ export interface SimulateInput {
    * undefined 自然走早返回，不影响 status 列表。
    */
   skipHpPipeline?: boolean
+  /**
+   * 副本同步等级。省略 = DEFAULT_LEVEL(100)。
+   * 决定 simulate 用哪一份 resolve 后的技能表：不可用技能的 cast 被跳过，
+   * 命中覆盖层的技能用覆盖后的 executor / duration。
+   */
+  level?: Level
 }
 
 /**

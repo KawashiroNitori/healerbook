@@ -24,6 +24,7 @@ export function createEvaluator(input: OptimizeInput): Evaluator {
       baseReferenceMaxHPForAoe: input.baseReferenceMaxHPForAoe,
       baseReferenceMaxHPForTank: input.baseReferenceMaxHPForTank,
       skipHpPipeline: true,
+      level: input.level,
     })
     const perEvent = new Map<string, PerEventEval>()
     const lethal = new Set<string>()

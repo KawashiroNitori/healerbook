@@ -26,7 +26,6 @@ import type { CastEvent } from '@/types/timeline'
 import type { TimelineStatData } from '@/types/statData'
 import type { ActionExecutionContext, MitigationAction } from '@/types/mitigation'
 import type { HealSnapshot } from '@/types/healSnapshot'
-import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { getStatusById } from '@/utils/statusRegistry'
 import { isStatusActiveAt } from '../statusWindow'
 import { resolveVariant } from '../placement/resolveVariant'
@@ -67,8 +66,9 @@ export function createTimeAdvancer(deps: {
   recorder: StatusIntervalRecorder
   hp: HpPipeline
   recordHeal: ((snap: HealSnapshot) => void) | undefined
+  actionMap: Map<number, MitigationAction>
 }): TimeAdvancer {
-  const { statistics, variantMembers, recorder, hp, recordHeal } = deps
+  const { statistics, variantMembers, recorder, hp, recordHeal, actionMap } = deps
   const recomputeAndTrack = hp.recomputeAndTrack
   const captureTransition = recorder.captureTransition
 
@@ -210,7 +210,7 @@ export function createTimeAdvancer(deps: {
     advanceTarget: number
   ): { state: PartyState; advanced: boolean } => {
     // castEvent.actionId 现在语义是 trackGroup 父 id
-    const parent = MITIGATION_DATA.actions.find(a => a.id === castEvent.actionId)
+    const parent = actionMap.get(castEvent.actionId)
     if (!parent) return { state, advanced: false }
     const prevState = state
     let currentState = advanceToTime(state, from, advanceTarget)

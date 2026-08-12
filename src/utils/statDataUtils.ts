@@ -8,7 +8,9 @@
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { TimelineStatData, StatDataEntryType } from '@/types/statData'
 import type { Composition } from '@/types/timeline'
-import { MITIGATION_DATA } from '@/data/mitigationActions'
+import type { Level } from '@/types/level'
+import { DEFAULT_LEVEL } from '@/types/level'
+import { resolveActions } from '@/data/resolveAction'
 import { getNonTankMinHP, getTankMinHP } from './stats'
 
 const DEFAULT_VALUE = 10000
@@ -81,7 +83,8 @@ export function getFallbackTankMaxHP(statistics: EncounterStatistics | null | un
 export function resolveStatData(
   statData: TimelineStatData | undefined,
   statistics: EncounterStatistics | null | undefined,
-  composition: Composition | undefined
+  composition: Composition | undefined,
+  level: Level = DEFAULT_LEVEL
 ): TimelineStatData {
   const resolved: TimelineStatData = {
     referenceMaxHP: statData?.referenceMaxHP ?? getFallbackMaxHP(statistics),
@@ -96,7 +99,7 @@ export function resolveStatData(
 
   // 遍历阵容中所有技能的 statDataEntries，逐个 resolve
   const jobs = new Set(composition.players.map(p => p.job))
-  const actions = MITIGATION_DATA.actions.filter(
+  const actions = resolveActions(level).actions.filter(
     a => a.statDataEntries && a.jobs.some(j => jobs.has(j))
   )
 
@@ -150,11 +153,12 @@ function getUserValue(
  */
 export function cleanupStatData(
   statData: TimelineStatData,
-  composition: Composition
+  composition: Composition,
+  level: Level = DEFAULT_LEVEL
 ): TimelineStatData {
   const jobs = new Set(composition.players.map(p => p.job))
-  const validEntries = MITIGATION_DATA.actions
-    .filter(a => a.statDataEntries && a.jobs.some(j => jobs.has(j)))
+  const validEntries = resolveActions(level)
+    .actions.filter(a => a.statDataEntries && a.jobs.some(j => jobs.has(j)))
     .flatMap(a => a.statDataEntries!)
   const validKeys = {
     shield: new Set(validEntries.filter(e => e.type === 'shield').map(e => e.key)),

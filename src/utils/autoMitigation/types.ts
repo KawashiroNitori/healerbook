@@ -4,6 +4,7 @@ import type { PartyState } from '@/types/partyState'
 import type { TimelineStatData } from '@/types/statData'
 import type { StatusInterval } from '@/types/status'
 import type { PlacementEngine } from '@/types/placement'
+import type { Level } from '@/types/level'
 
 export interface OptimizeOptions {
   timeBudgetMs?: number // 默认 ≈ 3000
@@ -21,6 +22,8 @@ export interface OptimizeInput {
   baseReferenceMaxHPForAoe?: number
   baseReferenceMaxHPForTank?: number
   options?: OptimizeOptions
+  /** 副本同步等级。省略 = DEFAULT_LEVEL(100) */
+  level?: Level
 }
 
 export interface InfeasibleEvent {
