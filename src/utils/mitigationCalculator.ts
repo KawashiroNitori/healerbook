@@ -17,6 +17,8 @@ import type {
   SimulateOutput,
 } from '@/types/calculation'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { resolveActions } from '@/data/resolveAction'
+import { DEFAULT_LEVEL } from '@/types/level'
 import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { computeMaxHpMultiplierFiltered } from '@/executors/healMath'
 import { isStatusActiveAt } from './statusWindow'
@@ -190,13 +192,15 @@ export function simulate(input: SimulateInput): SimulateOutput {
     baseReferenceMaxHPForTank = 0,
     baseReferenceMaxHPForAoe = 0,
     skipHpPipeline = false,
+    level = DEFAULT_LEVEL,
   } = input
 
   const damageResults = new Map<string, CalculationResult>()
   const castEffectiveEndByCastEventId = new Map<string, number>()
+  const { actions: resolvedActions, actionMap } = resolveActions(level)
   // 预建 trackGroup 成员表：父 id → members
   const variantMembers = new Map<number, MitigationAction[]>()
-  for (const a of MITIGATION_DATA.actions) {
+  for (const a of resolvedActions) {
     const gid = a.trackGroup ?? a.id
     const arr = variantMembers.get(gid) ?? []
     arr.push(a)
@@ -225,6 +229,7 @@ export function simulate(input: SimulateInput): SimulateOutput {
     recorder,
     hp,
     recordHeal,
+    actionMap,
   })
 
   const sortedDamage = [...damageEvents].sort((a, b) => a.time - b.time)

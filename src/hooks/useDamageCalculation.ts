@@ -14,6 +14,7 @@ import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { useTimelineStore } from '@/store/timelineStore'
 import { calculatePercentile } from '@/utils/stats'
 import { resolveStatData } from '@/utils/statDataUtils'
+import { DEFAULT_LEVEL } from '@/types/level'
 import { getJobRole } from '@/data/jobs'
 import { CalculatorWorkerClient } from '@/web-workers/calculator/client'
 import CalculatorWorker from '@/web-workers/calculator/index?worker'
@@ -91,7 +92,12 @@ export function useDamageCalculation(
   useEffect(() => {
     if (!useWorker || !timeline || !partyState) return
 
-    const resolved = resolveStatData(timeline.statData, statistics, timeline.composition)
+    const resolved = resolveStatData(
+      timeline.statData,
+      statistics,
+      timeline.composition,
+      timeline.level ?? DEFAULT_LEVEL
+    )
     const tankPlayerIds = timeline.composition.players
       .filter(p => getJobRole(p.job) === 'tank')
       .map(p => p.id)
@@ -104,6 +110,7 @@ export function useDamageCalculation(
       tankPlayerIds,
       baseReferenceMaxHPForTank: resolved.tankReferenceMaxHP!,
       baseReferenceMaxHPForAoe: resolved.referenceMaxHP!,
+      level: timeline.level ?? DEFAULT_LEVEL,
     }
 
     const ids = extraExcludeIdsKey.split(',').filter(Boolean)

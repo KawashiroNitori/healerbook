@@ -11,6 +11,8 @@ import * as registry from '@/utils/statusRegistry'
 import type { MitigationStatusMetadata } from '@/types/status'
 import { updateStatus } from '@/executors/statusHelpers'
 
+const MEDICA_III_ID = 37010
+
 function makeEvent(
   damage: number,
   time: number,
@@ -2852,5 +2854,39 @@ describe('simulate → resolvedVariantByCastId', () => {
     expect(result.resolvedVariantByCastId.get('c-in')).toBe(37016)
     expect(result.resolvedVariantByCastId.get('c-out')).toBe(37013)
     expect(result.resolvedVariantByCastId.get('c-buff')).toBe(37014)
+  })
+})
+
+describe('simulate 等级分歧', () => {
+  it('低等级下不可用的技能 cast 不产生任何状态', () => {
+    const out = simulate({
+      castEvents: [{ id: 'c1', actionId: MEDICA_III_ID, timestamp: 5, playerId: 0 } as CastEvent],
+      damageEvents: [],
+      initialState: { players: [], statuses: [], timestamp: 0 },
+      level: 90,
+    })
+    const intervals = [...out.statusTimelineByPlayer.values()].flatMap(m => [...m.values()]).flat()
+    expect(intervals).toHaveLength(0)
+  })
+
+  it('等级足够时同一 cast 正常产生状态', () => {
+    const out = simulate({
+      castEvents: [{ id: 'c1', actionId: MEDICA_III_ID, timestamp: 5, playerId: 0 } as CastEvent],
+      damageEvents: [],
+      initialState: { players: [], statuses: [], timestamp: 0 },
+      level: 100,
+    })
+    const intervals = [...out.statusTimelineByPlayer.values()].flatMap(m => [...m.values()]).flat()
+    expect(intervals.length).toBeGreaterThan(0)
+  })
+
+  it('未传 level 时按 100 级处理（存量调用向后兼容）', () => {
+    const out = simulate({
+      castEvents: [{ id: 'c1', actionId: MEDICA_III_ID, timestamp: 5, playerId: 0 } as CastEvent],
+      damageEvents: [],
+      initialState: { players: [], statuses: [], timestamp: 0 },
+    })
+    const intervals = [...out.statusTimelineByPlayer.values()].flatMap(m => [...m.values()]).flat()
+    expect(intervals.length).toBeGreaterThan(0)
   })
 })

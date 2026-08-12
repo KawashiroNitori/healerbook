@@ -15,6 +15,7 @@ import { simulate } from '@/utils/mitigationCalculator'
 import type { MitigationStatusMetadata } from '@/types/status'
 import type { Timeline } from '@/types/timeline'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { __resetResolveActionsCacheForTesting } from '@/data/resolveAction'
 import { createHealExecutor } from '@/executors/createHealExecutor'
 import { createRegenExecutor } from '@/executors/createRegenExecutor'
 import { regenStatusExecutor } from '@/executors/regenStatusExecutor'
@@ -337,6 +338,9 @@ describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
         statDataEntries: [{ type: 'heal', key: 1e6 + HOT_STATUS_ID }],
       }
     )
+    // resolveActions() 按等级 memo；上面直接 mutate MITIGATION_DATA.actions 不会让已缓存的
+    // 快照感知到新 fixture action，必须显式清空缓存，强制下一次调用重新读取最新数组。
+    __resetResolveActionsCacheForTesting()
 
     const spy = vi.spyOn(registry, 'getStatusById').mockImplementation(id => {
       if (id === HOT_STATUS_ID) {
@@ -433,6 +437,7 @@ describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
       spy.mockRestore()
       MITIGATION_DATA.actions.length = 0
       MITIGATION_DATA.actions.push(...original)
+      __resetResolveActionsCacheForTesting()
     }
   })
 })
@@ -459,6 +464,9 @@ describe('useDamageCalculation: castEffectiveEnd 在 stale 帧对齐当前 times
       executor: createRegenExecutor(HOT_STATUS_ID, 30),
       statDataEntries: [{ type: 'heal', key: 1e6 + HOT_STATUS_ID }],
     })
+    // resolveActions() 按等级 memo；上面直接 mutate MITIGATION_DATA.actions 不会让已缓存的
+    // 快照感知到新 fixture action，必须显式清空缓存，强制下一次调用重新读取最新数组。
+    __resetResolveActionsCacheForTesting()
 
     const spy = vi.spyOn(registry, 'getStatusById').mockImplementation(id => {
       if (id === HOT_STATUS_ID) {
@@ -528,6 +536,7 @@ describe('useDamageCalculation: castEffectiveEnd 在 stale 帧对齐当前 times
       spy.mockRestore()
       MITIGATION_DATA.actions.length = 0
       MITIGATION_DATA.actions.push(...original)
+      __resetResolveActionsCacheForTesting()
     }
   })
 })

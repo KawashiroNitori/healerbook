@@ -5,6 +5,7 @@ import { useTimelineStore } from '@/store/timelineStore'
 import { workerClient } from '@/hooks/useDamageCalculation'
 import { OptimizeCancelledError } from '@/web-workers/calculator/client'
 import { resolveStatData } from '@/utils/statDataUtils'
+import { DEFAULT_LEVEL } from '@/types/level'
 import type { OptimizeWireInput } from '@/web-workers/calculator/types'
 import type { OptimizeProgress } from '@/utils/autoMitigation'
 import type { Timeline } from '@/types/timeline'
@@ -22,7 +23,8 @@ export function buildOptimizeWireInput(
   partyState: PartyState,
   statistics: EncounterStatistics | null
 ): OptimizeWireInput {
-  const resolved = resolveStatData(timeline.statData, statistics, timeline.composition)
+  const level = timeline.level ?? DEFAULT_LEVEL
+  const resolved = resolveStatData(timeline.statData, statistics, timeline.composition, level)
   return {
     damageEvents: timeline.damageEvents,
     lockedCastEvents: timeline.castEvents ?? [],
@@ -32,6 +34,7 @@ export function buildOptimizeWireInput(
     baseReferenceMaxHPForAoe: resolved.referenceMaxHP!,
     baseReferenceMaxHPForTank: resolved.tankReferenceMaxHP!,
     options: { timeBudgetMs: 2000, seed: 1 },
+    level,
   }
 }
 
