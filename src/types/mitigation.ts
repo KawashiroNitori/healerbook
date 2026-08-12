@@ -95,6 +95,29 @@ export interface ActionExecutionContext {
 export type ActionExecutor = (context: ActionExecutionContext) => PartyState
 
 /**
+ * 允许被等级覆盖的字段白名单。
+ *
+ * 刻意排除 id / jobs / trackGroup / category：
+ *   - id：技能身份
+ *   - jobs：技能不随等级换职业
+ *   - trackGroup：变了会让轨道在切等级时跳位
+ *   - category：UI 过滤与 calculate 的目标减判定依赖它，允许变会把等级感知
+ *     污染到一批本可保持静态的消费点
+ */
+export type LevelPatch = Partial<
+  Pick<
+    MitigationAction,
+    'duration' | 'cooldown' | 'executor' | 'resourceEffects' | 'statDataEntries' | 'placement'
+  >
+>
+
+export interface LevelOverride {
+  /** 本层生效的等级上限（闭区间）：level <= upTo 时命中 */
+  upTo: number
+  patch: LevelPatch
+}
+
+/**
  * 减伤技能
  */
 export interface MitigationAction {
@@ -140,6 +163,21 @@ export interface MitigationAction {
    *   - 含 delta<0（有显式消费者）→ 跳过合成，cooldown 字段沦为信息性
    */
   resourceEffects?: import('./resource').ResourceEffect[]
+  /**
+   * 可用等级下限（闭区间）。省略 = 无下限。
+   * 用真实学习等级，不限于 SUPPORTED_LEVELS 档位。
+   */
+  minLevel?: number
+  /**
+   * 可用等级上限（闭区间）。省略 = 无上限。
+   * 用于被升级技能顶掉的场景：医济 maxLevel: 95，医养 minLevel: 96。
+   */
+  maxLevel?: number
+  /**
+   * 低等级覆盖层，必须按 upTo 升序排列。
+   * 基线字段写 100 级；resolve 时取第一个满足 level <= upTo 的层，**只命中一层，不叠加**。
+   */
+  levelOverrides?: LevelOverride[]
 }
 
 /**
