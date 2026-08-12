@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { ACTIONS } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import { useFilterStore } from '@/store/filterStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import {
@@ -45,7 +45,7 @@ const MAX_NAME = 20
 
 export default function EditPresetDialog({ open, onClose, preset }: Props) {
   const { t } = useTranslation(['editor', 'common'])
-  const allActions = ACTIONS
+  const { actions: allActions } = useResolvedActions()
   const addPreset = useFilterStore(s => s.addPreset)
   const updatePreset = useFilterStore(s => s.updatePreset)
   const showTooltip = useTooltipStore(s => s.showTooltip)
@@ -106,13 +106,17 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
     })
   }
 
+  // 全选/取消全选只作用于当前等级可见的技能集合：勾选的 actionId 若因等级不可见
+  // 而不在 jobActionIds 内，必须原样保留在数组里，不能被这里的批量写入连带清空
+  // ——否则用户在低等级本打开一次编辑器，就会把高等级技能从全局预设里删掉。
   const toggleJobAll = (job: Job) => {
     const jobActionIds = actionsByJob.get(job)!.map(a => a.id)
     const currentIds = selectedActionsByJob[job] ?? []
+    const hiddenSelectedIds = currentIds.filter(id => !jobActionIds.includes(id))
     const allSelected = jobActionIds.every(id => currentIds.includes(id))
     setSelectedActionsByJob(prev => ({
       ...prev,
-      [job]: allSelected ? [] : jobActionIds,
+      [job]: allSelected ? hiddenSelectedIds : [...hiddenSelectedIds, ...jobActionIds],
     }))
   }
 
@@ -126,7 +130,10 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
     setSelectedActionsByJob(prev => {
       const next = { ...prev }
       for (const job of relevantJobs) {
-        next[job] = allSelected ? [] : actionsByJob.get(job)!.map(a => a.id)
+        const jobActionIds = actionsByJob.get(job)!.map(a => a.id)
+        const currentIds = prev[job] ?? []
+        const hiddenSelectedIds = currentIds.filter(id => !jobActionIds.includes(id))
+        next[job] = allSelected ? hiddenSelectedIds : [...hiddenSelectedIds, ...jobActionIds]
       }
       return next
     })
