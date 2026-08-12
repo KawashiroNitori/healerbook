@@ -1155,10 +1155,47 @@ describe('setLevel', () => {
     expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(1)
   })
 
+  it('setLevel 只产生一个顶层 Yjs 事务', () => {
+    const store = useTimelineStore.getState()
+    // 前置：加一个 90 级下不可用的 cast（医养），确保清理分支真的会执行——
+    // 否则 removedIds 为空，测的就只是 ySetMeta 的空转路径。
+    store.addCastEvent({
+      id: 'cast-medica',
+      actionId: MEDICA_III_ID,
+      timestamp: 10,
+      playerId: 2,
+    })
+
+    const engine = store.engine!
+    let transactions = 0
+    const handler = () => {
+      transactions++
+    }
+    // afterTransaction 只在最外层 transact 结束时触发一次；嵌套 transact（ySetMeta /
+    // yRemoveCastEvent 内部各自的 doc.transact）会被合并进最外层，不会重复计数。
+    // 这与 UndoManager 的 captureTimeout 合并栈项是两回事，能精确区分
+    // 「单个顶层 transact」和「两个紧邻的独立顶层 transact」。
+    engine.doc.on('afterTransaction', handler)
+    store.setLevel(90)
+    engine.doc.off('afterTransaction', handler)
+
+    expect(transactions).toBe(1)
+  })
+
   it('等级未变化时不产生事务', () => {
     const store = useTimelineStore.getState()
     const before = useTimelineStore.getState().canUndo
+    const engine = store.engine!
+    let transactions = 0
+    const handler = () => {
+      transactions++
+    }
+    engine.doc.on('afterTransaction', handler)
     store.setLevel(useTimelineStore.getState().timeline!.level ?? 100)
+    engine.doc.off('afterTransaction', handler)
+
     expect(useTimelineStore.getState().canUndo).toBe(before)
+    // 早退路径完全不调用 engine.doc.transact，afterTransaction 应为 0 次
+    expect(transactions).toBe(0)
   })
 })
