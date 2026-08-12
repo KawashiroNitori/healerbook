@@ -3,6 +3,7 @@ import { Y_MAP, LOCAL_ORIGIN, EXIT_REPLAY_ORIGIN } from './constants'
 import type { TimelineContent } from './types'
 import type { DamageEvent, CastEvent, Annotation, Timeline, Composition } from '@/types/timeline'
 import { normalizeActionId } from '@/utils/normalizeActionId'
+import { toLevel } from '@/types/level'
 
 /** meta Map 里存放的标量字段名 */
 const META_KEYS = [
@@ -323,7 +324,7 @@ export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
     encounter: meta.get('encounter') as Timeline['encounter'],
     fflogsSource: meta.get('fflogsSource') as Timeline['fflogsSource'],
     gameZoneId: meta.get('gameZoneId') as number | undefined,
-    level: meta.get('level') as Timeline['level'],
+    level: toLevel(meta.get('level') as number | undefined),
     syncEvents: meta.get('syncEvents') as Timeline['syncEvents'],
     isReplayMode: meta.get('isReplayMode') as boolean | undefined,
     createdAt: (meta.get('createdAt') as number) ?? 0,

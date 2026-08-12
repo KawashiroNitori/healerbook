@@ -57,6 +57,25 @@ describe('projectTimeline', () => {
     expect(out.composition.players).toEqual(sample.composition.players)
   })
 
+  it('meta 无 level key 时投影出的 level 兜底为 100', () => {
+    const doc = buildYDoc(sample) // sample 无 level 字段，buildYDoc 不会写 meta.level
+    const out = projectTimeline(doc)
+    expect(out.level).toBe(100)
+  })
+
+  it('meta.level 为非法值时投影兜底为 100（协作场景下别的客户端写入脏数据）', () => {
+    const doc = buildYDoc(sample)
+    doc.getMap(Y_MAP.meta).set('level', 55)
+    const out = projectTimeline(doc)
+    expect(out.level).toBe(100)
+  })
+
+  it('meta.level 为合法值时如实投影', () => {
+    const doc = buildYDoc({ ...sample, level: 70 })
+    const out = projectTimeline(doc)
+    expect(out.level).toBe(70)
+  })
+
   it('damageEvents / castEvents 按 time 字段升序', () => {
     const doc = buildYDoc({
       ...sample,
