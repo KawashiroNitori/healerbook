@@ -22,6 +22,11 @@ const mockComposition: Composition = {
   ],
 }
 
+/** 医养（白魔群体治疗 GCD），Task 5 落的 minLevel: 96，90 级下不可用 */
+const MEDICA_III_ID = 37010
+/** 铁壁，无等级区间限制，任何等级都可用 */
+const RAMPART_ID = 7531
+
 /** 基础 TimelineContent(去掉 id / updatedAt / statusEvents 等本地/派生字段) */
 const baseContent: TimelineContent = {
   name: '测试时间轴',
@@ -1081,5 +1086,79 @@ describe('pasteObjects', () => {
 
     store.undo()
     expect(useTimelineStore.getState().timeline!.damageEvents).toHaveLength(0)
+  })
+})
+
+describe('setLevel', () => {
+  beforeEach(async () => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    await useTimelineStore
+      .getState()
+      .openTimeline('set-level-test', { role: 'local', seedContent: baseContent })
+  })
+
+  afterEach(() => {
+    useTimelineStore.getState().reset()
+  })
+
+  it('切到低等级时清理该等级不可用的 cast', () => {
+    const store = useTimelineStore.getState()
+    store.addCastEvent({
+      id: 'cast-medica',
+      actionId: MEDICA_III_ID,
+      timestamp: 10,
+      playerId: 2,
+    })
+    expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(1)
+
+    store.setLevel(90)
+
+    expect(useTimelineStore.getState().timeline!.level).toBe(90)
+    expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(0)
+  })
+
+  it('保留该等级仍可用的 cast', () => {
+    const store = useTimelineStore.getState()
+    store.addCastEvent({
+      id: 'cast-rampart',
+      actionId: RAMPART_ID,
+      timestamp: 10,
+      playerId: 1,
+    })
+
+    store.setLevel(70)
+
+    expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(1)
+  })
+
+  it('一次 undo 同时恢复等级与被清理的 cast', () => {
+    const store = useTimelineStore.getState()
+    store.addCastEvent({
+      id: 'cast-medica',
+      actionId: MEDICA_III_ID,
+      timestamp: 10,
+      playerId: 2,
+    })
+
+    // Y.UndoManager 在 captureTimeout(400ms)内会把相邻事务合并为一个撤销步；
+    // 这里显式截断，让 setLevel 独立成一步，才能验证「setLevel 自身单事务」的语义，
+    // 而不是恰好把 addCastEvent 也一并撤销掉。
+    store.engine!.undoManager.stopCapturing()
+
+    store.setLevel(90)
+    expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(0)
+
+    store.undo()
+
+    expect(useTimelineStore.getState().timeline!.level).toBe(100)
+    expect(useTimelineStore.getState().timeline!.castEvents).toHaveLength(1)
+  })
+
+  it('等级未变化时不产生事务', () => {
+    const store = useTimelineStore.getState()
+    const before = useTimelineStore.getState().canUndo
+    store.setLevel(useTimelineStore.getState().timeline!.level ?? 100)
+    expect(useTimelineStore.getState().canUndo).toBe(before)
   })
 })
