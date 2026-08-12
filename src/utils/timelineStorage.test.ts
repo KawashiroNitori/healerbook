@@ -6,6 +6,7 @@
 import type { DamageEvent } from '@/types/timeline'
 import { describe, it, expect } from 'vitest'
 import { createNewTimeline } from './timelineStorage'
+import { ALL_ENCOUNTERS } from '@/data/raidEncounters'
 
 describe('createNewTimeline', () => {
   it('应该生成纯字母数字的 nanoid（不含 - 和 _）', () => {
@@ -73,5 +74,17 @@ describe('createNewTimeline — initialDamageEvents', () => {
       damageType: 'magical',
     })
     expect(timeline.damageEvents).toHaveLength(1)
+  })
+})
+
+describe('createNewTimeline 等级推导', () => {
+  it('从副本表推导等级', () => {
+    const encounter = ALL_ENCOUNTERS[0]
+    const tl = createNewTimeline(String(encounter.id), '测试')
+    expect(tl.level).toBe(encounter.level)
+  })
+
+  it('未知副本 id 回退 100', () => {
+    expect(createNewTimeline('999999', '测试').level).toBe(100)
   })
 })
