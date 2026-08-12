@@ -28,6 +28,10 @@ import type { PartyState } from '@/types/partyState'
 import type { EncounterStatistics } from '@/types/mitigation'
 import { createEmptyStatData, cleanupStatData } from '@/utils/statDataUtils'
 import type { TimelineStatData } from '@/types/statData'
+import type { Level } from '@/types/level'
+import { DEFAULT_LEVEL } from '@/types/level'
+import { resolveAction } from '@/data/resolveAction'
+import { ACTIONS_BY_ID } from '@/data/mitigationActions'
 import { SyncEngine } from '@/collab/SyncEngine'
 import type { ConnectionStatus } from '@/collab/RemoteConnection'
 import type { LocalDocMeta } from '@/collab/types'
@@ -152,6 +156,8 @@ interface TimelineState {
   clearSelection: () => void
   /** 设置缩放级别 */
   setZoomLevel: (level: number) => void
+  /** 切换副本同步等级；同事务清理该等级下不可用的 cast，可一步 undo */
+  setLevel: (level: Level) => void
   /** 设置待恢复的滚动进度 */
   setPendingScrollProgress: (progress: number | null) => void
   /** 更新滚动状态（用于缩放计算） */
@@ -712,6 +718,28 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
           annotationIds: get().selectedAnnotationIds,
         })
       }
+    },
+
+    setLevel: level => {
+      const engine = get().engine
+      const timeline = get().timeline
+      if (!engine || !timeline) return
+      if ((timeline.level ?? DEFAULT_LEVEL) === level) return
+
+      // 新等级下 resolve 为 null 的 action 对应的 cast 全部清理
+      const removedIds = timeline.castEvents
+        .filter(c => {
+          const action = ACTIONS_BY_ID.get(c.actionId)
+          return !action || resolveAction(action, level) === null
+        })
+        .map(c => c.id)
+
+      // 写 level 与删 cast 必须同事务：UndoManager 视为一步，
+      // 用户切错等级按一次 Ctrl+Z 即可完整恢复。
+      engine.doc.transact(() => {
+        ySetMeta(engine.doc, { level })
+        for (const id of removedIds) yRemoveCastEvent(engine.doc, id)
+      }, LOCAL_ORIGIN)
     },
 
     addAnnotation: annotation => {
