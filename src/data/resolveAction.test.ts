@@ -110,3 +110,20 @@ describe('resolveActions', () => {
     )
   })
 })
+
+describe('真实数据：区间门槛', () => {
+  const MEDICA_III_ID = 37010 // 医养，96 级习得
+
+  it('90 级下医养不在技能表中', () => {
+    expect(resolveActions(90).actionMap.has(MEDICA_III_ID)).toBe(false)
+  })
+
+  it('100 级下医养在技能表中', () => {
+    expect(resolveActions(100).actionMap.has(MEDICA_III_ID)).toBe(true)
+  })
+
+  it('70 / 80 级下同样不可用', () => {
+    expect(resolveActions(70).actionMap.has(MEDICA_III_ID)).toBe(false)
+    expect(resolveActions(80).actionMap.has(MEDICA_III_ID)).toBe(false)
+  })
+})

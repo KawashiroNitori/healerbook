@@ -483,6 +483,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
+      minLevel: 96,
       executor: ctx => {
         let partyState = createHealExecutor()(ctx)
         partyState = createRegenExecutor(3880, 15)({ ...ctx, partyState })
