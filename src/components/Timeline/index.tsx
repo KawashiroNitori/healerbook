@@ -10,6 +10,7 @@ import type Konva from 'konva'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import { ACTIONS } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import { useTooltipStore } from '@/store/tooltipStore'
 import { useUIStore } from '@/store/uiStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
@@ -225,7 +226,9 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const selectedEventIds = useTimelineStore(s => s.selectedEventIds)
   const selectedCastEventIds = useTimelineStore(s => s.selectedCastEventIds)
   const selectedAnnotationIds = useTimelineStore(s => s.selectedAnnotationIds)
-  const actions = ACTIONS
+  // 技能轨道渲染/放置引擎需要感知等级：低等级下 CD / 持续时间 / executor 可能与基线表不同，
+  // 若仍用基线表会出现"计算层已是低等级数值、放置层却按 100 级判定合法区间"的分裂。
+  const { actions, actionMap } = useResolvedActions()
   const isDamageTrackCollapsed = useUIStore(s => s.isDamageTrackCollapsed)
   const toggleDamageTrackCollapsed = useUIStore(s => s.toggleDamageTrackCollapsed)
   const enableHpSimulation = useUIStore(s => s.enableHpSimulation)
@@ -235,8 +238,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const statusTimelineByPlayer = useStatusTimelineByPlayer()
   const resolvedVariantByCastId = useResolvedVariantByCastId()
   const hpTimeline = useHpTimeline()
-
-  const actionMap = useMemo(() => new Map(actions.map(a => [a.id, a])), [actions])
 
   const engine: PlacementEngine | null = useMemo(() => {
     if (!timeline) return null

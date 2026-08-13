@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useTimelineStore } from '@/store/timelineStore'
-import { ACTIONS } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
 import {
   useStatusTimelineByPlayer,
@@ -26,7 +26,9 @@ export function useResourceHoverData(): {
   const statusTimeline = useStatusTimelineByPlayer()
   const resolvedVariant = useResolvedVariantByCastId()
 
-  const actionsById = useMemo(() => new Map(ACTIONS.map(a => [a.id, a])), [])
+  // 资源池的 resourceEffects 可被等级覆盖，悬浮窗必须按当前时间轴等级 resolve，
+  // 否则低等级下会显示按 100 级充能数算出的错误库存。
+  const { actionMap: actionsById } = useResolvedActions()
 
   const resourceEventsByKey = useMemo(() => {
     if (!timeline) return new Map()

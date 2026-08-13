@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useUIStore } from '@/store/uiStore'
-import { ACTIONS } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import {
   useCastEffectiveEnd,
   useDamageCalculationResults,
@@ -34,7 +34,8 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
   const timeline = useTimelineStore(s => s.timeline)
   const globalShowOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const globalShowActualDamage = useUIStore(s => s.showActualDamage)
-  const actions = ACTIONS
+  // 导出内容须与当前时间轴等级下的实际数值一致，不能按基线表渲染
+  const { actions, actionMap: actionsById } = useResolvedActions()
   const calculationResults = useDamageCalculationResults()
   const castEffectiveEnd = useCastEffectiveEnd()
   const resolvedVariantByCastId = useResolvedVariantByCastId()
@@ -61,14 +62,6 @@ export default function ExportExcelDialog({ open, onClose }: ExportExcelDialogPr
     if (!timeline?.composition?.players) return []
     return sortJobsByOrder(timeline.composition.players, p => p.job)
   }, [timeline])
-
-  const actionsById = useMemo(() => {
-    const map = new Map()
-    for (const action of actions) {
-      map.set(action.id, action)
-    }
-    return map
-  }, [actions])
 
   const togglePlayer = (playerId: number) => {
     setHiddenPlayerIds(prev => {
