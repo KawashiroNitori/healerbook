@@ -652,12 +652,15 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       if (!engine) return
       // Fix 3: 将两次 doc.transact 包进同一个外层事务,只触发一次 update 事件
       const statData = get().timeline?.statData
+      const level = get().timeline?.level ?? DEFAULT_LEVEL
       engine.doc.transact(() => {
         yReplaceComposition(engine.doc, composition.players)
         // yReplaceComposition 已级联清理 castEvent / skillTrack 备注;
-        // statData 的阵容内清理在此补充(mutator 不碰 statData)
+        // statData 的阵容内清理在此补充(mutator 不碰 statData)。
+        // 必须显式传当前时间轴等级——不传则走默认参数 100，一旦某技能声明 maxLevel，
+        // 用户在低等级时间轴上改一次阵容就会把那个技能的 statData 覆盖值永久删掉。
         if (statData) {
-          replaceStatData(engine.doc, cleanupStatData(statData, composition))
+          replaceStatData(engine.doc, cleanupStatData(statData, composition, level))
         }
       }, LOCAL_ORIGIN)
       // 重新初始化小队状态(需要 reproject 后的 timeline,保持在事务外)
