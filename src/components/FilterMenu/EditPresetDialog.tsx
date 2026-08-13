@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useResolvedActions } from '@/hooks/useResolvedActions'
+import { ACTIONS } from '@/data/mitigationActions'
 import { useFilterStore } from '@/store/filterStore'
 import { useTooltipStore } from '@/store/tooltipStore'
 import {
@@ -67,13 +68,29 @@ export default function EditPresetDialog({ open, onClose, preset }: Props) {
     return map
   }, [visibleActions])
 
+  // 新建预设时的默认全选必须用等级无关的基线技能表，而不是已按当前时间轴等级过滤
+  // 的 actionsByJob——否则用户在低等级时间轴新建预设，高等级技能会缺席预设数组；
+  // useFilteredTimelineView 的语义是"不在数组里 = 隐藏"，缺席即被永久排除，用户
+  // 切回高等级或换到别的时间轴复用该预设时，那些技能的轨道会消失且无从溯源。
+  const baselineActionsByJob = useMemo(() => {
+    const visible = ACTIONS.filter(a => !a.trackGroup || a.trackGroup === a.id)
+    const map = new Map<Job, MitigationAction[]>()
+    for (const job of JOB_ORDER) {
+      map.set(
+        job,
+        visible.filter(a => a.jobs.includes(job))
+      )
+    }
+    return map
+  }, [])
+
   const defaultSelectedAll = useMemo(() => {
     const byJob: Partial<Record<Job, number[]>> = {}
     for (const job of JOB_ORDER) {
-      byJob[job] = actionsByJob.get(job)!.map(a => a.id)
+      byJob[job] = baselineActionsByJob.get(job)!.map(a => a.id)
     }
     return byJob
-  }, [actionsByJob])
+  }, [baselineActionsByJob])
 
   const [name, setName] = useState<string>(() => (preset?.kind === 'custom' ? preset.name : ''))
   const [damageTypes, setDamageTypes] = useState<DamageEventType[]>(() =>

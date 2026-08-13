@@ -42,6 +42,19 @@ interface SettingsDialogProps {
   onClose: () => void
 }
 
+/**
+ * 存量时间轴可能缺 statData（timelineStore.ts 的已知限制，不在本轮修复范围）。
+ * 「基本」section（绑定副本 / 等级）与 statData 无关，不应因缺失而无法打开设置——
+ * 缺失时用空默认值兜底，「安全血量」「技能数值」两个 section 自然降级为全部显示
+ * placeholder（本就是 statData 字段全部留空时的正常渲染路径，无需额外分支）。
+ */
+const EMPTY_STAT_DATA: TimelineStatData = {
+  shieldByAbility: {},
+  critShieldByAbility: {},
+  healByAbility: {},
+  critHealByAbility: {},
+}
+
 /** statDataEntry type → 显示标签 */
 function getEntryLabel(entry: StatDataEntry, t: TFunction): string {
   const baseLabels: Record<string, string> = {
@@ -521,7 +534,6 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const updateStatData = useTimelineStore(s => s.updateStatData)
-  const statData = timeline?.statData
   const composition = timeline?.composition
   const isReadOnly = useEditorReadOnly()
 
@@ -531,10 +543,10 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         <ModalHeader>
           <ModalTitle>{t('editor:settings.title')}</ModalTitle>
         </ModalHeader>
-        {open && statData && composition && (
+        {open && composition && (
           <SettingsDialogInner
             key={open ? 'open' : 'closed'}
-            initialData={statData}
+            initialData={timeline?.statData ?? EMPTY_STAT_DATA}
             composition={composition}
             onSave={updateStatData}
             onClose={onClose}
