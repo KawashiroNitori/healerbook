@@ -235,6 +235,15 @@ interface SettingsDialogInnerProps {
   isReadOnly: boolean
 }
 
+/**
+ * section id 的声明顺序即视觉从上到下顺序。抽到组件外做成稳定引用：
+ * IntersectionObserver 回调需要按此顺序挑"最靠上的可见 section"，若改用组件内
+ * 随每次渲染重建的 SECTIONS（label 依赖 t()），会触发 exhaustive-deps 且无法
+ * 安全地放进只跑一次的 useEffect。
+ */
+const SECTION_IDS = ['basic', 'safeHp', 'actionValues'] as const
+type SectionId = (typeof SECTION_IDS)[number]
+
 function SettingsDialogInner({
   initialData,
   composition,
@@ -245,12 +254,11 @@ function SettingsDialogInner({
   const { t } = useTranslation(['editor', 'common'])
   const statistics = useTimelineStore(state => state.statistics)
 
-  const SECTIONS = [
+  const SECTIONS: { id: SectionId; label: string }[] = [
     { id: 'basic', label: t('editor:settings.navBasic') },
     { id: 'safeHp', label: t('editor:settings.navSafeHp') },
     { id: 'actionValues', label: t('editor:settings.navActionValues') },
-  ] as const
-  type SectionId = (typeof SECTIONS)[number]['id']
+  ]
 
   const level = useTimelineStore(s => s.timeline?.level) ?? DEFAULT_LEVEL
   const encounterId = useTimelineStore(s => s.timeline?.encounter.id) ?? 0
@@ -328,16 +336,25 @@ function SettingsDialogInner({
   })
   const [activeSection, setActiveSection] = useState<SectionId>('basic')
 
-  // 右侧滚动 → 左侧高亮跟随
+  // 右侧滚动 → 左侧高亮跟随。
+  // IntersectionObserver 回调的 entries 只包含"本次状态发生变化"的 target，不含仍
+  // 保持原状态的 section。若直接从 entries 里挑最靠上的可见项，会漏掉"仍在可视带内、
+  // 只是没变化因此不在本次 entries 里"的 section——高亮误跳到刚进入可视带的那个，
+  // 尽管前者在视觉上更靠上。因此维护一份完整的可见状态映射，每次回调只更新变化项，
+  // 再从完整映射里按 SECTIONS 声明顺序（即从上到下的视觉顺序）挑最靠上的可见 section。
+  const visibleSectionsRef = useRef<Set<SectionId>>(new Set())
   useEffect(() => {
     const root = scrollRef.current
     if (!root) return
     const observer = new IntersectionObserver(
       entries => {
-        const visible = entries
-          .filter(e => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
-        if (visible) setActiveSection(visible.target.getAttribute('data-section') as SectionId)
+        for (const entry of entries) {
+          const id = entry.target.getAttribute('data-section') as SectionId
+          if (entry.isIntersecting) visibleSectionsRef.current.add(id)
+          else visibleSectionsRef.current.delete(id)
+        }
+        const topmost = SECTION_IDS.find(id => visibleSectionsRef.current.has(id))
+        if (topmost) setActiveSection(topmost)
       },
       { root, rootMargin: '0px 0px -70% 0px', threshold: 0 }
     )
