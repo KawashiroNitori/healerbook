@@ -1246,6 +1246,35 @@ describe('updateEncounter', () => {
     expect(useTimelineStore.getState().timeline!.gameZoneId).toBeUndefined()
   })
 
+  it('encounterId 为 0 表示解除绑定：name / displayName 回落到时间轴名称，gameZoneId 清空', () => {
+    const store = useTimelineStore.getState()
+    // 先绑到一个真实副本，确保解绑不是从「本来就没绑」的初值开始，
+    // 而是真的把已有的 gameZoneId 清掉了
+    store.updateEncounter(1079)
+    expect(useTimelineStore.getState().timeline!.gameZoneId).toBe(1238)
+
+    store.updateEncounter(0)
+
+    expect(useTimelineStore.getState().timeline!.encounter).toEqual({
+      id: 0,
+      name: '测试时间轴',
+      displayName: '测试时间轴',
+      zone: '',
+      damageEvents: [],
+    })
+    expect(useTimelineStore.getState().timeline!.gameZoneId).toBeUndefined()
+  })
+
+  it('解除绑定不改动等级（没有副本可供推导，保留用户当前选择）', () => {
+    const store = useTimelineStore.getState()
+    store.setLevel(90)
+    expect(useTimelineStore.getState().timeline!.level).toBe(90)
+
+    store.updateEncounter(0)
+
+    expect(useTimelineStore.getState().timeline!.level).toBe(90)
+  })
+
   it('encounterId 查不到对应副本时直接返回，不产生事务', () => {
     const store = useTimelineStore.getState()
     const engine = store.engine!

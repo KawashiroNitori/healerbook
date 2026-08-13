@@ -671,18 +671,20 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       const engine = get().engine
       const timeline = get().timeline
       if (!engine || !timeline) return
-      const staticEncounter = getEncounterById(encounterId)
-      if (!staticEncounter) return
+      // encounterId === 0 表示解除副本绑定；其余 id 必须在静态表中存在
+      const staticEncounter = encounterId === 0 ? undefined : getEncounterById(encounterId)
+      if (encounterId !== 0 && !staticEncounter) return
       engine.doc.transact(() => {
         ySetMeta(engine.doc, {
           encounter: {
             id: encounterId,
-            name: staticEncounter.shortName,
-            displayName: staticEncounter.name,
+            // 未绑定副本时回落到时间轴名称，与 createNewTimeline / fromV2 对未收录副本的处理一致
+            name: staticEncounter?.shortName ?? timeline.name,
+            displayName: staticEncounter?.name ?? timeline.name,
             zone: '',
             damageEvents: [],
           },
-          gameZoneId: staticEncounter.gameZoneId,
+          gameZoneId: staticEncounter?.gameZoneId,
         })
       }, LOCAL_ORIGIN)
     },

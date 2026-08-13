@@ -267,6 +267,11 @@ function SettingsDialogInner({
 
   // 改绑副本：更新副本元信息 + gameZoneId，等级自动跳到新副本的等级
   const handleEncounterChange = (nextId: number) => {
+    // 解除绑定：没有副本可供推导，保留用户当前等级不动
+    if (nextId === 0) {
+      updateEncounter(0)
+      return
+    }
     const encounter = getEncounterById(nextId)
     if (!encounter) return
     updateEncounter(nextId)
@@ -405,16 +410,17 @@ function SettingsDialogInner({
                 onValueChange={v => handleEncounterChange(Number(v))}
                 disabled={isReadOnly}
               >
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-64">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="0">{t('editor:settings.encounterNone')}</SelectItem>
                   {RAID_TIERS.filter(tier => !tier.comingSoon).map(tier => (
                     <SelectGroup key={tier.zone}>
                       <SelectLabel>{tier.name}</SelectLabel>
                       {tier.encounters.map(e => (
                         <SelectItem key={e.id} value={String(e.id)}>
-                          {e.shortName}
+                          {e.shortName} - {e.name}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -429,7 +435,7 @@ function SettingsDialogInner({
                 onValueChange={v => setLevel(Number(v) as Level)}
                 disabled={isReadOnly}
               >
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-64">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -506,7 +512,9 @@ function SettingsDialogInner({
                   <span className="text-sm font-medium">{getJobName(job)}</span>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="ml-7">
+                  {/* 宽度足够时（lg 起，此时对话框已达 max-w-4xl 满宽）技能条目排两列。
+                      每个职业分组内各自分列，组与组之间不跨列，避免折叠展开时列高错位。 */}
+                  <div className="ml-7 grid grid-cols-1 lg:grid-cols-2 lg:gap-x-8">
                     {entries.map(({ action, entry }) => (
                       <ActionEntryRow
                         key={`${action.id}-${entry.type}-${entry.key}`}
@@ -555,8 +563,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const isReadOnly = useEditorReadOnly()
 
   return (
-    <Modal open={open} onClose={onClose}>
-      <ModalContent className="max-h-[80vh] sm:max-w-2xl flex flex-col">
+    <Modal open={open} onClose={onClose} maxWidth="4xl">
+      <ModalContent className="max-h-[80vh] flex flex-col">
         <ModalHeader>
           <ModalTitle>{t('editor:settings.title')}</ModalTitle>
         </ModalHeader>
