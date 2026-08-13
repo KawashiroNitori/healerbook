@@ -1,6 +1,8 @@
 // FFXIV 副本遭遇战数据，用于 TOP100 数据源集成
 // 遭遇战 ID 参考：https://www.fflogs.com/zone/statistics/52
 
+import type { Level } from '@/types/level'
+
 export interface RaidEncounter {
   // FFLogs 遭遇战 ID
   id: number
@@ -10,8 +12,10 @@ export interface RaidEncounter {
   shortName: string
   // FFXIV 游戏内 ZoneID（人工维护，用于 Souma 时间轴导出）
   gameZoneId: number
-  // 副本同步等级（人工维护，用于推导时间轴默认等级）
-  level: number
+  // 副本同步等级（人工维护，用于推导时间轴默认等级）。
+  // 收窄为 Level 而非 number：人工维护字段写错成 95 / 9 这类非法档位会在编译期
+  // 报错，而不是被 toLevel() 静默兜底成 100、错误却不可见。
+  level: Level
 }
 
 export interface RaidTier {
