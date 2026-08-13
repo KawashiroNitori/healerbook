@@ -1,21 +1,35 @@
 /**
- * 时间轴数值设置模态框
- * 让用户自定义盾技能数值和安全血量
+ * 时间轴设置面板
+ * 左右两栏：基本（绑定副本 / 等级）、安全血量、技能数值
  *
  * statData 只存储用户覆盖值，未设定的字段留空，
  * placeholder 显示 statistics fallback 值（或硬编码默认值）。
+ *
+ * 绑定副本与等级是即时生效（直接写 Y.Doc），不受本对话框「保存」按钮管辖——
+ * 「保存」只提交 statData 那部分的本地编辑态。
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ChevronDown } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/modal'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
-import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
+import { RAID_TIERS, getEncounterById } from '@/data/raidEncounters'
+import { SUPPORTED_LEVELS, DEFAULT_LEVEL, toLevel, type Level } from '@/types/level'
 import JobIcon from '@/components/JobIcon'
 import { getFallbackValue, getFallbackMaxHP, getFallbackTankMaxHP } from '@/utils/statDataUtils'
 import type { TimelineStatData, StatDataEntry } from '@/types/statData'
@@ -23,7 +37,7 @@ import type { MitigationAction } from '@/types/mitigation'
 import type { Composition } from '@/types/timeline'
 import { GameIcon } from '@/components/GameIcon'
 
-interface StatDataDialogProps {
+interface SettingsDialogProps {
   open: boolean
   onClose: () => void
 }
@@ -200,7 +214,7 @@ function ActionEntryRow({
   )
 }
 
-interface StatDataDialogInnerProps {
+interface SettingsDialogInnerProps {
   initialData: TimelineStatData
   composition: Composition
   onSave: (data: TimelineStatData) => void
@@ -208,15 +222,35 @@ interface StatDataDialogInnerProps {
   isReadOnly: boolean
 }
 
-function StatDataDialogInner({
+function SettingsDialogInner({
   initialData,
   composition,
   onSave,
   onClose,
   isReadOnly,
-}: StatDataDialogInnerProps) {
+}: SettingsDialogInnerProps) {
   const { t } = useTranslation(['editor', 'common'])
   const statistics = useTimelineStore(state => state.statistics)
+
+  const SECTIONS = [
+    { id: 'basic', label: t('editor:settings.navBasic') },
+    { id: 'safeHp', label: t('editor:settings.navSafeHp') },
+    { id: 'actionValues', label: t('editor:settings.navActionValues') },
+  ] as const
+  type SectionId = (typeof SECTIONS)[number]['id']
+
+  const level = useTimelineStore(s => s.timeline?.level) ?? DEFAULT_LEVEL
+  const encounterId = useTimelineStore(s => s.timeline?.encounter.id) ?? 0
+  const setLevel = useTimelineStore(s => s.setLevel)
+  const updateEncounter = useTimelineStore(s => s.updateEncounter)
+
+  // 改绑副本：更新副本元信息 + gameZoneId，等级自动跳到新副本的等级
+  const handleEncounterChange = (nextId: number) => {
+    const encounter = getEncounterById(nextId)
+    if (!encounter) return
+    updateEncounter(nextId)
+    setLevel(toLevel(encounter.level))
+  }
 
   // 本地编辑态，从 initialData 初始化（组件每次挂载时重新初始化）
   const [localStatData, setLocalStatData] = useState<TimelineStatData>({
@@ -228,12 +262,14 @@ function StatDataDialogInner({
     critHealByAbility: { ...initialData.critHealByAbility },
   })
 
+  const { actions: resolvedActions } = useResolvedActions()
+
   // 按职业分组的技能列表
   const groupedActions = useMemo(() => {
     if (!composition) return []
 
     const jobs = new Set(composition.players.map(p => p.job))
-    const actionsWithEntries = MITIGATION_DATA.actions.filter(
+    const actionsWithEntries = resolvedActions.filter(
       a => a.statDataEntries && a.statDataEntries.length > 0 && a.jobs.some(j => jobs.has(j))
     )
 
@@ -253,7 +289,7 @@ function StatDataDialogInner({
       job,
       entries: groups.get(job)!,
     }))
-  }, [composition])
+  }, [composition, resolvedActions])
 
   // 折叠状态 — 默认全部展开
   const [collapsedJobs, setCollapsedJobs] = useState<Set<Job>>(new Set())
@@ -271,73 +307,193 @@ function StatDataDialogInner({
     onClose()
   }
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
+    basic: null,
+    safeHp: null,
+    actionValues: null,
+  })
+  const [activeSection, setActiveSection] = useState<SectionId>('basic')
+
+  // 右侧滚动 → 左侧高亮跟随
+  useEffect(() => {
+    const root = scrollRef.current
+    if (!root) return
+    const observer = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+        if (visible) setActiveSection(visible.target.getAttribute('data-section') as SectionId)
+      },
+      { root, rootMargin: '0px 0px -70% 0px', threshold: 0 }
+    )
+    for (const el of Object.values(sectionRefs.current)) if (el) observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const jumpTo = (id: SectionId) => {
+    sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <>
-      <div className="flex-1 overflow-y-auto space-y-4 px-0.5">
-        {/* 安全血量 */}
-        <div>
-          <div className="text-sm font-medium mb-1.5">{t('editor:statData.safeHpTitle')}</div>
-          <div className="flex items-center justify-between py-1.5">
-            <span className="text-sm text-muted-foreground">
-              {t('editor:statData.nonTankMinHp')}
-            </span>
-            <NumberInput
-              value={localStatData.referenceMaxHP}
-              placeholder={String(getFallbackMaxHP(statistics))}
-              onChange={v => setLocalStatData(prev => ({ ...prev, referenceMaxHP: v }))}
-              disabled={isReadOnly}
-            />
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0 gap-4">
+        {/* 左侧大纲：窄屏折成顶部横向 chip 条 */}
+        <nav className="flex sm:flex-col gap-1 sm:w-32 shrink-0 overflow-x-auto sm:overflow-x-visible">
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => jumpTo(s.id)}
+              className={`text-sm text-left whitespace-nowrap px-2 py-1.5 rounded-md transition-colors ${
+                activeSection === s.id
+                  ? 'bg-accent text-accent-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-accent/50'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* 右侧连续滚动容器 */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 px-0.5 min-h-0">
+          <div
+            ref={el => {
+              sectionRefs.current.basic = el
+            }}
+            data-section="basic"
+          >
+            <div className="text-sm font-medium mb-1.5">{t('editor:settings.basicTitle')}</div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-sm text-muted-foreground">
+                {t('editor:settings.encounter')}
+              </span>
+              <Select
+                value={String(encounterId)}
+                onValueChange={v => handleEncounterChange(Number(v))}
+                disabled={isReadOnly}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RAID_TIERS.filter(tier => !tier.comingSoon).map(tier => (
+                    <SelectGroup key={tier.zone}>
+                      <SelectLabel>{tier.name}</SelectLabel>
+                      {tier.encounters.map(e => (
+                        <SelectItem key={e.id} value={String(e.id)}>
+                          {e.shortName}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-sm text-muted-foreground">{t('editor:settings.level')}</span>
+              <Select
+                value={String(level)}
+                onValueChange={v => setLevel(Number(v) as Level)}
+                disabled={isReadOnly}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_LEVELS.map(lv => (
+                    <SelectItem key={lv} value={String(lv)}>
+                      {lv} {t('editor:settings.levelUnit')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex items-center justify-between py-1.5">
-            <span className="text-sm text-muted-foreground">{t('editor:statData.tankMinHp')}</span>
-            <NumberInput
-              value={localStatData.tankReferenceMaxHP}
-              placeholder={String(getFallbackTankMaxHP(statistics))}
-              onChange={v => setLocalStatData(prev => ({ ...prev, tankReferenceMaxHP: v }))}
-              disabled={isReadOnly}
-            />
+
+          <div className="h-px bg-border" />
+
+          <div
+            ref={el => {
+              sectionRefs.current.safeHp = el
+            }}
+            data-section="safeHp"
+          >
+            {/* 安全血量 */}
+            <div className="text-sm font-medium mb-1.5">{t('editor:statData.safeHpTitle')}</div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-sm text-muted-foreground">
+                {t('editor:statData.nonTankMinHp')}
+              </span>
+              <NumberInput
+                value={localStatData.referenceMaxHP}
+                placeholder={String(getFallbackMaxHP(statistics))}
+                onChange={v => setLocalStatData(prev => ({ ...prev, referenceMaxHP: v }))}
+                disabled={isReadOnly}
+              />
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-sm text-muted-foreground">
+                {t('editor:statData.tankMinHp')}
+              </span>
+              <NumberInput
+                value={localStatData.tankReferenceMaxHP}
+                placeholder={String(getFallbackTankMaxHP(statistics))}
+                onChange={v => setLocalStatData(prev => ({ ...prev, tankReferenceMaxHP: v }))}
+                disabled={isReadOnly}
+              />
+            </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div
+            ref={el => {
+              sectionRefs.current.actionValues = el
+            }}
+            data-section="actionValues"
+          >
+            {/* 盾技能数值 */}
+            <div className="text-sm font-medium">{t('editor:statData.actionValuesTitle')}</div>
+
+            {groupedActions.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t('editor:statData.noActions')}</p>
+            )}
+
+            {groupedActions.map(({ job, entries }) => (
+              <Collapsible
+                key={job}
+                open={!collapsedJobs.has(job)}
+                onOpenChange={() => toggleCollapse(job)}
+              >
+                <CollapsibleTrigger className="flex items-center gap-2 w-full py-1 hover:bg-accent rounded-md px-1 -mx-1">
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${collapsedJobs.has(job) ? '-rotate-90' : ''}`}
+                  />
+                  <JobIcon job={job} size="sm" />
+                  <span className="text-sm font-medium">{getJobName(job)}</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="ml-7">
+                    {entries.map(({ action, entry }) => (
+                      <ActionEntryRow
+                        key={`${action.id}-${entry.type}-${entry.key}`}
+                        action={action}
+                        entry={entry}
+                        value={getEntryValue(localStatData, entry)}
+                        placeholder={String(getFallbackValue(statistics, entry.type, entry.key))}
+                        onChange={v => setLocalStatData(prev => setEntryValue(prev, entry, v))}
+                        disabled={isReadOnly}
+                      />
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
           </div>
         </div>
-
-        <div className="h-px bg-border" />
-
-        {/* 盾技能数值 */}
-        <div className="text-sm font-medium">{t('editor:statData.actionValuesTitle')}</div>
-
-        {groupedActions.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t('editor:statData.noActions')}</p>
-        )}
-
-        {groupedActions.map(({ job, entries }) => (
-          <Collapsible
-            key={job}
-            open={!collapsedJobs.has(job)}
-            onOpenChange={() => toggleCollapse(job)}
-          >
-            <CollapsibleTrigger className="flex items-center gap-2 w-full py-1 hover:bg-accent rounded-md px-1 -mx-1">
-              <ChevronDown
-                className={`w-4 h-4 transition-transform ${collapsedJobs.has(job) ? '-rotate-90' : ''}`}
-              />
-              <JobIcon job={job} size="sm" />
-              <span className="text-sm font-medium">{getJobName(job)}</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="ml-7">
-                {entries.map(({ action, entry }) => (
-                  <ActionEntryRow
-                    key={`${action.id}-${entry.type}-${entry.key}`}
-                    action={action}
-                    entry={entry}
-                    value={getEntryValue(localStatData, entry)}
-                    placeholder={String(getFallbackValue(statistics, entry.type, entry.key))}
-                    onChange={v => setLocalStatData(prev => setEntryValue(prev, entry, v))}
-                    disabled={isReadOnly}
-                  />
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ))}
       </div>
 
       <ModalFooter>
@@ -361,7 +517,7 @@ function StatDataDialogInner({
   )
 }
 
-export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
+export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const updateStatData = useTimelineStore(s => s.updateStatData)
@@ -371,12 +527,12 @@ export default function StatDataDialog({ open, onClose }: StatDataDialogProps) {
 
   return (
     <Modal open={open} onClose={onClose}>
-      <ModalContent className="max-h-[80vh] flex flex-col">
+      <ModalContent className="max-h-[80vh] sm:max-w-2xl flex flex-col">
         <ModalHeader>
-          <ModalTitle>{t('editor:statData.title')}</ModalTitle>
+          <ModalTitle>{t('editor:settings.title')}</ModalTitle>
         </ModalHeader>
         {open && statData && composition && (
-          <StatDataDialogInner
+          <SettingsDialogInner
             key={open ? 'open' : 'closed'}
             initialData={statData}
             composition={composition}

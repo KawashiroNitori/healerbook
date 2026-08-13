@@ -61,7 +61,7 @@ import {
 import CompositionPopover from './CompositionPopover'
 import FilterMenu from './FilterMenu/FilterMenu'
 import SharePopover from './SharePopover'
-import StatDataDialog from './StatDataDialog'
+import SettingsDialog from './SettingsDialog'
 const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
 const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
 const ImportIntoTimelineDialog = lazy(() => import('./ImportIntoTimelineDialog'))
@@ -123,7 +123,7 @@ export default function EditorToolbar({
   const toggleShowResourceHover = useUIStore(s => s.toggleShowResourceHover)
   const setCanvasTool = useUIStore(s => s.setCanvasTool)
   const [showExitReplayConfirm, setShowExitReplayConfirm] = useState(false)
-  const [showStatDataDialog, setShowStatDataDialog] = useState(false)
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSoumaDialog, setShowSoumaDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -491,20 +491,20 @@ export default function EditorToolbar({
             {/* Party Composition */}
             <CompositionPopover />
 
-            {/* 数值设置：只读下也可打开查看，对话框内写入控件由只读态控制 */}
+            {/* 设置：只读下也可打开查看，对话框内写入控件由只读态控制 */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => setShowStatDataDialog(true)}
+                  onClick={() => setShowSettingsDialog(true)}
                   disabled={!timeline?.statData}
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">{t('editor:editorToolbar.statData')}</TooltipContent>
+              <TooltipContent side="bottom">{t('editor:editorToolbar.settings')}</TooltipContent>
             </Tooltip>
 
             {/* 共享 */}
@@ -653,7 +653,7 @@ export default function EditorToolbar({
         </div>
       )}
 
-      <StatDataDialog open={showStatDataDialog} onClose={() => setShowStatDataDialog(false)} />
+      <SettingsDialog open={showSettingsDialog} onClose={() => setShowSettingsDialog(false)} />
       <Suspense fallback={null}>
         {showExportDialog && (
           <ExportExcelDialog open={showExportDialog} onClose={() => setShowExportDialog(false)} />
