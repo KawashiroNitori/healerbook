@@ -35,6 +35,7 @@ function toContent(timeline: ReturnType<typeof parseFromAny>): TimelineContent {
     ...(timeline.description !== undefined ? { description: timeline.description } : {}),
     ...(timeline.fflogsSource !== undefined ? { fflogsSource: timeline.fflogsSource } : {}),
     ...(timeline.gameZoneId !== undefined ? { gameZoneId: timeline.gameZoneId } : {}),
+    ...(timeline.level !== undefined ? { level: timeline.level } : {}),
     ...(timeline.syncEvents !== undefined ? { syncEvents: timeline.syncEvents } : {}),
     ...(timeline.isReplayMode !== undefined ? { isReplayMode: timeline.isReplayMode } : {}),
     ...(timeline.statData !== undefined ? { statData: timeline.statData } : {}),

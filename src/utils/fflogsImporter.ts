@@ -21,6 +21,7 @@ import type {
 } from '@/types/timeline'
 import { SOUMA_SYNC_RULES } from '@/data/soumaSyncRules'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
+import { resolveActions } from '@/data/resolveAction'
 import { getStatusById, toStatusId, STATUS_ABILITY_OFFSET } from '@/utils/statusRegistry'
 import actionChineseRaw from '@ff14-overlay/resources/generated/actionChinese.json'
 import actionExtraRaw from '@/data/action.json'
@@ -35,8 +36,9 @@ import {
 import { normalizeActionId } from './normalizeActionId'
 import { classifyPartialAOE } from './partialAoeClassifier'
 import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
-import { getEncounterWithTier } from '@/data/raidEncounters'
+import { getEncounterById, getEncounterWithTier } from '@/data/raidEncounters'
 import { extractBossCasts, attachCastWindows } from './castWindowImport'
+import { DEFAULT_LEVEL, toLevel, type Level } from '@/types/level'
 
 // actionChinese.json 为上游全量映射；action.json 为本地补充的额外 actionId → 中文名
 // （如 RSV 占位 id），后者覆盖前者以便就近修正翻译
@@ -973,12 +975,16 @@ export function extractMaxHPData(
 export function parseStatData(
   events: FFLogsEvent[],
   playerMap: PlayerMap,
-  composition: Composition
+  composition: Composition,
+  level: Level = DEFAULT_LEVEL
 ): TimelineStatData | undefined {
   // 1. 阵容内 action 的 statDataEntries → 按 type 分桶的合法 key 集合
+  // statDataEntries 可被等级覆盖，必须走 resolveActions 而非基线表，否则低等级下
+  // 会把当前等级不可用技能的 key 也当作合法 key（虽然目前实际样本会被过滤为空，
+  // 但一旦某技能声明了随等级变化的 statDataEntries，这里会直接读错 key）。
   const jobs = new Set(composition.players.map(p => p.job))
-  const entries = MITIGATION_DATA.actions
-    .filter(a => a.statDataEntries && a.jobs.some(j => jobs.has(j)))
+  const entries = resolveActions(level)
+    .actions.filter(a => a.statDataEntries && a.jobs.some(j => jobs.has(j)))
     .flatMap(a => a.statDataEntries!)
   const shieldKeys = new Set(entries.filter(e => e.type === 'shield').map(e => e.key))
   const critShieldKeys = new Set(entries.filter(e => e.type === 'critShield').map(e => e.key))
@@ -1131,4 +1137,12 @@ export function resolveImportTimelineName(fight: FFLogsReport['fights'][number])
     }
   }
   return name
+}
+
+/**
+ * 由 fight 推导时间轴默认等级：从静态副本表查表，查不到则回退 DEFAULT_LEVEL。
+ * 与 timelineStorage.ts 的 createNewTimeline 走同一套查表 + toLevel 兜底路径。
+ */
+export function resolveImportTimelineLevel(fight: FFLogsReport['fights'][number]): Level {
+  return toLevel(getEncounterById(fight.encounterID || 0)?.level)
 }
