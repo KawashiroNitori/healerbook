@@ -193,12 +193,12 @@ export function resolveActions(level: Level): ResolvedActionSet
 | `src/utils/normalizeActionId.ts`                  | 只用 trackGroup 映射，trackGroup 不可覆盖                  |
 | `src/utils/fflogsImporter.ts` 的 `validActionIds` | 只做 actionId 识别（判断是否减伤技能），全量识别是正确行为 |
 | `src/utils/soumaExporter.ts`                      | 只做名称查找                                               |
+| `src/components/ExportSoumaDialog.tsx`            | 同上                                                       |
+| `src/utils/simulation/hpPipeline.ts`              | 只做 actionName 反查                                       |
 
 **注意**：`fflogsImporter.ts` 只有 `validActionIds` 那处保持静态表。同文件的 `parseStatData` 读的是
 `statDataEntries`——该字段在 `LevelPatch` 白名单内，必须按等级 resolve。判断依据始终是
 「消费哪些字段」而非「哪个文件」。
-| `src/components/ExportSoumaDialog.tsx` | 同上 |
-| `src/utils/simulation/hpPipeline.ts` | 只做 actionName 反查 |
 
 ### 5.3 UI 层 hook
 
