@@ -4,7 +4,12 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../env'
 import { createClient } from '../env'
 import { readLanguage } from '../middleware/readLanguage'
-import { parseFightImport, resolveImportTimelineName, parseStatData } from '@/utils/fflogsImporter'
+import {
+  parseFightImport,
+  resolveImportTimelineName,
+  resolveImportTimelineLevel,
+  parseStatData,
+} from '@/utils/fflogsImporter'
 import { getStatisticsKVKey } from '../kvKeys'
 import type { Timeline } from '@/types/timeline'
 import { generateId } from '@/utils/id'
@@ -89,6 +94,7 @@ app.get('/import', async c => {
     )
 
     const timelineName = resolveImportTimelineName(fight)
+    const level = resolveImportTimelineLevel(fight)
 
     // 未收录副本（KV 无聚合统计）→ 从本场事件提取 statData 填充数值设置。
     // KV 抖动按"已支持"保守处理，绝不阻断导入。
@@ -96,7 +102,7 @@ app.get('/import', async c => {
     try {
       const statsExist = await c.env.healerbook.get(getStatisticsKVKey(fight.encounterID || 0))
       if (!statsExist) {
-        statData = parseStatData(events, playerMap, composition)
+        statData = parseStatData(events, playerMap, composition, level)
       }
     } catch (err) {
       console.error('[FFLogs Import] statData 提取失败，跳过:', err)
@@ -115,6 +121,7 @@ app.get('/import', async c => {
       },
       // FFLogs 返回的游戏内 ZoneID，用于 Souma 导出时的副本识别（未预置在静态表的副本只能靠它）
       ...(fight.gameZoneId != null ? { gameZoneId: fight.gameZoneId } : {}),
+      level,
       composition,
       damageEvents,
       castEvents,
