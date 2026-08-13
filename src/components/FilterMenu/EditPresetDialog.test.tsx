@@ -150,3 +150,27 @@ describe('EditPresetDialog 等级过滤下的批量全选/取消全选', () => {
     expect(rule.selectedActionsByJob.SCH ?? []).toEqual([])
   })
 })
+
+describe('EditPresetDialog 新建预设的默认全选不受当前等级过滤污染', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useFilterStore.setState({ customPresets: [], activeFilterId: 'builtin:all' })
+  })
+
+  it('90 级时间轴新建预设：defaultSelectedAll 仍包含当前等级不可见的医养（37010）', () => {
+    // preset 为 undefined → 走新建路径，selectedActionsByJob 初值取 defaultSelectedAll。
+    // useResolvedActions 被 mock 成「90 级视角」（不含 37010），若 defaultSelectedAll
+    // 误用了按等级过滤后的 actionsByJob，WHM 数组会缺 37010——切回 100 级或换到另一条
+    // 100 级时间轴复用该预设时，医养轨道会被永久隐藏。
+    render(<EditPresetDialog open onClose={() => {}} />)
+
+    fireEvent.change(screen.getByPlaceholderText('editor:editPreset.namePlaceholder'), {
+      target: { value: '新预设' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'editor:editPreset.save' }))
+
+    const preset = useFilterStore.getState().customPresets[0]
+    if (!preset || preset.kind !== 'custom') throw new Error('preset not found after save')
+    expect(preset.rule.selectedActionsByJob.WHM ?? []).toContain(HIDDEN_ACTION_ID)
+  })
+})
