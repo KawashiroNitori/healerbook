@@ -24,4 +24,15 @@ describe('buildOptimizeWireInput', () => {
     expect(typeof wire.baseReferenceMaxHPForAoe).toBe('number')
     expect(wire.options?.timeBudgetMs).toBe(2000)
   })
+
+  it('timeline.level 缺省时回退 DEFAULT_LEVEL(100)', () => {
+    const wire = buildOptimizeWireInput(timeline, partyState, null)
+    expect(wire.level).toBe(100)
+  })
+
+  it('timeline.level 显式设定时原样带入 wire input，供 worker 内注入对应等级技能池', () => {
+    const timeline90 = { ...timeline, level: 90 } as unknown as Timeline
+    const wire = buildOptimizeWireInput(timeline90, partyState, null)
+    expect(wire.level).toBe(90)
+  })
 })
