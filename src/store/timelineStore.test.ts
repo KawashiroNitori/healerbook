@@ -5,7 +5,7 @@
  * 测试用 fake-indexeddb 提供 IndexedDB,每个用例独立 DB。
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import 'fake-indexeddb/auto'
 import * as Y from 'yjs'
 import { useTimelineStore } from './timelineStore'
@@ -14,6 +14,8 @@ import type { TimelineContent } from '@/collab/types'
 import type { EncounterStatistics } from '@/types/mitigation'
 import { IndexedDBDocStore } from '@/collab/storage/IndexedDBDocStore'
 import { buildYDoc } from '@/collab/docSchema'
+import * as RaidEncountersModule from '@/data/raidEncounters'
+import { toLevel } from '@/types/level'
 
 const mockComposition: Composition = {
   players: [
@@ -1197,5 +1199,96 @@ describe('setLevel', () => {
     expect(useTimelineStore.getState().canUndo).toBe(before)
     // 早退路径完全不调用 engine.doc.transact，afterTransaction 应为 0 次
     expect(transactions).toBe(0)
+  })
+})
+
+describe('updateEncounter', () => {
+  beforeEach(async () => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    await useTimelineStore
+      .getState()
+      .openTimeline('update-encounter-test', { role: 'local', seedContent: baseContent })
+  })
+
+  afterEach(() => {
+    useTimelineStore.getState().reset()
+    vi.restoreAllMocks()
+  })
+
+  it('改绑到另一个已存在的副本：encounter 各字段与 gameZoneId 都按新副本更新', () => {
+    const store = useTimelineStore.getState()
+    // FRU（id 1079）：真实静态表条目，与 baseContent 里的假副本（id 1）完全不同，
+    // 用来断言写入的不是「碰巧一样」的值。
+    store.updateEncounter(1079)
+
+    const encounter = useTimelineStore.getState().timeline!.encounter
+    expect(encounter).toEqual({
+      id: 1079,
+      name: 'FRU',
+      displayName: '光暗未来绝境战',
+      zone: '',
+      damageEvents: [],
+    })
+    expect(useTimelineStore.getState().timeline!.gameZoneId).toBe(1238)
+  })
+
+  it('一次 undo 能还原 encounter（锁定用了 LOCAL_ORIGIN，UndoManager 能追踪到）', () => {
+    const store = useTimelineStore.getState()
+    const before = useTimelineStore.getState().timeline!.encounter
+
+    store.updateEncounter(1079)
+    expect(useTimelineStore.getState().timeline!.encounter.id).toBe(1079)
+
+    store.undo()
+
+    expect(useTimelineStore.getState().timeline!.encounter).toEqual(before)
+    expect(useTimelineStore.getState().timeline!.gameZoneId).toBeUndefined()
+  })
+
+  it('encounterId 查不到对应副本时直接返回，不产生事务', () => {
+    const store = useTimelineStore.getState()
+    const engine = store.engine!
+    const beforeEncounter = useTimelineStore.getState().timeline!.encounter
+    let transactions = 0
+    const handler = () => {
+      transactions++
+    }
+    engine.doc.on('afterTransaction', handler)
+    store.updateEncounter(999999)
+    engine.doc.off('afterTransaction', handler)
+
+    expect(useTimelineStore.getState().timeline!.encounter).toEqual(beforeEncounter)
+    // 守卫路径（getEncounterById 返回 undefined）完全不调用 engine.doc.transact
+    expect(transactions).toBe(0)
+  })
+
+  // 覆盖边界说明：SettingsDialog 的 handleEncounterChange 是 updateEncounter + setLevel(toLevel(encounter.level))
+  // 这两步的实际调用方（组件里额外读一次 getEncounterById 拿 level 再传给 setLevel）。
+  // 组件渲染成本高（需要 mock 阵容 / statistics 等一堆上下文），这里改为在 store 层
+  // 直接复现同样的两步调用序列，验证「改绑副本 → 等级跟着跳到新副本 level」这条组合语义，
+  // 不覆盖 SettingsDialog 内 JSX/Select 交互本身。
+  it('改绑到等级不同的副本后，随后 setLevel(新副本 level) 能让等级真的跳过去', () => {
+    // RAID_TIERS 现有副本清一色 level: 100，真实数据下这条分支永远是从 100 跳到 100
+    // 的空操作，测不出真变化；注入一个 level: 90 的假副本来锁住链路本身是否连通。
+    const mockEncounter = {
+      id: 8888,
+      name: '假绝境战',
+      shortName: 'FAKE',
+      gameZoneId: 8888,
+      level: 90,
+    }
+    vi.spyOn(RaidEncountersModule, 'getEncounterById').mockReturnValue(mockEncounter)
+
+    const store = useTimelineStore.getState()
+    expect(useTimelineStore.getState().timeline!.level).toBe(100)
+
+    // 复现 SettingsDialog.handleEncounterChange 的调用序列
+    store.updateEncounter(8888)
+    store.setLevel(toLevel(mockEncounter.level))
+
+    expect(useTimelineStore.getState().timeline!.encounter.id).toBe(8888)
+    expect(useTimelineStore.getState().timeline!.gameZoneId).toBe(8888)
+    expect(useTimelineStore.getState().timeline!.level).toBe(90)
   })
 })
