@@ -17,7 +17,7 @@ interface ModalProps {
   /** 是否禁止点击空白处关闭（例如加载中） */
   disableBackdropClick?: boolean
   /** 内容区域的最大宽度 */
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl'
   /** 自定义类名 */
   className?: string
 }
@@ -28,6 +28,8 @@ const maxWidthClasses = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
 }
 
 export function Modal({
