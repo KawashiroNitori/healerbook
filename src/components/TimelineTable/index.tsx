@@ -14,7 +14,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useTimelineStore } from '@/store/timelineStore'
-import { ACTIONS } from '@/data/mitigationActions'
+import { useResolvedActions } from '@/hooks/useResolvedActions'
 import { useUIStore } from '@/store/uiStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
 import { useSkillTracks } from '@/hooks/useSkillTracks'
@@ -78,7 +78,9 @@ export default function TimelineTableView() {
   const addAnnotation = useTimelineStore(s => s.addAnnotation)
   const updateAnnotation = useTimelineStore(s => s.updateAnnotation)
   const removeAnnotation = useTimelineStore(s => s.removeAnnotation)
-  const actions = ACTIONS
+  // 表格视图与 Canvas 视图共享同一放置引擎语义，必须按等级 resolve——否则低等级下
+  // CD / 持续时间与 Timeline/index.tsx 的画布视图不一致。
+  const { actionMap: actionsById } = useResolvedActions()
   const showOriginalDamage = useUIStore(s => s.showOriginalDamage)
   const showActualDamage = useUIStore(s => s.showActualDamage)
   const showCastStartTime = useUIStore(s => s.showCastStartTime)
@@ -90,12 +92,6 @@ export default function TimelineTableView() {
   const resolvedVariantByCastId = useResolvedVariantByCastId()
   const isReadOnly = useEditorReadOnly()
   const { filteredDamageEvents, filteredCastEvents } = useFilteredTimelineView()
-
-  const actionsById = useMemo(() => {
-    const map = new Map<number, (typeof actions)[number]>()
-    for (const a of actions) map.set(a.id, a)
-    return map
-  }, [actions])
 
   // 和画布视图共享主路径 status timeline 构造 PlacementEngine——双击/右键/表格单元格添加都要走
   // variant 选择，避免 buff 期点"意气轩昂"列实际加进去的是 37013（带红框）。
