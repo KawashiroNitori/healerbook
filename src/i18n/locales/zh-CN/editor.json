@@ -165,9 +165,9 @@
     "replayModeDescPrefix": "当前正处于 FFLogs 回放模式下，记录并再现了本次战斗中玩家所受到的所有伤害与当时的减伤情况。你可以快速寻找并分析某处的减伤是否欠缺，并检查队友的减伤执行情况。",
     "replayModeTitle": "回放模式",
     "selectTool": "框选",
+    "settings": "设置",
     "showCastStartTime": "咏唱开始时间",
     "showResourceHover": "资源预览",
-    "statData": "数值设置",
     "switchToEdit": "切换为编辑模式",
     "switchToReadOnly": "切换为只读模式",
     "tableView": "表格视图",
@@ -292,6 +292,16 @@
   },
   "resourceHover": {
     "title": "资源预览"
+  },
+  "settings": {
+    "basicTitle": "基本",
+    "encounter": "绑定副本",
+    "level": "等级",
+    "levelUnit": "级",
+    "navActionValues": "技能数值",
+    "navBasic": "基本",
+    "navSafeHp": "安全血量",
+    "title": "设置"
   },
   "sortablePreset": {
     "confirmDelete": "确认删除？",

@@ -32,6 +32,7 @@ import type { Level } from '@/types/level'
 import { DEFAULT_LEVEL } from '@/types/level'
 import { resolveAction } from '@/data/resolveAction'
 import { ACTIONS_BY_ID } from '@/data/mitigationActions'
+import { getEncounterById } from '@/data/raidEncounters'
 import { SyncEngine } from '@/collab/SyncEngine'
 import type { ConnectionStatus } from '@/collab/RemoteConnection'
 import type { LocalDocMeta } from '@/collab/types'
@@ -168,6 +169,8 @@ interface TimelineState {
   updateTimelineDescription: (description: string) => void
   /** 更新阵容 */
   updateComposition: (composition: Composition) => void
+  /** 改绑副本：更新 encounter 元信息与 gameZoneId（等级由调用方随后 setLevel） */
+  updateEncounter: (encounterId: number) => void
   /** 添加伤害事件 */
   addDamageEvent: (event: DamageEvent) => void
   /** 更新伤害事件 */
@@ -659,6 +662,26 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       }, LOCAL_ORIGIN)
       // 重新初始化小队状态(需要 reproject 后的 timeline,保持在事务外)
       get().initializePartyState(composition)
+    },
+
+    updateEncounter: encounterId => {
+      const engine = get().engine
+      const timeline = get().timeline
+      if (!engine || !timeline) return
+      const staticEncounter = getEncounterById(encounterId)
+      if (!staticEncounter) return
+      engine.doc.transact(() => {
+        ySetMeta(engine.doc, {
+          encounter: {
+            id: encounterId,
+            name: staticEncounter.shortName,
+            displayName: staticEncounter.name,
+            zone: '',
+            damageEvents: [],
+          },
+          gameZoneId: staticEncounter.gameZoneId,
+        })
+      }, LOCAL_ORIGIN)
     },
 
     addDamageEvent: event => {
