@@ -84,6 +84,18 @@ describe('resolveStatData', () => {
     expect(result.referenceMaxHP).toBe(95000)
     expect(result.shieldByAbility[1362]).toBe(24000)
   })
+
+  it('level 参数按等级过滤 statDataEntries：90 级下医养（37010，minLevel 96）不出现', () => {
+    const whmComposition: Composition = { players: [{ id: 1, job: 'WHM' }] }
+    const statData = createEmptyStatData()
+
+    const result90 = resolveStatData(statData, mockStatistics, whmComposition, 90)
+    expect(result90.healByAbility[37010]).toBeUndefined()
+
+    // 100 级（默认）下医养可用，key 应正常出现在结果里
+    const result100 = resolveStatData(statData, mockStatistics, whmComposition, 100)
+    expect(result100.healByAbility[37010]).toBeDefined()
+  })
 })
 
 describe('getFallbackValue / getFallbackMaxHP', () => {
@@ -117,5 +129,21 @@ describe('cleanupStatData', () => {
     expect(result.shieldByAbility[1917]).toBeUndefined() // SCH 移除
     expect(result.healByAbility[185]).toBeUndefined() // SCH 移除
     expect(result.referenceMaxHP).toBe(95000) // 不受 cleanup 影响
+  })
+
+  it('level 参数按等级过滤：90 级下医养（37010，minLevel 96）的覆盖值被清理，100 级下保留', () => {
+    const whmComposition: Composition = { players: [{ id: 1, job: 'WHM' }] }
+    const statData: TimelineStatData = {
+      shieldByAbility: {},
+      critShieldByAbility: {},
+      healByAbility: { 37010: 30000 },
+      critHealByAbility: {},
+    }
+
+    const result90 = cleanupStatData(statData, whmComposition, 90)
+    expect(result90.healByAbility[37010]).toBeUndefined()
+
+    const result100 = cleanupStatData(statData, whmComposition, 100)
+    expect(result100.healByAbility[37010]).toBe(30000)
   })
 })
