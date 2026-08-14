@@ -1004,7 +1004,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
         }
         const baseHeal = ctx.statistics?.healByAbility[37030] ?? 10000
         partyState = createHealExecutor()({ ...ctx, partyState })
-        partyState = createRegenExecutor(3894, 30)({ ...ctx, partyState })
+        partyState = createRegenExecutor(3894, 15)({ ...ctx, partyState })
 
         // 阶段 2：中间学派激活时附加群盾
         if (!partyState.statuses.some(s => s.statusId === neutralSectId)) {
