@@ -83,9 +83,9 @@
     "title": "Composition d'équipe"
   },
   "connection": {
-    "connecting": "Connexion…",
-    "failed": "Échec de la connexion",
-    "retryHint": "Reconnexion dans {seconds} s. Cliquez pour vous reconnecter maintenant"
+    "connecting": "",
+    "failed": "",
+    "retryHint": ""
   },
   "contextMenu": {
     "add": "Ajouter",

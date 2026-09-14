@@ -83,9 +83,9 @@
     "title": "Gruppenaufstellung"
   },
   "connection": {
-    "connecting": "Verbindung wird hergestellt…",
-    "failed": "Verbindung fehlgeschlagen",
-    "retryHint": "Neuer Versuch in {seconds} s. Klicken, um sofort neu zu verbinden"
+    "connecting": "",
+    "failed": "",
+    "retryHint": ""
   },
   "contextMenu": {
     "add": "Hinzufügen",

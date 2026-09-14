@@ -83,9 +83,9 @@
     "title": "パーティ編成"
   },
   "connection": {
-    "connecting": "接続中…",
-    "failed": "接続に失敗しました",
-    "retryHint": "{seconds} 秒後に再接続します。クリックで今すぐ再接続"
+    "connecting": "",
+    "failed": "",
+    "retryHint": ""
   },
   "contextMenu": {
     "add": "追加",
