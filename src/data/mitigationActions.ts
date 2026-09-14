@@ -54,6 +54,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
       cooldown: 60,
+      minLevel: 22,
       placement: timeRange(0),
       executor: createBuffExecutor(1193, 15),
     },
@@ -65,6 +66,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 20,
       cooldown: 90,
+      minLevel: 8,
       executor: createBuffExecutor(1191, 20, { uniqueGroup: [] }),
     },
 
@@ -77,6 +79,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
+      minLevel: 56,
       executor: ctx => {
         const partyState = createShieldExecutor(1362, 30)(ctx)
         return createHealExecutor()({ ...ctx, partyState })
@@ -94,6 +97,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 5,
       cooldown: 120,
+      minLevel: 70,
       executor: createBuffExecutor(1176, 5),
     },
     {
@@ -104,6 +108,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 10,
       cooldown: 420,
+      minLevel: 50,
       executor: createBuffExecutor(82, 10),
     },
     {
@@ -114,6 +119,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 10,
       cooldown: 90,
+      minLevel: 52,
       executor: createBuffExecutor(77, 10, {
         performance: { physics: 0.8, magic: 0.8, darkness: 1 },
       }),
@@ -126,6 +132,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['target', 'percentage'],
       duration: 8,
       cooldown: 10,
+      minLevel: 62,
       executor: (ctx: ActionExecutionContext) => {
         let performace = 0.9
         if (ctx.partyState.statuses.some(s => s.statusId === 1191 || s.statusId === 3829)) {
@@ -145,6 +152,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 8,
       cooldown: 5,
+      minLevel: 82,
       executor: (ctx: ActionExecutionContext) => {
         const partyState = createBuffExecutor(2674, 8)(ctx)
         return createBuffExecutor(2675, 4, {
@@ -160,6 +168,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage', 'shield'],
       duration: 15,
       cooldown: 120,
+      minLevel: 92,
       executor: (ctx: ActionExecutionContext) => {
         const partyState = createBuffExecutor(3829, 15)(ctx)
         return createShieldExecutor(3830, 15)({ ...ctx, partyState })
@@ -176,6 +185,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
+      minLevel: 68,
       executor: ctx => {
         let partyState = createShieldExecutor(1457, 30)(ctx)
         partyState = createRegenExecutor(2108, 15)({ ...ctx, partyState })
@@ -195,6 +205,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self'],
       duration: 10,
       cooldown: 90,
+      minLevel: 30,
       executor: createBuffExecutor(87, 10),
     },
     {
@@ -205,6 +216,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'shield'],
       duration: 10,
       cooldown: 240,
+      minLevel: 42,
       executor: createBuffExecutor(409, 10),
     },
     {
@@ -215,6 +227,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['target', 'percentage', 'shield'],
       duration: 8,
       cooldown: 25,
+      minLevel: 76,
       executor: ctx => {
         let partyState = createBuffExecutor(1858, 8)(ctx) // 原初的武猛
         partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState }) // 原初的血潮
@@ -230,6 +243,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage', 'shield'],
       duration: 8,
       cooldown: 25,
+      minLevel: 82,
       executor: ctx => {
         let partyState = createBuffExecutor(2678, 8)(ctx) // 原初的武猛
         partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState }) // 原初的血潮
@@ -245,6 +259,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 15,
       cooldown: 120,
+      minLevel: 92,
       executor: createBuffExecutor(3832, 15),
     },
 
@@ -257,6 +272,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 90,
+      minLevel: 66,
       executor: createBuffExecutor(1894, 15),
     },
     {
@@ -267,6 +283,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 10,
       cooldown: 60,
+      minLevel: 45,
       executor: createBuffExecutor(746, 10),
     },
     {
@@ -277,6 +294,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 10,
       cooldown: 300,
+      minLevel: 50,
       executor: createBuffExecutor(810, 10),
     },
     {
@@ -287,6 +305,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'shield'],
       duration: 7,
       cooldown: 15,
+      minLevel: 70,
       executor: createShieldExecutor(1178, 7),
       statDataEntries: [{ type: 'shield', key: 1178 }],
     },
@@ -298,6 +317,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 10,
       cooldown: 60,
+      minLevel: 82,
       executor: createBuffExecutor(2682, 10),
       resourceEffects: [{ resourceId: 'drk:oblation', delta: -1 }],
     },
@@ -309,6 +329,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 15,
       cooldown: 120,
+      minLevel: 92,
       executor: createBuffExecutor(3835, 15),
     },
 
@@ -321,6 +342,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 90,
+      minLevel: 64,
       executor: createBuffExecutor(1839, 15),
     },
     {
@@ -331,6 +353,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 20,
       cooldown: 90,
+      minLevel: 6,
       executor: createBuffExecutor(1832, 20),
     },
     {
@@ -341,6 +364,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 10,
       cooldown: 360,
+      minLevel: 50,
       executor: createBuffExecutor(1836, 10),
     },
     {
@@ -351,6 +375,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 8,
       cooldown: 25,
+      minLevel: 82,
       executor: ctx => {
         const partyState = createBuffExecutor(2683, 8)(ctx)
         return createBuffExecutor(2684, 4)({ ...ctx, partyState })
@@ -364,6 +389,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'percentage'],
       duration: 15,
       cooldown: 120,
+      minLevel: 92,
       executor: createBuffExecutor(3838, 15),
     },
 
@@ -378,6 +404,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 25,
       cooldown: 120,
+      minLevel: 80,
       executor: ctx => {
         const partyState = createBuffExecutor(1873, 25)(ctx) // 节制
         return createBuffExecutor(3881, 30)({ ...ctx, partyState }) // 神爱抚预备
@@ -391,6 +418,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 10,
       cooldown: 1,
+      minLevel: 100,
       placement: whileStatus(3881),
       executor: createShieldExecutor(3903, 10, { uniqueGroup: [3881] }),
       statDataEntries: [
@@ -406,6 +434,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 10,
       cooldown: 60,
+      minLevel: 70,
       executor: createBuffExecutor(1219, 10),
       statDataEntries: [{ type: 'heal', key: 1001219 }],
     },
@@ -417,6 +446,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 20,
       cooldown: 180,
+      minLevel: 90,
       placement: not(whileStatus(2709)),
       executor: createBuffExecutor(2709, 20, { stack: 5, uniqueGroup: [] }),
       statDataEntries: [{ type: 'heal', key: 25863 }],
@@ -430,6 +460,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 0,
+      minLevel: 90,
       trackGroup: 25862,
       placement: whileStatus(2709),
       executor: (ctx: ActionExecutionContext) => {
@@ -462,6 +493,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
+      minLevel: 10,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         if (
@@ -509,6 +541,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
+      minLevel: 40,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         if (
@@ -530,6 +563,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 24,
       cooldown: 90,
+      minLevel: 52,
       executor: createRegenExecutor(1911, 24),
       statDataEntries: [{ type: 'heal', key: 1001911, label: 'HoT' }],
     },
@@ -541,6 +575,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 2,
+      minLevel: 76,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         if (
@@ -567,6 +602,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 40,
+      minLevel: 56,
       executor: createHealExecutor(),
       statDataEntries: [{ type: 'heal', key: 3571 }],
     },
@@ -578,6 +614,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'shield'],
       duration: 15,
       cooldown: 30,
+      minLevel: 66,
       executor: createShieldExecutor(1218, 15),
       statDataEntries: [{ type: 'shield', key: 1218 }],
       resourceEffects: [{ resourceId: 'whm:divine', delta: -1 }],
@@ -590,6 +627,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 8,
       cooldown: 60,
+      minLevel: 86,
       executor: createBuffExecutor(2708, 8),
     },
 
@@ -603,6 +641,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 90,
+      minLevel: 56,
       executor: (ctx: ActionExecutionContext) => {
         // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
         const recitationId = 1896 // 秘策
@@ -634,6 +673,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 15,
       cooldown: 60,
+      minLevel: 74,
       executor: createBuffExecutor(1896, 15),
     },
 
@@ -646,6 +686,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 2,
+      minLevel: 96,
       executor: (ctx: ActionExecutionContext) => {
         const recitationId = 1896 // 秘策
         const baseShieldId = 297 // 鼓舞
@@ -682,6 +723,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target'],
       duration: 10,
       cooldown: 60,
+      minLevel: 86,
       executor: createBuffExecutor(2710, 10),
     },
     {
@@ -692,6 +734,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 20,
       cooldown: 180,
+      minLevel: 100,
       placement: not(whileStatus(791)),
       executor: createRegenExecutor(3885, 20),
       statDataEntries: [{ type: 'heal', key: 1003885 }],
@@ -705,6 +748,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 2,
+      minLevel: 100,
       trackGroup: 37013,
       placement: whileStatus(SERAPHISM_BUFF_ID),
       executor: (ctx: ActionExecutionContext) => {
@@ -737,6 +781,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 18,
       cooldown: 30,
+      minLevel: 50,
       executor: ctx => {
         const partyState = createBuffExecutor(299, 18)(ctx)
         return createRegenExecutor(1944, 15)({ ...ctx, partyState })
@@ -757,6 +802,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 30,
+      minLevel: 52,
       executor: (ctx: ActionExecutionContext) => {
         const recitationId = 1896 // 秘策
         const recitation = ctx.partyState.statuses.find(s => s.statusId === recitationId)
@@ -807,6 +853,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self'],
       duration: 30,
       cooldown: 180,
+      minLevel: 60,
       executor: createBuffExecutor(791, 30),
       // 纯产出：+3 以太超流（compute 层 clamp 到 max=3）。无消费者 → 仍合成 __cd__:3587
       // 保留自身 180s CD gating。
@@ -820,6 +867,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 21,
       cooldown: 60,
+      minLevel: 20,
       placement: not(whileStatus(791)),
       executor: createRegenExecutor(315, 21),
       statDataEntries: [{ type: 'heal', key: 1000315, label: 'HoT' }],
@@ -832,6 +880,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 20,
       cooldown: 120,
+      minLevel: 40,
       placement: not(whileStatus(791)),
       executor: createBuffExecutor(317, 20),
     },
@@ -843,6 +892,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 60,
+      minLevel: 76,
       placement: not(whileStatus(791)),
       executor: createHealExecutor({ amountSourceId: 16544 }),
       statDataEntries: [{ type: 'heal', key: 16544 }],
@@ -856,6 +906,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 20,
       cooldown: 120,
+      minLevel: 90,
       executor: createBuffExecutor(2711, 20),
     },
 
@@ -867,6 +918,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 22,
       cooldown: 120,
+      minLevel: 80,
       placement: not(whileStatus(791)),
       executor: createBuffExecutor(3095, 22), // 只造炽天真 buff；慰藉充能由 sch:consolation 自行 regen
     },
@@ -879,6 +931,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 30,
       cooldown: 30, // 真实单层回充时间；实际 gating 交给 sch:consolation + whileStatus(3095)
+      minLevel: 80,
       // executor: createShieldExecutor(1917, 30),
       executor: ctx => {
         const partyState = createShieldExecutor(1917, 30)(ctx)
@@ -901,6 +954,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 20,
       cooldown: 60,
+      minLevel: 62,
       placement: not(anyOf(whileStatus(1224), whileStatus(1248))),
       executor: createBuffExecutor(1224, 10),
       statDataEntries: [
@@ -917,6 +971,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       trackGroup: 7439,
       duration: 0,
       cooldown: 0,
+      minLevel: 62,
       placement: anyOf(whileStatus(1224), whileStatus(1248)),
       executor: ctx => {
         const smallEarth = ctx.partyState.statuses.find(
@@ -944,6 +999,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 10,
       cooldown: 60,
+      minLevel: 58,
       executor: ctx => {
         const partyState = createBuffExecutor(849, 10)(ctx)
         return createRegenExecutor(956, 15)({ ...ctx, partyState })
@@ -959,6 +1015,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'shield'],
       duration: 20,
       cooldown: 120,
+      minLevel: 80,
       executor: ctx => {
         const partyState = createBuffExecutor(1892, 20)(ctx) // 中间学派
         return createBuffExecutor(3895, 30)({ ...ctx, partyState }) // 太阳星座预备
@@ -973,6 +1030,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 1,
+      minLevel: 100,
       executor: createBuffExecutor(3896, 15, { uniqueGroup: [3895] }),
       placement: whileStatus(3895),
     },
@@ -985,6 +1043,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 2,
+      minLevel: 96,
       executor: (ctx: ActionExecutionContext) => {
         const neutralSectId = 1892 // 中间学派
 
@@ -1028,6 +1087,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
+      minLevel: 10,
       executor: createHealExecutor(),
       statDataEntries: [{ type: 'heal', key: 3600 }],
     },
@@ -1039,6 +1099,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 15,
       cooldown: 60,
+      minLevel: 60,
       executor: ctx => {
         const partyState = createHealExecutor()(ctx)
         return createRegenExecutor(1879, 15)({ ...ctx, partyState })
@@ -1056,6 +1117,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 60,
+      minLevel: 70,
       executor: createHealExecutor(),
       statDataEntries: [{ type: 'heal', key: 7445 }],
     },
@@ -1067,6 +1129,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 10,
       cooldown: 60,
+      minLevel: 76,
       placement: not(anyOf(whileStatus(1890), whileStatus(1891))),
       executor: createBuffExecutor(1890, 10),
       statDataEntries: [
@@ -1083,6 +1146,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 1,
+      minLevel: 76,
       trackGroup: 16557,
       placement: anyOf(whileStatus(1890), whileStatus(1891)),
       executor: ctx => {
@@ -1111,6 +1175,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 15,
       cooldown: 180,
+      minLevel: 90,
       placement: not(whileStatus(2718)),
       executor: createBuffExecutor(2718, 15),
     },
@@ -1122,6 +1187,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 1,
+      minLevel: 90,
       trackGroup: 25874,
       placement: whileStatus(2718),
       executor: ctx => {
@@ -1144,6 +1210,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'shield'],
       duration: 30,
       cooldown: 60,
+      minLevel: 74,
       executor: createShieldExecutor(1889, 30),
       statDataEntries: [{ type: 'shield', key: 1889 }],
       resourceEffects: [{ resourceId: 'ast:intersection', delta: -1 }],
@@ -1156,6 +1223,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 8,
       cooldown: 60,
+      minLevel: 86,
       executor: createBuffExecutor(2717, 8),
     },
     {
@@ -1166,6 +1234,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'shield'],
       duration: 30,
       cooldown: 60,
+      minLevel: 30,
       executor: createShieldExecutor(3891, 15),
       statDataEntries: [{ type: 'shield', key: 3891 }],
     },
@@ -1177,6 +1246,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 15,
       cooldown: 60,
+      minLevel: 30,
       executor: createBuffExecutor(3890, 15),
     },
 
@@ -1189,6 +1259,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 15,
       cooldown: 120,
+      minLevel: 80,
       executor: createShieldExecutor(2613, 15, { stack: 5 }),
       statDataEntries: [{ type: 'shield', key: 2613 }],
     },
@@ -1202,6 +1273,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield', 'percentage'],
       duration: 20,
       cooldown: 120,
+      minLevel: 76,
       executor: (ctx: ActionExecutionContext) => {
         let partyState = ctx.partyState
         partyState = createHealExecutor()({ ...ctx, partyState })
@@ -1223,6 +1295,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 30,
+      minLevel: 50,
       executor: ctx => {
         const partyState = createBuffExecutor(2618, 15)(ctx)
         return createRegenExecutor(2938, 15)({ ...ctx, partyState })
@@ -1243,6 +1316,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 30,
+      minLevel: 52,
       executor: createHealExecutor(),
       // 双门 gating：__cd__:24299（自身 30s 重置，排第一供蓝条取值）+ sge:addersgall（蛇胆池，-1）。
       // 见坚角清汁同款说明：与坚角清汁共享蛇胆池，但各自 CD 独立。
@@ -1260,6 +1334,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self'],
       duration: 0,
       cooldown: 90,
+      minLevel: 74,
       // 纯蛇胆生成器：游戏内不附加任何状态 → 省略 executor（simulator 对无 executor 的 cast 跳过状态演化）。
       // 纯产出 +1 蛇胆（compute 层 clamp 到 max=3）。无消费者 → 仍合成 __cd__:24309 保留自身 90s CD。
       resourceEffects: [{ resourceId: 'sge:addersgall', delta: 1 }],
@@ -1272,6 +1347,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide'],
       duration: 30,
       cooldown: 90,
+      minLevel: 56,
       executor: createShieldExecutor(2611, 30),
     },
     {
@@ -1282,6 +1358,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 60,
+      minLevel: 60,
       executor: createRegenExecutor(2620, 15),
       statDataEntries: [{ type: 'heal', key: 1002620 }],
     },
@@ -1293,6 +1370,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
       cooldown: 2,
+      minLevel: 10,
       executor: (ctx: ActionExecutionContext) => {
         const zoeId = 2611 // 活化
         const zoe = ctx.partyState.statuses.find(s => s.statusId === zoeId)
@@ -1314,6 +1392,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
       cooldown: 1.4,
+      minLevel: 96,
       executor: (ctx: ActionExecutionContext) => {
         const zoeId = 2611 // 活化
         const baseShieldId = 2609 // 均衡预后
@@ -1344,6 +1423,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 120,
+      minLevel: 90,
       executor: (ctx: ActionExecutionContext) => {
         const zoeId = 2611 // 活化
         const zoe = ctx.partyState.statuses.find(s => s.statusId === zoeId)
@@ -1365,6 +1445,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 20,
       cooldown: 180,
+      minLevel: 100,
       executor: createRegenExecutor(3899, 20),
       statDataEntries: [{ type: 'heal', key: 1003899, label: '幸福' }],
     },
@@ -1376,6 +1457,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target'],
       duration: 10,
       cooldown: 60,
+      minLevel: 86,
       executor: createBuffExecutor(24317, 10),
     },
     {
@@ -1386,6 +1468,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['self', 'target', 'percentage'],
       duration: 15,
       cooldown: 45,
+      minLevel: 62,
       executor: createBuffExecutor(2619, 15),
       resourceEffects: [
         { resourceId: '__cd__:24303', delta: -1, required: true },
@@ -1403,6 +1486,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
       cooldown: 90,
+      minLevel: 22,
       placement: timeRange(0),
       executor: createBuffExecutor(1195, 15),
     },
@@ -1414,6 +1498,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide'],
       duration: 15,
       cooldown: 90,
+      minLevel: 42,
       executor: createBuffExecutor(102, 15),
     },
     {
@@ -1424,6 +1509,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 5,
       cooldown: 30,
+      minLevel: 40,
       executor: createShieldExecutor(2597, 5), // 守护纹（盾被打穿触发活性纹 2598）
       statDataEntries: [
         { type: 'shield', key: 2597 },
@@ -1442,6 +1528,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 90,
+      minLevel: 62,
       executor: createBuffExecutor(1934, 15, { uniqueGroup: [1934, 1951, 1826] }),
     },
     {
@@ -1452,6 +1539,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide'],
       duration: 15,
       cooldown: 120,
+      minLevel: 66,
       executor: createBuffExecutor(1202, 15),
     },
 
@@ -1464,6 +1552,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 90,
+      minLevel: 56,
       executor: createBuffExecutor(1951, 15, { uniqueGroup: [1934, 1951, 1826] }),
     },
 
@@ -1475,6 +1564,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 10,
       cooldown: 120,
+      minLevel: 62,
       placement: timeRange(0),
       executor: createBuffExecutor(860, 10),
     },
@@ -1488,6 +1578,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 15,
       cooldown: 90,
+      minLevel: 56,
       executor: createBuffExecutor(1826, 15, { uniqueGroup: [1934, 1951, 1826] }),
     },
     {
@@ -1498,6 +1589,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 0,
       cooldown: 60,
+      minLevel: 52,
       executor: createHealExecutor(),
       statDataEntries: [{ type: 'heal', key: 16015 }],
     },
@@ -1509,6 +1601,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'heal'],
       duration: 15,
       cooldown: 120,
+      minLevel: 80,
       placement: not(whileStatus(1827)),
       executor: ctx => {
         const partyState = createBuffExecutor(2695, 15)(ctx) // HoT
@@ -1524,6 +1617,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 0,
       cooldown: 1,
+      minLevel: 80,
       trackGroup: 16014,
       placement: whileStatus(1827),
       executor: (ctx: ActionExecutionContext) => {
@@ -1560,6 +1654,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
       cooldown: 90,
+      minLevel: 8,
       placement: timeRange(0),
       executor: createBuffExecutor(1203, 15),
     },
@@ -1573,6 +1668,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'percentage'],
       duration: 10,
       cooldown: 120,
+      minLevel: 86,
       executor: createBuffExecutor(2707, 10),
     },
 
@@ -1585,6 +1681,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       category: ['partywide', 'shield'],
       duration: 10,
       cooldown: 90,
+      minLevel: 88,
       executor: createShieldExecutor(1204, 10),
     },
   ],
