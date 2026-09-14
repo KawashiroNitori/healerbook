@@ -83,9 +83,9 @@
     "title": "小隊陣容"
   },
   "connection": {
-    "connecting": "連線中…",
-    "failed": "連線失敗",
-    "retryHint": "將在 {seconds} 秒後重新連線，點擊立即重連"
+    "connecting": "",
+    "failed": "",
+    "retryHint": ""
   },
   "contextMenu": {
     "add": "新增",
