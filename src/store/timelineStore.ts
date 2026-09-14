@@ -110,6 +110,8 @@ interface TimelineState {
   currentViewportWidth: number
   /** 远端连接状态 */
   connectionStatus: ConnectionStatus
+  /** connectionStatus 为 failed 时下次自动重连的时间戳(ms);其余为 null */
+  nextRetryAt: number | null
   /** 待处理的编辑权限申请数(仅作者有意义):GET /:id 播种 + WS 实时刷新 */
   pendingRequestCount: number
   /** 是否已发布到云端 */
@@ -134,6 +136,8 @@ interface TimelineState {
   setViewerSnapshot: (timeline: Timeline) => void
   /** 原地发布升级:给当前引擎挂 remote(同 id 发布用) */
   attachRemote: () => void
+  /** 远端连接失败等待退避时,跳过等待立即重连 */
+  reconnectNow: () => void
   /** 初始化小队状态 */
   initializePartyState: (composition: Composition) => void
   /** 设置副本统计数据 */
@@ -234,6 +238,7 @@ const initialUiState = {
   currentTimelineWidth: 0,
   currentViewportWidth: 0,
   connectionStatus: 'disconnected' as ConnectionStatus,
+  nextRetryAt: null as number | null,
   pendingRequestCount: 0,
   isPublished: false,
   sessionRole: 'local' as const,
@@ -253,6 +258,7 @@ const sessionResetFields = {
   canUndo: false,
   canRedo: false,
   connectionStatus: 'disconnected' as ConnectionStatus,
+  nextRetryAt: null as number | null,
   pendingRequestCount: 0,
   peers: [] as PeerState[],
   partyState: null,
@@ -374,7 +380,7 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
     peersUnsub = null
     engine.connectRemote(
       () => useAuthStore.getState().getValidToken(),
-      status => set({ connectionStatus: status }),
+      (status, nextRetryAt) => set({ connectionStatus: status, nextRetryAt }),
       count => set({ pendingRequestCount: count }),
       () => {
         // 编辑权限被撤销：降级为 viewer，由 viewer cause 接管只读
@@ -523,6 +529,10 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
       if (!engine || engine.hasRemote) return
       set({ isPublished: true, sessionRole: 'author' })
       wireRemote(engine)
+    },
+
+    reconnectNow: () => {
+      get().engine?.reconnectRemote()
     },
 
     initializePartyState: composition => {

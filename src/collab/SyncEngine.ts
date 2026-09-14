@@ -1,7 +1,7 @@
 import * as Y from 'yjs'
 import { Awareness } from 'y-protocols/awareness'
 import { IndexedDBDocStore } from './storage/IndexedDBDocStore'
-import { RemoteConnection, type ConnectionStatus } from './RemoteConnection'
+import { RemoteConnection, type ConnectionStatusListener } from './RemoteConnection'
 import { Y_MAP, LOCAL_ORIGIN } from './constants'
 import type { LocalDocMeta } from './types'
 
@@ -73,7 +73,7 @@ export class SyncEngine {
   /** 挂上远端连接(发布 / editor 模式)。幂等。 */
   connectRemote(
     getAuthToken: () => Promise<string | null>,
-    onStatus: (status: ConnectionStatus) => void,
+    onStatus: ConnectionStatusListener,
     onEditRequest?: (count: number) => void,
     onRevoked?: () => void,
     onLoaded?: () => void
@@ -90,6 +90,16 @@ export class SyncEngine {
       onLoaded
     )
     this.remote.connect()
+  }
+
+  /** 远端连接失败等待退避时,立即重连 */
+  reconnectRemote(): void {
+    this.remote?.reconnectNow()
+  }
+
+  /** 仅供开发调试:模拟远端连接网络断线 */
+  simulateNetworkDrop(): void {
+    this.remote?.simulateNetworkDrop()
   }
 
   /** 是否已挂 remote */

@@ -82,6 +82,11 @@
     "empty": "No members yet",
     "title": "Party composition"
   },
+  "connection": {
+    "connecting": "Connecting…",
+    "failed": "Connection failed",
+    "retryHint": "Reconnecting in {seconds}s. Click to reconnect now"
+  },
   "contextMenu": {
     "add": "Add",
     "addAnnotation": "Add note",
@@ -247,9 +252,6 @@
     "shieldTooltip": "Shield: {value}",
     "title": "Player damage details",
     "unknownStatus": "Unknown status"
-  },
-  "presence": {
-    "reconnecting": "Reconnecting…"
   },
   "propertyPanel": {
     "attackType": "Attack type",

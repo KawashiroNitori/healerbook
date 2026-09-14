@@ -82,6 +82,11 @@
     "empty": "暂无队员",
     "title": "小队阵容"
   },
+  "connection": {
+    "connecting": "连接中…",
+    "failed": "连接失败",
+    "retryHint": "将在 {seconds} 秒后重新连接，点击立即重连"
+  },
   "contextMenu": {
     "add": "添加",
     "addAnnotation": "添加备注",
@@ -247,9 +252,6 @@
     "shieldTooltip": "盾: {value}",
     "title": "玩家伤害详情",
     "unknownStatus": "未知状态"
-  },
-  "presence": {
-    "reconnecting": "重连中…"
   },
   "propertyPanel": {
     "attackType": "攻击类型",

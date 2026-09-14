@@ -82,6 +82,11 @@
     "empty": "メンバーがいません",
     "title": "パーティ編成"
   },
+  "connection": {
+    "connecting": "接続中…",
+    "failed": "接続に失敗しました",
+    "retryHint": "{seconds} 秒後に再接続します。クリックで今すぐ再接続"
+  },
   "contextMenu": {
     "add": "追加",
     "addAnnotation": "メモを追加",
@@ -247,9 +252,6 @@
     "shieldTooltip": "バリア: {value}",
     "title": "プレイヤーダメージ詳細",
     "unknownStatus": "不明なステータス"
-  },
-  "presence": {
-    "reconnecting": "再接続中…"
   },
   "propertyPanel": {
     "attackType": "攻撃タイプ",

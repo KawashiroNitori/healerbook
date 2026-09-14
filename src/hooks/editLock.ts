@@ -28,7 +28,7 @@ const CAUSES: CauseSpec[] = [
 
 export interface EditLockInput {
   sessionRole: 'local' | 'author' | 'editor' | 'viewer'
-  connectionStatus: 'disconnected' | 'connecting' | 'connected'
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'failed'
   isReplayMode: boolean
   manualLock: boolean
 }

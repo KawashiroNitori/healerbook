@@ -82,6 +82,11 @@
     "empty": "Noch keine Gruppenmitglieder",
     "title": "Gruppenaufstellung"
   },
+  "connection": {
+    "connecting": "Verbindung wird hergestellt…",
+    "failed": "Verbindung fehlgeschlagen",
+    "retryHint": "Neuer Versuch in {seconds} s. Klicken, um sofort neu zu verbinden"
+  },
   "contextMenu": {
     "add": "Hinzufügen",
     "addAnnotation": "Notiz hinzufügen",
@@ -247,9 +252,6 @@
     "shieldTooltip": "Barriere: {value}",
     "title": "Details zum Spielerschaden",
     "unknownStatus": "Unbekannter Status"
-  },
-  "presence": {
-    "reconnecting": "Verbindung wird wiederhergestellt…"
   },
   "propertyPanel": {
     "attackType": "Angriffsart",

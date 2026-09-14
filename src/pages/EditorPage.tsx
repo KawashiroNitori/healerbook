@@ -40,6 +40,7 @@ import { APP_NAME } from '@/lib/constants'
 import ThemeToggle from '@/components/ThemeToggle'
 import LanguageToggle from '@/components/LanguageToggle'
 import PresenceAvatars from '@/components/PresenceAvatars'
+import ConnectionStatusIndicator from '@/components/ConnectionStatusIndicator'
 import { track } from '@/utils/analytics'
 import { decideOpen, type ServerOutcome } from './editorOpenDecision'
 import type { LocalDocMeta } from '@/collab/types'
@@ -88,6 +89,18 @@ export default function EditorPage() {
     allowEditRequests: false,
     hasPendingRequest: false,
   })
+
+  // 开发调试:控制台执行 __dropConnection() 模拟 WS 网络断线
+  // (DevTools 的 Offline 节流不会打断已建立的 WebSocket);生产构建整段 DCE
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const win = window as Window & { __dropConnection?: () => void }
+    win.__dropConnection = () => useTimelineStore.getState().engine?.simulateNetworkDrop()
+    return () => {
+      delete win.__dropConnection
+    }
+  }, [])
+
   // ── 模式推导 + 加载 ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) {
@@ -374,6 +387,7 @@ export default function EditorPage() {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            <ConnectionStatusIndicator />
             <PresenceAvatars />
             <ThemeToggle />
             <LanguageToggle />

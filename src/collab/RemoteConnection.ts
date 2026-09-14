@@ -11,7 +11,19 @@ import {
 } from './syncProtocol'
 import { REMOTE_ORIGIN } from './constants'
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
+/**
+ * - disconnected:未连接或因业务原因(鉴权失败 / 权限撤销 / 主动销毁)终态关闭,不再重连
+ * - connecting:正在建立连接 / 握手中
+ * - connected:已鉴权,双向同步中
+ * - failed:连接因网络等原因断开,正在等待退避计时器自动重连
+ */
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'failed'
+
+/** 状态回调;nextRetryAt 仅 failed 时为下次自动重连的时间戳(ms),其余为 null */
+export type ConnectionStatusListener = (
+  status: ConnectionStatus,
+  nextRetryAt: number | null
+) => void
 
 const MAX_BACKOFF_MS = 30_000
 
@@ -25,7 +37,7 @@ export class RemoteConnection {
   private readonly doc: Y.Doc
   private readonly awareness: Awareness
   private readonly getAuthToken: () => Promise<string | null>
-  private readonly onStatus: (status: ConnectionStatus) => void
+  private readonly onStatus: ConnectionStatusListener
   /** 收到 DO 推送的待处理申请数(仅作者连接会收到) */
   private readonly onEditRequest: ((count: number) => void) | undefined
   /** 编辑权限被撤销（WS 4001）时触发一次 */
@@ -56,7 +68,7 @@ export class RemoteConnection {
     doc: Y.Doc,
     awareness: Awareness,
     getAuthToken: () => Promise<string | null>,
-    onStatus: (status: ConnectionStatus) => void,
+    onStatus: ConnectionStatusListener,
     onEditRequest?: (count: number) => void,
     onRevoked?: () => void,
     onLoaded?: () => void
@@ -77,11 +89,32 @@ export class RemoteConnection {
     this.open()
   }
 
+  /** 跳过退避等待立即重连;仅 failed(等待自动重连)时生效 */
+  reconnectNow(): void {
+    if (this.status !== 'failed' || this.closed) return
+    this.clearReconnectTimer()
+    this.open()
+  }
+
+  /**
+   * 仅供开发调试:模拟一次网络原因断线(非业务终态),随后按退避自动重连。
+   * 先解绑旧 socket 回调再手动走 onClose,避免等待关闭握手、也避免迟到的 close 事件重复流转。
+   */
+  simulateNetworkDrop(): void {
+    const ws = this.ws
+    if (!ws) return
+    ws.onopen = null
+    ws.onmessage = null
+    ws.onclose = null
+    ws.onerror = null
+    ws.close()
+    this.onClose(1006)
+  }
+
   /** 永久关闭:停止重连、断开监听 */
   destroy(): void {
     this.closed = true
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    this.reconnectTimer = null
+    this.clearReconnectTimer()
     this.detachUpdateListener()
     this.awareness.off('update', this.onAwarenessUpdate)
     const ws = this.ws
@@ -90,10 +123,15 @@ export class RemoteConnection {
     this.setStatus('disconnected')
   }
 
-  private setStatus(next: ConnectionStatus): void {
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
+  }
+
+  private setStatus(next: ConnectionStatus, nextRetryAt: number | null = null): void {
     if (this.status === next) return
     this.status = next
-    this.onStatus(next)
+    this.onStatus(next, nextRetryAt)
   }
 
   private open(): void {
@@ -193,10 +231,11 @@ export class RemoteConnection {
       this.onRevoked?.()
       return
     }
-    this.setStatus('connecting')
     const delay = Math.min(1000 * 2 ** this.retry, MAX_BACKOFF_MS)
     this.retry++
+    this.setStatus('failed', Date.now() + delay)
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
       if (!this.closed) this.open()
     }, delay)
   }

@@ -82,6 +82,11 @@
     "empty": "暫無隊員",
     "title": "小隊陣容"
   },
+  "connection": {
+    "connecting": "連線中…",
+    "failed": "連線失敗",
+    "retryHint": "將在 {seconds} 秒後重新連線，點擊立即重連"
+  },
   "contextMenu": {
     "add": "新增",
     "addAnnotation": "新增備註",
@@ -247,9 +252,6 @@
     "shieldTooltip": "盾: {value}",
     "title": "玩家傷害詳情",
     "unknownStatus": "未知狀態"
-  },
-  "presence": {
-    "reconnecting": "重新連線中…"
   },
   "propertyPanel": {
     "attackType": "攻擊類型",

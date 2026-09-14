@@ -82,6 +82,11 @@
     "empty": "",
     "title": ""
   },
+  "connection": {
+    "connecting": "",
+    "failed": "",
+    "retryHint": ""
+  },
   "contextMenu": {
     "add": "",
     "addAnnotation": "",
@@ -247,9 +252,6 @@
     "shieldTooltip": "",
     "title": "",
     "unknownStatus": ""
-  },
-  "presence": {
-    "reconnecting": ""
   },
   "propertyPanel": {
     "attackType": "",

@@ -516,6 +516,114 @@ describe('RemoteConnection auth hardening', () => {
     expect(revokedCalled).toBe(1)
   })
 
+  it('reports connecting (without nextRetryAt) while the first attempt is in progress', () => {
+    const doc = new Y.Doc()
+    const calls: [string, number | null][] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      (s, next) => calls.push([s, next])
+    )
+    conn.connect()
+    expect(calls).toEqual([['connecting', null]])
+    conn.destroy()
+  })
+
+  it('reports failed with nextRetryAt after a network close, then connecting when retry fires', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(10_000)
+    const doc = new Y.Doc()
+    const calls: [string, number | null][] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      (s, next) => calls.push([s, next])
+    )
+    conn.connect()
+    await lastSocket().fireOpen()
+    lastSocket().fireClose(1006)
+    expect(calls[calls.length - 1]).toEqual(['failed', 11_000])
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(calls[calls.length - 1]).toEqual(['connecting', null])
+    // 再次失败 → 退避翻倍
+    lastSocket().fireClose(1006)
+    expect(calls[calls.length - 1]).toEqual(['failed', 13_000])
+    conn.destroy()
+  })
+
+  it('reconnectNow() cancels the pending backoff and opens immediately when failed', async () => {
+    vi.useFakeTimers()
+    const doc = new Y.Doc()
+    const statuses: string[] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      s => statuses.push(s)
+    )
+    conn.connect()
+    await lastSocket().fireOpen()
+    lastSocket().fireClose(1006)
+    expect(FakeWebSocket.instances.length).toBe(1)
+    conn.reconnectNow()
+    expect(FakeWebSocket.instances.length).toBe(2)
+    expect(statuses[statuses.length - 1]).toBe('connecting')
+    // 原退避计时器已取消,不会再多开一条
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(FakeWebSocket.instances.length).toBe(2)
+    conn.destroy()
+  })
+
+  it('simulateNetworkDrop() enters failed immediately and reconnects after backoff', async () => {
+    vi.useFakeTimers()
+    const doc = new Y.Doc()
+    const statuses: string[] = []
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      s => statuses.push(s)
+    )
+    conn.connect()
+    await lastSocket().fireOpen()
+    lastSocket().fireMessage(encodeMessage(MSG.AUTH_OK, new Uint8Array()))
+    const dropped = lastSocket()
+    conn.simulateNetworkDrop()
+    expect(statuses[statuses.length - 1]).toBe('failed')
+    // 旧 socket 的回调已解绑,迟到的 close 事件不会再次触发状态流转
+    dropped.fireClose(1006)
+    expect(statuses.filter(s => s === 'failed').length).toBe(1)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(FakeWebSocket.instances.length).toBe(2)
+    expect(statuses[statuses.length - 1]).toBe('connecting')
+    conn.destroy()
+  })
+
+  it('reconnectNow() is a no-op unless failed (connecting / terminal)', async () => {
+    const doc = new Y.Doc()
+    const conn = new RemoteConnection(
+      'ws://x/connect',
+      doc,
+      new Awareness(doc),
+      () => Promise.resolve('j'),
+      () => {}
+    )
+    conn.connect()
+    conn.reconnectNow() // connecting 中
+    expect(FakeWebSocket.instances.length).toBe(1)
+    await lastSocket().fireOpen()
+    lastSocket().fireClose(1008) // 业务终态
+    conn.reconnectNow()
+    expect(FakeWebSocket.instances.length).toBe(1)
+    conn.destroy()
+  })
+
   it('invokes onEditRequest with the pushed pending-request count', async () => {
     const doc = new Y.Doc()
     const counts: number[] = []
