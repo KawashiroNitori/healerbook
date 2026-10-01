@@ -395,12 +395,16 @@ describe('TimelineDoc WebSocket 接入', () => {
 
       // A 发畸形帧:DO 应丢弃(不抛、不广播),连接保持可用
       wsA.send(encodeMessage(MSG.AWARENESS, malformed))
-      await new Promise(r => setTimeout(r, 50))
 
-      // 坏帧被取证 dump:含 base64 原始字节,供离线还原其真实格式
-      expect(errorSpy).toHaveBeenCalledWith(
-        '[awareness] decode failed, dropping frame',
-        expect.objectContaining({ userId: 'ua-mal', payloadB64: expect.any(String) })
+      // 坏帧被取证 dump:含 base64 原始字节,供离线还原其真实格式。
+      // DO 处理帧的耗时不固定(CI 上可能超过几十 ms),轮询等待而非固定 sleep。
+      await vi.waitFor(
+        () =>
+          expect(errorSpy).toHaveBeenCalledWith(
+            '[awareness] decode failed, dropping frame',
+            expect.objectContaining({ userId: 'ua-mal', payloadB64: expect.any(String) })
+          ),
+        { timeout: 2000 }
       )
       errorSpy.mockRestore()
 
