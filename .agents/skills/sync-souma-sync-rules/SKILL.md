@@ -162,7 +162,7 @@ git commit -m "data(souma): sync N rule(s) from upstream <短sha>"   # 多条
 - **flag 严格对齐**：`syncOnce: false` / `battleOnce: false` **不要补出来**，缺省即视为 false；上游有就有，没有就没有。
 - **differing 不要静默覆盖**：脚本报告 `differing` 时停下来给用户决策。本仓库可能故意调过 `window` 容差，机械同步会回退这个修改。
 - **ours-only 保留**：脚本报告的 `extras` 是 Healerbook 自有规则，**不删**。本 skill 做的是"上游 → 本仓库"单向补差。
-- **CLAUDE.md git 规则**：本 skill 内的 `git commit` 仅在用户当前对话**明确**请求执行同步时生效；非 subagent-driven 自动任务下，每次会话仍需用户授权才能 commit。
+- **AGENTS.md git 规则**：本 skill 内的 `git commit` 仅在用户**明确授权提交**时执行；请求同步数据本身不等于授权提交；非 subagent-driven 自动任务下，每次会话仍需用户授权才能 commit。
 - **临时文件**：`.cache-upstream-rules.ts` 和 `.diff-sync-rules.mjs` 用完即删，**不要提交**。
 
 ## 真实案例

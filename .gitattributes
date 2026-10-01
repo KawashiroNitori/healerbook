@@ -1,0 +1,2 @@
+# 统一使用 LF：入库归一化，检出时也不转换为 CRLF（覆盖本机 core.autocrlf）
+* text=auto eol=lf

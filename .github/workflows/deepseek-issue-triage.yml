@@ -1,0 +1,63 @@
+name: DeepSeek Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      result: ${{ steps.deepseek.outputs.result }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Run only the maintained automation code, never PR-provided scripts.
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Prepare task context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prepare = require('./.github/scripts/ai-context.cjs');
+            await prepare({ github, context, core, mode: 'triage' });
+      - name: Run DeepSeek
+        id: deepseek
+        uses: actions/github-script@v7
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-flash' }}
+        with:
+          script: |
+            const { run } = require('./.github/scripts/deepseek.cjs');
+            await run({ core, mode: 'triage' });
+
+  publish:
+    needs: analyze
+    if: needs.analyze.outputs.result != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Publish DeepSeek result
+        uses: actions/github-script@v7
+        env:
+          AI_RESULT: ${{ needs.analyze.outputs.result }}
+        with:
+          script: |
+            const result = JSON.parse(process.env.AI_RESULT);
+            if (!Array.isArray(result.labels) || typeof result.comment !== 'string' || !result.comment.trim()) throw new Error('Invalid triage result');
+            const allowed = new Set(['bug', 'enhancement', 'data', 'calculation', 'fflogs', 'timeline', 'documentation', 'question']);
+            const existing = new Set((await github.paginate(github.rest.issues.listLabelsForRepo, { ...context.repo, per_page: 100 })).map(l => l.name));
+            const labels = [...new Set(result.labels)].filter(l => allowed.has(l) && existing.has(l));
+            const target = { ...context.repo, issue_number: context.payload.issue.number };
+            if (labels.length) await github.rest.issues.addLabels({ ...target, labels });
+            await github.rest.issues.createComment({ ...target, body: result.comment });

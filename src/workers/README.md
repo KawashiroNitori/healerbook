@@ -1,6 +1,6 @@
 # Healerbook Workers
 
-Cloudflare Workers 后端服务：`src/workers/index.ts` 是 Hono 入口，全局 `app.onError` 统一兜错，按功能域挂载路由（详见项目根目录 `CLAUDE.md` 的「Workers 路由结构」一节，本文件不重复列出）。
+Cloudflare Workers 后端服务：`src/workers/index.ts` 是 Hono 入口，全局 `app.onError` 统一兜错，按功能域挂载路由（详见项目根目录 `AGENTS.md` 的「Workers 路由结构」一节，本文件不重复列出）。
 
 ## 目录结构
 

@@ -32,7 +32,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    exclude: ['**/node_modules/**', '**/dist/**', '**/ff14-overlay-vue/**', '**/*.workers.test.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/ff14-overlay-vue/**',
+      '**/*.workers.test.ts',
+      // node:test 脚本测试，用 `node --test` 运行
+      'scripts/**',
+      '.github/scripts/**',
+    ],
     coverage: {
       exclude: [
         ...coverageConfigDefaults.exclude,

@@ -1,0 +1,86 @@
+name: DeepSeek Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    paths: ['src/**']
+
+concurrency:
+  group: deepseek-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    # Forks cannot access the API key.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      result: ${{ steps.deepseek.outputs.result }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Run only the maintained automation code, never PR-provided scripts.
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Prepare task context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prepare = require('./.github/scripts/ai-context.cjs');
+            await prepare({ github, context, core, mode: 'review' });
+      - name: Run DeepSeek
+        id: deepseek
+        uses: actions/github-script@v7
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-flash' }}
+        with:
+          script: |
+            const { run } = require('./.github/scripts/deepseek.cjs');
+            await run({ core, mode: 'review' });
+
+  publish:
+    needs: analyze
+    if: needs.analyze.outputs.result != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Publish DeepSeek result
+        uses: actions/github-script@v7
+        env:
+          AI_RESULT: ${{ needs.analyze.outputs.result }}
+        with:
+          script: |
+            const result = JSON.parse(process.env.AI_RESULT);
+            if (typeof result.summary !== 'string' || !result.summary.trim() || !Array.isArray(result.comments)) throw new Error('Invalid review result');
+            const target = { ...context.repo, pull_number: context.payload.pull_request.number };
+            const pr = (await github.rest.pulls.get(target)).data;
+            if (pr.head.sha !== context.payload.pull_request.head.sha) { core.info('PR changed; skip stale review'); return; }
+            const files = await github.paginate(github.rest.pulls.listFiles, { ...target, per_page: 100 });
+            const lines = new Map();
+            for (const file of files) {
+              const valid = new Set();
+              let line = 0;
+              for (const text of (file.patch ?? '').split('\n')) {
+                const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
+                if (hunk) { line = Number(hunk[1]); continue; }
+                if (text.startsWith('+') || text.startsWith(' ')) valid.add(line++);
+              }
+              lines.set(file.filename, valid);
+            }
+            const comments = [];
+            for (const c of result.comments) {
+              if (typeof c.body !== 'string' || !c.body.trim()) throw new Error('Invalid review comment');
+              if (Number.isInteger(c.line) && lines.get(c.path)?.has(c.line)) comments.push({ path: c.path, line: c.line, side: 'RIGHT', body: c.body });
+              else result.summary += `\n\n${c.path}:${c.line} — ${c.body}`;
+            }
+            await github.rest.pulls.createReview({ ...target, commit_id: pr.head.sha, event: 'COMMENT', body: result.summary, comments });

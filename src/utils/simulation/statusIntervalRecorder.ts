@@ -5,7 +5,7 @@
  * （按 instanceId diff），维护 open 表并落已闭区间，产出 StatusInterval 时间线与
  * castEndEntries（绿条末端原始条目）。
  *
- * instanceId diff 语义（见 CLAUDE.md「Executor 写作规范」）是整个 buff 系统的底座：
+ * instanceId diff 语义（见 AGENTS.md「Executor 写作规范」）是整个 buff 系统的底座：
  * simulator 用 instanceId diff 判定 buff 的 attach / persist / consume，据此驱动绿条
  * 长度与 status interval 归属。captureTransition / pushInterval 的函数体逐字迁移，
  * 一个字符都不改。

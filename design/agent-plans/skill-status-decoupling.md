@@ -147,7 +147,7 @@ export interface EnemyState {
 1. 单元测试覆盖率
 2. 集成测试
 3. E2E 测试
-4. 更新 CLAUDE.md
+4. 更新 AGENTS.md
 5. 代码审查
 
 ## 3. 关键实现

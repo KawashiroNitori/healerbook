@@ -2,6 +2,25 @@
 
 > FF14 减伤规划工具 - 基于 FFLogs 的可视化时间轴编辑器
 
+## Agent 配置入口
+
+本文件是项目共享指令，适用于所有参与此仓库工作的 coding agent。
+
+- 项目技能位于 `.agents/skills/*/SKILL.md`；根据各技能的 description 按需读取。
+- 历史实施计划位于 `design/agent-plans/`。
+- 工具权限、沙箱、界面偏好由所用客户端管理；不使用共享权限白名单代替用户授权。
+- `agent-settings.local.json` 仅为迁移前本地设置的原样备份，已忽略，不是可执行配置。
+
+### 文档约束
+
+- `docs/` 由 VitePress 公开发布；其中路径不得包含 `superpowers`、`spec`、`plan`、`design`。内部计划和设计放在 `design/`。
+- Markdown / MDX 不得包含本机绝对路径或当前用户名，使用仓库相对路径或占位符。
+- 编辑文档后运行 `node scripts/enforce-docs-paths.mjs <文件...>` 和 `node scripts/check-local-paths.mjs <文件...>`。脚本也由 lint-staged 在提交时执行，任何 agent 或编辑器均可调用。路径检查覆盖所有暂存文件，本机信息检查覆盖 Markdown / MDX。
+- `.codex/hooks.json` 与 `.claude/settings.json` 注册同一个 `scripts/agent-document-hook.mjs` 写入前检查：适配 Codex `apply_patch` 和 Claude Code `Write` / `Edit`，与提交检查共用 `scripts/document-policy.mjs`。Codex 需信任项目及 hooks 后生效。
+- 端到端验证（2026-10-01）：Codex CLI 0.159.0 的 apply_patch 与 Claude Code 2.1.286 的 Write/Edit 均已确认放行正常内容，并拦截本机路径、违规 docs 路径及违规编辑；拒绝时文件未写入，原内容保持不变。Codex 测试使用一次性 hook 信任，日常使用仍需在 `/hooks` 中审阅并信任项目 hook。
+- hook 拒绝时输出两端通用的 `hookSpecificOutput.permissionDecision: "deny"` JSON，并正常退出。不要改回仅依赖退出码 `2`：Windows PowerShell 启动链可能将其转换为 `1`，造成 Codex 未拦截。回归测试覆盖真实 shell 启动和结构化拒绝结果。
+- hook 在内存中检查完整候选文档，不写磁盘；无法解析的补丁会拒绝并要求使用精确上下文。它不拦截 shell、MCP 等其他途径写文件，提交前检查仍保留。
+
 ## Git 操作规则
 
 未经过用户明确要求，不得自行进行 Git 操作（包括 commit、push、reset 等）。
@@ -86,7 +105,7 @@ src/
 └── workers/      # Cloudflare Workers（HTTP 路由、OAuth、D1、TOP100 同步）
 ```
 
-具体文件以代码为准，需要时使用 Glob/Grep 工具查看。
+具体文件以代码为准，需要时使用文件搜索或文本搜索工具查看。
 
 ## 关键文件说明
 

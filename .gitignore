@@ -45,3 +45,9 @@ docs/.vitepress/dist
 
 public/latest-release.json
 secrets/
+
+# Local archive of agent-specific preferences (not portable configuration)
+/agent-settings.local.json
+
+# Per-user agent client settings
+/.claude/settings.local.json

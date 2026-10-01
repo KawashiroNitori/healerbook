@@ -1,0 +1,75 @@
+name: DeepSeek
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  analyze:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@deepseek') &&
+        (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@deepseek') &&
+        (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@deepseek') &&
+        (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'MEMBER' || github.event.review.author_association == 'COLLABORATOR')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@deepseek') || contains(github.event.issue.title, '@deepseek')) &&
+        (github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER' || github.event.issue.author_association == 'COLLABORATOR'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      result: ${{ steps.deepseek.outputs.result }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Run only the maintained automation code, never PR-provided scripts.
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Prepare task context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prepare = require('./.github/scripts/ai-context.cjs');
+            await prepare({ github, context, core, mode: 'respond' });
+      - name: Run DeepSeek
+        id: deepseek
+        uses: actions/github-script@v7
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-flash' }}
+        with:
+          script: |
+            const { run } = require('./.github/scripts/deepseek.cjs');
+            await run({ core, mode: 'respond' });
+
+  publish:
+    needs: analyze
+    if: needs.analyze.outputs.result != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Publish DeepSeek result
+        uses: actions/github-script@v7
+        env:
+          AI_RESULT: ${{ needs.analyze.outputs.result }}
+        with:
+          script: |
+            const body = process.env.AI_RESULT;
+            if (!body?.trim()) throw new Error('Empty DeepSeek response');
+            const issue_number = context.payload.issue?.number ?? context.payload.pull_request?.number;
+            if (!Number.isInteger(issue_number)) throw new Error('Missing target number');
+            await github.rest.issues.createComment({ ...context.repo, issue_number, body });

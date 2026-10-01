@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "comment": {
+      "type": "string"
+    }
+  },
+  "required": ["labels", "comment"],
+  "additionalProperties": false
+}

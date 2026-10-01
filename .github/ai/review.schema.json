@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "line", "body"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["summary", "comments"],
+  "additionalProperties": false
+}
