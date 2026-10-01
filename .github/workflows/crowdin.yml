@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/i18n/locales/zh-CN/**"
+      - 'src/i18n/locales/zh-CN/**'
   workflow_dispatch:
 
 jobs:
@@ -17,41 +17,56 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 只上传源文案、下载译文到工作区；提交 / 推送 / 开 PR 由下一步自行处理，
+      # 以便在入库前补回 Crowdin 未翻译的仓库译文。
       - name: Crowdin push & pull
         uses: crowdin/github-action@v2
         with:
           upload_sources: true
           upload_translations: false
           download_translations: true
-          localization_branch_name: l10n/crowdin
-          create_pull_request: true
-          pull_request_title: "chore(i18n): 回流 Crowdin 译文"
-          pull_request_base_branch_name: "main"
+          push_translations: false
+          create_pull_request: false
         env:
-          # crowdin/github-action 开回流 PR 需显式拿到 GITHUB_TOKEN（permissions 块不足以注入）
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
 
-      # 进度快照供前端 TranslationBanner 展示，追加到同一个回流分支，
-      # 使「译文」与「进度」始终同批次进仓库。脚本无第三方依赖，无需 pnpm install。
-      - name: 更新翻译进度快照
+      # 1. 开发时直接写进仓库的译文在 Crowdin 上是未翻译状态，下载会导出空串；
+      #    Crowdin 无显式译文的 key 用 main 上的译文补回，有显式译文则以 Crowdin 为准。
+      #    补回的译文同时以未审校译文提交到 Crowdin（计入翻译进度、不计入审校进度），须在拉进度前执行。
+      # 2. 进度快照供前端 TranslationBanner 展示，与译文同批次进仓库。
+      # 脚本均无第三方依赖，无需 pnpm install。
+      - name: 补回仓库译文、更新进度并开回流 PR
         run: |
-          if ! git fetch origin l10n/crowdin; then
-            echo "回流分支不存在（本次无译文变更），跳过"
-            exit 0
-          fi
-          git checkout l10n/crowdin
+          # crowdin action 在 docker 内以 root 写文件，先收回所有权
+          sudo chown -R "$(id -u):$(id -g)" src/i18n
+          node scripts/backfill-i18n-translations.mjs HEAD
           node scripts/fetch-i18n-progress.mjs
-          if git diff --quiet -- src/i18n/progress.json; then
-            echo "进度无变化，跳过提交"
+
+          BRANCH=l10n/crowdin
+          OPEN_PR=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+
+          if [ -z "$(git status --porcelain -- src/i18n)" ]; then
+            echo "补回后与 main 无差异，无需回流"
+            if [ -n "$OPEN_PR" ]; then
+              gh pr close "$OPEN_PR" --delete-branch --comment "最新一次同步与 main 无差异，自动关闭。"
+            fi
             exit 0
           fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/i18n/progress.json
-          git commit -m "chore(i18n): 更新翻译进度快照"
-          git push origin l10n/crowdin
+          git checkout -B "$BRANCH"
+          git add src/i18n
+          git commit -m "chore(i18n): 回流 Crowdin 译文"
+          git push --force origin "$BRANCH"
+
+          if [ -z "$OPEN_PR" ]; then
+            gh pr create --base main --head "$BRANCH" \
+              --title "chore(i18n): 回流 Crowdin 译文" \
+              --body "由 Crowdin Sync workflow 自动生成。Crowdin 未翻译的 key 已用 main 上的译文补回。"
+          fi
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
