@@ -41,6 +41,37 @@
 - **禁止** 在提交信息、作者或 Co-Authored-By 字段中包含 "Claude" 字样。`.husky/commit-msg` hook 会拒绝提交信息或作者中包含 "claude"（大小写不敏感）的提交。
 - `.husky/pre-commit` 通过 lint-staged 运行 Prettier/ESLint/TypeScript 检查；commit 前确保改动能通过这些检查。
 
+## 游戏数据来源与核实
+
+游戏数据的唯一可信来源是解包仓库 [InfSein/ffxiv-datamining-mixed](https://github.com/InfSein/ffxiv-datamining-mixed)（格式同 xivapi/ffxiv-datamining，按客户端 / 语言分目录）。按需取原始 CSV：`https://raw.githubusercontent.com/InfSein/ffxiv-datamining-mixed/master/<目录>/<表名>.csv`。
+
+- `chs/`：国服简体中文，项目内的中文技能名 / 描述以此为准，默认使用。
+- `en/`、`ja/`：国际服英文 / 日文，需要英文 / 日文名称时对照。
+- 同一 ID 在各语言目录中指向同一条数据（已用雪仇 7535、医养 37010 等核对），可跨目录对照。
+
+**规则**：凡涉及游戏数据的内容——包括但不限于技能名、技能 ID、效果、数值、持续时间、复唱时间、充能、学习等级、特性、状态 ID、图标——无论写进代码逻辑、数据文件、注释、测试、文档还是提交信息，都必须先在上述数据源中核实，**不可凭记忆或推测虚构**。查不到或无法确认时，明确写「待核对」并说明缺什么，不要填一个看似合理的值。
+
+常用表：
+
+| 表                    | 用途                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `Action.csv`          | 技能 ID、名称、图标（`Icon`）、学习等级（`ClassJobLevel`）、基础复唱时间 |
+| `ActionTransient.csv` | 技能描述（效果、持续时间、数值）                                         |
+| `Trait.csv`           | 特性：名称、职业、学习等级                                               |
+| `TraitTransient.csv`  | 特性描述（技能随等级的变化，如复唱缩短、效果提高、技能替换）             |
+| `Status.csv`          | 状态 ID 与名称                                                           |
+| `ClassJob.csv`        | 职业 ID 与缩写                                                           |
+
+读表注意：
+
+- CSV 前三行是表头（key 行、字段名行、类型行），数据从第 4 行起；描述字段含换行，需用正规 CSV 解析器读取。
+- 技能描述内嵌等级条件：`<If(GreaterThanOrEqualTo(PlayerParameter(72),N))>…<Else/>…</If>` 中 `PlayerParameter(72)` 为等级，`PlayerParameter(68)` 为职业 ID；判断某等级下的效果需按条件求值，不能直接截取文本。
+- 部分表的字段名行（第 2 行）与数据列错位，数据只与类型行（第 3 行）对齐。按字段名取值前先用已知技能校验，以下为已验证的下标：
+  - `Action.csv`：约从下标 32 起字段名与数据对不上。已验证：图标下标 3、学习等级下标 13、基础复唱时间下标 41（字段名行标为 `CooldownGroup`，单位 100ms，如雪仇 `600`）。充能等其余列未经校验，以描述 / 特性为准。
+  - `Trait.csv`：下标 4 为职业 ID（职能特性为 `0`，此时看下标 5 的 ClassJobCategory），下标 6 为学习等级。
+- `Action.csv` 的复唱时间是未受特性影响的基础值（如展开战术为 `1200`，88 级特性后实际为 90s）；复唱时间的变化通常只写在 `TraitTransient.csv`，技能描述里没有，核实 CD 时需两表都查。
+- `Status.csv` 中同名状态可能有多个 ID（如「盾阵」有 728 与 1856），需结合项目内已用 ID（如 keigenn 注册表）或 FFLogs 实际数据确认。
+
 ## 项目概述
 
 Healerbook 是一个专为 FF14 治疗职业设计的减伤技能规划工具，提供：
