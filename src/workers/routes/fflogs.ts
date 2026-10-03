@@ -94,7 +94,7 @@ app.get('/import', async c => {
     )
 
     const timelineName = resolveImportTimelineName(fight)
-    const level = resolveImportTimelineLevel(fight)
+    const level = resolveImportTimelineLevel(fight, events)
 
     // 未收录副本（KV 无聚合统计）→ 从本场事件提取 statData 填充数值设置。
     // KV 抖动按"已支持"保守处理，绝不阻断导入。

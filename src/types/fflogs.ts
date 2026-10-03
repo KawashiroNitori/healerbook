@@ -124,6 +124,8 @@ export interface FFLogsEvent {
   absorb?: number
   /** 是否为 DOT/HOT tick */
   tick?: boolean
+  /** 角色等级（combatantinfo 事件，记录副本同步后的等级） */
+  level?: number
   /** Buff 列表（字符串格式） */
   buffs?: string
   /** 目标资源状态（包含 HP、MP 等） */

@@ -38,7 +38,7 @@ import { classifyPartialAOE } from './partialAoeClassifier'
 import { TANK_BUSTER_ACTION_IDS, AUTO_ATTACK_ACTION_IDS } from '@/data/actionOverride'
 import { getEncounterById, getEncounterWithTier } from '@/data/raidEncounters'
 import { extractBossCasts, attachCastWindows } from './castWindowImport'
-import { DEFAULT_LEVEL, toLevel, type Level } from '@/types/level'
+import { DEFAULT_LEVEL, SUPPORTED_LEVELS, toLevel, type Level } from '@/types/level'
 
 // actionChinese.json 为上游全量映射；action.json 为本地补充的额外 actionId → 中文名
 // （如 RSV 占位 id），后者覆盖前者以便就近修正翻译
@@ -1140,9 +1140,31 @@ export function resolveImportTimelineName(fight: FFLogsReport['fights'][number])
 }
 
 /**
- * 由 fight 推导时间轴默认等级：从静态副本表查表，查不到则回退 DEFAULT_LEVEL。
- * 与 timelineStorage.ts 的 createNewTimeline 走同一套查表 + toLevel 兜底路径。
+ * 由本场战斗推导时间轴等级：
+ * 1. 优先取 combatantinfo 事件的 level（FFLogs 记录的是副本同步后的等级），多名玩家取众数；
+ * 2. 事件缺失、或众数不在 SUPPORTED_LEVELS 档位内 → 回退静态副本表；
+ * 3. 副本表也查不到 → DEFAULT_LEVEL（与 timelineStorage.ts 的 createNewTimeline 同一套兜底）。
  */
-export function resolveImportTimelineLevel(fight: FFLogsReport['fights'][number]): Level {
-  return toLevel(getEncounterById(fight.encounterID || 0)?.level)
+export function resolveImportTimelineLevel(
+  fight: FFLogsReport['fights'][number],
+  events: FFLogsEvent[] = []
+): Level {
+  return levelFromCombatantInfo(events) ?? toLevel(getEncounterById(fight.encounterID || 0)?.level)
+}
+
+function levelFromCombatantInfo(events: FFLogsEvent[]): Level | undefined {
+  const counts = new Map<number, number>()
+  for (const e of events) {
+    if (e.type !== 'combatantinfo' || typeof e.level !== 'number') continue
+    counts.set(e.level, (counts.get(e.level) ?? 0) + 1)
+  }
+  let mode: number | undefined
+  let best = 0
+  for (const [level, count] of counts) {
+    if (count > best) {
+      mode = level
+      best = count
+    }
+  }
+  return SUPPORTED_LEVELS.includes(mode as Level) ? (mode as Level) : undefined
 }

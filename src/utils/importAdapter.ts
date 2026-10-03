@@ -106,7 +106,7 @@ export function validateCastsForImport(args: ValidateCastsArgs): {
     }
     const action = actionMap.get(raw.actionId)
     if (!action) {
-      // reason: actionId not in mitigation registry
+      // reason: actionId not in mitigation registry (or unavailable at the timeline's level)
       skipped++
       continue
     }

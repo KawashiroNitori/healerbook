@@ -16,6 +16,7 @@ import {
   parseFightImport,
   buildTargetabilityIntervals,
   isTargetableAt,
+  resolveImportTimelineLevel,
 } from './fflogsImporter'
 import type { FFLogsAbility, FFLogsReport, FFLogsEvent } from '@/types/fflogs'
 import type { Composition } from '@/types/timeline'
@@ -222,6 +223,47 @@ describe('parseFightImport 时间基准', () => {
     const events: FFLogsEvent[] = [{ type: 'damage', timestamp: 5000, targetID: 1 }]
     const result = parseFightImport(report, fight, events)
     expect(result.fightStartTime).toBe(5000)
+  })
+})
+
+describe('resolveImportTimelineLevel', () => {
+  const fightOf = (encounterID: number) =>
+    ({
+      id: 1,
+      name: 'Boss',
+      startTime: 0,
+      endTime: 1000,
+      encounterID,
+    }) as FFLogsReport['fights'][number]
+  const info = (sourceID: number, level?: number): FFLogsEvent => ({
+    type: 'combatantinfo',
+    timestamp: 0,
+    sourceID,
+    level,
+  })
+
+  it('优先取 combatantinfo 的同步等级（副本表未收录也能拿到）', () => {
+    const events = [info(1, 70), info(2, 70), { type: 'damage', timestamp: 10 }]
+    expect(resolveImportTimelineLevel(fightOf(1074), events)).toBe(70)
+  })
+
+  it('combatantinfo 优先于副本表', () => {
+    // 1079（FRU）在副本表中为 100 级
+    expect(resolveImportTimelineLevel(fightOf(1079), [info(1, 90), info(2, 90)])).toBe(90)
+  })
+
+  it('多名玩家等级不一致时取众数', () => {
+    const events = [info(1, 80), info(2, 80), info(3, 90)]
+    expect(resolveImportTimelineLevel(fightOf(0), events)).toBe(80)
+  })
+
+  it('众数不在支持档位内时回退副本表', () => {
+    expect(resolveImportTimelineLevel(fightOf(1079), [info(1, 50), info(2, 50)])).toBe(100)
+  })
+
+  it('无 combatantinfo / 缺 level 字段且副本表未收录时回退 DEFAULT_LEVEL', () => {
+    expect(resolveImportTimelineLevel(fightOf(0))).toBe(100)
+    expect(resolveImportTimelineLevel(fightOf(0), [info(1)])).toBe(100)
   })
 })
 
