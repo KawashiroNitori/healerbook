@@ -12,27 +12,53 @@ import type { ActionExecutionContext } from '@/types/mitigation'
 import { whileStatus, not, anyOf, timeRange } from '@/utils/placement/combinators'
 
 /**
- * 治疗 action executor 接入进度
+ * action 编写约定
  *
- * HP 模拟基础设施已落地（HpPool / createHealExecutor / createRegenExecutor /
- * regenStatusExecutor / simulate 主循环 hp 演化），但本期未给具体治疗 action 挂载。
- *
- * 待接入（按 spec §4.5 mapping 表，逐步铺开）：
- *   - 单次治疗：选定 action 加 statDataEntries: [{ type: 'heal', key: <id> }]，
- *     executor: createHealExecutor()。statistics 缺失时 healByAbility 取默认 10000
- *     兜底（statDataUtils.DEFAULT_VALUE），用户可在数值设置面板调整。
+ * 治疗 executor：
+ *   - 单次治疗：加 statDataEntries: [{ type: 'heal', key: <id> }]，executor: createHealExecutor()。
+ *     statistics 缺失时 healByAbility 取默认 10000 兜底（statDataUtils.DEFAULT_VALUE），
+ *     用户可在数值设置面板调整。
  *   - 纯 HoT：action.executor = createRegenExecutor(<HOT_STATUS_ID>, <DURATION>)；
  *     在 statusExtras.ts 给 HoT status 挂 executor: regenStatusExecutor。
  *   - 单次 + buff 组合：用 createHealExecutor + createBuffExecutor 串联（先 heal 后 buff），
  *     避免自身 buff 加成自身治疗（snapshot-on-apply 语义）。
  *   - heal/selfHeal 倍率：给对应 buff status 的 metadata.performance 加 heal/selfHeal 字段
  *     （只对非坦专 buff 生效；isTankOnly buff 不参与 HP 池累乘）。
+ *   - 延时治疗 / buff-trigger 等自定义 executor 改造时，评估是否改为组合 executor，
+ *     **不要直接覆盖**既有 executor。
+ *   详见 design/superpowers/specs/2026-04-28-hp-simulate-design.md「现有 mitigationActions 的迁移分类」。
  *
- * 注意：现有 `category: ['heal']` 的 action 多数已挂 createBuffExecutor 或自定义 executor
- * （延时治疗 / buff-trigger 模式），接入时需评估是否改为组合 executor，**不要直接覆盖**
- * 既有 executor。
+ * 等级分歧：
+ *   选型：技能换了 id（游戏里被新技能顶掉）→ 拆成两条 action，用 minLevel / maxLevel 分段；
+ *   同一 id 只是效果随特性变化 → 一条 action + levelOverrides。
  *
- * 详见 design/superpowers/specs/2026-04-28-hp-simulate-design.md §4.5。
+ *   minLevel / maxLevel（可用区间，闭区间 minLevel <= level <= maxLevel，省略 = 无下限 / 上限）：
+ *   - 写游戏真实等级（学习等级 / 特性等级，如 82、96），不要取整到 SUPPORTED_LEVELS 档位。
+ *   - minLevel 填该技能的学习等级。
+ *   - 新旧版替换：新版 minLevel = 新技能学习等级 N，旧版 maxLevel = N - 1。
+ *     区间必须首尾相接：重叠会让两个版本同时出现，留空会让该段等级没有这个技能。
+ *     例：盾阵 maxLevel: 81 / 圣盾阵 minLevel: 82；医济 maxLevel: 95 / 医养 minLevel: 96。
+ *   - 不建模升级关系：切到区间外的等级时，旧版 cast 会被清理，不会自动改写成新版。
+ *   - minLevel <= maxLevel，否则校验报错（level-range-inverted）。
+ *
+ *   levelOverrides（同 id 的低等级覆盖层）：
+ *   - 基线字段写 100 级的效果，覆盖层只描述更低等级段。
+ *   - upTo 是该层生效的最后一级（闭区间，level <= upTo 命中），
+ *     一般取「特性等级 - 1」：如 82 级特性延长持续时间，旧值所在层写 upTo: 81。
+ *   - 各层 upTo 必须严格升序、不重复（level-overrides-unsorted）。
+ *   - 只命中第一个满足 level <= upTo 的层，**不叠加**：每层都是该等级段的完整快照，
+ *     要写全这一段与基线不同的所有字段；相邻层重复字段是允许的。
+ *   - 合并方式为浅合并 { ...action, ...patch }；resourceEffects / statDataEntries 等数组字段整体替换，
+ *     不做元素级合并。
+ *   - patch 只能改 duration / cooldown / executor / resourceEffects / statDataEntries / placement（LevelPatch）；
+ *     id / jobs / trackGroup / category 不可随等级变化，需要变时按「换 id」拆成两条 action。
+ *   - upTo < minLevel 的层永不命中（level-override-dead），空 patch 无意义（level-override-empty），都会报错。
+ *
+ *   通用：
+ *   - 某条 action 因区间在某档退出技能池后，同 trackGroup 其余成员的 placement 仍须覆盖全时间轴；
+ *     validate.test.ts 会对 SUPPORTED_LEVELS 每档各跑一遍校验。
+ *   - 不确定的历史数值宁可不写：写错的低等级数据比没有更有害。
+ *   详见 src/types/mitigation.ts 与 design/superpowers/specs/2026-08-12-action-level-variants-design.md。
  */
 
 const SERAPHISM_BUFF_ID = 3885 // 炽天附体
