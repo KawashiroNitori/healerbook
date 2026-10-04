@@ -1121,22 +1121,21 @@ export function parseFightImport(
 }
 
 /**
- * 由 fight 推导时间轴名称：优先查 raidEncounters 的 tier/encounter 组合名，
+ * 由 fight 推导时间轴名称：优先使用所属 tier 的自定义命名规则，否则使用 encounter 名称。
  * 未收录则回退战斗名 / `战斗 N`。两条导入路径共用。
  */
 export function resolveImportTimelineName(fight: FFLogsReport['fights'][number]): string {
-  let name = fight.name || `战斗 ${fight.id}`
-  if (fight.encounterID) {
-    const result = getEncounterWithTier(fight.encounterID)
-    if (result) {
-      // 单副本 tier（如绝境战）的 tier.name === encounter.name，避免拼成 "X - X"
-      name =
-        result.tier.name === result.encounter.name
-          ? result.tier.name
-          : `${result.tier.name} - ${result.encounter.name}`
-    }
+  const result = getEncounterWithTier(fight.encounterID || 0)
+  if (result) {
+    const { tier, encounter } = result
+    return (
+      tier.formatTimelineName?.(tier, encounter) ||
+      encounter.name ||
+      fight.name ||
+      `战斗 ${fight.id}`
+    )
   }
-  return name
+  return fight.name || `战斗 ${fight.id}`
 }
 
 /**

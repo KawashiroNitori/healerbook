@@ -31,6 +31,8 @@ export interface RaidTier {
   comingSoon?: boolean
   // TOP100 默认选中此分组；多个分组为 true 时选择数组中的第一个
   defaultSelected?: boolean
+  // 导入时间轴的自定义命名；传入所属分组本体与当前副本，未配置时使用副本名称
+  formatTimelineName?: (tier: RaidTier, encounter: RaidEncounter) => string
   // 进度战特殊渲染：填入 mogtalk 进度榜单链接。存在时 Top100 面板渲染进度面板
   // （跑马灯横条 + 榜单链接 + 进度 template 卡片）而非常规排行表
   mogtalkUrl?: string
@@ -49,6 +51,7 @@ export const RAID_TIERS: RaidTier[] = [
     name: '阿卡狄亚零式登天斗技场 重量级',
     zone: 73,
     patch: '7.4',
+    formatTimelineName: (_, encounter) => `${encounter.shortName} - ${encounter.name}`,
     encounters: [
       { id: 101, name: '致命美人', shortName: 'M9S', gameZoneId: 1321, level: 100 },
       { id: 102, name: '极限兄弟', shortName: 'M10S', gameZoneId: 1323, level: 100 },
