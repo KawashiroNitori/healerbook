@@ -200,14 +200,15 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                   s => getStatusById(s.statusId)?.type === 'absorbed' && (s.absorb || 0) > 0
                 )
 
-                const totalPctMitigation = multiplierStatuses.reduce((acc, s) => {
-                  const meta = getStatusById(s.statusId)
-                  if (!meta) return acc
-                  // detail.statuses 是 StatusSnapshot（FFLogs 回放数据），不带 performance 快照字段，
-                  // 与 MitigationStatus（编辑模式计算结果）不同，故此处无 snapshot 优先的口径可修
-                  const multiplier = getMultiplierForDamageType(meta.performance, damageType)
-                  return acc * multiplier
-                }, 1)
+                // 优先取 FFLogs 记录的实际总倍率（已含等级差异）；DoT tick 等缺 multiplier 的事件
+                // 回退为注册表元数据（按 100 级）连乘
+                const totalPctMitigation =
+                  detail.multiplier ??
+                  multiplierStatuses.reduce((acc, s) => {
+                    const meta = getStatusById(s.statusId)
+                    if (!meta) return acc
+                    return acc * getMultiplierForDamageType(meta.performance, damageType)
+                  }, 1)
                 const pctReduction = ((1 - totalPctMitigation) * 100).toFixed(1)
 
                 const totalShield = shieldStatuses.reduce((sum, s) => sum + (s.absorb || 0), 0)
@@ -223,12 +224,10 @@ export default function PlayerDamageDetails({ event }: PlayerDamageDetailsProps)
                     getStatusName(status.statusId) ||
                     meta?.name ||
                     t('editor:playerDamage.unknownStatus')
+                  // 百分比减伤不展示单项数值：FFLogs 只记录整次伤害的总倍率，注册表数值按 100 级写，
+                  // 低等级下与实际不符
                   let mitigationText = ''
-                  if (meta?.type === 'multiplier') {
-                    // status 是 StatusSnapshot，不带 performance 快照字段，见上方 totalPctMitigation 注释
-                    const multiplier = getMultiplierForDamageType(meta.performance, damageType)
-                    mitigationText = `${((1 - multiplier) * 100).toFixed(1)}%`
-                  } else if (meta?.type === 'absorbed') {
+                  if (meta?.type === 'absorbed') {
                     mitigationText = t('editor:playerDamage.shieldTooltip', {
                       value: (status.absorb || 0).toLocaleString(),
                     })

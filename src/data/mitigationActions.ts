@@ -53,6 +53,10 @@ import { whileStatus, not, anyOf, timeRange } from '@/utils/placement/combinator
  *   - patch 只能改 duration / cooldown / executor / resourceEffects / statDataEntries / placement（LevelPatch）；
  *     id / jobs / trackGroup / category 不可随等级变化，需要变时按「换 id」拆成两条 action。
  *   - upTo < minLevel 的层永不命中（level-override-dead），空 patch 无意义（level-override-empty），都会报错。
+ *   - 状态 ID 不变、只是状态数值（减伤 / heal / maxHP 等）随等级变化：状态注册表按 100 级写，
+ *     不随等级变化。需在覆盖层的 executor 里显式传入 performance 选项，写入状态实例快照
+ *     （计算口径 status.performance ?? meta.performance）。performance 整体替换注册表的值，
+ *     须写全 physics / magic / darkness 及该等级下不为 1 的 heal / selfHeal / maxHP。
  *
  *   通用：
  *   - 某条 action 因区间在某档退出技能池后，同 trackGroup 其余成员的 placement 仍须覆盖全时间轴；
@@ -94,6 +98,18 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 8,
       executor: createBuffExecutor(1191, 20, { uniqueGroup: [] }),
+      // 94 级前没有「受治疗 +15%」
+      levelOverrides: [
+        {
+          upTo: 93,
+          patch: {
+            executor: createBuffExecutor(1191, 20, {
+              uniqueGroup: [],
+              performance: { physics: 0.8, magic: 0.8, darkness: 1 },
+            }),
+          },
+        },
+      ],
     },
 
     // 骑士 (PLD)
@@ -233,6 +249,17 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 30,
       executor: createBuffExecutor(87, 10),
+      // 78 级「战栗效果提高」前没有「受治疗 +20%」
+      levelOverrides: [
+        {
+          upTo: 77,
+          patch: {
+            executor: createBuffExecutor(87, 10, {
+              performance: { physics: 1, magic: 1, darkness: 1, maxHP: 1.2 },
+            }),
+          },
+        },
+      ],
     },
     {
       id: 43,
@@ -591,6 +618,17 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 52,
       executor: createRegenExecutor(1911, 24),
+      // 78 级「庇护所效果提高」前没有「区域内受治疗 +10%」
+      levelOverrides: [
+        {
+          upTo: 77,
+          patch: {
+            executor: createRegenExecutor(1911, 24, {
+              performance: { physics: 1, magic: 1, darkness: 1 },
+            }),
+          },
+        },
+      ],
       statDataEntries: [{ type: 'heal', key: 1001911, label: 'HoT' }],
     },
     {
@@ -1556,6 +1594,28 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 62,
       executor: createBuffExecutor(1934, 15, { uniqueGroup: [1934, 1951, 1826] }),
+      // 88 级「行吟效果提高」前 CD 120s；98 级「行吟效果提高II」前减伤 10%
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            cooldown: 120,
+            executor: createBuffExecutor(1934, 15, {
+              uniqueGroup: [1934, 1951, 1826],
+              performance: { physics: 0.9, magic: 0.9, darkness: 1 },
+            }),
+          },
+        },
+        {
+          upTo: 97,
+          patch: {
+            executor: createBuffExecutor(1934, 15, {
+              uniqueGroup: [1934, 1951, 1826],
+              performance: { physics: 0.9, magic: 0.9, darkness: 1 },
+            }),
+          },
+        },
+      ],
     },
     {
       id: 7408,
@@ -1580,6 +1640,28 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 56,
       executor: createBuffExecutor(1951, 15, { uniqueGroup: [1934, 1951, 1826] }),
+      // 88 级「策动效果提高」前 CD 120s；98 级「策动效果提高II」前减伤 10%
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            cooldown: 120,
+            executor: createBuffExecutor(1951, 15, {
+              uniqueGroup: [1934, 1951, 1826],
+              performance: { physics: 0.9, magic: 0.9, darkness: 1 },
+            }),
+          },
+        },
+        {
+          upTo: 97,
+          patch: {
+            executor: createBuffExecutor(1951, 15, {
+              uniqueGroup: [1934, 1951, 1826],
+              performance: { physics: 0.9, magic: 0.9, darkness: 1 },
+            }),
+          },
+        },
+      ],
     },
 
     {
@@ -1606,6 +1688,28 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 56,
       executor: createBuffExecutor(1826, 15, { uniqueGroup: [1934, 1951, 1826] }),
+      // 88 级「防守之桑巴效果提高」前 CD 120s；98 级「防守之桑巴效果提高II」前减伤 10%
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            cooldown: 120,
+            executor: createBuffExecutor(1826, 15, {
+              uniqueGroup: [1934, 1951, 1826],
+              performance: { physics: 0.9, magic: 0.9, darkness: 1 },
+            }),
+          },
+        },
+        {
+          upTo: 97,
+          patch: {
+            executor: createBuffExecutor(1826, 15, {
+              uniqueGroup: [1934, 1951, 1826],
+              performance: { physics: 0.9, magic: 0.9, darkness: 1 },
+            }),
+          },
+        },
+      ],
     },
     {
       id: 16015,

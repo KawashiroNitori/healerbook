@@ -2880,6 +2880,28 @@ describe('simulate 等级分歧', () => {
     expect(intervals.length).toBeGreaterThan(0)
   })
 
+  it('状态 ID 不变、数值随等级变化：行吟 90 级减伤 10%，100 级 15%', () => {
+    // 行吟（7405）挂状态 1934；98 级「行吟效果提高II」前减伤 10%，之后 15%
+    const run = (level: 90 | 100) =>
+      simulate({
+        castEvents: [{ id: 'c1', actionId: 7405, timestamp: 5, playerId: 0 } as CastEvent],
+        damageEvents: [
+          {
+            id: 'd1',
+            name: 'd1',
+            time: 10,
+            damage: 100000,
+            type: 'aoe',
+            damageType: 'physical',
+          } as DamageEvent,
+        ],
+        initialState: { players: [], statuses: [], timestamp: 0 },
+        level,
+      }).damageResults.get('d1')!.finalDamage
+    expect(run(90)).toBe(90000)
+    expect(run(100)).toBe(85000)
+  })
+
   it('未传 level 时按 100 级处理（存量调用向后兼容）', () => {
     const out = simulate({
       castEvents: [{ id: 'c1', actionId: MEDICA_III_ID, timestamp: 5, playerId: 0 } as CastEvent],

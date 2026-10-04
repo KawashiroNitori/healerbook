@@ -10,6 +10,8 @@ import { deriveResourceEvents, computeResourceAmount } from '@/utils/resource/co
 import type { PartyState } from '@/types/partyState'
 import type { ActionExecutionContext, MitigationAction } from '@/types/mitigation'
 import type { CastEvent } from '@/types/timeline'
+import type { Level } from '@/types/level'
+import { resolveActions } from './resolveAction'
 
 describe('mitigationActions', () => {
   const mockPartyState: PartyState = {
@@ -416,5 +418,55 @@ describe('mitigationActions', () => {
       expect(result.map(r => r.castEventId)).toEqual(['2'])
       expect(result[0].resourceId).toBe(`__cd__:${RHIZOMATA}`)
     })
+  })
+})
+
+describe('状态 ID 不变、数值随等级变化：覆盖层显式传入 performance', () => {
+  const partyState = { statuses: [], timestamp: 0 } as unknown as PartyState
+  const cast = (level: Level, actionId: number, statusId: number) => {
+    const action = resolveActions(level).actionMap.get(actionId)!
+    const next = action.executor!({ actionId, useTime: 0, partyState, sourcePlayerId: 1 })
+    return { action, status: next.statuses.find(s => s.statusId === statusId) }
+  }
+
+  // 行吟 7405 / 策动 16889 / 防守之桑巴 16012：88 级前 CD 120s，98 级前减伤 10%
+  for (const [actionId, statusId] of [
+    [7405, 1934],
+    [16889, 1951],
+    [16012, 1826],
+  ]) {
+    it(`${actionId}：80 级 CD 120s + 10%，90 级 CD 90s + 10%，100 级沿用注册表`, () => {
+      const lv80 = cast(80, actionId, statusId)
+      expect(lv80.action.cooldown).toBe(120)
+      expect(lv80.status?.performance).toEqual({ physics: 0.9, magic: 0.9, darkness: 1 })
+
+      const lv90 = cast(90, actionId, statusId)
+      expect(lv90.action.cooldown).toBe(90)
+      expect(lv90.status?.performance).toEqual({ physics: 0.9, magic: 0.9, darkness: 1 })
+
+      const lv100 = cast(100, actionId, statusId)
+      expect(lv100.status?.performance).toBeUndefined()
+    })
+  }
+
+  it('庇护所 3569：70 级 HoT 实例不带治疗增益，80 级沿用注册表', () => {
+    expect(cast(70, 3569, 1911).status?.performance?.heal).toBeUndefined()
+    expect(cast(80, 3569, 1911).status?.performance).toBeUndefined()
+  })
+
+  it('铁壁 7531：90 级保留 20% 减伤、不带受治疗增益，100 级沿用注册表', () => {
+    expect(cast(90, 7531, 1191).status?.performance).toEqual({
+      physics: 0.8,
+      magic: 0.8,
+      darkness: 1,
+    })
+    expect(cast(100, 7531, 1191).status?.performance).toBeUndefined()
+  })
+
+  it('战栗 40：70 级保留最大体力 +20%、不带受治疗增益，80 级沿用注册表', () => {
+    const lv70 = cast(70, 40, 87).status?.performance
+    expect(lv70?.maxHP).toBe(1.2)
+    expect(lv70?.heal).toBeUndefined()
+    expect(cast(80, 40, 87).status?.performance).toBeUndefined()
   })
 })

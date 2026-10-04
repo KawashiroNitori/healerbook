@@ -1299,18 +1299,20 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
           if (multipliers.length > 0) {
             const damageType = event.damageType || 'physical'
-            // statuses 来自 detail.statuses（StatusSnapshot），不带 performance 快照字段，
-            // 与 calc.appliedStatuses（MitigationStatus，见下方编辑模式分支）不同，无 snapshot 优先口径可修
-            const parts = multipliers.map(s => {
-              const meta = getStatusById(s.statusId)!
-              const perf = getMultiplierForDamageType(meta.performance, damageType)
-              return `${getStatusName(s.statusId) || meta.name}(${((1 - perf) * 100).toFixed(0)}%)`
-            })
-            const totalMult = multipliers.reduce((acc, s) => {
-              const meta = getStatusById(s.statusId)!
-              const perf = getMultiplierForDamageType(meta.performance, damageType)
-              return acc * perf
-            }, 1)
+            // statuses 来自 detail.statuses（StatusSnapshot），只有状态 ID。单项不列数值：FFLogs
+            // 只记录整次伤害的总倍率，注册表数值按 100 级写，低等级下与实际不符
+            const parts = multipliers.map(
+              s => getStatusName(s.statusId) || getStatusById(s.statusId)!.name
+            )
+            // 优先取 FFLogs 记录的实际总倍率；缺 multiplier 时回退注册表元数据（按 100 级）连乘
+            const totalMult =
+              detail.multiplier ??
+              multipliers.reduce(
+                (acc, s) =>
+                  acc *
+                  getMultiplierForDamageType(getStatusById(s.statusId)!.performance, damageType),
+                1
+              )
             lines.push(
               `    ${t('editor:timeline.copyMitigation')}: ${parts.join(' + ')} = ${((1 - totalMult) * 100).toFixed(1)}%`
             )

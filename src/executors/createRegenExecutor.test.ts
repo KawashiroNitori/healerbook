@@ -106,6 +106,15 @@ describe('createRegenExecutor (cast 时挂状态)', () => {
     expect(next.statuses.map(s => s.instanceId)).toContain('other')
   })
 
+  it('传入 performance 时写入状态实例快照，未传时不写', () => {
+    const performance = { physics: 1, magic: 1, darkness: 1 }
+    const withPerf = createRegenExecutor(500, 30, { tickAmount: 1000, performance })(mkCtx())
+    expect(withPerf.statuses[0].performance).toEqual(performance)
+
+    const without = createRegenExecutor(500, 30, { tickAmount: 1000 })(mkCtx())
+    expect(without.statuses[0]).not.toHaveProperty('performance')
+  })
+
   it('未指定 tickAmount 时按 healByAbility[1e6 + statusId] 取每 tick 量', () => {
     const exec = createRegenExecutor(500, 30)
     const ctx = mkCtx({

@@ -9,6 +9,7 @@
  */
 
 import type { ActionExecutor } from '@/types/mitigation'
+import type { PerformanceType } from '@/types/status'
 import { computeFinalHeal } from './healMath'
 import { addStatus } from './statusHelpers'
 
@@ -19,6 +20,8 @@ export interface RegenExecutorOptions {
    *         （buff 类治疗在 statistics 中以 1e6 + statusId 为 key，值已是每 tick 量）
    */
   tickAmount?: number
+  /** 覆写 metadata.performance 的固定快照值（如低等级下 HoT 区域不带治疗增益） */
+  performance?: PerformanceType
 }
 
 export function createRegenExecutor(
@@ -43,6 +46,7 @@ export function createRegenExecutor(
       sourceActionId: ctx.actionId,
       sourcePlayerId: ctx.sourcePlayerId,
       data: { tickAmount: snapshotTickAmount, castEventId: ctx.castEventId ?? '' },
+      ...(options?.performance !== undefined ? { performance: options.performance } : {}),
       // 同一玩家的同名 HoT 不共存：新 cast 互斥替换旧实例（不同玩家可共存）
       replaces: s => s.statusId === statusId && s.sourcePlayerId === ctx.sourcePlayerId,
     })
