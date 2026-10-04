@@ -23,18 +23,28 @@ export interface RaidTier {
   name: string
   // 区域 ID
   zone: number
-  // 补丁版本
-  patch: string
+  // 补丁版本；跨多个版本的合集（如往期绝境战）可留空或省略，展示时不输出版本号
+  patch?: string
   // 副本列表
   encounters: RaidEncounter[]
   // 未发布占位：Top100 面板显示"敬请期待"，下拉/导入等实际入口应过滤掉
   comingSoon?: boolean
+  // TOP100 默认选中此分组；多个分组为 true 时选择数组中的第一个
+  defaultSelected?: boolean
   // 进度战特殊渲染：填入 mogtalk 进度榜单链接。存在时 Top100 面板渲染进度面板
   // （跑马灯横条 + 榜单链接 + 进度 template 卡片）而非常规排行表
   mogtalkUrl?: string
 }
 
 export const RAID_TIERS: RaidTier[] = [
+  {
+    name: '妖星乱舞绝境战',
+    zone: 76,
+    patch: '7.5',
+    encounters: [
+      { id: 1085, name: '妖星乱舞绝境战', shortName: 'DMU', gameZoneId: 1363, level: 100 },
+    ],
+  },
   {
     name: '阿卡狄亚零式登天斗技场 重量级',
     zone: 73,
@@ -56,11 +66,14 @@ export const RAID_TIERS: RaidTier[] = [
     ],
   },
   {
-    name: '妖星乱舞绝境战',
-    zone: 73,
-    patch: '7.5',
+    name: '往期绝境战',
+    zone: 59,
     encounters: [
-      { id: 1085, name: '妖星乱舞绝境战', shortName: 'DMU', gameZoneId: 1363, level: 100 },
+      { id: 1073, name: '巴哈姆特绝境战', shortName: 'UCoB', gameZoneId: 733, level: 70 },
+      { id: 1074, name: '究极神兵绝境战', shortName: 'UWU', gameZoneId: 777, level: 70 },
+      { id: 1075, name: '亚历山大绝境战', shortName: 'TEA', gameZoneId: 887, level: 80 },
+      { id: 1076, name: '幻想龙诗绝境战', shortName: 'DSR', gameZoneId: 968, level: 90 },
+      { id: 1077, name: '欧米茄绝境验证战', shortName: 'TOP', gameZoneId: 1122, level: 90 },
     ],
   },
 ]

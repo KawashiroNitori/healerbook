@@ -11,6 +11,8 @@
   "createTimeline": {
     "encounterLabel": "Encounter",
     "encounterNone": "Other (no encounter)",
+    "otherGroup": "Other",
+    "otherLevel": "No encounter - Lv{level}",
     "encounterPlaceholder": "Select an encounter",
     "nameLabel": "Timeline name",
     "nameRequired": "Please enter a timeline name",

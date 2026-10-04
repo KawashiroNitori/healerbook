@@ -11,6 +11,8 @@
   "createTimeline": {
     "encounterLabel": "",
     "encounterNone": "",
+    "otherGroup": "기타",
+    "otherLevel": "콘텐츠 지정 안 함 - Lv{level}",
     "encounterPlaceholder": "",
     "nameLabel": "",
     "nameRequired": "",

@@ -11,6 +11,8 @@
   "createTimeline": {
     "encounterLabel": "副本",
     "encounterNone": "其他（不指定副本）",
+    "otherGroup": "其他",
+    "otherLevel": "不指定副本 - Lv{level}",
     "encounterPlaceholder": "选择副本",
     "nameLabel": "时间轴名称",
     "nameRequired": "请输入时间轴名称",

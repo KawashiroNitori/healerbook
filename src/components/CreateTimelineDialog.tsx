@@ -28,16 +28,9 @@ import { RAID_TIERS } from '@/data/raidEncounters'
 import { track } from '@/utils/analytics'
 import { fetchEncounterTemplate } from '@/api/encounterTemplate'
 import type { EncounterTemplateResponse } from '@/types/apiContracts'
+import { SUPPORTED_LEVELS } from '@/types/level'
 
-// 妖星乱舞绝境战置顶展示，其余副本保持原有顺序
-const PRIORITY_ENCOUNTER_ID = 1085
-const VISIBLE_TIERS = [...RAID_TIERS]
-  .filter(tier => !tier.comingSoon)
-  .sort((a, b) => {
-    const rank = (tier: (typeof RAID_TIERS)[number]) =>
-      tier.encounters.some(e => e.id === PRIORITY_ENCOUNTER_ID) ? 0 : 1
-    return rank(a) - rank(b)
-  })
+const VISIBLE_TIERS = RAID_TIERS.filter(tier => !tier.comingSoon)
 
 interface CreateTimelineDialogProps {
   open: boolean
@@ -53,7 +46,7 @@ export default function CreateTimelineDialog({
   const { t } = useTranslation(['home', 'common'])
   const [name, setName] = useState('')
   const [encounterId, setEncounterId] = useState(
-    VISIBLE_TIERS[0]?.encounters[0]?.id.toString() || ''
+    VISIBLE_TIERS[0]?.encounters[0]?.id.toString() || 'other:100'
   )
   const queryClient = useQueryClient()
 
@@ -78,14 +71,19 @@ export default function CreateTimelineDialog({
       return
     }
 
-    const encounterIdNum = parseInt(encounterId)
-    const cached = queryClient.getQueryData<EncounterTemplateResponse>([
-      'encounter-template',
-      encounterIdNum,
-    ])
+    const otherLevel = SUPPORTED_LEVELS.find(level => encounterId === `other:${level}`)
+    const encounterIdNum = otherLevel ? 0 : parseInt(encounterId)
+    const cached =
+      encounterIdNum > 0
+        ? queryClient.getQueryData<EncounterTemplateResponse>([
+            'encounter-template',
+            encounterIdNum,
+          ])
+        : undefined
     const initialEvents = cached?.events
 
-    const base = createNewTimeline(encounterId, name.trim(), initialEvents)
+    const base = createNewTimeline(String(encounterIdNum), name.trim(), initialEvents)
+    if (otherLevel) base.level = otherLevel
     const newId = await createLocalTimeline(timelineToLocalInit(base))
     useUIStore.setState({ manualLock: false })
     track('timeline-create', { method: 'manual', encounterId: encounterIdNum })
@@ -129,7 +127,7 @@ export default function CreateTimelineDialog({
                 {VISIBLE_TIERS.map(tier => (
                   <SelectGroup key={tier.zone}>
                     <SelectLabel>
-                      {tier.name} ({tier.patch})
+                      {tier.patch ? `${tier.name} (${tier.patch})` : tier.name}
                     </SelectLabel>
                     {tier.encounters.map(encounter => (
                       <SelectItem key={encounter.id} value={encounter.id.toString()}>
@@ -138,7 +136,14 @@ export default function CreateTimelineDialog({
                     ))}
                   </SelectGroup>
                 ))}
-                <SelectItem value="0">{t('home:createTimeline.encounterNone')}</SelectItem>
+                <SelectGroup>
+                  <SelectLabel>{t('home:createTimeline.otherGroup')}</SelectLabel>
+                  {SUPPORTED_LEVELS.map(level => (
+                    <SelectItem key={level} value={`other:${level}`}>
+                      {t('home:createTimeline.otherLevel', { level })}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>

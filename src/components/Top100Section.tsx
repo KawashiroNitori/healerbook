@@ -498,12 +498,9 @@ function ProgressEncounterPanel({
 export default function Top100Section() {
   const { t } = useTranslation(['home', 'common'])
   const [importUrl, setImportUrl] = useState<string | null>(null)
-  // 默认最新"已发布"赛季——避免用户打开页面直接落到 comingSoon 占位 Tab。
   const [activeTierIdx, setActiveTierIdx] = useState(() => {
-    for (let i = RAID_TIERS.length - 1; i >= 0; i--) {
-      if (!RAID_TIERS[i].comingSoon) return i
-    }
-    return RAID_TIERS.length - 1
+    const defaultIdx = RAID_TIERS.findIndex(tier => tier.defaultSelected)
+    return defaultIdx === -1 ? 0 : defaultIdx
   })
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -596,7 +593,7 @@ export default function Top100Section() {
       <div className="flex gap-1 mb-4 border-b">
         {RAID_TIERS.map((tier, idx) => (
           <button
-            key={tier.patch}
+            key={tier.zone}
             onClick={() => setActiveTierIdx(idx)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               activeTierIdx === idx
@@ -604,7 +601,7 @@ export default function Top100Section() {
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tier.patch} {tier.name.split('：')[1]?.split(' ')[0] ?? tier.name}
+            {tier.patch ? `${tier.patch} ${tier.name}` : tier.name}
           </button>
         ))}
       </div>

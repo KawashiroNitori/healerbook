@@ -11,6 +11,8 @@
   "createTimeline": {
     "encounterLabel": "Inhalt",
     "encounterNone": "Sonstige (kein Inhalt angegeben)",
+    "otherGroup": "Sonstige",
+    "otherLevel": "Kein Inhalt angegeben - Lv{level}",
     "encounterPlaceholder": "Inhalt auswählen",
     "nameLabel": "Name der Zeitleiste",
     "nameRequired": "Bitte einen Namen für die Zeitleiste eingeben",

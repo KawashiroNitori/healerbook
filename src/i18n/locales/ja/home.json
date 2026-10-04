@@ -11,6 +11,8 @@
   "createTimeline": {
     "encounterLabel": "コンテンツ",
     "encounterNone": "その他（コンテンツを指定しない）",
+    "otherGroup": "その他",
+    "otherLevel": "コンテンツを指定しない - Lv{level}",
     "encounterPlaceholder": "コンテンツを選択",
     "nameLabel": "タイムライン名",
     "nameRequired": "タイムライン名を入力してください",

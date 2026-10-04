@@ -11,6 +11,8 @@
   "createTimeline": {
     "encounterLabel": "Mission",
     "encounterNone": "Autre (aucune mission)",
+    "otherGroup": "Autres",
+    "otherLevel": "Aucune mission - Lv{level}",
     "encounterPlaceholder": "Sélectionner une mission",
     "nameLabel": "Nom de la chronologie",
     "nameRequired": "Veuillez saisir un nom de chronologie",
