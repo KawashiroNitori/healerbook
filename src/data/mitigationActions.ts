@@ -87,6 +87,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       minLevel: 22,
       placement: timeRange(0),
       executor: createBuffExecutor(1193, 15),
+      // 98 级「雪仇效果提高」前持续时间 10s
+      levelOverrides: [
+        {
+          upTo: 97,
+          patch: {
+            duration: 10,
+            executor: createBuffExecutor(1193, 10),
+          },
+        },
+      ],
     },
     {
       id: 7531,
@@ -129,6 +139,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       statDataEntries: [
         { type: 'shield', key: 1362 },
         { type: 'heal', key: 3540 },
+      ],
+      // 88 级「圣光幕帘效果提高」前没有附带直接治疗效果
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            executor: createShieldExecutor(1362, 30),
+            statDataEntries: [{ type: 'shield', key: 1362 }],
+          },
+        },
       ],
     },
     {
@@ -177,7 +197,14 @@ export const MITIGATION_DATA: MitigationDataSource = {
       minLevel: 62,
       executor: (ctx: ActionExecutionContext) => {
         let performace = 0.9
-        if (ctx.partyState.statuses.some(s => s.statusId === 1191 || s.statusId === 3829)) {
+        // 仅施法者自身处于铁壁 / 极致防御时提高效果
+        if (
+          ctx.partyState.statuses.some(
+            s =>
+              (s.statusId === 1191 || s.statusId === 3829) &&
+              s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
           performace = 0.8
         }
         const partyState = createBuffExecutor(1174, 8, {
@@ -185,6 +212,76 @@ export const MITIGATION_DATA: MitigationDataSource = {
         })(ctx)
         return createBuffExecutor(2675, 4)({ ...ctx, partyState })
       },
+      // 82 级「干预效果提高」前持续时间仅 6s，同时不附加状态「骑士的坚守」「骑士的加护」
+      // 92 级前联动状态为「预警 (74)」而非「极致防御 (3829)」
+      levelOverrides: [
+        {
+          upTo: 81,
+          patch: {
+            duration: 6,
+            executor: ctx => {
+              let performace = 0.9
+              // 仅施法者自身处于铁壁 / 预警时提高效果
+              if (
+                ctx.partyState.statuses.some(
+                  s =>
+                    (s.statusId === 1191 || s.statusId === 74) &&
+                    s.sourcePlayerId === ctx.sourcePlayerId
+                )
+              ) {
+                performace = 0.8
+              }
+              return createBuffExecutor(1174, 6, {
+                performance: { physics: performace, magic: performace, darkness: 1 },
+              })(ctx)
+            },
+          },
+        },
+        {
+          upTo: 91,
+          patch: {
+            executor: (ctx: ActionExecutionContext) => {
+              let performace = 0.9
+              // 仅施法者自身处于铁壁 / 预警时提高效果
+              if (
+                ctx.partyState.statuses.some(
+                  s =>
+                    (s.statusId === 1191 || s.statusId === 74) &&
+                    s.sourcePlayerId === ctx.sourcePlayerId
+                )
+              ) {
+                performace = 0.8
+              }
+              const partyState = createBuffExecutor(1174, 8, {
+                performance: { physics: performace, magic: performace, darkness: 1 },
+              })(ctx)
+              return createBuffExecutor(2675, 4)({ ...ctx, partyState })
+            },
+          },
+        },
+      ],
+    },
+    {
+      id: 3542,
+      name: '盾阵',
+      icon: '/i/002000/002510.png',
+      jobs: ['PLD'],
+      category: ['self', 'percentage'],
+      duration: 6,
+      cooldown: 5,
+      minLevel: 35,
+      maxLevel: 81,
+      executor: createBuffExecutor(1856, 6),
+      // 74 级「盾阵效果提高」前生效时间为 4s
+      levelOverrides: [
+        {
+          upTo: 73,
+          patch: {
+            duration: 4,
+            executor: createBuffExecutor(1856, 4),
+          },
+        },
+      ],
     },
     {
       id: 25746,
@@ -201,6 +298,18 @@ export const MITIGATION_DATA: MitigationDataSource = {
           performance: { physics: 0.85, magic: 0.85, darkness: 1 },
         })({ ...ctx, partyState })
       },
+    },
+    {
+      id: 17,
+      name: '预警',
+      icon: '/i/000000/000151.png',
+      jobs: ['PLD'],
+      category: ['self', 'percentage'],
+      duration: 15,
+      cooldown: 120,
+      minLevel: 38,
+      maxLevel: 91,
+      executor: createBuffExecutor(74, 15),
     },
     {
       id: 36920,
@@ -237,6 +346,22 @@ export const MITIGATION_DATA: MitigationDataSource = {
         { type: 'shield', key: 1457 },
         { type: 'heal', key: 7388 },
         { type: 'heal', key: 1002108, label: 'HoT' },
+      ],
+      // 76 级「摆脱效果提高」前没有群疗
+      levelOverrides: [
+        {
+          upTo: 75,
+          patch: {
+            executor: ctx => {
+              const partyState = createShieldExecutor(1457, 30)(ctx)
+              return createRegenExecutor(2108, 15)({ ...ctx, partyState })
+            },
+            statDataEntries: [
+              { type: 'shield', key: 1457 },
+              { type: 'heal', key: 1002108, label: 'HoT' },
+            ],
+          },
+        },
       ],
     },
     {
@@ -287,6 +412,33 @@ export const MITIGATION_DATA: MitigationDataSource = {
         return createShieldExecutor(2680, 20)({ ...ctx, partyState }) // 原初的血烟
       },
       statDataEntries: [{ type: 'shield', key: 2680 }],
+      // 与原初的直觉 / 原初的血气共享复唱时间
+      resourceEffects: [{ resourceId: 'war:nascent', delta: -1 }],
+      // 82 级「原初的勇猛效果提高」前持续时间为 6s，且没有原初的血潮与原初的血烟
+      levelOverrides: [
+        {
+          upTo: 81,
+          patch: {
+            duration: 6,
+            executor: createBuffExecutor(1858, 6), // 原初的武猛
+            statDataEntries: [],
+          },
+        },
+      ],
+    },
+    {
+      id: 3551,
+      name: '原初的直觉',
+      icon: '/i/002000/002559.png',
+      jobs: ['WAR'],
+      category: ['self', 'percentage'],
+      duration: 6,
+      cooldown: 25,
+      minLevel: 56,
+      maxLevel: 81,
+      executor: createBuffExecutor(735, 6),
+      // 76 级起与原初的勇猛共享复唱时间
+      resourceEffects: [{ resourceId: 'war:nascent', delta: -1 }],
     },
     {
       id: 25751,
@@ -298,11 +450,25 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 25,
       minLevel: 82,
       executor: ctx => {
-        let partyState = createBuffExecutor(2678, 8)(ctx) // 原初的武猛
+        let partyState = createBuffExecutor(2678, 8)(ctx) // 原初的血气
         partyState = createBuffExecutor(2679, 4)({ ...ctx, partyState }) // 原初的血潮
         return createShieldExecutor(2680, 20)({ ...ctx, partyState }) // 原初的血烟
       },
       statDataEntries: [{ type: 'shield', key: 2680 }],
+      // 与原初的勇猛共享复唱时间
+      resourceEffects: [{ resourceId: 'war:nascent', delta: -1 }],
+    },
+    {
+      id: 44,
+      name: '复仇',
+      icon: '/i/000000/000267.png',
+      jobs: ['WAR'],
+      category: ['self', 'percentage'],
+      duration: 15,
+      cooldown: 120,
+      minLevel: 38,
+      maxLevel: 91,
+      executor: createBuffExecutor(89, 15),
     },
     {
       id: 36923,
@@ -375,6 +541,18 @@ export const MITIGATION_DATA: MitigationDataSource = {
       resourceEffects: [{ resourceId: 'drk:oblation', delta: -1 }],
     },
     {
+      id: 3636,
+      name: '暗影墙',
+      icon: '/i/003000/003075.png',
+      jobs: ['DRK'],
+      category: ['self', 'percentage'],
+      duration: 15,
+      cooldown: 120,
+      minLevel: 38,
+      maxLevel: 91,
+      executor: createBuffExecutor(747, 15),
+    },
+    {
       id: 36927,
       name: '暗影卫',
       icon: '/i/003000/003094.png',
@@ -421,6 +599,18 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createBuffExecutor(1836, 10),
     },
     {
+      id: 16161,
+      name: '石之心',
+      icon: '/i/003000/003425.png',
+      jobs: ['GNB'],
+      category: ['self', 'target', 'percentage'],
+      duration: 7,
+      cooldown: 25,
+      minLevel: 68,
+      maxLevel: 81,
+      executor: createBuffExecutor(1840, 7),
+    },
+    {
       id: 25758,
       name: '刚玉之心',
       icon: '/i/003000/003430.png',
@@ -433,6 +623,18 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const partyState = createBuffExecutor(2683, 8)(ctx)
         return createBuffExecutor(2684, 4)({ ...ctx, partyState })
       },
+    },
+    {
+      id: 16148,
+      name: '星云',
+      icon: '/i/003000/003412.png',
+      jobs: ['GNB'],
+      category: ['self', 'percentage'],
+      duration: 15,
+      cooldown: 120,
+      minLevel: 38,
+      maxLevel: 91,
+      executor: createBuffExecutor(1834, 15),
     },
     {
       id: 36935,

@@ -9,6 +9,7 @@ describe('RESOURCE_REGISTRY style', () => {
     'sge:addersgall': 'lightsWithBar',
     'sch:consolation': 'cooldown',
     'drk:oblation': 'cooldown',
+    'war:nascent': 'cooldown',
     'ast:intersection': 'cooldown',
     'whm:divine': 'cooldown',
   }

@@ -470,3 +470,79 @@ describe('状态 ID 不变、数值随等级变化：覆盖层显式传入 perfo
     expect(cast(80, 40, 87).status?.performance).toBeUndefined()
   })
 })
+
+describe('干预 7382：铁壁 / 预警 / 极致防御联动仅限施法者自身', () => {
+  const withStatus = (statusId: number, owner: number) =>
+    ({
+      statuses: [{ instanceId: 'x', statusId, startTime: 0, endTime: 99, sourcePlayerId: owner }],
+      timestamp: 0,
+    }) as unknown as PartyState
+  const interventionPhysics = (level: Level, statusId: number, owner: number) =>
+    resolveActions(level).actionMap.get(7382)!.executor!({
+      actionId: 7382,
+      useTime: 0,
+      partyState: withStatus(statusId, owner),
+      sourcePlayerId: 1,
+    }).statuses.find(s => s.statusId === 1174)?.performance?.physics
+
+  // 92 级前联动预警 74，之后联动极致防御 3829；铁壁 1191 各等级都联动
+  for (const [level, statusId] of [
+    [80, 1191],
+    [80, 74],
+    [90, 74],
+    [100, 1191],
+    [100, 3829],
+  ] as const) {
+    it(`${level} 级：自身带 ${statusId} 时 20%，他人带时 10%`, () => {
+      expect(interventionPhysics(level, statusId, 1)).toBe(0.8)
+      expect(interventionPhysics(level, statusId, 2)).toBe(0.9)
+    })
+  }
+})
+
+describe('战士原初系共享复唱（war:nascent）', () => {
+  const RAW_INTUITION = 3551 // 原初的直觉
+  const BLOODWHETTING = 25751 // 原初的血气
+  const NASCENT_FLASH = 16464 // 原初的勇猛
+  const cast = (id: string, actionId: number, timestamp: number): CastEvent => ({
+    id,
+    actionId,
+    timestamp,
+    playerId: 1,
+  })
+  const exhausted = (level: Level, casts: CastEvent[]) =>
+    findResourceExhaustedCasts(casts, resolveActions(level).actionMap, RESOURCE_REGISTRY).map(
+      r => r.castEventId
+    )
+
+  it('war:nascent 注册：单层、25s 回充，与三者 cooldown 一致', () => {
+    const def = RESOURCE_REGISTRY['war:nascent']
+    expect(def).toMatchObject({
+      job: 'WAR',
+      initial: 1,
+      max: 1,
+      regen: { interval: 25, amount: 1 },
+    })
+    for (const id of [RAW_INTUITION, BLOODWHETTING, NASCENT_FLASH]) {
+      const action = MITIGATION_DATA.actions.find(a => a.id === id)!
+      expect(action.cooldown).toBe(def.regen!.interval)
+      expect(action.resourceEffects).toEqual([{ resourceId: 'war:nascent', delta: -1 }])
+    }
+  })
+
+  it('80 级：原初的直觉后 10s 接原初的勇猛 → 共享 CD 未转好，被拦截', () => {
+    expect(exhausted(80, [cast('1', RAW_INTUITION, 0), cast('2', NASCENT_FLASH, 10)])).toEqual([
+      '2',
+    ])
+  })
+
+  it('80 级：间隔 25s → 都合法', () => {
+    expect(exhausted(80, [cast('1', NASCENT_FLASH, 0), cast('2', RAW_INTUITION, 25)])).toEqual([])
+  })
+
+  it('100 级：原初的血气后 10s 接原初的勇猛 → 被拦截', () => {
+    expect(exhausted(100, [cast('1', BLOODWHETTING, 0), cast('2', NASCENT_FLASH, 10)])).toEqual([
+      '2',
+    ])
+  })
+})

@@ -54,6 +54,17 @@ export const RESOURCE_REGISTRY: Record<string, ResourceDefinition> = {
     // 仅信息性，两者改动需同步）。
     regen: { interval: 60, amount: 1 },
   },
+  'war:nascent': {
+    id: 'war:nascent',
+    name: '原初共享复唱',
+    job: 'WAR',
+    initial: 1,
+    max: 1,
+    style: 'cooldown',
+    // 原初的直觉(3551) / 原初的血气(25751) 与原初的勇猛(16464) 共享复唱时间（见技能描述），三者基础
+    // 复唱均为 25s。regen.interval 与三者的 cooldown 保持一致（后者含消费者时仅信息性，两者改动需同步）。
+    regen: { interval: 25, amount: 1 },
+  },
   'whm:lily': {
     id: 'whm:lily',
     name: '治疗百合',
