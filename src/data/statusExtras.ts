@@ -332,6 +332,12 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
 
   // 白魔法师
   1873: { selfHeal: 1.2 }, // 节制
+  150: {
+    name: '医济',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
   3880: {
     name: '医养',
     category: ['partywide', 'heal'],
@@ -510,6 +516,12 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     isFriendly: true,
     selfHeal: 1.2,
   },
+  836: {
+    name: '阳星相位',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    executor: regenStatusExecutor,
+  },
   3894: {
     name: '阳星合相',
     category: ['partywide', 'heal'],
@@ -567,8 +579,14 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
     name: '自生II',
     category: ['partywide', 'percentage'],
     isFriendly: true,
-    heal: 1.1,
     executor: regenStatusExecutor,
+  },
+  // 自生II 附带的受治疗提升，与 HoT（2620）是两个独立状态，持续时间不同
+  2621: {
+    name: '催进',
+    category: ['partywide', 'heal'],
+    isFriendly: true,
+    heal: 1.1,
   },
   3899: {
     name: '幸福',

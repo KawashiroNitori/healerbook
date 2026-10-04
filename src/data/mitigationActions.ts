@@ -67,6 +67,62 @@ import { whileStatus, not, anyOf, timeRange } from '@/utils/placement/combinator
 
 const SERAPHISM_BUFF_ID = 3885 // 炽天附体
 
+/**
+ * 学者鼓舞群盾类技能共用的 executor：展开战术 / 士气高扬之策 / 意气轩昂之策。
+ *
+ * 盾量 = 治疗量 × 盾量倍率，挂鼓舞（297）30s。秘策（1896）激活时必定暴击，改用暴击治疗量预估；
+ * 秘策入 uniqueGroup，施盾前一并移除，即消耗秘策。治疗量按施放前的状态计算（先算盾量再治疗）。
+ *
+ * - 展开战术：复制目标的鼓舞盾到所有成员（模拟为群体单盾），不治疗。群盾和单盾对应同一个 buff id
+ *   但实际盾量不同，只能按单盾（鼓舞激励之策 185）治疗量预估。
+ * - 士气高扬之策 / 意气轩昂之策：先群体治疗，再挂群盾，按自身治疗量预估。
+ *
+ * 盾量倍率随等级变化时，由 levelOverrides 传入不同倍率（见各技能注释）。
+ */
+function galvanizeShieldExecutor(opts: {
+  healKey: number
+  shieldRatio: number
+  withHeal: boolean
+}) {
+  return (ctx: ActionExecutionContext) => {
+    const recitationId = 1896 // 秘策
+    const baseShieldId = 297 // 鼓舞
+    const sageShieldId = 2609 // 贤者群盾
+
+    const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
+    const rawHeal = hasRecitation
+      ? (ctx.statistics?.critHealByAbility[opts.healKey] ?? 10000)
+      : (ctx.statistics?.healByAbility[opts.healKey] ?? 10000)
+    const baseHeal = computeFinalHeal(rawHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
+    const barrier = Math.round(baseHeal * opts.shieldRatio)
+
+    const partyState = opts.withHeal ? createHealExecutor()(ctx) : ctx.partyState
+    return createShieldExecutor(baseShieldId, 30, {
+      fixedBarrier: barrier,
+      uniqueGroup: [recitationId, baseShieldId, sageShieldId],
+    })({ ...ctx, partyState })
+  }
+}
+
+/**
+ * 天宫图期间受到自身发动的阳星 / 阳星相位（96 级起为阳星合相）时，天宫图（1890）变为阳星天宫图（1891），
+ * 持续 30s。仅升级施法者自己挂的天宫图；原地改 statusId，保持 instanceId。
+ */
+function upgradeHoroscope(ctx: ActionExecutionContext) {
+  const horoscope = ctx.partyState.statuses.find(
+    s => s.statusId === 1890 && s.sourcePlayerId === ctx.sourcePlayerId
+  )
+  if (!horoscope) return ctx.partyState
+  return {
+    ...ctx.partyState,
+    statuses: ctx.partyState.statuses.map(s =>
+      s.instanceId === horoscope.instanceId
+        ? { ...s, statusId: 1891, startTime: ctx.useTime, endTime: ctx.useTime + 30 }
+        : s
+    ),
+  }
+}
+
 export interface MitigationDataSource {
   actions: MitigationAction[]
 }
@@ -657,6 +713,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       icon: '/i/002000/002645.png',
       jobs: ['WHM'],
       category: ['partywide', 'percentage'],
+      // 技能描述为 20s：自身光环(1872)持续 20s，期间每秒为队友附加 5s 的节制(1873)，
+      // 最后一次附加约在 25s 时结束，故按 25s 计。
       duration: 25,
       cooldown: 120,
       minLevel: 80,
@@ -664,6 +722,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const partyState = createBuffExecutor(1873, 25)(ctx) // 节制
         return createBuffExecutor(3881, 30)({ ...ctx, partyState }) // 神爱抚预备
       },
+      // 100 级以前没有神爱抚
+      levelOverrides: [
+        {
+          upTo: 99,
+          patch: {
+            executor: createBuffExecutor(1873, 25),
+          },
+        },
+      ],
     },
     {
       id: 37011,
@@ -761,6 +828,33 @@ export const MITIGATION_DATA: MitigationDataSource = {
         return partyState
       },
       statDataEntries: [{ type: 'heal', key: 124 }],
+    },
+    {
+      id: 133,
+      name: '医济',
+      icon: '/i/000000/000409.png',
+      jobs: ['WHM'],
+      category: ['partywide', 'heal', 'gcd'],
+      duration: 0,
+      cooldown: 2,
+      minLevel: 50,
+      maxLevel: 95,
+      executor: ctx => {
+        let partyState = createHealExecutor()(ctx)
+        partyState = createRegenExecutor(150, 15)({ ...ctx, partyState })
+        if (
+          partyState.statuses.some(
+            s => s.statusId === 1219 && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          partyState = createHealExecutor({ amountSourceId: 1001219 })({ ...ctx, partyState })
+        }
+        return partyState
+      },
+      statDataEntries: [
+        { type: 'heal', key: 133 },
+        { type: 'heal', key: 1000150, label: 'HoT' },
+      ],
     },
     {
       id: 37010,
@@ -884,6 +978,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createShieldExecutor(1218, 15),
       statDataEntries: [{ type: 'shield', key: 1218 }],
       resourceEffects: [{ resourceId: 'whm:divine', delta: -1 }],
+      // 88 级前神祝祷为单层充能
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            resourceEffects: [],
+          },
+        },
+      ],
     },
     {
       id: 25861,
@@ -908,27 +1011,26 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 90,
       minLevel: 56,
-      executor: (ctx: ActionExecutionContext) => {
-        // 因为群盾和单盾实际上对应的是同一个 buff id 但实际盾量不同，盾量预估只能使用单盾技能基础恢复力 * 180%
-        const recitationId = 1896 // 秘策
-        const baseShieldId = 297 // 鼓舞
-        const sageShieldId = 2609 // 贤者群盾
-        // 秘策激活时鼓舞为暴击盾，展开战术复制的也是暴击盾，故用暴击治疗量预估
-        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
-        const rawHeal = hasRecitation
-          ? (ctx.statistics?.critHealByAbility[185] ?? 10000)
-          : (ctx.statistics?.healByAbility[185] ?? 10000)
-        const baseHeal = computeFinalHeal(rawHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
-        const barrier = Math.round(baseHeal * 1.8)
-        // recitationId 入 uniqueGroup：施盾前一并移除秘策，即消耗秘策
-        return createShieldExecutor(baseShieldId, 30, {
-          fixedBarrier: barrier,
-          uniqueGroup: [recitationId, baseShieldId, sageShieldId],
-        })(ctx)
-      },
+      executor: galvanizeShieldExecutor({ healKey: 185, shieldRatio: 1.8, withHeal: false }),
       statDataEntries: [
         { type: 'heal', key: 185, label: '单盾' },
         { type: 'critHeal', key: 185, label: '暴击单盾' },
+      ],
+      // 85 级「治疗技能效果提高」前鼓舞盾量为治疗量 125%；88 级「展开战术效果提高」前 CD 为 120s
+      levelOverrides: [
+        {
+          upTo: 84,
+          patch: {
+            cooldown: 120,
+            executor: galvanizeShieldExecutor({ healKey: 185, shieldRatio: 1.25, withHeal: false }),
+          },
+        },
+        {
+          upTo: 87,
+          patch: {
+            cooldown: 120,
+          },
+        },
       ],
     },
     {
@@ -941,8 +1043,42 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 60,
       minLevel: 74,
       executor: createBuffExecutor(1896, 15),
+      // 98 级「秘策效果提高」前 CD 为 90s
+      levelOverrides: [
+        {
+          upTo: 97,
+          patch: {
+            cooldown: 90,
+          },
+        },
+      ],
     },
-
+    {
+      id: 186,
+      name: '士气高扬之策',
+      icon: '/i/002000/002802.png',
+      jobs: ['SCH'],
+      category: ['partywide', 'shield', 'gcd'],
+      duration: 30,
+      cooldown: 2,
+      minLevel: 35,
+      maxLevel: 95,
+      executor: galvanizeShieldExecutor({ healKey: 186, shieldRatio: 1.6, withHeal: true }),
+      placement: not(whileStatus(SERAPHISM_BUFF_ID)),
+      statDataEntries: [
+        { type: 'heal', key: 186 },
+        { type: 'critHeal', key: 186 },
+      ],
+      // 85 级「治疗技能效果提高」前盾量为治疗量 115%
+      levelOverrides: [
+        {
+          upTo: 84,
+          patch: {
+            executor: galvanizeShieldExecutor({ healKey: 186, shieldRatio: 1.15, withHeal: true }),
+          },
+        },
+      ],
+    },
     // 意气轩昂之策 - 检测秘策状态附加额外盾值
     {
       id: 37013,
@@ -953,28 +1089,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 30,
       cooldown: 2,
       minLevel: 96,
-      executor: (ctx: ActionExecutionContext) => {
-        const recitationId = 1896 // 秘策
-        const baseShieldId = 297 // 鼓舞
-        const sageShieldId = 2609 // 贤者群盾
-
-        let baseHeal: number
-        // 检测秘策决定是否用暴击治疗量
-        const hasRecitation = ctx.partyState.statuses.some(s => s.statusId === recitationId)
-        baseHeal = hasRecitation
-          ? (ctx.statistics?.critHealByAbility[37013] ?? 10000)
-          : (ctx.statistics?.healByAbility[37013] ?? 10000)
-        baseHeal = computeFinalHeal(baseHeal, ctx.partyState, ctx.sourcePlayerId, ctx.useTime)
-        const partyState = createHealExecutor()(ctx)
-
-        const barrier = Math.round(baseHeal * 1.8)
-        const uniqueGroup = [recitationId, baseShieldId, sageShieldId]
-
-        return createShieldExecutor(baseShieldId, 30, { fixedBarrier: barrier, uniqueGroup })({
-          ...ctx,
-          partyState,
-        })
-      },
+      executor: galvanizeShieldExecutor({ healKey: 37013, shieldRatio: 1.8, withHeal: true }),
       placement: not(whileStatus(SERAPHISM_BUFF_ID)),
       statDataEntries: [
         { type: 'heal', key: 37013 },
@@ -1272,7 +1387,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
       },
       statDataEntries: [{ type: 'heal', key: 1000956 }],
     },
-
     {
       id: 16559,
       name: '中间学派',
@@ -1286,6 +1400,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
         const partyState = createBuffExecutor(1892, 20)(ctx) // 中间学派
         return createBuffExecutor(3895, 30)({ ...ctx, partyState }) // 太阳星座预备
       },
+      // 100 级前没有太阳星座
+      levelOverrides: [
+        {
+          upTo: 99,
+          patch: {
+            executor: createBuffExecutor(1892, 20),
+          },
+        },
+      ],
     },
 
     {
@@ -1300,7 +1423,42 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: createBuffExecutor(3896, 15, { uniqueGroup: [3895] }),
       placement: whileStatus(3895),
     },
+    {
+      id: 3601,
+      name: '阳星相位',
+      icon: '/i/003000/003130.png',
+      jobs: ['AST'],
+      category: ['partywide', 'shield', 'gcd'],
+      duration: 30,
+      cooldown: 2,
+      minLevel: 40,
+      maxLevel: 95,
+      executor: (ctx: ActionExecutionContext) => {
+        const neutralSectId = 1892 // 中间学派
 
+        // 阶段 1：自己的天宫图升级为阳星天宫图
+        let partyState = upgradeHoroscope(ctx)
+        const baseHeal = ctx.statistics?.healByAbility[3601] ?? 10000
+        partyState = createHealExecutor()({ ...ctx, partyState })
+        partyState = createRegenExecutor(836, 15)({ ...ctx, partyState })
+
+        // 阶段 2：施法者自身处于中间学派时附加群盾
+        if (
+          !partyState.statuses.some(
+            s => s.statusId === neutralSectId && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
+          return partyState
+        }
+        // 盾量 = 阳星相位治疗量 × 1.25（盾比例）
+        const barrier = Math.round(baseHeal * 1.25)
+        return createShieldExecutor(1921, 30, { fixedBarrier: barrier })({ ...ctx, partyState })
+      },
+      statDataEntries: [
+        { type: 'heal', key: 3601 },
+        { type: 'heal', key: 1000836, label: 'HoT' },
+      ],
+    },
     {
       id: 37030,
       name: '阳星合相',
@@ -1313,27 +1471,18 @@ export const MITIGATION_DATA: MitigationDataSource = {
       executor: (ctx: ActionExecutionContext) => {
         const neutralSectId = 1892 // 中间学派
 
-        // 阶段 1：自己的 1890（天宫图）若还在，升级为 1891（阳星天宫图）30s。
-        let partyState = ctx.partyState
-        const horoscope = partyState.statuses.find(
-          s => s.statusId === 1890 && s.sourcePlayerId === ctx.sourcePlayerId
-        )
-        if (horoscope) {
-          partyState = {
-            ...partyState,
-            statuses: partyState.statuses.map(s =>
-              s.instanceId === horoscope.instanceId
-                ? { ...s, statusId: 1891, startTime: ctx.useTime, endTime: ctx.useTime + 30 }
-                : s
-            ),
-          }
-        }
+        // 阶段 1：自己的天宫图升级为阳星天宫图
+        let partyState = upgradeHoroscope(ctx)
         const baseHeal = ctx.statistics?.healByAbility[37030] ?? 10000
         partyState = createHealExecutor()({ ...ctx, partyState })
         partyState = createRegenExecutor(3894, 15)({ ...ctx, partyState })
 
-        // 阶段 2：中间学派激活时附加群盾
-        if (!partyState.statuses.some(s => s.statusId === neutralSectId)) {
+        // 阶段 2：施法者自身处于中间学派时附加群盾
+        if (
+          !partyState.statuses.some(
+            s => s.statusId === neutralSectId && s.sourcePlayerId === ctx.sourcePlayerId
+          )
+        ) {
           return partyState
         }
         // 盾量 = 阳星合相治疗量 × 1.25（盾比例）
@@ -1354,7 +1503,8 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 0,
       cooldown: 2,
       minLevel: 10,
-      executor: createHealExecutor(),
+      // 天宫图期间施放会将自己的天宫图升级为阳星天宫图
+      executor: ctx => createHealExecutor()({ ...ctx, partyState: upgradeHoroscope(ctx) }),
       statDataEntries: [{ type: 'heal', key: 3600 }],
     },
     {
@@ -1475,11 +1625,20 @@ export const MITIGATION_DATA: MitigationDataSource = {
       jobs: ['AST'],
       category: ['self', 'target', 'shield'],
       duration: 30,
-      cooldown: 60,
+      cooldown: 30,
       minLevel: 74,
       executor: createShieldExecutor(1889, 30),
       statDataEntries: [{ type: 'shield', key: 1889 }],
       resourceEffects: [{ resourceId: 'ast:intersection', delta: -1 }],
+      // 88 级「天星交错效果提高」前为单层充能
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            resourceEffects: [],
+          },
+        },
+      ],
     },
     {
       id: 25873,
@@ -1552,7 +1711,6 @@ export const MITIGATION_DATA: MitigationDataSource = {
         { type: 'shield', key: 3365 },
       ],
     },
-
     {
       id: 24298,
       name: '坚角清汁',
@@ -1573,6 +1731,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
         { resourceId: 'sge:addersgall', delta: -1 },
       ],
       statDataEntries: [{ type: 'heal', key: 1002938, label: 'HoT' }],
+      // 78 级「坚角清汁效果提高」前没有 HoT
+      levelOverrides: [
+        {
+          upTo: 77,
+          patch: {
+            executor: createBuffExecutor(2618, 15),
+            statDataEntries: [],
+          },
+        },
+      ],
     },
     {
       id: 24299,
@@ -1615,6 +1783,15 @@ export const MITIGATION_DATA: MitigationDataSource = {
       cooldown: 90,
       minLevel: 56,
       executor: createShieldExecutor(2611, 30),
+      // 88 级「活化效果提高」前 CD 为 120s
+      levelOverrides: [
+        {
+          upTo: 87,
+          patch: {
+            cooldown: 120,
+          },
+        },
+      ],
     },
     {
       id: 24302,
@@ -1625,8 +1802,24 @@ export const MITIGATION_DATA: MitigationDataSource = {
       duration: 15,
       cooldown: 60,
       minLevel: 60,
-      executor: createRegenExecutor(2620, 15),
+      // HoT（2620）各等级均为 15s；附带的受治疗 +10%（催进 2621）持续时间随等级变化
+      executor: ctx => {
+        const partyState = createRegenExecutor(2620, 15)(ctx)
+        return createBuffExecutor(2621, 15)({ ...ctx, partyState })
+      },
       statDataEntries: [{ type: 'heal', key: 1002620 }],
+      // 98 级前催进（受治疗 +10%）持续时间为 10s
+      levelOverrides: [
+        {
+          upTo: 97,
+          patch: {
+            executor: ctx => {
+              const partyState = createRegenExecutor(2620, 15)(ctx)
+              return createBuffExecutor(2621, 10)({ ...ctx, partyState })
+            },
+          },
+        },
+      ],
     },
     {
       id: 24286,
@@ -1649,6 +1842,38 @@ export const MITIGATION_DATA: MitigationDataSource = {
         return createHealExecutor({ fixedAmount: heal })({ ...ctx, partyState })
       },
       statDataEntries: [{ type: 'heal', key: 24286 }],
+    },
+    {
+      id: 24292,
+      name: '均衡预后',
+      icon: '/i/003000/003660.png',
+      jobs: ['SGE'],
+      category: ['partywide', 'shield', 'gcd'],
+      duration: 30,
+      cooldown: 1.4,
+      minLevel: 30,
+      maxLevel: 95,
+      executor: (ctx: ActionExecutionContext) => {
+        const zoeId = 2611 // 活化
+        const baseShieldId = 2609 // 均衡预后
+        const schShieldId = 297 // 鼓舞
+        const hasZoe = ctx.partyState.statuses.some(s => s.statusId === zoeId)
+        let heal = ctx.statistics?.healByAbility[24292] ?? 10000
+        let barrier = ctx.statistics?.shieldByAbility[baseShieldId] ?? 10000
+        if (hasZoe) {
+          barrier = Math.round(barrier * 1.5)
+          heal = Math.round(heal * 1.5)
+        }
+
+        let partyState = ctx.partyState
+        partyState = createHealExecutor({ fixedAmount: heal })({ ...ctx, partyState })
+        partyState = createShieldExecutor(baseShieldId, 30, {
+          fixedBarrier: barrier,
+          uniqueGroup: [zoeId, baseShieldId, schShieldId],
+        })({ ...ctx, partyState })
+        return partyState
+      },
+      statDataEntries: [{ type: 'shield', key: 2609 }],
     },
     {
       id: 37034,
