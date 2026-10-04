@@ -66,7 +66,7 @@
     "title": "正在自动规划减伤…"
   },
   "composition": {
-    "addJob": "添加职业",
+    "adjustComposition": "调整阵容",
     "confirm": "完成",
     "currentParty": "当前阵容",
     "empty": "暂无队员",
@@ -296,6 +296,8 @@
     "title": "资源预览"
   },
   "settings": {
+    "levelChangeTitle": "确认修改等级？",
+    "levelChangeDescription": "修改等级后，技能效果可能会变动，已经放置的技能可能会因新等级不适用而丢失。确定保存这些修改吗？",
     "basicTitle": "基本",
     "encounter": "绑定副本",
     "encounterNone": "不绑定副本",

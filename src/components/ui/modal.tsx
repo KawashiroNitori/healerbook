@@ -54,8 +54,9 @@ export function Modal({
     }
   }, [open])
 
-  const handleTransitionEnd = () => {
-    if (!visible) setMounted(false)
+  const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
+    // 子元素的 transitionend 会冒泡；只在遮罩自身的淡出结束后卸载内容。
+    if (e.target === e.currentTarget && !visible) setMounted(false)
   }
 
   const mouseDownTarget = React.useRef<EventTarget | null>(null)

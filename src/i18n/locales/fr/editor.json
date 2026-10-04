@@ -66,7 +66,7 @@
     "title": "Planification automatique des réductions en cours…"
   },
   "composition": {
-    "addJob": "Ajouter un job",
+    "adjustComposition": "Modifier la composition",
     "confirm": "Terminer",
     "currentParty": "Composition actuelle",
     "empty": "Aucun membre",
@@ -370,5 +370,9 @@
     "cannotAddAction": "Impossible d'ajouter l'action",
     "conditionNotMet": "Les conditions de déclenchement ne sont pas remplies à cet instant",
     "viewAnnotation": "Voir la note"
+  },
+  "settings": {
+    "levelChangeTitle": "Confirmer le changement de niveau ?",
+    "levelChangeDescription": "Changer le niveau peut modifier les effets des actions et supprimer les actions déjà placées qui ne sont pas disponibles au nouveau niveau. Enregistrer ces modifications ?"
   }
 }

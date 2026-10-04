@@ -80,7 +80,7 @@ export default function EditableDescription({
       <p
         ref={triggerRef}
         onClick={() => (open ? setOpen(false) : handleOpen())}
-        className="text-xs text-muted-foreground cursor-text hover:text-foreground transition-colors truncate max-w-xs"
+        className="text-xs text-muted-foreground cursor-text hover:text-foreground transition-colors truncate w-full"
         title={value || (readOnly ? undefined : t('editableDescription.clickToAdd'))}
       >
         {value ||

@@ -66,7 +66,7 @@
     "title": "正在自動規劃減傷…"
   },
   "composition": {
-    "addJob": "新增職業",
+    "adjustComposition": "調整陣容",
     "confirm": "完成",
     "currentParty": "目前陣容",
     "empty": "暫無隊員",
@@ -370,5 +370,9 @@
     "cannotAddAction": "無法新增技能",
     "conditionNotMet": "此時刻不滿足發動條件",
     "viewAnnotation": "檢視備註"
+  },
+  "settings": {
+    "levelChangeTitle": "確認修改等級？",
+    "levelChangeDescription": "修改等級後，技能效果可能會變動，已經放置的技能可能會因新等級不適用而遺失。確定儲存這些修改嗎？"
   }
 }

@@ -66,7 +66,7 @@
     "title": "Planning mitigation automatically…"
   },
   "composition": {
-    "addJob": "Add job",
+    "adjustComposition": "Adjust party",
     "confirm": "Done",
     "currentParty": "Current party",
     "empty": "No members yet",
@@ -370,5 +370,9 @@
     "cannotAddAction": "Cannot add action",
     "conditionNotMet": "Requirements are not met at this time",
     "viewAnnotation": "View note"
+  },
+  "settings": {
+    "levelChangeTitle": "Confirm level change?",
+    "levelChangeDescription": "Changing the level may alter action effects and remove placed actions that are unavailable at the new level. Save these changes?"
   }
 }

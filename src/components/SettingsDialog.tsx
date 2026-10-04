@@ -1,12 +1,11 @@
 /**
  * 时间轴设置面板
- * 左右两栏：基本（绑定副本 / 等级）、安全血量、技能数值
+ * 左右两栏：基本（绑定副本 / 等级）、小队阵容、安全血量、技能数值
  *
  * statData 只存储用户覆盖值，未设定的字段留空，
  * placeholder 显示 statistics fallback 值（或硬编码默认值）。
  *
- * 绑定副本与等级是即时生效（直接写 Y.Doc），不受本对话框「保存」按钮管辖——
- * 「保存」只提交 statData 那部分的本地编辑态。
+ * 绑定副本、等级、阵容与 statData 均保留为本地草稿，点击保存后才写入时间轴。
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react'
@@ -26,7 +25,7 @@ import {
 } from '@/components/ui/select'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useEditorReadOnly } from '@/hooks/useEditorReadOnly'
-import { useResolvedActions } from '@/hooks/useResolvedActions'
+import { resolveActions } from '@/data/resolveAction'
 import { getJobName, sortJobsByOrder, type Job } from '@/data/jobs'
 import { RAID_TIERS, getEncounterById } from '@/data/raidEncounters'
 import { SUPPORTED_LEVELS, DEFAULT_LEVEL, toLevel, type Level } from '@/types/level'
@@ -36,6 +35,12 @@ import type { TimelineStatData, StatDataEntry } from '@/types/statData'
 import type { MitigationAction } from '@/types/mitigation'
 import type { Composition } from '@/types/timeline'
 import { GameIcon } from '@/components/GameIcon'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import { cn } from '@/lib/utils'
+import CompositionEditor from '@/components/CompositionEditor'
+import { cleanupStatData } from '@/utils/statDataUtils'
+
+const EMPTY_COMPOSITION: Composition = { players: [] }
 
 interface SettingsDialogProps {
   open: boolean
@@ -241,7 +246,7 @@ interface SettingsDialogInnerProps {
  * 随每次渲染重建的 SECTIONS（label 依赖 t()），会触发 exhaustive-deps 且无法
  * 安全地放进只跑一次的 useEffect。
  */
-const SECTION_IDS = ['basic', 'safeHp', 'actionValues'] as const
+const SECTION_IDS = ['basic', 'composition', 'safeHp', 'actionValues'] as const
 type SectionId = (typeof SECTION_IDS)[number]
 
 function SettingsDialogInner({
@@ -256,30 +261,35 @@ function SettingsDialogInner({
 
   const SECTIONS: { id: SectionId; label: string }[] = [
     { id: 'basic', label: t('editor:settings.navBasic') },
+    { id: 'composition', label: t('editor:compositionPopover.title') },
     { id: 'safeHp', label: t('editor:settings.navSafeHp') },
     { id: 'actionValues', label: t('editor:settings.navActionValues') },
   ]
 
-  const level = useTimelineStore(s => s.timeline?.level) ?? DEFAULT_LEVEL
-  const encounterId = useTimelineStore(s => s.timeline?.encounter.id) ?? 0
+  const initialLevel = useTimelineStore(s => s.timeline?.level) ?? DEFAULT_LEVEL
+  const initialEncounterId = useTimelineStore(s => s.timeline?.encounter.id) ?? 0
+  const [draftComposition, setDraftComposition] = useState(composition)
+  const updateComposition = useTimelineStore(s => s.updateComposition)
+  const [level, setDraftLevel] = useState(initialLevel)
+  const [encounterId, setDraftEncounterId] = useState(initialEncounterId)
   const setLevel = useTimelineStore(s => s.setLevel)
   const updateEncounter = useTimelineStore(s => s.updateEncounter)
 
-  // 改绑副本：更新副本元信息 + gameZoneId，等级自动跳到新副本的等级
+  // 改绑副本只更新草稿，等级自动跳到新副本的等级
   const handleEncounterChange = (nextId: number) => {
     // 解除绑定：没有副本可供推导，保留用户当前等级不动
     if (nextId === 0) {
-      updateEncounter(0)
+      setDraftEncounterId(0)
       return
     }
     const encounter = getEncounterById(nextId)
     if (!encounter) return
-    updateEncounter(nextId)
-    setLevel(toLevel(encounter.level))
+    setDraftEncounterId(nextId)
+    setDraftLevel(toLevel(encounter.level))
   }
 
   // 本地编辑态，从 initialData 初始化（组件每次挂载时重新初始化）
-  const [localStatData, setLocalStatData] = useState<TimelineStatData>({
+  const [localStatData, setDraftStatData] = useState<TimelineStatData>({
     referenceMaxHP: initialData.referenceMaxHP,
     tankReferenceMaxHP: initialData.tankReferenceMaxHP,
     shieldByAbility: { ...initialData.shieldByAbility },
@@ -288,13 +298,11 @@ function SettingsDialogInner({
     critHealByAbility: { ...initialData.critHealByAbility },
   })
 
-  const { actions: resolvedActions } = useResolvedActions()
+  const { actions: resolvedActions } = resolveActions(level)
 
   // 按职业分组的技能列表
   const groupedActions = useMemo(() => {
-    if (!composition) return []
-
-    const jobs = new Set(composition.players.map(p => p.job))
+    const jobs = new Set(draftComposition.players.map(p => p.job))
     const actionsWithEntries = resolvedActions.filter(
       a => a.statDataEntries && a.statDataEntries.length > 0 && a.jobs.some(j => jobs.has(j))
     )
@@ -315,7 +323,7 @@ function SettingsDialogInner({
       job,
       entries: groups.get(job)!,
     }))
-  }, [composition, resolvedActions])
+  }, [draftComposition, resolvedActions])
 
   // 折叠状态 — 默认全部展开
   const [collapsedJobs, setCollapsedJobs] = useState<Set<Job>>(new Set())
@@ -328,14 +336,35 @@ function SettingsDialogInner({
     })
   }
 
-  const handleSave = () => {
-    onSave(localStatData)
+  const [levelConfirmationOpen, setLevelConfirmationOpen] = useState(false)
+  const hasLevelChange = level !== initialLevel
+
+  const commitSettings = () => {
+    if (isReadOnly) return
+    if (encounterId !== initialEncounterId) updateEncounter(encounterId)
+    if (level !== initialLevel) setLevel(level)
+    if (draftComposition !== composition) updateComposition(draftComposition)
+    onSave(
+      draftComposition !== composition
+        ? cleanupStatData(localStatData, draftComposition, level)
+        : localStatData
+    )
     onClose()
+  }
+
+  const handleSave = () => {
+    if (isReadOnly) return
+    if (hasLevelChange) {
+      setLevelConfirmationOpen(true)
+      return
+    }
+    commitSettings()
   }
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
     basic: null,
+    composition: null,
     safeHp: null,
     actionValues: null,
   })
@@ -432,7 +461,7 @@ function SettingsDialogInner({
               <span className="text-sm text-muted-foreground">{t('editor:settings.level')}</span>
               <Select
                 value={String(level)}
-                onValueChange={v => setLevel(Number(v) as Level)}
+                onValueChange={v => setDraftLevel(Number(v) as Level)}
                 disabled={isReadOnly}
               >
                 <SelectTrigger className="w-64">
@@ -453,6 +482,22 @@ function SettingsDialogInner({
 
           <div
             ref={el => {
+              sectionRefs.current.composition = el
+            }}
+            data-section="composition"
+          >
+            <div className="text-sm font-medium mb-1.5">{t('editor:compositionPopover.title')}</div>
+            <CompositionEditor
+              composition={draftComposition}
+              onChange={setDraftComposition}
+              isReadOnly={isReadOnly}
+            />
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div
+            ref={el => {
               sectionRefs.current.safeHp = el
             }}
             data-section="safeHp"
@@ -466,7 +511,7 @@ function SettingsDialogInner({
               <NumberInput
                 value={localStatData.referenceMaxHP}
                 placeholder={String(getFallbackMaxHP(statistics))}
-                onChange={v => setLocalStatData(prev => ({ ...prev, referenceMaxHP: v }))}
+                onChange={v => setDraftStatData(prev => ({ ...prev, referenceMaxHP: v }))}
                 disabled={isReadOnly}
               />
             </div>
@@ -477,7 +522,7 @@ function SettingsDialogInner({
               <NumberInput
                 value={localStatData.tankReferenceMaxHP}
                 placeholder={String(getFallbackTankMaxHP(statistics))}
-                onChange={v => setLocalStatData(prev => ({ ...prev, tankReferenceMaxHP: v }))}
+                onChange={v => setDraftStatData(prev => ({ ...prev, tankReferenceMaxHP: v }))}
                 disabled={isReadOnly}
               />
             </div>
@@ -492,7 +537,7 @@ function SettingsDialogInner({
             data-section="actionValues"
           >
             {/* 盾技能数值 */}
-            <div className="text-sm font-medium">{t('editor:statData.actionValuesTitle')}</div>
+            <div className="text-sm font-medium mb-3">{t('editor:statData.actionValuesTitle')}</div>
 
             {groupedActions.length === 0 && (
               <p className="text-sm text-muted-foreground">{t('editor:statData.noActions')}</p>
@@ -522,7 +567,7 @@ function SettingsDialogInner({
                         entry={entry}
                         value={getEntryValue(localStatData, entry)}
                         placeholder={String(getFallbackValue(statistics, entry.type, entry.key))}
-                        onChange={v => setLocalStatData(prev => setEntryValue(prev, entry, v))}
+                        onChange={v => setDraftStatData(prev => setEntryValue(prev, entry, v))}
                         disabled={isReadOnly}
                       />
                     ))}
@@ -546,11 +591,25 @@ function SettingsDialogInner({
           type="button"
           onClick={handleSave}
           disabled={isReadOnly}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
+          className={cn(
+            'px-4 py-2 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+            hasLevelChange
+              ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:hover:bg-destructive'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:hover:bg-primary'
+          )}
         >
           {t('editor:statData.save')}
         </button>
       </ModalFooter>
+      <ConfirmDialog
+        open={levelConfirmationOpen}
+        onOpenChange={setLevelConfirmationOpen}
+        title={t('editor:settings.levelChangeTitle')}
+        description={t('editor:settings.levelChangeDescription')}
+        confirmText={t('editor:statData.save')}
+        variant="destructive"
+        onConfirm={commitSettings}
+      />
     </>
   )
 }
@@ -559,7 +618,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const { t } = useTranslation(['editor', 'common'])
   const timeline = useTimelineStore(s => s.timeline)
   const updateStatData = useTimelineStore(s => s.updateStatData)
-  const composition = timeline?.composition
+  const composition = timeline?.composition ?? EMPTY_COMPOSITION
   const isReadOnly = useEditorReadOnly()
 
   return (
@@ -568,10 +627,9 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         <ModalHeader>
           <ModalTitle>{t('editor:settings.title')}</ModalTitle>
         </ModalHeader>
-        {open && composition && (
+        {timeline && (
           <SettingsDialogInner
-            key={open ? 'open' : 'closed'}
-            initialData={timeline?.statData ?? EMPTY_STAT_DATA}
+            initialData={timeline.statData ?? EMPTY_STAT_DATA}
             composition={composition}
             onSave={updateStatData}
             onClose={onClose}

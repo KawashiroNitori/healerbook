@@ -66,7 +66,7 @@
     "title": "軽減を自動プランニングしています…"
   },
   "composition": {
-    "addJob": "ジョブを追加",
+    "adjustComposition": "パーティ構成を調整",
     "confirm": "完了",
     "currentParty": "現在のパーティ編成",
     "empty": "メンバーがいません",
@@ -370,5 +370,9 @@
     "cannotAddAction": "アクションを追加できません",
     "conditionNotMet": "この時点では発動条件を満たしていません",
     "viewAnnotation": "メモを表示"
+  },
+  "settings": {
+    "levelChangeTitle": "レベル変更を確認",
+    "levelChangeDescription": "レベルを変更するとアクションの効果が変わり、新しいレベルで使用できない配置済みアクションが削除される場合があります。変更を保存しますか？"
   }
 }

@@ -58,7 +58,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import CompositionPopover from './CompositionPopover'
 import FilterMenu from './FilterMenu/FilterMenu'
 import SharePopover from './SharePopover'
 import SettingsDialog from './SettingsDialog'
@@ -486,29 +485,6 @@ export default function EditorToolbar({
             {/* 过滤菜单 */}
             <FilterMenu />
 
-            <div className="w-px h-6 bg-border mx-1" />
-
-            {/* Party Composition */}
-            <CompositionPopover />
-
-            {/* 设置：只读下也可打开查看，对话框内写入控件由只读态控制。
-                不依赖 statData 是否存在——存量时间轴可能缺 statData，但绑定副本 /
-                等级两项与 statData 无关，不应被它一并锁死。 */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setShowSettingsDialog(true)}
-                  disabled={!timeline}
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{t('editor:editorToolbar.settings')}</TooltipContent>
-            </Tooltip>
-
             {/* 共享 */}
             {timeline && (
               <>
@@ -623,6 +599,24 @@ export default function EditorToolbar({
                 </DropdownMenu>
               </>
             )}
+
+            {/* 设置：只读下也可打开查看，对话框内写入控件由只读态控制。
+                不依赖 statData 是否存在——存量时间轴可能缺 statData，但绑定副本 /
+                等级两项与 statData 无关，不应被它一并锁死。 */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setShowSettingsDialog(true)}
+                  disabled={!timeline}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t('editor:editorToolbar.settings')}</TooltipContent>
+            </Tooltip>
 
             {/* Exit Replay Mode Confirmation */}
             <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
