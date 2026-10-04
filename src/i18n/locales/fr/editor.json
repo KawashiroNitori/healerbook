@@ -170,9 +170,9 @@
     "replayModeDescPrefix": "Vous êtes actuellement en mode relecture FFLogs : tous les dégâts subis par les joueurs durant ce combat et les réductions actives à ce moment-là ont été enregistrés et reproduits. Vous pouvez ainsi repérer et analyser rapidement les passages où la réduction manque, et vérifier l'exécution des réductions de vos coéquipiers.",
     "replayModeTitle": "Mode relecture",
     "selectTool": "Sélection",
+    "settings": "",
     "showCastStartTime": "Début d'incantation",
     "showResourceHover": "Aperçu des ressources",
-    "statData": "Paramètres des valeurs",
     "switchToEdit": "Passer en mode édition",
     "switchToReadOnly": "Passer en lecture seule",
     "tableView": "Vue tableau",
@@ -295,6 +295,19 @@
   "resourceHover": {
     "title": "Aperçu des ressources"
   },
+  "settings": {
+    "levelChangeTitle": "Confirmer le changement de niveau ?",
+    "levelChangeDescription": "Changer le niveau peut modifier les effets des actions et supprimer les actions déjà placées qui ne sont pas disponibles au nouveau niveau. Enregistrer ces modifications ?",
+    "basicTitle": "",
+    "encounter": "",
+    "encounterNone": "",
+    "level": "",
+    "levelUnit": "",
+    "navActionValues": "",
+    "navBasic": "",
+    "navSafeHp": "",
+    "title": ""
+  },
   "sortablePreset": {
     "confirmDelete": "Confirmer la suppression ?",
     "delete": "Supprimer",
@@ -370,9 +383,5 @@
     "cannotAddAction": "Impossible d'ajouter l'action",
     "conditionNotMet": "Les conditions de déclenchement ne sont pas remplies à cet instant",
     "viewAnnotation": "Voir la note"
-  },
-  "settings": {
-    "levelChangeTitle": "Confirmer le changement de niveau ?",
-    "levelChangeDescription": "Changer le niveau peut modifier les effets des actions et supprimer les actions déjà placées qui ne sont pas disponibles au nouveau niveau. Enregistrer ces modifications ?"
   }
 }
