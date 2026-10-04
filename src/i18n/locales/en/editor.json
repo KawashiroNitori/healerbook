@@ -170,9 +170,9 @@
     "replayModeDescPrefix": "You are currently in FFLogs replay mode, which records and reproduces all damage the players took during this fight along with the mitigation active at the time. You can quickly find and analyze where mitigation was lacking, and check how your teammates executed theirs.",
     "replayModeTitle": "Replay mode",
     "selectTool": "Select",
+    "settings": "Settings",
     "showCastStartTime": "Cast start time",
     "showResourceHover": "Resource preview",
-    "statData": "Stat settings",
     "switchToEdit": "Switch to edit mode",
     "switchToReadOnly": "Switch to read-only mode",
     "tableView": "Table view",
@@ -295,6 +295,19 @@
   "resourceHover": {
     "title": "Resource preview"
   },
+  "settings": {
+    "levelChangeTitle": "Confirm level change?",
+    "levelChangeDescription": "Changing the level may alter action effects and remove placed actions that are unavailable at the new level. Save these changes?",
+    "basicTitle": "General",
+    "encounter": "Linked encounter",
+    "encounterNone": "No encounter",
+    "level": "Level",
+    "levelOption": "Lv.{level}",
+    "navActionValues": "Action values",
+    "navBasic": "General",
+    "navSafeHp": "Safe HP",
+    "title": "Settings"
+  },
   "sortablePreset": {
     "confirmDelete": "Confirm delete?",
     "delete": "Delete",
@@ -370,9 +383,5 @@
     "cannotAddAction": "Cannot add action",
     "conditionNotMet": "Requirements are not met at this time",
     "viewAnnotation": "View note"
-  },
-  "settings": {
-    "levelChangeTitle": "Confirm level change?",
-    "levelChangeDescription": "Changing the level may alter action effects and remove placed actions that are unavailable at the new level. Save these changes?"
   }
 }
