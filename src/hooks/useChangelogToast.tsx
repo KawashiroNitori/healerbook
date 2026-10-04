@@ -22,7 +22,7 @@ export function useChangelogToast() {
 
     let dismissed = false
 
-    fetch('/latest-release.json')
+    fetch('/latest-release.json', { cache: 'no-store' })
       .then(res => {
         if (!res.ok) return null
         return res.json() as Promise<LatestRelease>
