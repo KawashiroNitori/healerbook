@@ -302,7 +302,7 @@
     "encounter": "Verknüpfter Inhalt",
     "encounterNone": "Kein Inhalt",
     "level": "Stufe",
-    "levelOption": "Stufe {level}",
+    "levelOption": "Lv.{level}",
     "navActionValues": "Aktionswerte",
     "navBasic": "Allgemein",
     "navSafeHp": "Sichere HP",

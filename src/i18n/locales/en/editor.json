@@ -302,7 +302,7 @@
     "encounter": "Linked encounter",
     "encounterNone": "No encounter",
     "level": "Level",
-    "levelOption": "Level {level}",
+    "levelOption": "Lv.{level}",
     "navActionValues": "Action values",
     "navBasic": "General",
     "navSafeHp": "Safe HP",
