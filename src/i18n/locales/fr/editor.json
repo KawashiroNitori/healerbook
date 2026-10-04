@@ -302,7 +302,7 @@
     "encounter": "Mission associée",
     "encounterNone": "Aucune mission",
     "level": "Niveau",
-    "levelOption": "Niveau {level}",
+    "levelOption": "Lv.{level}",
     "navActionValues": "Valeurs des actions",
     "navBasic": "Général",
     "navSafeHp": "HP de sécurité",
