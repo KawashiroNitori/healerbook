@@ -472,7 +472,7 @@ describe('processOneSample', () => {
 
 /**
  * pickNextSample 拆成三条 SQL：
- *   1. prepare(SELECT DISTINCT encounter_id ...).first()      ← 无 bind
+ *   1. prepare(SELECT DISTINCT encounter_id ...).bind(...ids).first()
  *   2. prepare(SELECT id ...).bind(encounterId).first()
  *   3. prepare(UPDATE ... RETURNING).bind(now, now, id).first()
  */
@@ -500,6 +500,8 @@ function makeMockD1WithRow(row: SampleQueueRow): D1Database {
             const now = Math.floor(Date.now() / 1000)
             return { ...row, sampled: 1, sampled_at: now, updated_at: now }
           }
+          if (sql.includes('SELECT DISTINCT encounter_id'))
+            return { encounter_id: row.encounter_id }
           return { id: row.id }
         },
       }),

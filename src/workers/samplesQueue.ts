@@ -76,32 +76,32 @@ export async function enqueueRankings(
   return { inserted }
 }
 
-/**
- * 当前固定只采样 encounterId=SAMPLE_ENCOUNTER_ID 的未采样行：从该 encounter 内按 id DESC
- * 挑最新入队的一条，标记为 sampled=1 并返回行内容。该 encounter 无未采样行时返回 null。
- *
- * 采样策略会随新版本副本发布频繁调整，因此旧的"随机挑 encounter"策略以注释形式保留备查。
- *
- * 非原子：拆成两条独立 SQL；并发下极端情况可能两个调用拿到同一行，结果是 sampled_at 被覆盖、
- * 双方拿到同一行。cron 单实例触发，实际并发概率近 0。
- */
-export const SAMPLE_ENCOUNTER_ID = 1085
+/** 旧绝限期采样：北京时间 2026-10-12 01:47:29 起只采妖星乱舞。 */
+export const LEGACY_SAMPLE_UNTIL = Date.parse('2026-10-11T17:47:29Z')
 
+/** 旧绝采样期限内的统计采样范围。 */
+export const SAMPLE_ENCOUNTER_IDS = [1085, 1073, 1074, 1075, 1076, 1077] as const
+
+/**
+ * 从采样范围内仍有未采样行的副本中随机选择一个，再挑该副本最新入队的一条。
+ * 先选副本，避免队列较大的副本占据全部采样机会；范围外的队列保持不动。
+ *
+ * 非原子：选择与标记是独立 SQL；cron 单实例触发，实际并发概率近 0。
+ */
 export async function pickNextSample(db: D1Database): Promise<SampleQueueRow | null> {
-  // 旧策略：在仍有未采样行的 encounter 中随机挑一个。
-  // 选 encounter 用 `WHERE sampled=0` + DISTINCT 触发 idx_samples_queue_pick 的 skip-scan，
-  // 比 GROUP BY HAVING MIN(sampled)=0 的全索引扫描快约 50×（实测 25 万行 21ms→0.4ms）。
-  // const encounter = await db
-  //   .prepare(
-  //     `SELECT DISTINCT encounter_id FROM samples_queue
-  //      WHERE sampled = 0
-  //      ORDER BY RANDOM()
-  //      LIMIT 1`
-  //   )
-  //   .first<{ encounter_id: number }>()
-  // if (!encounter) return null
-  // const encounterId = encounter.encounter_id
-  const encounterId = SAMPLE_ENCOUNTER_ID
+  const encounterIds = Date.now() < LEGACY_SAMPLE_UNTIL ? SAMPLE_ENCOUNTER_IDS : [1085]
+  const placeholders = encounterIds.map(() => '?').join(', ')
+  const encounter = await db
+    .prepare(
+      `SELECT DISTINCT encounter_id FROM samples_queue
+       WHERE sampled = 0 AND encounter_id IN (${placeholders})
+       ORDER BY RANDOM()
+       LIMIT 1`
+    )
+    .bind(...encounterIds)
+    .first<{ encounter_id: number }>()
+  if (!encounter) return null
+  const encounterId = encounter.encounter_id
 
   const picked = await db
     .prepare(

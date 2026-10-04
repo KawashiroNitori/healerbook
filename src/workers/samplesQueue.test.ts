@@ -1,16 +1,18 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import {
   enqueueRankings,
   pickNextSample,
   validateEnqueueSamplesRequest,
   ENQUEUE_SAMPLES_MAX_REPORTS,
-  SAMPLE_ENCOUNTER_ID,
+  SAMPLE_ENCOUNTER_IDS,
+  LEGACY_SAMPLE_UNTIL,
   type SampleQueueRow,
 } from './samplesQueue'
 
 /**
  * 内存 D1 mock：模拟本模块用到的 SQL：
  *   INSERT OR IGNORE INTO samples_queue ...                                  (enqueue)
+ *   SELECT DISTINCT encounter_id ... IN (...) ...                       (pick encounter)
  *   SELECT id FROM samples_queue WHERE sampled = 0 AND encounter_id = ? ORDER BY id DESC ... (pick step 1)
  *   UPDATE samples_queue SET sampled = 1, ... WHERE id = ? RETURNING ...    (pick step 2)
  */
@@ -64,6 +66,10 @@ function makeMockD1(initialRows: SampleQueueRow[] = []): D1Database {
           throw new Error(`Unhandled run() SQL in mock: ${sql}`)
         },
         first: async <T>(): Promise<T | null> => {
+          if (sql.startsWith('SELECT DISTINCT encounter_id FROM samples_queue')) {
+            const candidate = rows.find(r => r.sampled === 0 && args.includes(r.encounter_id))
+            return candidate ? ({ encounter_id: candidate.encounter_id } as unknown as T) : null
+          }
           if (
             sql.startsWith('SELECT id FROM samples_queue') &&
             sql.includes('encounter_id = ?') &&
@@ -122,6 +128,65 @@ describe('enqueueRankings', () => {
 // 只测与选行策略无关的不变量：有可采行 → 返回并标记 sampled=1；没有 → null。
 // "具体挑哪一行" 即策略本身，会随版本频繁改动，不在此固化。
 describe('pickNextSample', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(LEGACY_SAMPLE_UNTIL - 1000)
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  it.each([0, 1])('旧绝截止时间后自动跳过，妖星仍可采样（截止后 %i 毫秒）', async offset => {
+    const db = makeMockD1()
+    for (const encounterId of SAMPLE_ENCOUNTER_IDS) {
+      await enqueueRankings(db, encounterId, [
+        { reportCode: `EXPIRY-${encounterId}`, fightID: 1, durationMs: 100_000 },
+      ])
+    }
+    vi.setSystemTime(LEGACY_SAMPLE_UNTIL + offset)
+    expect((await pickNextSample(db))?.encounter_id).toBe(1085)
+    expect(await pickNextSample(db)).toBeNull()
+  })
+
+  it.each([1085, 1073, 1074, 1075, 1076, 1077])('采样所选绝境战 %i', async encounterId => {
+    const db = makeMockD1()
+    await enqueueRankings(db, encounterId, [
+      { reportCode: 'ULTIMATE', fightID: 1, durationMs: 100_000 },
+    ])
+    expect((await pickNextSample(db))?.encounter_id).toBe(encounterId)
+  })
+
+  it('范围外副本不采样，六个目标副本都有采样机会', async () => {
+    const db = makeMockD1()
+    for (const encounterId of [101, 1079, ...SAMPLE_ENCOUNTER_IDS]) {
+      await enqueueRankings(db, encounterId, [
+        { reportCode: `REPORT-${encounterId}`, fightID: 1, durationMs: 100_000 },
+      ])
+    }
+    const sampled: number[] = []
+    for (let i = 0; i < SAMPLE_ENCOUNTER_IDS.length; i++) {
+      sampled.push((await pickNextSample(db))!.encounter_id)
+    }
+    expect(sampled.sort()).toEqual([...SAMPLE_ENCOUNTER_IDS].sort())
+    expect(await pickNextSample(db)).toBeNull()
+    expect(
+      (
+        await enqueueRankings(db, 101, [
+          { reportCode: 'REPORT-101', fightID: 1, durationMs: 100_000 },
+        ])
+      ).inserted
+    ).toBe(0)
+  })
+
+  it('同一副本优先采最新入队记录', async () => {
+    const db = makeMockD1()
+    await enqueueRankings(db, 1075, [
+      { reportCode: 'OLD', fightID: 1, durationMs: 100_000 },
+      { reportCode: 'NEW', fightID: 1, durationMs: 100_000 },
+    ])
+    expect((await pickNextSample(db))?.report_code).toBe('NEW')
+    expect((await pickNextSample(db))?.report_code).toBe('OLD')
+  })
+
   it('无可采行返回 null', async () => {
     const db = makeMockD1()
     const row = await pickNextSample(db)
@@ -130,7 +195,7 @@ describe('pickNextSample', () => {
 
   it('有可采行时返回该行并标记 sampled=1，采完返回 null', async () => {
     const db = makeMockD1()
-    await enqueueRankings(db, SAMPLE_ENCOUNTER_ID, [
+    await enqueueRankings(db, SAMPLE_ENCOUNTER_IDS[0], [
       { reportCode: 'AAA', fightID: 1, durationMs: 100_000 },
     ])
     const row = await pickNextSample(db)
