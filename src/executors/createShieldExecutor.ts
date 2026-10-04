@@ -16,6 +16,8 @@ export interface ShieldExecutorOptions {
   stack?: number
   /** 固定盾值：指定时跳过从 statistics 读取，直接使用此值 */
   fixedBarrier?: number
+  /** 写入状态实例的自定义数据，供状态执行器读取（如按等级区分破盾后的派生效果） */
+  data?: Record<string, unknown>
 }
 
 /**
@@ -47,6 +49,7 @@ export function createShieldExecutor(
       remainingBarrier: barrier,
       initialBarrier: barrier, // 保存初始盾值用于重置
       stack,
+      ...(options?.data !== undefined ? { data: options.data } : {}),
       // 原生盾：barrier 就是它全部意义，归 0 即由 calculator 自动清扫
       removeOnBarrierBreak: true,
       // 互斥替换：uniqueGroup 非空时移除同组旧盾（新实例带新 instanceId 是正确语义）；

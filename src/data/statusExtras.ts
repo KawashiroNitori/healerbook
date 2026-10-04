@@ -277,13 +277,17 @@ export const STATUS_EXTRAS: Record<number, StatusExtras> = {
   // 镰刀
   // 守护纹：盾被完全打穿时挂 15s 的活性纹 (2598) HoT。
   // 仅"盾被消耗殆尽"触发（不在自然到期触发），与 Arcane Crest 的 Crest of Time Returned 语义一致。
+  // 84 级「神秘纹效果提高」前不派生活性纹：由神秘纹的 levelOverrides 在实例上写 data.spawnRegen = false。
+  // 原生盾破盾时已被 calculator 清扫，不派生时无需再移除自身。
   2597: {
     name: '守护纹',
     isFriendly: true,
     category: ['partywide', 'shield'],
     executor: {
-      onConsume: ctx =>
-        spawnRegenChild(ctx.partyState, ctx.status, 2598, 15, ctx.event.time, ctx.statistics),
+      onConsume: ctx => {
+        if (ctx.status.data?.spawnRegen === false) return
+        return spawnRegenChild(ctx.partyState, ctx.status, 2598, 15, ctx.event.time, ctx.statistics)
+      },
     },
   },
   2598: {

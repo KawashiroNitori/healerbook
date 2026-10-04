@@ -1968,7 +1968,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     },
 
     // ==================== 近战 DPS ====================
-    // 牵制 - 近战 DPS 目标减伤
+    // 牵制 - 近战 DPS 通用目标减伤
     {
       id: 7549,
       name: '牵制',
@@ -1980,6 +1980,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       minLevel: 22,
       placement: timeRange(0),
       executor: createBuffExecutor(1195, 15),
+      // 98 级「牵制效果提高」前持续时间为 10s
+      levelOverrides: [
+        {
+          upTo: 97,
+          patch: {
+            duration: 10,
+            executor: createBuffExecutor(1195, 10),
+          },
+        },
+      ],
     },
     {
       id: 65,
@@ -2005,6 +2015,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       statDataEntries: [
         { type: 'shield', key: 2597 },
         { type: 'heal', key: 1002598, label: 'HoT' },
+      ],
+      // 84 级「神秘纹效果提高」前破盾不附加活性纹
+      levelOverrides: [
+        {
+          upTo: 83,
+          patch: {
+            executor: createShieldExecutor(2597, 5, { data: { spawnRegen: false } }),
+            statDataEntries: [{ type: 'shield', key: 2597 }],
+          },
+        },
       ],
     },
 
@@ -2214,6 +2234,16 @@ export const MITIGATION_DATA: MitigationDataSource = {
       minLevel: 8,
       placement: timeRange(0),
       executor: createBuffExecutor(1203, 15),
+      // 98 级「昏乱效果提高」前持续时间为 10s
+      levelOverrides: [
+        {
+          upTo: 97,
+          patch: {
+            duration: 10,
+            executor: createBuffExecutor(1203, 10),
+          },
+        },
+      ],
     },
 
     // 赤魔法师 (RDM)
