@@ -170,9 +170,9 @@
     "replayModeDescPrefix": "Aktuell ist der FFLogs-Wiedergabemodus aktiv: Alle Schäden, die die Spieler in diesem Kampf erlitten haben, sowie die dabei wirksame Schadensminderung wurden aufgezeichnet und werden hier nachgestellt. So lässt sich schnell erkennen, an welchen Stellen Schadensminderung fehlt, und die Ausführung durch die Gruppenmitglieder überprüfen.",
     "replayModeTitle": "Wiedergabemodus",
     "selectTool": "Auswahl",
+    "settings": "",
     "showCastStartTime": "Wirkbeginn",
     "showResourceHover": "Ressourcenvorschau",
-    "statData": "Werteinstellungen",
     "switchToEdit": "In den Bearbeitungsmodus wechseln",
     "switchToReadOnly": "In den schreibgeschützten Modus wechseln",
     "tableView": "Tabellenansicht",
@@ -295,6 +295,19 @@
   "resourceHover": {
     "title": "Ressourcenvorschau"
   },
+  "settings": {
+    "levelChangeTitle": "Stufenänderung bestätigen?",
+    "levelChangeDescription": "Eine Stufenänderung kann die Wirkung von Aktionen verändern und bereits platzierte Aktionen entfernen, die auf der neuen Stufe nicht verfügbar sind. Änderungen speichern?",
+    "basicTitle": "",
+    "encounter": "",
+    "encounterNone": "",
+    "level": "",
+    "levelUnit": "",
+    "navActionValues": "",
+    "navBasic": "",
+    "navSafeHp": "",
+    "title": ""
+  },
   "sortablePreset": {
     "confirmDelete": "Wirklich löschen?",
     "delete": "Löschen",
@@ -370,9 +383,5 @@
     "cannotAddAction": "Aktion kann nicht hinzugefügt werden",
     "conditionNotMet": "Zu diesem Zeitpunkt sind die Einsatzbedingungen nicht erfüllt",
     "viewAnnotation": "Notiz ansehen"
-  },
-  "settings": {
-    "levelChangeTitle": "Stufenänderung bestätigen?",
-    "levelChangeDescription": "Eine Stufenänderung kann die Wirkung von Aktionen verändern und bereits platzierte Aktionen entfernen, die auf der neuen Stufe nicht verfügbar sind. Änderungen speichern?"
   }
 }
