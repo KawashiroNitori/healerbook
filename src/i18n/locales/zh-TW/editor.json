@@ -170,7 +170,7 @@
     "replayModeDescPrefix": "目前正處於 FFLogs 回放模式下，記錄並再現了本次戰鬥中玩家所受到的所有傷害與當時的減傷情況。你可以快速尋找並分析某處的減傷是否欠缺，並檢查隊友的減傷執行情況。",
     "replayModeTitle": "回放模式",
     "selectTool": "框選",
-    "settings": "",
+    "settings": "設定",
     "showCastStartTime": "詠唱開始時間",
     "showResourceHover": "資源預覽",
     "switchToEdit": "切換為編輯模式",
@@ -298,15 +298,15 @@
   "settings": {
     "levelChangeTitle": "確認修改等級？",
     "levelChangeDescription": "修改等級後，技能效果可能會變動，已經放置的技能可能會因新等級不適用而遺失。確定儲存這些修改嗎？",
-    "basicTitle": "",
-    "encounter": "",
-    "encounterNone": "",
-    "level": "",
-    "levelUnit": "",
-    "navActionValues": "",
-    "navBasic": "",
-    "navSafeHp": "",
-    "title": ""
+    "basicTitle": "基本",
+    "encounter": "綁定副本",
+    "encounterNone": "不綁定副本",
+    "level": "等級",
+    "levelOption": "{level}級",
+    "navActionValues": "技能數值",
+    "navBasic": "基本",
+    "navSafeHp": "安全血量",
+    "title": "設定"
   },
   "sortablePreset": {
     "confirmDelete": "確認刪除？",

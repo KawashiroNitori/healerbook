@@ -470,7 +470,7 @@ function SettingsDialogInner({
                 <SelectContent>
                   {SUPPORTED_LEVELS.map(lv => (
                     <SelectItem key={lv} value={String(lv)}>
-                      {lv} {t('editor:settings.levelUnit')}
+                      {t('editor:settings.levelOption', { level: lv })}
                     </SelectItem>
                   ))}
                 </SelectContent>
