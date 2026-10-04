@@ -170,7 +170,7 @@
     "replayModeDescPrefix": "Aktuell ist der FFLogs-Wiedergabemodus aktiv: Alle Schäden, die die Spieler in diesem Kampf erlitten haben, sowie die dabei wirksame Schadensminderung wurden aufgezeichnet und werden hier nachgestellt. So lässt sich schnell erkennen, an welchen Stellen Schadensminderung fehlt, und die Ausführung durch die Gruppenmitglieder überprüfen.",
     "replayModeTitle": "Wiedergabemodus",
     "selectTool": "Auswahl",
-    "settings": "",
+    "settings": "Einstellungen",
     "showCastStartTime": "Wirkbeginn",
     "showResourceHover": "Ressourcenvorschau",
     "switchToEdit": "In den Bearbeitungsmodus wechseln",
@@ -298,15 +298,15 @@
   "settings": {
     "levelChangeTitle": "Stufenänderung bestätigen?",
     "levelChangeDescription": "Eine Stufenänderung kann die Wirkung von Aktionen verändern und bereits platzierte Aktionen entfernen, die auf der neuen Stufe nicht verfügbar sind. Änderungen speichern?",
-    "basicTitle": "",
-    "encounter": "",
-    "encounterNone": "",
-    "level": "",
-    "levelUnit": "",
-    "navActionValues": "",
-    "navBasic": "",
-    "navSafeHp": "",
-    "title": ""
+    "basicTitle": "Allgemein",
+    "encounter": "Verknüpfter Inhalt",
+    "encounterNone": "Kein Inhalt",
+    "level": "Stufe",
+    "levelOption": "Stufe {level}",
+    "navActionValues": "Aktionswerte",
+    "navBasic": "Allgemein",
+    "navSafeHp": "Sichere HP",
+    "title": "Einstellungen"
   },
   "sortablePreset": {
     "confirmDelete": "Wirklich löschen?",

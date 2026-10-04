@@ -302,7 +302,7 @@
     "encounter": "绑定副本",
     "encounterNone": "不绑定副本",
     "level": "等级",
-    "levelUnit": "级",
+    "levelOption": "{level}级",
     "navActionValues": "技能数值",
     "navBasic": "基本",
     "navSafeHp": "安全血量",

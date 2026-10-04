@@ -170,7 +170,7 @@
     "replayModeDescPrefix": "現在 FFLogs のリプレイモードです。この戦闘でプレイヤーが受けたすべてのダメージと、そのときの軽減状況を記録・再現しています。軽減が不足している箇所をすばやく探して分析したり、メンバーの軽減の実行状況を確認したりできます。",
     "replayModeTitle": "リプレイモード",
     "selectTool": "範囲選択",
-    "settings": "",
+    "settings": "設定",
     "showCastStartTime": "詠唱開始時刻",
     "showResourceHover": "リソースプレビュー",
     "switchToEdit": "編集モードに切り替え",
@@ -298,15 +298,15 @@
   "settings": {
     "levelChangeTitle": "レベル変更を確認",
     "levelChangeDescription": "レベルを変更するとアクションの効果が変わり、新しいレベルで使用できない配置済みアクションが削除される場合があります。変更を保存しますか？",
-    "basicTitle": "",
-    "encounter": "",
-    "encounterNone": "",
-    "level": "",
-    "levelUnit": "",
-    "navActionValues": "",
-    "navBasic": "",
-    "navSafeHp": "",
-    "title": ""
+    "basicTitle": "基本",
+    "encounter": "紐付けるコンテンツ",
+    "encounterNone": "コンテンツを指定しない",
+    "level": "レベル",
+    "levelOption": "Lv.{level}",
+    "navActionValues": "アクションの数値",
+    "navBasic": "基本",
+    "navSafeHp": "安全 HP",
+    "title": "設定"
   },
   "sortablePreset": {
     "confirmDelete": "削除しますか？",
