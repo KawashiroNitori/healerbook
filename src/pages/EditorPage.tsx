@@ -374,7 +374,7 @@ export default function EditorPage() {
                 readOnly={!editLock.can('metadata')}
               />
               {isViewMode && authorName && (
-                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+                <span className="max-w-[50%] shrink-0 truncate rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
                   {t('editor:editorPage.byAuthor', { name: authorName })}
                 </span>
               )}

@@ -76,7 +76,7 @@ export default function EditableTitle({
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2 h-7">
+      <div className="flex min-w-0 max-w-full items-center gap-2 h-7">
         {/* 隐藏的 span 用于测量文本宽度 */}
         <span
           ref={spanRef}
@@ -93,13 +93,13 @@ export default function EditableTitle({
           maxLength={TIMELINE_NAME_MAX_LENGTH}
           onKeyDown={handleKeyDown}
           style={{ width: `${inputWidth}px` }}
-          className="px-1 h-7 border rounded-md text-sm bg-background text-foreground border-border"
+          className="min-w-0 px-1 h-7 border rounded-md text-sm bg-background text-foreground border-border"
         />
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={handleSave}
-              className="p-0.5 hover:bg-accent rounded-md transition-colors"
+              className="shrink-0 p-0.5 hover:bg-accent rounded-md transition-colors"
             >
               <Check className="w-4 h-4 text-green-600" />
             </button>
@@ -110,7 +110,7 @@ export default function EditableTitle({
           <TooltipTrigger asChild>
             <button
               onClick={handleCancel}
-              className="p-0.5 hover:bg-accent rounded-md transition-colors"
+              className="shrink-0 p-0.5 hover:bg-accent rounded-md transition-colors"
             >
               <X className="w-4 h-4 text-red-600" />
             </button>
@@ -122,14 +122,16 @@ export default function EditableTitle({
   }
 
   return (
-    <div className="flex items-center gap-2 h-7 group">
-      <h1 className={className}>{value}</h1>
+    <div className="flex min-w-0 max-w-full items-center gap-2 h-7 group">
+      <h1 className={`min-w-0 truncate ${className}`} title={value}>
+        {value}
+      </h1>
       {!readOnly && (
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={() => setIsEditing(true)}
-              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-all"
+              className="shrink-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-all"
             >
               <Pencil className="w-4 h-4" />
             </button>
