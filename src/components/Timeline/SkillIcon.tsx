@@ -7,12 +7,12 @@ import { useKonvaImage } from '@/hooks/useKonvaImage'
 import { useCanvasColors } from './constants'
 
 interface SkillIconProps {
-  iconPath: string
+  icon: number
   isSelected: boolean
 }
 
-export default function SkillIcon({ iconPath, isSelected }: SkillIconProps) {
-  const image = useKonvaImage(iconPath)
+export default function SkillIcon({ icon, isSelected }: SkillIconProps) {
+  const image = useKonvaImage(icon)
   const colors = useCanvasColors()
 
   if (!image) {

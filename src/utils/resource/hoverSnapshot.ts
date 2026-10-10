@@ -18,8 +18,8 @@ export interface ResourceWidget {
   resourceId: string
   style: ResourceStyle
   name: string
-  /** cooldown 样式：代表技能图标路径 */
-  icon?: string
+  /** cooldown 样式：代表技能图标 ID */
+  icon?: number
   amount: number
   max: number
   /** 仅 amount<max 且有 regen：距下一充能恢复剩余秒 */
@@ -52,7 +52,7 @@ function buildWidget(
   def: ResourceDefinition,
   events: ResourceEvent[],
   time: number,
-  meta: { name: string; icon?: string }
+  meta: { name: string; icon?: number }
 ): ResourceWidget {
   const { amount, pending } = computeResourceStateAt(def, events, time)
   const w: ResourceWidget = {

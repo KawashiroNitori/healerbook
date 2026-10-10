@@ -23,7 +23,7 @@ class FakeImage {
 
 beforeEach(() => {
   FakeImage.instances = []
-  useUIStore.setState({ iconLearned: 'cafemaker' })
+  useUIStore.setState({ iconLearned: 'xivcdn' })
   vi.stubGlobal('Image', FakeImage as unknown as typeof Image)
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -32,11 +32,13 @@ describe('useKonvaImage 回退', () => {
   it('首源 error 后换到下一源；下一源 load 成功写回 learned', () => {
     const { result } = renderHook(() => useKonvaImage('/i/003000/003253.png'))
     const img = FakeImage.instances[0]
-    expect(img.src).toBe('https://cafemaker.wakingsands.com/i/003000/003253.png')
+    expect(img.src).toBe(
+      'https://xivapi-v2.xivcdn.com/api/asset?path=ui/icon/003000/003253_hr1.tex'
+    )
 
     act(() => img.onerror?.())
     expect(img.src).toBe(
-      'https://v2.xivapi.com/api/asset?path=ui/icon/003000/003253.tex&format=png'
+      'https://v2.xivapi.com/api/asset?path=ui/icon/003000/003253_hr1.tex&format=webp'
     )
 
     act(() => img.onload?.())

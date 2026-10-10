@@ -12,7 +12,7 @@ const NEG_INF = Number.NEGATIVE_INFINITY
 function makeAction(partial: Partial<MitigationAction> & { id: number }): MitigationAction {
   return {
     name: 'A',
-    icon: '',
+    icon: 0,
     jobs: [] as unknown as MitigationAction['jobs'],
     category: ['partywide'],
     duration: 30,

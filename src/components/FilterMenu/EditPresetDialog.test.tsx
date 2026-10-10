@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => ({
 // 参照 LanguageToggle.test.tsx / TranslationBanner.test.tsx 的既有写法直接 mock 该 store。
 vi.mock('@/store/uiStore', () => ({
   useUIStore: (sel: (s: { iconLearned: string; locale: string }) => unknown) =>
-    sel({ iconLearned: 'cafemaker', locale: 'zh-CN' }),
+    sel({ iconLearned: 'xivcdn', locale: 'zh-CN' }),
 }))
 
 // 模拟「90 级下医养（37010，minLevel 96）不可见」：其余数据沿用真实 ACTIONS，

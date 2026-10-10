@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useUIStore } from './uiStore'
+import { useUIStore, mergePersistedUIState } from './uiStore'
 
 describe('uiStore - canvasTool', () => {
   beforeEach(() => useUIStore.setState({ canvasTool: 'pan' }))
@@ -16,11 +16,11 @@ describe('uiStore - canvasTool', () => {
 
 describe('uiStore learned 字段', () => {
   beforeEach(() => {
-    useUIStore.setState({ iconLearned: 'cafemaker', apiLearned: 'xivcdn' })
+    useUIStore.setState({ iconLearned: 'xivcdn', apiLearned: 'xivcdn' })
   })
 
   it('默认 learned 源', () => {
-    expect(useUIStore.getState().iconLearned).toBe('cafemaker')
+    expect(useUIStore.getState().iconLearned).toBe('xivcdn')
     expect(useUIStore.getState().apiLearned).toBe('xivcdn')
   })
   it('setIconLearned 更新', () => {
@@ -30,5 +30,20 @@ describe('uiStore learned 字段', () => {
   it('setApiLearned 更新', () => {
     useUIStore.getState().setApiLearned('xivapi')
     expect(useUIStore.getState().apiLearned).toBe('xivapi')
+  })
+})
+
+describe('uiStore persist merge', () => {
+  const merge = mergePersistedUIState
+
+  it('已下线的 iconLearned（cafemaker）回退为默认源，其余字段照常恢复', () => {
+    const merged = merge({ iconLearned: 'cafemaker', showGrid: false }, useUIStore.getState())
+    expect(merged.iconLearned).toBe('xivcdn')
+    expect(merged.showGrid).toBe(false)
+  })
+
+  it('有效的 iconLearned 保留', () => {
+    const merged = merge({ iconLearned: 'rpglogs' }, useUIStore.getState())
+    expect(merged.iconLearned).toBe('rpglogs')
   })
 })

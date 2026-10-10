@@ -3,11 +3,11 @@ import { useUIStore } from '@/store/uiStore'
 import { EMPTY_IMAGE, buildIconUrl, getNextIconProvider, onIconSuccess } from './iconProvider'
 
 describe('iconProvider', () => {
-  beforeEach(() => useUIStore.setState({ iconLearned: 'cafemaker' }))
+  beforeEach(() => useUIStore.setState({ iconLearned: 'xivcdn' }))
 
   it('显式 provider 拼 URL', () => {
-    expect(buildIconUrl(3253, 'cafemaker')).toBe(
-      'https://cafemaker.wakingsands.com/i/003000/003253.png'
+    expect(buildIconUrl(3253, 'xivcdn')).toBe(
+      'https://xivapi-v2.xivcdn.com/api/asset?path=ui/icon/003000/003253_hr1.tex'
     )
     expect(buildIconUrl(3253, 'rpglogs')).toBe(
       'https://assets.rpglogs.cn/img/ff/abilities/003000-003253.png'
@@ -20,25 +20,25 @@ describe('iconProvider', () => {
     )
   })
   it('无法解析 → EMPTY_IMAGE', () => {
-    expect(buildIconUrl('', 'cafemaker')).toBe(EMPTY_IMAGE)
-    expect(buildIconUrl('abc', 'cafemaker')).toBe(EMPTY_IMAGE)
+    expect(buildIconUrl('', 'xivcdn')).toBe(EMPTY_IMAGE)
+    expect(buildIconUrl('abc', 'xivcdn')).toBe(EMPTY_IMAGE)
   })
   it('getNextIconProvider 按顺序返回未试源', () => {
-    expect(getNextIconProvider([])).toBe('cafemaker')
-    expect(getNextIconProvider(['cafemaker'])).toBe('xivapi-asset')
-    expect(getNextIconProvider(['cafemaker', 'xivapi-asset'])).toBe('rpglogs')
-    expect(getNextIconProvider(['cafemaker', 'xivapi-asset', 'rpglogs'])).toBeUndefined()
+    expect(getNextIconProvider([])).toBe('xivcdn')
+    expect(getNextIconProvider(['xivcdn'])).toBe('xivapi-asset')
+    expect(getNextIconProvider(['xivcdn', 'xivapi-asset'])).toBe('rpglogs')
+    expect(getNextIconProvider(['xivcdn', 'xivapi-asset', 'rpglogs'])).toBeUndefined()
   })
   it('onIconSuccess 与当前不同才写回', () => {
-    onIconSuccess('cafemaker')
-    expect(useUIStore.getState().iconLearned).toBe('cafemaker')
+    onIconSuccess('xivcdn')
+    expect(useUIStore.getState().iconLearned).toBe('xivcdn')
     onIconSuccess('rpglogs')
     expect(useUIStore.getState().iconLearned).toBe('rpglogs')
   })
   it('onIconSuccess 相同源不调用 setIconLearned（dedup）', () => {
-    useUIStore.setState({ iconLearned: 'cafemaker' })
+    useUIStore.setState({ iconLearned: 'xivcdn' })
     const spy = vi.spyOn(useUIStore.getState(), 'setIconLearned')
-    onIconSuccess('cafemaker')
+    onIconSuccess('xivcdn')
     expect(spy).not.toHaveBeenCalled()
     onIconSuccess('rpglogs')
     expect(spy).toHaveBeenCalledWith('rpglogs')
@@ -46,7 +46,7 @@ describe('iconProvider', () => {
   })
   it('未知 provider 回退到 DEFAULT_ICON_PROVIDER', () => {
     expect(buildIconUrl(3253, 'nope' as never)).toBe(
-      'https://cafemaker.wakingsands.com/i/003000/003253.png'
+      'https://xivapi-v2.xivcdn.com/api/asset?path=ui/icon/003000/003253_hr1.tex'
     )
   })
 })

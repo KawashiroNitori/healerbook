@@ -9,17 +9,17 @@ import type { IconProviderId } from '@/api/providers/registry'
 
 /**
  * 加载图片并返回 HTMLImageElement
- * @param iconPath 图标路径
+ * @param icon 图标 ID 或图标路径（交给 buildIconUrl 归一）
  * @returns 加载的图片元素或 null
  */
-export function useKonvaImage(iconPath: string): HTMLImageElement | null {
+export function useKonvaImage(icon: string | number): HTMLImageElement | null {
   const [image, setImage] = useState<HTMLImageElement | null>(() => {
-    if (!iconPath) return null
+    if (!icon) return null
     return null
   })
 
   useEffect(() => {
-    if (!iconPath) return
+    if (!icon) return
 
     const img = new window.Image()
     const tried: IconProviderId[] = []
@@ -28,7 +28,7 @@ export function useKonvaImage(iconPath: string): HTMLImageElement | null {
     const loadWith = (provider: IconProviderId) => {
       current = provider
       tried.push(provider)
-      img.src = buildIconUrl(iconPath, provider)
+      img.src = buildIconUrl(icon, provider)
     }
 
     img.onload = () => {
@@ -40,7 +40,7 @@ export function useKonvaImage(iconPath: string): HTMLImageElement | null {
       if (next) {
         loadWith(next)
       } else {
-        console.warn(`Failed to load icon (all providers): ${iconPath}`)
+        console.warn(`Failed to load icon (all providers): ${icon}`)
         setImage(null)
       }
     }
@@ -51,7 +51,7 @@ export function useKonvaImage(iconPath: string): HTMLImageElement | null {
       img.onload = null
       img.onerror = null
     }
-  }, [iconPath])
+  }, [icon])
 
   return image
 }

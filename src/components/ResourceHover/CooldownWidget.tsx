@@ -41,7 +41,7 @@ export default function CooldownWidget({ widget }: { widget: ResourceWidget }) {
       className="relative h-8 w-8 overflow-hidden rounded-md bg-muted shadow-md ring-1 ring-black/20"
       title={widget.name}
     >
-      {widget.icon && (
+      {!!widget.icon && (
         <GameIcon input={widget.icon} alt={widget.name} className="h-full w-full object-cover" />
       )}
       {v.showMask && (

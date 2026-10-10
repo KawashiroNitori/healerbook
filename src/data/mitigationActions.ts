@@ -135,7 +135,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7535,
       name: '雪仇',
-      icon: '/i/000000/000806.png',
+      icon: 806,
       jobs: ['WAR', 'PLD', 'DRK', 'GNB'],
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
@@ -157,7 +157,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7531,
       name: '铁壁',
-      icon: '/i/000000/000801.png',
+      icon: 801,
       jobs: ['WAR', 'PLD', 'DRK', 'GNB'],
       category: ['self', 'percentage'],
       duration: 20,
@@ -182,7 +182,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3540,
       name: '圣光幕帘',
-      icon: '/i/002000/002508.png',
+      icon: 2508,
       jobs: ['PLD'],
       category: ['partywide', 'shield'],
       duration: 30,
@@ -210,7 +210,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7385,
       name: '武装戍卫',
-      icon: '/i/002000/002515.png',
+      icon: 2515,
       jobs: ['PLD'],
       category: ['partywide', 'percentage'],
       duration: 5,
@@ -221,7 +221,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 30,
       name: '神圣领域',
-      icon: '/i/002000/002502.png',
+      icon: 2502,
       jobs: ['PLD'],
       category: ['self', 'percentage'],
       duration: 10,
@@ -232,7 +232,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 22,
       name: '壁垒',
-      icon: '/i/000000/000167.png',
+      icon: 167,
       jobs: ['PLD'],
       category: ['self', 'percentage'],
       duration: 10,
@@ -245,7 +245,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7382,
       name: '干预',
-      icon: '/i/002000/002512.png',
+      icon: 2512,
       jobs: ['PLD'],
       category: ['target', 'percentage'],
       duration: 8,
@@ -320,7 +320,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3542,
       name: '盾阵',
-      icon: '/i/002000/002510.png',
+      icon: 2510,
       jobs: ['PLD'],
       category: ['self', 'percentage'],
       duration: 6,
@@ -342,7 +342,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25746,
       name: '圣盾阵',
-      icon: '/i/002000/002950.png',
+      icon: 2950,
       jobs: ['PLD'],
       category: ['self', 'percentage'],
       duration: 8,
@@ -358,7 +358,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 17,
       name: '预警',
-      icon: '/i/000000/000151.png',
+      icon: 151,
       jobs: ['PLD'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -370,7 +370,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 36920,
       name: '极致防御',
-      icon: '/i/002000/002524.png',
+      icon: 2524,
       jobs: ['PLD'],
       category: ['self', 'percentage', 'shield'],
       duration: 15,
@@ -387,7 +387,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7388,
       name: '摆脱',
-      icon: '/i/002000/002563.png',
+      icon: 2563,
       jobs: ['WAR'],
       category: ['partywide', 'shield'],
       duration: 30,
@@ -423,7 +423,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 40,
       name: '战栗',
-      icon: '/i/000000/000263.png',
+      icon: 263,
       jobs: ['WAR'],
       category: ['self'],
       duration: 10,
@@ -445,7 +445,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 43,
       name: '死斗',
-      icon: '/i/000000/000266.png',
+      icon: 266,
       jobs: ['WAR'],
       category: ['self', 'shield'],
       duration: 10,
@@ -456,7 +456,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16464,
       name: '原初的勇猛',
-      icon: '/i/002000/002567.png',
+      icon: 2567,
       jobs: ['WAR'],
       category: ['target', 'percentage', 'shield'],
       duration: 8,
@@ -485,7 +485,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3551,
       name: '原初的直觉',
-      icon: '/i/002000/002559.png',
+      icon: 2559,
       jobs: ['WAR'],
       category: ['self', 'percentage'],
       duration: 6,
@@ -499,7 +499,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25751,
       name: '原初的血气',
-      icon: '/i/002000/002569.png',
+      icon: 2569,
       jobs: ['WAR'],
       category: ['self', 'percentage', 'shield'],
       duration: 8,
@@ -517,7 +517,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 44,
       name: '复仇',
-      icon: '/i/000000/000267.png',
+      icon: 267,
       jobs: ['WAR'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -529,7 +529,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 36923,
       name: '戮罪',
-      icon: '/i/002000/002573.png',
+      icon: 2573,
       jobs: ['WAR'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -542,7 +542,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16471,
       name: '暗黑布道',
-      icon: '/i/003000/003087.png',
+      icon: 3087,
       jobs: ['DRK'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -553,7 +553,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3634,
       name: '弃明投暗',
-      icon: '/i/003000/003076.png',
+      icon: 3076,
       jobs: ['DRK'],
       category: ['self', 'percentage'],
       duration: 10,
@@ -564,7 +564,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3638,
       name: '行尸走肉',
-      icon: '/i/003000/003077.png',
+      icon: 3077,
       jobs: ['DRK'],
       category: ['self', 'percentage'],
       duration: 10,
@@ -575,7 +575,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7393,
       name: '至黑之夜',
-      icon: '/i/003000/003081.png',
+      icon: 3081,
       jobs: ['DRK'],
       category: ['self', 'target', 'shield'],
       duration: 7,
@@ -587,7 +587,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25754,
       name: '献奉',
-      icon: '/i/003000/003089.png',
+      icon: 3089,
       jobs: ['DRK'],
       category: ['self', 'target', 'percentage'],
       duration: 10,
@@ -599,7 +599,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3636,
       name: '暗影墙',
-      icon: '/i/003000/003075.png',
+      icon: 3075,
       jobs: ['DRK'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -611,7 +611,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 36927,
       name: '暗影卫',
-      icon: '/i/003000/003094.png',
+      icon: 3094,
       jobs: ['DRK'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -624,7 +624,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16160,
       name: '光之心',
-      icon: '/i/003000/003424.png',
+      icon: 3424,
       jobs: ['GNB'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -635,7 +635,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16140,
       name: '伪装',
-      icon: '/i/003000/003404.png',
+      icon: 3404,
       jobs: ['GNB'],
       category: ['self', 'percentage'],
       duration: 20,
@@ -646,7 +646,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16152,
       name: '超火流星',
-      icon: '/i/003000/003416.png',
+      icon: 3416,
       jobs: ['GNB'],
       category: ['self', 'percentage'],
       duration: 10,
@@ -657,7 +657,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16161,
       name: '石之心',
-      icon: '/i/003000/003425.png',
+      icon: 3425,
       jobs: ['GNB'],
       category: ['self', 'target', 'percentage'],
       duration: 7,
@@ -669,7 +669,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25758,
       name: '刚玉之心',
-      icon: '/i/003000/003430.png',
+      icon: 3430,
       jobs: ['GNB'],
       category: ['self', 'target', 'percentage'],
       duration: 8,
@@ -683,7 +683,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16148,
       name: '星云',
-      icon: '/i/003000/003412.png',
+      icon: 3412,
       jobs: ['GNB'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -695,7 +695,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 36935,
       name: '大星云',
-      icon: '/i/003000/003435.png',
+      icon: 3435,
       jobs: ['GNB'],
       category: ['self', 'percentage'],
       duration: 15,
@@ -710,7 +710,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16536,
       name: '节制',
-      icon: '/i/002000/002645.png',
+      icon: 2645,
       jobs: ['WHM'],
       category: ['partywide', 'percentage'],
       // 技能描述为 20s：自身光环(1872)持续 20s，期间每秒为队友附加 5s 的节制(1873)，
@@ -735,7 +735,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37011,
       name: '神爱抚',
-      icon: '/i/002000/002128.png',
+      icon: 2128,
       jobs: ['WHM'],
       category: ['partywide', 'shield'],
       duration: 10,
@@ -751,7 +751,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7433,
       name: '全大赦',
-      icon: '/i/002000/002639.png',
+      icon: 2639,
       jobs: ['WHM'],
       category: ['partywide', 'percentage'],
       duration: 10,
@@ -763,7 +763,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25862,
       name: '礼仪之铃',
-      icon: '/i/002000/002649.png',
+      icon: 2649,
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 20,
@@ -777,7 +777,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 28509,
       name: '礼仪之铃',
-      icon: '/i/002000/002649.png',
+      icon: 2649,
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -810,7 +810,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 124,
       name: '医治',
-      icon: '/i/000000/000408.png',
+      icon: 408,
       jobs: ['WHM'],
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
@@ -832,7 +832,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 133,
       name: '医济',
-      icon: '/i/000000/000409.png',
+      icon: 409,
       jobs: ['WHM'],
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
@@ -859,7 +859,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37010,
       name: '医养',
-      icon: '/i/002000/002127.png',
+      icon: 2127,
       jobs: ['WHM'],
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
@@ -885,7 +885,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 131,
       name: '愈疗',
-      icon: '/i/000000/000407.png',
+      icon: 407,
       jobs: ['WHM'],
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
@@ -907,7 +907,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3569,
       name: '庇护所',
-      icon: '/i/002000/002632.png',
+      icon: 2632,
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 24,
@@ -930,7 +930,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16534,
       name: '狂喜之心',
-      icon: '/i/002000/002643.png',
+      icon: 2643,
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -957,7 +957,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3571,
       name: '法令',
-      icon: '/i/002000/002634.png',
+      icon: 2634,
       jobs: ['WHM'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -969,7 +969,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7432,
       name: '神祝祷',
-      icon: '/i/002000/002638.png',
+      icon: 2638,
       jobs: ['WHM'],
       category: ['self', 'target', 'shield'],
       duration: 15,
@@ -991,7 +991,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25861,
       name: '水流幕',
-      icon: '/i/002000/002648.png',
+      icon: 2648,
       jobs: ['WHM'],
       category: ['self', 'target', 'percentage'],
       duration: 8,
@@ -1005,7 +1005,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3585,
       name: '展开战术',
-      icon: '/i/002000/002808.png',
+      icon: 2808,
       jobs: ['SCH'],
       category: ['partywide', 'shield'],
       duration: 30,
@@ -1036,7 +1036,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16542,
       name: '秘策',
-      icon: '/i/002000/002822.png',
+      icon: 2822,
       jobs: ['SCH'],
       category: ['partywide', 'percentage', 'shield'],
       duration: 15,
@@ -1056,7 +1056,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 186,
       name: '士气高扬之策',
-      icon: '/i/002000/002802.png',
+      icon: 2802,
       jobs: ['SCH'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1083,7 +1083,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37013,
       name: '意气轩昂之策',
-      icon: '/i/002000/002880.png',
+      icon: 2880,
       jobs: ['SCH'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1099,7 +1099,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25867,
       name: '生命回生法',
-      icon: '/i/002000/002877.png',
+      icon: 2877,
       jobs: ['SCH'],
       category: ['self', 'target'],
       duration: 10,
@@ -1110,7 +1110,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37014,
       name: '炽天附体',
-      icon: '/i/002000/002881.png',
+      icon: 2881,
       jobs: ['SCH'],
       category: ['partywide', 'percentage', 'shield'],
       duration: 20,
@@ -1124,7 +1124,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37016,
       name: '降临之章',
-      icon: '/i/002000/002883.png',
+      icon: 2883,
       jobs: ['SCH'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1157,7 +1157,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 188,
       name: '野战治疗阵',
-      icon: '/i/002000/002804.png',
+      icon: 2804,
       jobs: ['SCH'],
       category: ['partywide', 'percentage'],
       duration: 18,
@@ -1178,7 +1178,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3583,
       name: '不屈不挠之策',
-      icon: '/i/002000/002806.png',
+      icon: 2806,
       jobs: ['SCH'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1229,7 +1229,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3587,
       name: '转化',
-      icon: '/i/002000/002810.png',
+      icon: 2810,
       jobs: ['SCH'],
       category: ['self'],
       duration: 30,
@@ -1243,7 +1243,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16537,
       name: '仙光的低语',
-      icon: '/i/002000/002852.png',
+      icon: 2852,
       jobs: ['SCH'],
       category: ['partywide', 'heal'],
       duration: 21,
@@ -1256,7 +1256,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16538,
       name: '异想的幻光',
-      icon: '/i/002000/002853.png',
+      icon: 2853,
       jobs: ['SCH'],
       category: ['partywide', 'percentage'],
       duration: 20,
@@ -1268,7 +1268,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16543,
       name: '异想的祥光',
-      icon: '/i/002000/002854.png',
+      icon: 2854,
       jobs: ['SCH'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1282,7 +1282,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25868,
       name: '疾风怒涛之计',
-      icon: '/i/002000/002878.png',
+      icon: 2878,
       jobs: ['SCH'],
       category: ['partywide', 'percentage'],
       duration: 20,
@@ -1294,7 +1294,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16545,
       name: '炽天召唤',
-      icon: '/i/002000/002850.png',
+      icon: 2850,
       jobs: ['SCH'],
       category: ['partywide', 'percentage', 'shield'],
       duration: 22,
@@ -1307,7 +1307,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16546,
       name: '慰藉',
-      icon: '/i/002000/002851.png',
+      icon: 2851,
       jobs: ['SCH'],
       category: ['partywide', 'shield'],
       duration: 30,
@@ -1330,7 +1330,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7439,
       name: '地星',
-      icon: '/i/003000/003143.png',
+      icon: 3143,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 20,
@@ -1346,7 +1346,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 8324,
       name: '星体爆轰',
-      icon: '/i/003000/003144.png',
+      icon: 3144,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       trackGroup: 7439,
@@ -1375,7 +1375,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3613,
       name: '命运之轮',
-      icon: '/i/003000/003140.png',
+      icon: 3140,
       jobs: ['AST'],
       category: ['partywide', 'percentage'],
       duration: 10,
@@ -1390,7 +1390,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16559,
       name: '中间学派',
-      icon: '/i/003000/003552.png',
+      icon: 3552,
       jobs: ['AST'],
       category: ['partywide', 'percentage', 'shield'],
       duration: 20,
@@ -1414,7 +1414,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37031,
       name: '太阳星座',
-      icon: '/i/003000/003109.png',
+      icon: 3109,
       jobs: ['AST'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -1426,7 +1426,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3601,
       name: '阳星相位',
-      icon: '/i/003000/003130.png',
+      icon: 3130,
       jobs: ['AST'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1462,7 +1462,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37030,
       name: '阳星合相',
-      icon: '/i/003000/003567.png',
+      icon: 3567,
       jobs: ['AST'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1497,7 +1497,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 3600,
       name: '阳星',
-      icon: '/i/003000/003129.png',
+      icon: 3129,
       jobs: ['AST'],
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
@@ -1510,7 +1510,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16553,
       name: '天星冲日',
-      icon: '/i/003000/003142.png',
+      icon: 3142,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 15,
@@ -1528,7 +1528,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7445,
       name: '王冠之贵妇',
-      icon: '/i/003000/003146.png',
+      icon: 3146,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1540,7 +1540,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16557,
       name: '天宫图',
-      icon: '/i/003000/003550.png',
+      icon: 3550,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 10,
@@ -1557,7 +1557,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16558,
       name: '天宫图',
-      icon: '/i/003000/003551.png',
+      icon: 3551,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1586,7 +1586,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25874,
       name: '大宇宙',
-      icon: '/i/003000/003562.png',
+      icon: 3562,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 15,
@@ -1598,7 +1598,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25875,
       name: '小宇宙',
-      icon: '/i/003000/003563.png',
+      icon: 3563,
       jobs: ['AST'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1621,7 +1621,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16556,
       name: '天星交错',
-      icon: '/i/003000/003556.png',
+      icon: 3556,
       jobs: ['AST'],
       category: ['self', 'target', 'shield'],
       duration: 30,
@@ -1643,7 +1643,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25873,
       name: '擢升',
-      icon: '/i/003000/003561.png',
+      icon: 3561,
       jobs: ['AST'],
       category: ['self', 'target', 'percentage'],
       duration: 8,
@@ -1654,7 +1654,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37025,
       name: '建筑神之塔',
-      icon: '/i/003000/003115.png',
+      icon: 3115,
       jobs: ['AST'],
       category: ['self', 'target', 'shield'],
       duration: 30,
@@ -1666,7 +1666,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37027,
       name: '世界树之干',
-      icon: '/i/003000/003111.png',
+      icon: 3111,
       jobs: ['AST'],
       category: ['self', 'target', 'percentage'],
       duration: 15,
@@ -1679,7 +1679,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24311,
       name: '泛输血',
-      icon: '/i/003000/003679.png',
+      icon: 3679,
       jobs: ['SGE'],
       category: ['partywide', 'shield'],
       duration: 15,
@@ -1693,7 +1693,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24310,
       name: '整体论',
-      icon: '/i/003000/003678.png',
+      icon: 3678,
       jobs: ['SGE'],
       category: ['partywide', 'shield', 'percentage'],
       duration: 20,
@@ -1714,7 +1714,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24298,
       name: '坚角清汁',
-      icon: '/i/003000/003666.png',
+      icon: 3666,
       jobs: ['SGE'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -1745,7 +1745,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24299,
       name: '寄生清汁',
-      icon: '/i/003000/003667.png',
+      icon: 3667,
       jobs: ['SGE'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1763,7 +1763,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24309,
       name: '根素',
-      icon: '/i/003000/003677.png',
+      icon: 3677,
       jobs: ['SGE'],
       category: ['self'],
       duration: 0,
@@ -1776,7 +1776,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24300,
       name: '活化',
-      icon: '/i/003000/003668.png',
+      icon: 3668,
       jobs: ['SGE'],
       category: ['partywide'],
       duration: 30,
@@ -1796,7 +1796,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24302,
       name: '自生II',
-      icon: '/i/003000/003670.png',
+      icon: 3670,
       jobs: ['SGE'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -1824,7 +1824,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24286,
       name: '预后',
-      icon: '/i/003000/003654.png',
+      icon: 3654,
       jobs: ['SGE'],
       category: ['partywide', 'heal', 'gcd'],
       duration: 0,
@@ -1846,7 +1846,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24292,
       name: '均衡预后',
-      icon: '/i/003000/003660.png',
+      icon: 3660,
       jobs: ['SGE'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1878,7 +1878,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37034,
       name: '均衡预后II',
-      icon: '/i/003000/003689.png',
+      icon: 3689,
       jobs: ['SGE'],
       category: ['partywide', 'shield', 'gcd'],
       duration: 30,
@@ -1909,7 +1909,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24318,
       name: '魂灵风息',
-      icon: '/i/003000/003686.png',
+      icon: 3686,
       jobs: ['SGE'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -1931,7 +1931,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 37035,
       name: '智慧之爱',
-      icon: '/i/003000/003690.png',
+      icon: 3690,
       jobs: ['SGE'],
       category: ['partywide', 'heal'],
       duration: 20,
@@ -1943,7 +1943,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24317,
       name: '混合',
-      icon: '/i/003000/003685.png',
+      icon: 3685,
       jobs: ['SGE'],
       category: ['self', 'target'],
       duration: 10,
@@ -1954,7 +1954,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24303,
       name: '白牛清汁',
-      icon: '/i/003000/003671.png',
+      icon: 3671,
       jobs: ['SGE'],
       category: ['self', 'target', 'percentage'],
       duration: 15,
@@ -1972,7 +1972,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7549,
       name: '牵制',
-      icon: '/i/000000/000828.png',
+      icon: 828,
       jobs: ['MNK', 'DRG', 'NIN', 'SAM', 'RPR', 'VPR'],
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
@@ -1994,7 +1994,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 65,
       name: '真言',
-      icon: '/i/000000/000216.png',
+      icon: 216,
       jobs: ['MNK'],
       category: ['partywide'],
       duration: 15,
@@ -2005,7 +2005,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 24404,
       name: '神秘纹',
-      icon: '/i/003000/003632.png',
+      icon: 3632,
       jobs: ['RPR'],
       category: ['partywide', 'heal'],
       duration: 5,
@@ -2034,7 +2034,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7405,
       name: '行吟',
-      icon: '/i/002000/002612.png',
+      icon: 2612,
       jobs: ['BRD'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -2067,7 +2067,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7408,
       name: '大地神的抒情恋歌',
-      icon: '/i/002000/002615.png',
+      icon: 2615,
       jobs: ['BRD'],
       category: ['partywide'],
       duration: 15,
@@ -2080,7 +2080,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16889,
       name: '策动',
-      icon: '/i/003000/003040.png',
+      icon: 3040,
       jobs: ['MCH'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -2114,7 +2114,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 2887,
       name: '武装解除',
-      icon: '/i/003000/003011.png',
+      icon: 3011,
       jobs: ['MCH'],
       category: ['partywide', 'percentage', 'boss'],
       duration: 10,
@@ -2128,7 +2128,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16012,
       name: '防守之桑巴',
-      icon: '/i/003000/003469.png',
+      icon: 3469,
       jobs: ['DNC'],
       category: ['partywide', 'percentage'],
       duration: 15,
@@ -2161,7 +2161,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16015,
       name: '治疗之华尔兹',
-      icon: '/i/003000/003468.png',
+      icon: 3468,
       jobs: ['DNC'],
       category: ['partywide', 'heal'],
       duration: 0,
@@ -2173,7 +2173,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 16014,
       name: '即兴表演',
-      icon: '/i/003000/003477.png',
+      icon: 3477,
       jobs: ['DNC'],
       category: ['partywide', 'heal'],
       duration: 15,
@@ -2189,7 +2189,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25789,
       name: '即兴表演结束',
-      icon: '/i/003000/003479.png',
+      icon: 3479,
       jobs: ['DNC'],
       category: ['partywide', 'shield'],
       duration: 0,
@@ -2226,7 +2226,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 7560,
       name: '昏乱',
-      icon: '/i/000000/000861.png',
+      icon: 861,
       jobs: ['BLM', 'SMN', 'RDM', 'PCT'],
       category: ['partywide', 'percentage', 'boss'],
       duration: 15,
@@ -2250,7 +2250,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 25857,
       name: '抗死',
-      icon: '/i/003000/003237.png',
+      icon: 3237,
       jobs: ['RDM'],
       category: ['partywide', 'percentage'],
       duration: 10,
@@ -2263,7 +2263,7 @@ export const MITIGATION_DATA: MitigationDataSource = {
     {
       id: 34686,
       name: '油性坦培拉涂层',
-      icon: '/i/003000/003836.png',
+      icon: 3836,
       jobs: ['PCT'],
       category: ['partywide', 'shield'],
       duration: 10,

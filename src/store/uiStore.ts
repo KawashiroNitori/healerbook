@@ -7,6 +7,7 @@ import { persist } from 'zustand/middleware'
 import {
   DEFAULT_ICON_PROVIDER,
   DEFAULT_API_PROVIDER,
+  isIconProviderId,
   type IconProviderId,
   type ApiProviderId,
 } from '@/api/providers/registry'
@@ -120,6 +121,16 @@ function applyLocale(locale: AppLanguage) {
 
 const initialLocale = getInitialLocale()
 
+/** persist 恢复：已下线的 icon 源（如 cafemaker）会残留在 localStorage，回退为默认源 */
+export function mergePersistedUIState(persisted: unknown, current: UIState): UIState {
+  const p = (persisted ?? {}) as Partial<UIState>
+  return {
+    ...current,
+    ...p,
+    iconLearned: isIconProviderId(p.iconLearned) ? p.iconLearned : current.iconLearned,
+  }
+}
+
 export const useUIStore = create<UIState>()(
   persist(
     set => ({
@@ -212,6 +223,7 @@ export const useUIStore = create<UIState>()(
       name: 'ui-store',
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       partialize: ({ theme, locale, draggingId, manualLock, ...rest }) => rest,
+      merge: mergePersistedUIState,
     }
   )
 )

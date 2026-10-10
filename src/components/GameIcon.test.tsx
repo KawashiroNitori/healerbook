@@ -7,14 +7,16 @@ import { GameIcon } from './GameIcon'
 import { EMPTY_IMAGE } from '@/api/providers/iconProvider'
 
 describe('GameIcon', () => {
-  beforeEach(() => useUIStore.setState({ iconLearned: 'cafemaker' }))
+  beforeEach(() => useUIStore.setState({ iconLearned: 'xivcdn' }))
 
   it('初始用首选源 + data-icon-id + 透传 className/alt', () => {
     const { getByAltText } = render(
       <GameIcon input="/i/003000/003253.png" alt="skill" className="w-6" />
     )
     const img = getByAltText('skill') as HTMLImageElement
-    expect(img.getAttribute('src')).toBe('https://cafemaker.wakingsands.com/i/003000/003253.png')
+    expect(img.getAttribute('src')).toBe(
+      'https://xivapi-v2.xivcdn.com/api/asset?path=ui/icon/003000/003253_hr1.tex'
+    )
     expect(img.getAttribute('data-icon-id')).toBe('3253')
     expect(img.className).toBe('w-6')
   })
@@ -24,7 +26,7 @@ describe('GameIcon', () => {
     const img = getByAltText('s') as HTMLImageElement
     fireEvent.error(img)
     expect(img.getAttribute('src')).toBe(
-      'https://v2.xivapi.com/api/asset?path=ui/icon/003000/003253.tex&format=png'
+      'https://v2.xivapi.com/api/asset?path=ui/icon/003000/003253_hr1.tex&format=webp'
     )
   })
 
@@ -46,10 +48,12 @@ describe('GameIcon', () => {
     useUIStore.setState({ iconLearned: 'xivapi-asset' })
     const { getByAltText } = render(<GameIcon input="/i/003000/003253.png" alt="l" />)
     const img = getByAltText('l') as HTMLImageElement
-    // 首选 xivapi-asset 失败 → 换到 cafemaker
+    // 首选 xivapi-asset 失败 → 换到 xivcdn
     fireEvent.error(img)
-    expect(img.getAttribute('src')).toBe('https://cafemaker.wakingsands.com/i/003000/003253.png')
+    expect(img.getAttribute('src')).toBe(
+      'https://xivapi-v2.xivcdn.com/api/asset?path=ui/icon/003000/003253_hr1.tex'
+    )
     fireEvent.load(img)
-    expect(useUIStore.getState().iconLearned).toBe('cafemaker')
+    expect(useUIStore.getState().iconLearned).toBe('xivcdn')
   })
 })

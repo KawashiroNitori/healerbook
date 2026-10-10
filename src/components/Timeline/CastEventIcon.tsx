@@ -240,7 +240,7 @@ const CastEventIcon = memo(function CastEventIcon({
 
       {/* 技能图标（最后渲染，确保在最上层，左边缘对齐生效时刻） */}
       {action ? (
-        <SkillIcon iconPath={(displayAction ?? action).icon} isSelected={isSelected} />
+        <SkillIcon icon={(displayAction ?? action).icon} isSelected={isSelected} />
       ) : (
         // 降级方案：未知 actionId 时显示红色方块
         <Rect

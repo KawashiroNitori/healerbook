@@ -6,7 +6,7 @@ import { createBuffExecutor } from '@/executors'
 const base: MitigationAction = {
   id: 9001,
   name: '测试技能',
-  icon: '/i/test.png',
+  icon: 1,
   jobs: ['WHM'],
   category: ['partywide', 'percentage'],
   duration: 20,

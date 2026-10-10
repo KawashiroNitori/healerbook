@@ -11,7 +11,7 @@ export interface SkillTrack {
   playerId: number
   actionId: number
   actionName: string
-  actionIcon: string
+  actionIcon: number
 }
 
 /**

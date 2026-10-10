@@ -33,7 +33,7 @@ const action = (id: number, duration: number): MitigationAction =>
   ({
     id,
     name: `a-${id}`,
-    icon: '',
+    icon: 0,
     jobs: [],
     duration,
     cooldown: 60,
@@ -347,7 +347,7 @@ describe('computeCdCellsByEvent', () => {
 
 describe('computeShadowCellsByEvent', () => {
   const track = (playerId: number, actionId: number): SkillTrack =>
-    ({ playerId, actionId, job: 'WHM', actionName: `a-${actionId}`, actionIcon: '' }) as SkillTrack
+    ({ playerId, actionId, job: 'WHM', actionName: `a-${actionId}`, actionIcon: 0 }) as SkillTrack
 
   it('from <= damageTime < to 時標記為 shadow', () => {
     const tracks = [track(1, 100)]

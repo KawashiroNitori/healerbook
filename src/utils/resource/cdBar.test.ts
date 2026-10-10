@@ -8,7 +8,7 @@ import type { ResourceDefinition } from '@/types/resource'
 function makeAction(partial: Partial<MitigationAction> & { id: number }): MitigationAction {
   return {
     name: 'A',
-    icon: '',
+    icon: 0,
     jobs: [] as unknown as MitigationAction['jobs'],
     category: ['partywide'],
     duration: 0,

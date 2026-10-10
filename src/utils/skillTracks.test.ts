@@ -17,7 +17,7 @@ const makeAction = (
   ({
     id,
     name: `action-${id}`,
-    icon: `/icon-${id}.png`,
+    icon: id,
     jobs,
     duration: 10,
     cooldown: 60,

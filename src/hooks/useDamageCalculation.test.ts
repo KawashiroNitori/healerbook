@@ -318,7 +318,7 @@ describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
       {
         id: HEAL_ACTION_ID,
         name: 'mock-heal',
-        icon: '',
+        icon: 0,
         jobs: ['WHM'],
         duration: 0,
         cooldown: 0,
@@ -329,7 +329,7 @@ describe('HP 模拟端到端（partial 段 + cast 治疗 + HoT）', () => {
       {
         id: HOT_ACTION_ID,
         name: 'mock-regen',
-        icon: '',
+        icon: 0,
         jobs: ['WHM'],
         duration: 30,
         cooldown: 0,
@@ -456,7 +456,7 @@ describe('useDamageCalculation: castEffectiveEnd 在 stale 帧对齐当前 times
     MITIGATION_DATA.actions.push({
       id: HOT_ACTION_ID,
       name: 'mock-regen',
-      icon: '',
+      icon: 0,
       jobs: ['WHM'],
       duration: 30,
       cooldown: 0,

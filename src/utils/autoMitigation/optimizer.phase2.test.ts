@@ -9,7 +9,7 @@ const act = (id: number): MitigationAction =>
   ({
     id,
     name: `a${id}`,
-    icon: '',
+    icon: 0,
     jobs: ['WHM'],
     duration: 30,
     cooldown: 60,

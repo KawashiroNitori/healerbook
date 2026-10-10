@@ -9,7 +9,7 @@ import type { ResourceDefinition } from '@/types/resource'
 const consolation = makeAction({
   id: 16547,
   name: '慰藉',
-  icon: '/i/c.png',
+  icon: 101,
   jobs: ['SCH'],
   cooldown: 30,
   resourceEffects: [{ resourceId: 'sch:consolation', delta: -1 }],
@@ -18,7 +18,7 @@ const consolation = makeAction({
 const recitation = makeAction({
   id: 188,
   name: '野战治疗阵',
-  icon: '/i/r.png',
+  icon: 102,
   jobs: ['SCH'],
   cooldown: 30,
   resourceEffects: [
@@ -30,7 +30,7 @@ const recitation = makeAction({
 const transpose = makeAction({
   id: 99,
   name: '转化',
-  icon: '/i/t.png',
+  icon: 103,
   jobs: ['SCH'],
   cooldown: 60,
 })
@@ -57,9 +57,9 @@ const registry: Record<string, ResourceDefinition> = {
 }
 const actionsById = new Map([consolation, recitation, transpose].map(a => [a.id, a]))
 const tracks: SkillTrack[] = [
-  { job: 'SCH', playerId: 10, actionId: 16547, actionName: '慰藉', actionIcon: '/i/c.png' },
-  { job: 'SCH', playerId: 10, actionId: 188, actionName: '野战治疗阵', actionIcon: '/i/r.png' },
-  { job: 'SCH', playerId: 10, actionId: 99, actionName: '转化', actionIcon: '/i/t.png' },
+  { job: 'SCH', playerId: 10, actionId: 16547, actionName: '慰藉', actionIcon: 101 },
+  { job: 'SCH', playerId: 10, actionId: 188, actionName: '野战治疗阵', actionIcon: 102 },
+  { job: 'SCH', playerId: 10, actionId: 99, actionName: '转化', actionIcon: 103 },
 ]
 
 function input(casts = []): SnapshotInput {
@@ -84,7 +84,7 @@ describe('computeResourcesnapshots', () => {
       '__cd__:188',
       '__cd__:99',
     ])
-    expect(m.cooldowns.map(c => c.icon)).toEqual(['/i/c.png', '/i/r.png', '/i/t.png'])
+    expect(m.cooldowns.map(c => c.icon)).toEqual([101, 102, 103])
   })
 
   it('未释放技能的 CD 池满档/就绪，无倒计时', () => {
@@ -121,7 +121,7 @@ describe('computeResourcesnapshots', () => {
     })
     const localActionsById = new Map([parent, variant].map(a => [a.id, a]))
     const localTracks: SkillTrack[] = [
-      { job: 'SCH', playerId: 20, actionId: 200, actionName: '父技能', actionIcon: '' },
+      { job: 'SCH', playerId: 20, actionId: 200, actionName: '父技能', actionIcon: 0 },
     ]
     const snap = computeResourceSnapshots(
       {
@@ -140,8 +140,8 @@ describe('computeResourcesnapshots', () => {
     const longCd = makeAction({ id: 301, name: '长CD', jobs: ['SCH'], cooldown: 30 })
     const localActionsById = new Map([shortCd, longCd].map(a => [a.id, a]))
     const localTracks: SkillTrack[] = [
-      { job: 'SCH', playerId: 30, actionId: 300, actionName: '短CD', actionIcon: '' },
-      { job: 'SCH', playerId: 30, actionId: 301, actionName: '长CD', actionIcon: '' },
+      { job: 'SCH', playerId: 30, actionId: 300, actionName: '短CD', actionIcon: 0 },
+      { job: 'SCH', playerId: 30, actionId: 301, actionName: '长CD', actionIcon: 0 },
     ]
     const snap = computeResourceSnapshots(
       {
@@ -162,8 +162,8 @@ describe('computeResourcesnapshots', () => {
     const a2 = makeAction({ id: 401, name: 'B', jobs: ['SCH'], cooldown: 60 })
     const localActionsById = new Map([a1, a2].map(a => [a.id, a]))
     const localTracks: SkillTrack[] = [
-      { job: 'SCH', playerId: 40, actionId: 400, actionName: 'A', actionIcon: '' },
-      { job: 'SCH', playerId: 41, actionId: 401, actionName: 'B', actionIcon: '' },
+      { job: 'SCH', playerId: 40, actionId: 400, actionName: 'A', actionIcon: 0 },
+      { job: 'SCH', playerId: 41, actionId: 401, actionName: 'B', actionIcon: 0 },
     ]
     const snap = computeResourceSnapshots(
       {

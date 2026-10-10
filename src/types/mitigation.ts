@@ -127,10 +127,8 @@ export interface MitigationAction {
   name: string
   /** 技能描述 */
   description?: string
-  /** 技能图标 URL */
-  icon: string
-  /** 技能高清图标 URL */
-  iconHD?: string
+  /** 技能图标 ID（Action.csv 的 Icon 字段），渲染时由 buildIconUrl / GameIcon 解析为 URL */
+  icon: number
   /** 可使用的职业列表 */
   jobs: Job[]
   /** 持续时间（秒） */

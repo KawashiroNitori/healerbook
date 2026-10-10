@@ -9,7 +9,7 @@ const action = (over: Partial<MitigationAction>): MitigationAction =>
   ({
     id: 100,
     name: 'A',
-    icon: '',
+    icon: 0,
     jobs: ['WHM'],
     duration: 15,
     cooldown: 60,

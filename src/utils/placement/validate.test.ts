@@ -7,7 +7,7 @@ import { SUPPORTED_LEVELS } from '@/types/level'
 function a(p: Partial<MitigationAction> & { id: number }): MitigationAction {
   return {
     name: 'x',
-    icon: '',
+    icon: 0,
     jobs: [] as unknown as MitigationAction['jobs'],
     category: ['partywide'],
     duration: 1,
@@ -43,7 +43,7 @@ describe('validateActions', () => {
 const stub: MitigationAction = {
   id: 9101,
   name: '测试',
-  icon: '/i/test.png',
+  icon: 1,
   jobs: ['WHM'],
   category: ['self'],
   duration: 10,

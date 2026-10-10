@@ -20,7 +20,7 @@ function makeAction(overrides: Partial<MitigationAction> = {}): MitigationAction
   return {
     id: 1,
     name: 'test',
-    icon: '',
+    icon: 0,
     jobs: ['PLD'],
     duration: 10,
     cooldown: 60,
@@ -239,7 +239,7 @@ describe('matchCastEvent', () => {
 
 describe('matchTrack', () => {
   it('action 未找到时返回 false', () => {
-    const t: SkillTrack = { job: 'PLD', playerId: 1, actionId: 999, actionName: '', actionIcon: '' }
+    const t: SkillTrack = { job: 'PLD', playerId: 1, actionId: 999, actionName: '', actionIcon: 0 }
     expect(matchTrack(t, builtin(), new Map())).toBe(false)
   })
 
@@ -250,14 +250,14 @@ describe('matchTrack', () => {
       playerId: 1,
       actionId: 42,
       actionName: '',
-      actionIcon: '',
+      actionIcon: 0,
     }
     const healer: SkillTrack = {
       job: 'WHM',
       playerId: 2,
       actionId: 42,
       actionName: '',
-      actionIcon: '',
+      actionIcon: 0,
     }
     const p = builtin({ jobRoles: ['tank'], categories: ['percentage'] })
     expect(matchTrack(tank, p, new Map([[42, a]]))).toBe(true)

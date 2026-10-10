@@ -8,7 +8,7 @@ import type { CastEvent } from '@/types/timeline'
 export function makeAction(partial: Partial<MitigationAction> & { id: number }): MitigationAction {
   return {
     name: 'A',
-    icon: '',
+    icon: 0,
     jobs: [] as unknown as MitigationAction['jobs'],
     category: ['partywide'],
     duration: 0,
