@@ -233,8 +233,8 @@ export default function ActionTooltip({
           <div className="p-3 space-y-3">
             {/* 前两行：图标占两行高度 + 技能名/类型 + 距离/范围 */}
             <div className="flex items-start gap-3">
-              {/* 图标自适应右侧内容高度 */}
-              <div className="self-stretch aspect-square flex-shrink-0 min-w-[40px] min-h-[40px] rounded overflow-hidden bg-[#2a2a2a] border border-[#4a4a4a]">
+              {/* 图标固定尺寸，避免随图片原始分辨率撑大 */}
+              <div className="w-11 h-11 flex-shrink-0 rounded overflow-hidden bg-[#2a2a2a] border border-[#4a4a4a]">
                 <GameIcon
                   input={apiData.Icon || displayedAction.icon}
                   alt={apiData.Name || displayedAction.name}
