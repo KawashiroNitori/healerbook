@@ -37,7 +37,7 @@ export default function AnnotationRow({
   const textWidth = Math.max(0, Math.min(tableWidth, wrapperWidth) - leadingWidth)
 
   return (
-    <tr className="bg-yellow-50/40 dark:bg-yellow-900/20">
+    <tr className="bg-yellow-50/40 dark:bg-yellow-900/20" data-row-time={annotation.time}>
       {showCastStartTime && (
         <td
           className="sticky z-10 bg-yellow-50/40 dark:bg-yellow-900/20 border-r border-b"

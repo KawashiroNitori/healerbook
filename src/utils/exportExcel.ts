@@ -234,7 +234,8 @@ export async function exportTimelineToExcel(options: ExportExcelOptions): Promis
       if (totalCols > 2) {
         ws.mergeCells(rowNum, 2, rowNum, totalCols)
       }
-    } else {
+    } else if (tableRow.kind === 'damage') {
+      // 导出不带阶段（未传入 phases），这里不会出现阶段行
       const { event } = tableRow
 
       // 时间

@@ -45,6 +45,10 @@ import type { DamageEvent } from '@/types/timeline'
 import TableHeader from './TableHeader'
 import TableDataRow from './TableDataRow'
 import AnnotationRow from './AnnotationRow'
+import PhaseRow from './PhaseRow'
+import PhaseDeleteConfirm, { type PhaseDeleteRequest } from '../PhaseDeleteConfirm'
+import { addPhaseAt, movePhaseTo, removePhase, renamePhase } from '../phaseActions'
+import { phaseColor } from '@/utils/timelinePhases'
 import AddDamageRow from './AddDamageRow'
 import AddEventDialog from '../AddEventDialog'
 import AnnotationPopover from '../Timeline/AnnotationPopover'
@@ -237,8 +241,26 @@ export default function TimelineTableView() {
   const rows = useMemo(() => {
     if (!timeline) return []
     const nonCast = (timeline.annotations ?? []).filter(a => a.anchor.type !== 'cast')
-    return mergeAndSortRows(filteredDamageEvents, nonCast)
+    return mergeAndSortRows(filteredDamageEvents, nonCast, timeline.phases ?? [])
   }, [filteredDamageEvents, timeline])
+
+  // ─── 阶段 ───────────────────────────────────────────────
+  const [editingPhase, setEditingPhase] = useState<{
+    id: string
+    field: 'name' | 'time'
+  } | null>(null)
+  const [phaseDeleteRequest, setPhaseDeleteRequest] = useState<PhaseDeleteRequest | null>(null)
+  // 行右键菜单：伤害事件行（在此行前添加阶段）/ 阶段行（改名、改时间、删除）
+  const [rowMenu, setRowMenu] = useState<
+    | { kind: 'damage'; x: number; y: number; time: number }
+    | { kind: 'phase'; x: number; y: number; phaseId: string; anchor: DOMRect }
+    | null
+  >(null)
+
+  const handleAddPhaseBeforeRow = (time: number) => {
+    const phase = addPhaseAt(time)
+    if (phase) setEditingPhase({ id: phase.id, field: 'name' })
+  }
 
   // cast 锚定备注：castId → 该 cast 的备注（一个 cast 至多一条；历史多余数据取首条）
   const castAnnotationByCastId = useMemo(() => {
@@ -393,6 +415,80 @@ export default function TimelineTableView() {
     }
   }, [rows, wrapperWidth])
 
+  /**
+   * 带时间的行及其「未吸顶时」的顶边位置（相对表格顶部）。
+   * 吸顶的阶段行 offsetTop 会反映吸附后的位置，因此改用表头高 + 前序行高累加。
+   */
+  const measureRowLayout = useCallback(() => {
+    const table = tableRef.current
+    const tbody = table?.tBodies[0]
+    if (!table || !tbody) return null
+    const rowsWithTime: HTMLTableRowElement[] = []
+    const tops: number[] = []
+    let y = table.tHead?.offsetHeight ?? HEADER_HEIGHT
+    for (const r of tbody.rows) {
+      if (r.dataset.rowTime !== undefined) {
+        rowsWithTime.push(r)
+        tops.push(y)
+      }
+      y += r.offsetHeight
+    }
+    return { rows: rowsWithTime, tops }
+  }, [])
+
+  // 阅读位置：表头下方第一条可见行的时间，供工具栏判定当前阶段
+  const anchorRafRef = useRef<number | null>(null)
+  const reportViewAnchor = useCallback(() => {
+    if (anchorRafRef.current !== null) return
+    anchorRafRef.current = requestAnimationFrame(() => {
+      anchorRafRef.current = null
+      const wrapper = wrapperRef.current
+      const layout = measureRowLayout()
+      if (!wrapper || !layout) return
+      const { rows: trs, tops } = layout
+      if (trs.length === 0) {
+        useTimelineStore.getState().setViewAnchorTime(null)
+        return
+      }
+      // 二分：第一条底边越过表头下缘的行
+      const line = wrapper.scrollTop + HEADER_HEIGHT
+      let lo = 0
+      let hi = trs.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (tops[mid] + trs[mid].offsetHeight > line) hi = mid
+        else lo = mid + 1
+      }
+      useTimelineStore.getState().setViewAnchorTime(Number(trs[lo].dataset.rowTime))
+    })
+  }, [measureRowLayout])
+  useEffect(() => {
+    reportViewAnchor()
+  }, [rows, reportViewAnchor])
+  useEffect(
+    () => () => {
+      if (anchorRafRef.current !== null) cancelAnimationFrame(anchorRafRef.current)
+      useTimelineStore.getState().setViewAnchorTime(null)
+    },
+    []
+  )
+
+  // 响应阶段跳转请求：该阶段行贴住表头
+  const scrollToTimeRequest = useTimelineStore(s => s.scrollToTimeRequest)
+  const handledScrollSeqRef = useRef(scrollToTimeRequest?.seq ?? 0)
+  useEffect(() => {
+    if (!scrollToTimeRequest || scrollToTimeRequest.seq <= handledScrollSeqRef.current) return
+    handledScrollSeqRef.current = scrollToTimeRequest.seq
+    const wrapper = wrapperRef.current
+    const layout = measureRowLayout()
+    if (!wrapper || !layout) return
+    // 同一时刻阶段行排最前，取第一条时间 ≥ 目标的行即为该阶段行
+    const idx = layout.rows.findIndex(r => Number(r.dataset.rowTime) >= scrollToTimeRequest.time)
+    if (idx >= 0) {
+      wrapper.scrollTo({ top: layout.tops[idx] - HEADER_HEIGHT, behavior: 'smooth' })
+    }
+  }, [scrollToTimeRequest, measureRowLayout])
+
   // 滚动时写入共享进度，供时间轴视图读取
   const handleScroll = () => {
     const wrapper = wrapperRef.current
@@ -400,6 +496,7 @@ export default function TimelineTableView() {
     const maxScroll = wrapper.scrollHeight - wrapper.clientHeight
     const progress = maxScroll > 0 ? Math.min(1, Math.max(0, wrapper.scrollTop / maxScroll)) : 0
     setSyncScrollProgress(progress)
+    reportViewAnchor()
   }
 
   // 切换过滤器时把垂直滚动复位到最上：过滤后行集合可能变化，
@@ -493,6 +590,40 @@ export default function TimelineTableView() {
                   onCellToggle={handleCellToggle}
                   isReadOnly={isReadOnly}
                   onCastContextMenu={handleCastContextMenu}
+                  onRowContextMenu={
+                    isReadOnly
+                      ? undefined
+                      : (event, x, y) => setRowMenu({ kind: 'damage', x, y, time: event.time })
+                  }
+                />
+              ) : row.kind === 'phase' ? (
+                <PhaseRow
+                  key={`p-${row.id}`}
+                  phase={row.phase}
+                  color={phaseColor(row.colorIndex)}
+                  restColSpan={restColSpan}
+                  wrapperWidth={wrapperWidth}
+                  tableWidth={tableWidth}
+                  showCastStartTime={showCastStartTime}
+                  isReadOnly={isReadOnly}
+                  editing={editingPhase?.id === row.id ? editingPhase.field : null}
+                  onStartEdit={field => setEditingPhase({ id: row.id, field })}
+                  onEndEdit={() => setEditingPhase(null)}
+                  onRename={name => renamePhase(row.id, name)}
+                  onChangeTime={time => movePhaseTo(row.id, time)}
+                  onDelete={anchor =>
+                    setPhaseDeleteRequest({ phaseId: row.id, phaseName: row.phase.name, anchor })
+                  }
+                  onContextMenu={(x, y) => {
+                    if (isReadOnly) return
+                    setRowMenu({
+                      kind: 'phase',
+                      x,
+                      y,
+                      phaseId: row.id,
+                      anchor: new DOMRect(x, y, 1, 1),
+                    })
+                  }}
                 />
               ) : (
                 <AnnotationRow
@@ -574,6 +705,63 @@ export default function TimelineTableView() {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      {/* 行右键菜单：伤害事件行 → 在此行前添加阶段；阶段行 → 改名 / 改时间 / 删除 */}
+      {rowMenu && !isReadOnly && (
+        <DropdownMenu open onOpenChange={open => !open && setRowMenu(null)}>
+          <DropdownMenuTrigger asChild>
+            <div
+              className="fixed pointer-events-none"
+              style={{ left: rowMenu.x, top: rowMenu.y, width: 1, height: 1 }}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="bottom" className="min-w-[140px] text-[11px]">
+            {rowMenu.kind === 'damage' ? (
+              <DropdownMenuItem onClick={() => handleAddPhaseBeforeRow(rowMenu.time)}>
+                {t('editor:phase.addBeforeRow')}
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  onClick={() => setEditingPhase({ id: rowMenu.phaseId, field: 'name' })}
+                >
+                  {t('editor:phase.rename')}
+                  <DropdownMenuShortcut>
+                    {t('editor:phase.renameShortcutTable')}
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setEditingPhase({ id: rowMenu.phaseId, field: 'time' })}
+                >
+                  {t('editor:phase.editTime')}
+                  <DropdownMenuShortcut>{t('editor:phase.editTimeShortcut')}</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    const phase = timeline.phases?.find(p => p.id === rowMenu.phaseId)
+                    if (phase) {
+                      setPhaseDeleteRequest({
+                        phaseId: phase.id,
+                        phaseName: phase.name,
+                        anchor: rowMenu.anchor,
+                      })
+                    }
+                  }}
+                >
+                  {t('editor:phase.delete')}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      <PhaseDeleteConfirm
+        request={phaseDeleteRequest}
+        onConfirm={removePhase}
+        onClose={() => setPhaseDeleteRequest(null)}
+      />
 
       {/* cast 备注文本录入（复用画布 AnnotationPopover） */}
       {editingCast && (

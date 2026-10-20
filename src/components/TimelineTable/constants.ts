@@ -25,3 +25,6 @@ export const ROW_HEIGHT = 40
 
 /** 列头行高（px） */
 export const HEADER_HEIGHT = 48
+
+/** 阶段分隔行高（px） */
+export const PHASE_ROW_HEIGHT = 30
