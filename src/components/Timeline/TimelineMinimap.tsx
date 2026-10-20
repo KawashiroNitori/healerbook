@@ -12,6 +12,16 @@ import { useUIStore } from '@/store/uiStore'
 import { getFallbackMaxHP } from '@/utils/statDataUtils'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import i18n from '@/i18n'
+import {
+  phaseColor,
+  phaseColorAlpha,
+  phaseTextColor,
+  shortPhaseLabel,
+  sortPhases,
+} from '@/utils/timelinePhases'
+
+/** 缩略图上阶段渐变的固定宽度（px） */
+const MINIMAP_PHASE_BAND_WIDTH = 64
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -164,6 +174,22 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       ctx.moveTo(zeroX, 0)
       ctx.lineTo(zeroX, height)
       ctx.stroke()
+
+      // 阶段：起点竖线 + 固定 64px 宽、铺满整个高度的渐变（只显示，不改变点击行为）
+      const phases = sortPhases(timeline.phases ?? []).map((p, i) => ({
+        ...p,
+        color: phaseColor(i),
+        x: (p.time - TIMELINE_START_TIME) * zoomLevel * minimapScale,
+      }))
+      for (const p of phases) {
+        const grad = ctx.createLinearGradient(p.x, 0, p.x + MINIMAP_PHASE_BAND_WIDTH, 0)
+        grad.addColorStop(0, phaseColorAlpha(p.color, theme === 'dark' ? 0.5 : 0.4))
+        grad.addColorStop(1, phaseColorAlpha(p.color, 0))
+        ctx.fillStyle = grad
+        ctx.fillRect(p.x, 0, MINIMAP_PHASE_BAND_WIDTH, height)
+        ctx.fillStyle = p.color
+        ctx.fillRect(p.x - 1, 0, 2, height)
+      }
 
       // 再绘制时间标签（确保在最上层）
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -334,6 +360,17 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         ctx.textBaseline = 'top'
         ctx.fillStyle = 'rgba(220, 38, 38, 0.8)'
         ctx.fillText(i18n.t('editor:timelineMinimap.fatal'), 2, lineY + 3)
+      }
+
+      // 阶段短标签（左上角，最后绘制保证在最上层）
+      if (phases.length > 0) {
+        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'top'
+        for (const p of phases) {
+          ctx.fillStyle = theme === 'dark' ? p.color : phaseTextColor(p.color)
+          ctx.fillText(shortPhaseLabel(p.name), p.x + 4, 3)
+        }
       }
 
       drawParamsRef.current = { minimapScale, timelineOffset, contentY, contentHeight }
