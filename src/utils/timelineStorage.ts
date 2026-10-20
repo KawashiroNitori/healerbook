@@ -2,7 +2,7 @@
  * 时间轴本地存储工具
  */
 
-import type { Timeline, Composition, DamageEvent } from '@/types/timeline'
+import type { Timeline, Composition, DamageEvent, TimelinePhase } from '@/types/timeline'
 import type { LocalDocMeta } from '@/collab/types'
 import { generateId } from '@/utils/id'
 import { getEncounterById } from '@/data/raidEncounters'
@@ -88,7 +88,8 @@ export async function buildFFLogsSourceIndex(): Promise<Map<string, LocalDocMeta
 export function createNewTimeline(
   encounterId: string,
   name: string,
-  initialDamageEvents?: DamageEvent[]
+  initialDamageEvents?: DamageEvent[],
+  initialPhases?: TimelinePhase[]
 ): Timeline {
   const now = Math.floor(Date.now() / 1000)
   const encounterIdNum = parseInt(encounterId) || 0
@@ -110,6 +111,7 @@ export function createNewTimeline(
     castEvents: [],
     statusEvents: [],
     annotations: [],
+    ...(initialPhases && initialPhases.length > 0 ? { phases: [...initialPhases] } : {}),
     composition: {
       players: [],
     },

@@ -6,7 +6,7 @@
  * 不属于契约，留在各自模块内部。
  */
 
-import type { Composition, DamageEvent, Timeline } from './timeline'
+import type { Composition, DamageEvent, RawPhase, Timeline } from './timeline'
 
 /** GET /api/my/timelines 的列表项 */
 export interface MyTimelineListItem {
@@ -92,4 +92,6 @@ export interface EncounterTemplateResponse {
   templateSourceDurationMs: number | null
   /** 模板来源战斗是否为击杀；为 true 时前端显示"已更新完成"而非时长进度条 */
   kill: boolean
+  /** 模板阶段（FFLogs 原文，前端建轴时按当前语言翻译）；无模板 / 存量模板为 [] */
+  phases: RawPhase[]
 }

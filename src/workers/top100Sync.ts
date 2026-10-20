@@ -12,7 +12,7 @@ import { ALL_ENCOUNTERS, type RaidEncounter } from '@/data/raidEncounters'
 import type { FFLogsEvent, FFLogsAbility, FFLogsReport, PlayerMap } from '@/types/fflogs'
 import type { EncounterStatistics } from '@/types/mitigation'
 import type { Job } from '@/data/jobs'
-import type { DamageEvent, StoredDamageEvent } from '@/types/timeline'
+import type { DamageEvent, RawPhase, StoredDamageEvent } from '@/types/timeline'
 import type { Top100Data } from '@/types/apiContracts'
 import {
   parseDamageEvents,
@@ -21,6 +21,7 @@ import {
   extractHealData,
   extractMaxHPData,
   resolveFightStartTime,
+  parseFightPhases,
 } from '@/utils/fflogsImporter'
 import {
   getTop100KVKey,
@@ -64,6 +65,8 @@ export interface ExtractedFightData {
   damageEvents: StoredDamageEvent[]
   /** 本场战斗是否击杀（FFLogs fight.kill），用于 template 覆盖优先级与"已更新完成"展示 */
   kill: boolean
+  /** 本场阶段（未翻译），与 damageEvents 同零点；随 template 整体写入 */
+  phases: RawPhase[]
 }
 
 /**
@@ -107,9 +110,11 @@ export function extractFightStats(
   // 白扫全量事件重建区间，勿补全。
   // fightStartTime 用 resolveFightStartTime（与前端 parseFightImport 同口径）：模板事件
   // 时间会流向 slimDamageEvents.time / snapshotTime，零点须与用户导入时间轴同轴对齐。
+  // 阶段同理，与伤害事件共用同一零点。
+  const fightStartTime = resolveFightStartTime(events, fight.startTime)
   const fullDamageEvents = parseDamageEvents({
     events,
-    fightStartTime: resolveFightStartTime(events, fight.startTime),
+    fightStartTime,
     playerMap,
     abilityMap,
     composition,
@@ -127,6 +132,7 @@ export function extractFightStats(
     durationMs,
     damageEvents,
     kill: fight.kill ?? false,
+    phases: parseFightPhases(report, fight, fightStartTime),
   }
 }
 
@@ -310,7 +316,7 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
   }
   await kv.put(getStatisticsKVKey(encounterId), JSON.stringify(statistics))
 
-  // 3) template：仅当本场更长才覆盖
+  // 3) template：覆盖规则见 shouldReplaceTemplate
   const oldTemplateRaw = await kv.get(getEncounterTemplateKVKey(encounterId), 'json')
   const oldTemplate = oldTemplateRaw as EncounterTemplate | null
   const built = buildEncounterTemplate({
@@ -319,6 +325,7 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
     p50Map: statistics.damageByAbility,
     oldTemplate,
     fightKill: extracted.kill,
+    fightPhases: extracted.phases,
   })
   if (built) {
     const newTemplate: EncounterTemplate = {
@@ -326,6 +333,7 @@ export async function processOneSample(deps: ProcessOneSampleDeps): Promise<bool
       events: built.events,
       templateSourceDurationMs: built.templateSourceDurationMs,
       kill: built.kill,
+      phases: built.phases,
       updatedAt: new Date().toISOString(),
     }
     await kv.put(getEncounterTemplateKVKey(encounterId), JSON.stringify(newTemplate))

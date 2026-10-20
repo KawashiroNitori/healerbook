@@ -29,6 +29,8 @@ import { track } from '@/utils/analytics'
 import { fetchEncounterTemplate } from '@/api/encounterTemplate'
 import type { EncounterTemplateResponse } from '@/types/apiContracts'
 import { SUPPORTED_LEVELS } from '@/types/level'
+import { rawPhasesToTimelinePhases } from '@/utils/phaseNames'
+import { generateObjectId } from '@/utils/shortId'
 
 const VISIBLE_TIERS = RAID_TIERS.filter(tier => !tier.comingSoon)
 
@@ -81,8 +83,22 @@ export default function CreateTimelineDialog({
           ])
         : undefined
     const initialEvents = cached?.events
+    // 阶段名按建轴者当前语言翻译后写入；cached.phases 兜底兼容尚未过期的旧响应缓存
+    const initialPhases = cached
+      ? rawPhasesToTimelinePhases(
+          cached.phases ?? [],
+          encounterIdNum,
+          useUIStore.getState().locale,
+          generateObjectId
+        )
+      : undefined
 
-    const base = createNewTimeline(String(encounterIdNum), name.trim(), initialEvents)
+    const base = createNewTimeline(
+      String(encounterIdNum),
+      name.trim(),
+      initialEvents,
+      initialPhases
+    )
     if (otherLevel) base.level = otherLevel
     const newId = await createLocalTimeline(timelineToLocalInit(base))
     useUIStore.setState({ manualLock: false })

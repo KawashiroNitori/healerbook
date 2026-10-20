@@ -111,7 +111,35 @@ describe('GET /encounter-templates/:encounterId', () => {
       })
     )
     const res = await encounterTemplatesRoutes.request('https://app/1235', undefined, makeEnv(kv))
-    const body = (await res.json()) as { kill: boolean }
+    const body = (await res.json()) as { kill: boolean; phases: unknown[] }
     expect(body.kill).toBe(false)
+    // 存量模板无 phases 字段 → 返回空数组
+    expect(body.phases).toEqual([])
+  })
+
+  it('KV 模板带阶段 → 原样返回（未翻译）', async () => {
+    const kv = createMockKV()
+    const phases = [{ fflogsPhaseId: 1, name: 'P1: Raw', time: 0 }]
+    await kv.put(
+      getEncounterTemplateKVKey(1236),
+      JSON.stringify({
+        encounterId: 1236,
+        events: [],
+        templateSourceDurationMs: 100_000,
+        kill: true,
+        phases,
+        updatedAt: '2026-04-14T00:00:00.000Z',
+      })
+    )
+    const res = await encounterTemplatesRoutes.request('https://app/1236', undefined, makeEnv(kv))
+    const body = (await res.json()) as { phases: unknown[] }
+    expect(body.phases).toEqual(phases)
+  })
+
+  it('KV 无数据 → phases 为空数组', async () => {
+    const kv = createMockKV()
+    const res = await encounterTemplatesRoutes.request('https://app/9998', undefined, makeEnv(kv))
+    const body = (await res.json()) as { phases: unknown[] }
+    expect(body.phases).toEqual([])
   })
 })

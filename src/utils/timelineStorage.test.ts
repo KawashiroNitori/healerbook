@@ -78,6 +78,20 @@ describe('createNewTimeline — initialDamageEvents', () => {
   })
 })
 
+describe('createNewTimeline — initialPhases', () => {
+  it('未传时不写 phases', () => {
+    expect(createNewTimeline('1234', 'test').phases).toBeUndefined()
+    expect(createNewTimeline('1234', 'test', undefined, []).phases).toBeUndefined()
+  })
+
+  it('传入阶段时写入副本', () => {
+    const phases = [{ id: 'p1', name: 'P1', time: 0 }]
+    const timeline = createNewTimeline('1234', 'test', undefined, phases)
+    expect(timeline.phases).toEqual(phases)
+    expect(timeline.phases).not.toBe(phases)
+  })
+})
+
 describe('createNewTimeline 等级推导', () => {
   afterEach(() => {
     vi.restoreAllMocks()

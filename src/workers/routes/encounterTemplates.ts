@@ -23,6 +23,7 @@ app.get('/:encounterId', async c => {
       updatedAt: null,
       templateSourceDurationMs: null,
       kill: false,
+      phases: [],
     }
     return c.json(empty, 200, headers)
   }
@@ -34,6 +35,7 @@ app.get('/:encounterId', async c => {
     updatedAt: template.updatedAt,
     templateSourceDurationMs: template.templateSourceDurationMs,
     kill: template.kill ?? false,
+    phases: template.phases ?? [],
   }
   return c.json(body, 200, headers)
 })

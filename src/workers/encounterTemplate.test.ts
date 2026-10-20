@@ -13,6 +13,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 120_000,
       fightEvents: events,
       p50Map: { 1: 555, 2: 666 },
+      fightPhases: [],
       oldTemplate: null,
     })
     expect(result).not.toBeNull()
@@ -34,6 +35,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100_001,
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate,
     })
     expect(result).not.toBeNull()
@@ -51,6 +53,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100_000,
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate,
     })
     expect(result).toBeNull()
@@ -67,6 +70,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 50_000,
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate,
     })
     expect(result).toBeNull()
@@ -77,6 +81,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100,
       fightEvents: [makeSlim(1, 1, 9999), makeSlim(2, 2, 8888)],
       p50Map: { 1: 500 },
+      fightPhases: [],
       oldTemplate: null,
     })
     const byId = Object.fromEntries(result!.events.map(e => [e.abilityId!, e.damage]))
@@ -89,6 +94,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100,
       fightEvents: [makeSlim(1, 1), makeSlim(2, 2), makeSlim(3, 3)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate: null,
     })
     const ids = result!.events.map(e => e.id)
@@ -101,6 +107,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100,
       fightEvents: [],
       p50Map: {},
+      fightPhases: [],
       oldTemplate: null,
     })
     expect(result).not.toBeNull()
@@ -112,6 +119,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100,
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate: null,
     })
     expect(wipe!.kill).toBe(false)
@@ -120,6 +128,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 100,
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate: null,
       fightKill: true,
     })
@@ -138,6 +147,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 500_000, // 比旧 wipe 短
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate,
       fightKill: true,
     })
@@ -158,6 +168,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 900_000, // 更长，但 wipe
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate,
       fightKill: false,
     })
@@ -170,6 +181,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
       events: [],
       templateSourceDurationMs: 500_000,
       kill: true,
+      phases: [],
       updatedAt: 'x',
     }
     expect(
@@ -177,6 +189,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
         fightDurationMs: 500_001,
         fightEvents: [makeSlim(1, 1)],
         p50Map: {},
+        fightPhases: [],
         oldTemplate,
         fightKill: true,
       })
@@ -186,6 +199,7 @@ describe('buildEncounterTemplate (single-fight)', () => {
         fightDurationMs: 400_000,
         fightEvents: [makeSlim(1, 1)],
         p50Map: {},
+        fightPhases: [],
         oldTemplate,
         fightKill: true,
       })
@@ -203,10 +217,80 @@ describe('buildEncounterTemplate (single-fight)', () => {
       fightDurationMs: 300_000,
       fightEvents: [makeSlim(1, 1)],
       p50Map: {},
+      fightPhases: [],
       oldTemplate: legacyOld,
       fightKill: true,
     })
     expect(result).not.toBeNull()
     expect(result!.kill).toBe(true)
+  })
+})
+
+describe('buildEncounterTemplate 阶段', () => {
+  const slim: StoredDamageEvent = {
+    name: 'a',
+    time: 1,
+    damage: 1,
+    type: 'aoe',
+    damageType: 'magical',
+    abilityId: 1,
+  }
+  const phases = [
+    { fflogsPhaseId: 1, name: 'P1: Raw', time: 0 },
+    { fflogsPhaseId: 2, name: 'P2: Raw', time: 209.2 },
+  ]
+  const oldKill = (extra: object = {}) => ({
+    encounterId: 1,
+    events: [],
+    templateSourceDurationMs: 900_000,
+    kill: true,
+    updatedAt: 'x',
+    ...extra,
+  })
+  const build = (oldTemplate: ReturnType<typeof oldKill> | null, fightKill: boolean) =>
+    buildEncounterTemplate({
+      fightDurationMs: 300_000, // 比旧模板短
+      fightEvents: [slim],
+      p50Map: {},
+      fightPhases: phases,
+      oldTemplate,
+      fightKill,
+    })
+
+  it('覆盖时原样写入阶段', () => {
+    expect(build(null, false)!.phases).toEqual(phases)
+  })
+
+  it('本场无阶段时写入空数组', () => {
+    const result = buildEncounterTemplate({
+      fightDurationMs: 1,
+      fightEvents: [slim],
+      p50Map: {},
+      fightPhases: [],
+      oldTemplate: null,
+    })
+    expect(result!.phases).toEqual([])
+  })
+
+  it('旧 kill 模板缺 phases 字段 → 更短的新 kill 也覆盖', () => {
+    const result = build(oldKill(), true)
+    expect(result).not.toBeNull()
+    expect(result!.phases).toEqual(phases)
+  })
+
+  it('旧 kill 模板 phases 为空数组 → 更短的新 kill 不覆盖', () => {
+    expect(build(oldKill({ phases: [] }), true)).toBeNull()
+  })
+
+  it('旧 kill 模板已有阶段 → 更短的新 kill 不覆盖', () => {
+    expect(build(oldKill({ phases }), true)).toBeNull()
+  })
+
+  it('旧 wipe 模板缺 phases 字段 → 更短的新 wipe 不覆盖', () => {
+    expect(build(oldKill({ kill: false }), false)).toBeNull()
+  })
+
+  it('旧 kill 模板缺 phases 字段 → 新 wipe 不覆盖', () => {
+    expect(build(oldKill(), false)).toBeNull()
   })
 })

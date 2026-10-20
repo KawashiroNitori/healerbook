@@ -194,6 +194,41 @@ describe('extractFightStats', () => {
     const out = extractFightStats(report, fight, [])
     expect(out.kill).toBe(true)
   })
+
+  it('提取阶段，零点与伤害事件相同（resolveFightStartTime）', () => {
+    const fight = {
+      id: 5,
+      startTime: 1000,
+      endTime: 121000,
+      encounterID: 1085,
+      phaseTransitions: [
+        { id: 1, startTime: 1000 },
+        { id: 2, startTime: 62000 },
+      ],
+    } as FFLogsReport['fights'][number]
+    const report = {
+      fights: [fight],
+      friendlies: [],
+      abilities: [],
+      enemies: [],
+      phases: [
+        {
+          encounterID: 1085,
+          phases: [
+            { id: 1, name: 'P1: Raw' },
+            { id: 2, name: 'P2: Raw' },
+          ],
+        },
+      ],
+    } as unknown as FFLogsReport
+    const events = [{ type: 'limitbreakupdate', timestamp: 2000 }] as unknown as FFLogsEvent[]
+
+    const out = extractFightStats(report, fight, events)
+    expect(out.phases).toEqual([
+      { fflogsPhaseId: 1, name: 'P1: Raw', time: -1 },
+      { fflogsPhaseId: 2, name: 'P2: Raw', time: 60 },
+    ])
+  })
 })
 
 describe('processOneSample', () => {
@@ -236,6 +271,7 @@ describe('processOneSample', () => {
       critHealByAbility: {},
       durationMs: 120_000,
       kill: false,
+      phases: [{ fflogsPhaseId: 1, name: 'P1: Raw', time: 0 }],
       damageEvents: [
         {
           name: 'a-9999',
@@ -286,6 +322,7 @@ describe('processOneSample', () => {
     expect(tpl.templateSourceDurationMs).toBe(120_000)
     expect(tpl.events.length).toBeGreaterThan(0)
     expect(tpl.kill).toBe(false)
+    expect(tpl.phases).toEqual([{ fflogsPhaseId: 1, name: 'P1: Raw', time: 0 }])
   })
 
   it('kill 场：template.kill=true，且更短的 kill 也能顶掉更长的旧 wipe', async () => {
