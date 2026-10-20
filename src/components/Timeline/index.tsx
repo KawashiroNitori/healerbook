@@ -74,6 +74,20 @@ import { useSkillTracks } from '@/hooks/useSkillTracks'
 import { useFilteredTimelineView } from '@/hooks/useFilteredTimelineView'
 import { useFilterStore } from '@/store/filterStore'
 import { computeDamageCardGeometry } from './cardGeometry'
+import { getKonvaFontFamily } from '@/i18n'
+import { deleteKeyLabel } from '@/utils/platform'
+import {
+  PHASE_VIEW_OFFSET_PX,
+  clampPhaseTime,
+  phaseColor,
+  sortPhases,
+} from '@/utils/timelinePhases'
+import type { PhaseMarker } from './PhaseBands'
+import PhaseLabels, { type PhaseHint } from './PhaseLabels'
+import { computePhaseLabelBoxes } from './phaseLabelLayout'
+import PhaseNameInput from '../PhaseNameInput'
+import PhaseDeleteConfirm, { type PhaseDeleteRequest } from '../PhaseDeleteConfirm'
+import { addPhaseAt, movePhaseTo, removePhase, renamePhase } from '../phaseActions'
 
 interface TimelineCanvasProps {
   width: number
@@ -226,6 +240,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const selectedEventIds = useTimelineStore(s => s.selectedEventIds)
   const selectedCastEventIds = useTimelineStore(s => s.selectedCastEventIds)
   const selectedAnnotationIds = useTimelineStore(s => s.selectedAnnotationIds)
+  const selectedPhaseId = useTimelineStore(s => s.selectedPhaseId)
+  const selectPhase = useTimelineStore(s => s.selectPhase)
+  // 阶段交互的本地态：拖动预览 / 改名中 / 延迟提示 / 删除确认
+  const [phaseDragPreview, setPhaseDragPreview] = useState<{ id: string; time: number } | null>(
+    null
+  )
+  const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null)
+  const [phaseHint, setPhaseHint] = useState<PhaseHint | null>(null)
+  const [phaseDeleteRequest, setPhaseDeleteRequest] = useState<PhaseDeleteRequest | null>(null)
+  const locale = useUIStore(s => s.locale)
   // 技能轨道渲染/放置引擎需要感知等级：低等级下 CD / 持续时间 / executor 可能与基线表不同，
   // 若仍用基线表会出现"计算层已是低等级数值、放置层却按 100 级判定合法区间"的分裂。
   const { actions, actionMap } = useResolvedActions()
@@ -467,6 +491,35 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     hpTimeline.length,
   ])
 
+  // 阶段：按 time 排序后按位置配色；拖动中用预览时间（拖动不能越过相邻阶段，配色不变）
+  const sortedPhases = useMemo(() => sortPhases(timeline?.phases ?? []), [timeline?.phases])
+  const phaseMarkers: PhaseMarker[] = useMemo(
+    () =>
+      sortedPhases.map((p, i) => ({
+        id: p.id,
+        name: p.name,
+        time: phaseDragPreview?.id === p.id ? phaseDragPreview.time : p.time,
+        color: phaseColor(i),
+      })),
+    [sortedPhases, phaseDragPreview]
+  )
+  const phaseFontFamily = getKonvaFontFamily(locale)
+  const phaseLabelBoxes = useMemo(
+    () =>
+      computePhaseLabelBoxes(
+        phaseMarkers,
+        zoomLevel,
+        selectedPhaseId,
+        !isReadOnly,
+        phaseFontFamily
+      ),
+    [phaseMarkers, zoomLevel, selectedPhaseId, isReadOnly, phaseFontFamily]
+  )
+  const hiddenTickRanges = useMemo(
+    () => [...phaseLabelBoxes.values()].map((b): [number, number] => [b.left, b.left + b.width]),
+    [phaseLabelBoxes]
+  )
+
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
     crosshairFixedLineRef.current?.visible(false)
@@ -510,8 +563,16 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
 
         // 光标提示：当一次拖拽会触发框选时给 crosshair（框选模式整片画布，或鼠标在时间标尺带内）
         const overRuler = hasRuler && e.clientY - rect.top <= timeRulerHeight
-        stage.container().style.cursor =
-          useUIStore.getState().canvasTool === 'select' || overRuler ? 'crosshair' : 'default'
+        // 悬停在标尺上的阶段名时光标与时间指示器交给 PhaseLabels
+        const overPhaseLabel =
+          overRuler &&
+          !!stage
+            .getIntersection({ x: pointerX, y: e.clientY - rect.top })
+            ?.findAncestor('.phaseLabel', true)
+        if (!overPhaseLabel) {
+          stage.container().style.cursor =
+            useUIStore.getState().canvasTool === 'select' || overRuler ? 'crosshair' : 'default'
+        }
 
         // 节流上报本地光标位置（~50ms），避免高频 awareness 写入
         const now = Date.now()
@@ -544,7 +605,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         if (tiText) {
           tiText.x(xPx + 4)
           tiText.text(formatTimeWithDecimal(time))
-          tiText.visible(true)
+          // 悬停阶段名时隐藏时间文字，避免与阶段名重叠
+          tiText.visible(!overPhaseLabel)
         }
 
         // 更新轨道高亮
@@ -703,10 +765,44 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       const maxScroll = Math.max(0, layoutData.timelineWidth - viewportWidth)
       const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollLeft / maxScroll)) : 0
       setSyncScrollProgress(progress)
+      // 阅读位置 = 视口左缘 + 40px 对应的时间，供工具栏判定当前阶段
+      useTimelineStore
+        .getState()
+        .setViewAnchorTime((clampedScrollLeft + PHASE_VIEW_OFFSET_PX) / zoomLevel)
     }
     // updateScrollState 来自 Zustand store，引用稳定
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollLeft, layoutData?.timelineWidth, viewportWidth])
+  }, [scrollLeft, clampedScrollLeft, zoomLevel, layoutData?.timelineWidth, viewportWidth])
+
+  // 卸载（切到表格视图）时清空阅读位置，由新视图重新上报
+  useEffect(() => () => useTimelineStore.getState().setViewAnchorTime(null), [])
+
+  // 响应阶段跳转请求：平滑滚动到阶段起点位于视口左缘偏右 40px
+  const scrollToTimeRequest = useTimelineStore(s => s.scrollToTimeRequest)
+  const handledScrollSeqRef = useRef(scrollToTimeRequest?.seq ?? 0)
+  useEffect(() => {
+    if (!scrollToTimeRequest || scrollToTimeRequest.seq <= handledScrollSeqRef.current) return
+    handledScrollSeqRef.current = scrollToTimeRequest.seq
+    const from = clampedScrollRef.current.scrollLeft
+    const target = Math.max(
+      minScrollLeftRef.current,
+      Math.min(
+        scrollToTimeRequest.time * zoomLevel - PHASE_VIEW_OFFSET_PX,
+        maxScrollLeftRef.current
+      )
+    )
+    const DURATION = 250
+    const start = performance.now()
+    let raf = 0
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / DURATION)
+      const eased = 1 - Math.pow(1 - k, 3)
+      setScrollLeft(from + (target - from) * eased)
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [scrollToTimeRequest, zoomLevel])
 
   // 同步 ref（用于事件处理器闭包）
   useEffect(() => {
@@ -900,6 +996,11 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     'delete, backspace',
     () => {
       const s = useTimelineStore.getState()
+      // 选中阶段时只作用于阶段，且先确认（与其他选中互斥，此时不会有事件选中）
+      if (s.selectedPhaseId) {
+        requestDeletePhase(s.selectedPhaseId)
+        return
+      }
       const total =
         s.selectedEventIds.length + s.selectedCastEventIds.length + s.selectedAnnotationIds.length
       if (total > 0) {
@@ -912,7 +1013,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       }
     },
     { enabled: !isReadOnly },
-    [pinnedAnnotationId]
+    [pinnedAnnotationId, phaseLabelBoxes, sortedPhases]
   )
 
   // 复制选中对象到系统剪贴板（只读/回放模式也允许：复制不改时间轴）
@@ -1260,6 +1361,54 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     setContextMenu(null)
     setPasteAvailable(false)
   }, [])
+
+  // ─── 阶段 ───────────────────────────────────────────────
+
+  /** 标尺上阶段标签的视口矩形（改名输入框与删除确认的锚点） */
+  const phaseLabelRect = (phaseId: string): DOMRect | null => {
+    const box = phaseLabelBoxes.get(phaseId)
+    const container = fixedStageRef.current?.container()
+    if (!box || !container) return null
+    const origin = container.getBoundingClientRect()
+    return new DOMRect(
+      origin.left + box.left - clampedScrollRef.current.scrollLeft,
+      origin.top + 5,
+      box.width,
+      20
+    )
+  }
+
+  const requestDeletePhase = (phaseId: string, anchor?: DOMRect) => {
+    const phase = sortedPhases.find(p => p.id === phaseId)
+    const rect = anchor ?? phaseLabelRect(phaseId)
+    if (!phase || !rect) return
+    setPhaseHint(null)
+    setPhaseDeleteRequest({ phaseId, phaseName: phase.name, anchor: rect })
+  }
+
+  const startRenamePhase = (phaseId: string) => {
+    setPhaseHint(null)
+    setEditingPhaseId(phaseId)
+  }
+
+  const handleAddPhase = (time: number) => {
+    const phase = addPhaseAt(time)
+    // 新增后立即进入改名状态
+    if (phase) setEditingPhaseId(phase.id)
+  }
+
+  const handlePhaseDragMove = (phaseId: string, rawTime: number): number => {
+    const r = clampPhaseTime(sortedPhases, phaseId, rawTime)
+    const time = r?.time ?? sortedPhases.find(p => p.id === phaseId)?.time ?? rawTime
+    setPhaseDragPreview({ id: phaseId, time })
+    return time
+  }
+
+  const handlePhaseDragEnd = (phaseId: string, rawTime: number) => {
+    setPhaseDragPreview(null)
+    // 拖动全程已按相邻阶段钳制，松开时只提交一次（一次拖动一步撤销）
+    movePhaseTo(phaseId, rawTime)
+  }
 
   const handleContextMenuAddCast = (actionId: number, playerId: number, time: number) => {
     addCastAt(actionId, playerId, time)
@@ -1697,18 +1846,17 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     // 不启动框选；仅空白处按下才框选（按对象=操作对象，按空白=框选）。
     // 用 Konva 命中图判定，而非重算各对象像素盒——cast 整条 Group（图标 + 绿色持续条 +
     // 蓝色 CD 条 + 全宽响应层）都可拖动，盒子法会漏掉条上的按压；命中图天然知道真实几何。
-    // 标尺带内无对象，inRuler 时跳过此判断，保持全高度框选。
-    if (!inRuler) {
-      const onObject = [fixedStageRef.current, stageRef.current].some(stage => {
-        if (!stage) return false
-        const sbox = stage.container().getBoundingClientRect()
-        const px = e.clientX - sbox.left
-        const py = e.clientY - sbox.top
-        if (px < 0 || py < 0 || px > sbox.width || py > sbox.height) return false
-        return !!stage.getIntersection({ x: px, y: py })?.findAncestor('.tlObject', true)
-      })
-      if (onObject) return
-    }
+    // 标尺带内只有阶段名可交互：按在阶段名上交给 Konva（选中 / 拖动），其余位置保持全高度框选。
+    const objectSelector = inRuler ? '.phaseLabel' : '.tlObject'
+    const onObject = [fixedStageRef.current, stageRef.current].some(stage => {
+      if (!stage) return false
+      const sbox = stage.container().getBoundingClientRect()
+      const px = e.clientX - sbox.left
+      const py = e.clientY - sbox.top
+      if (px < 0 || py < 0 || px > sbox.width || py > sbox.height) return false
+      return !!stage.getIntersection({ x: px, y: py })?.findAncestor(objectSelector, true)
+    })
+    if (onObject) return
     marquee.onPointerDown(localX, localY, e.shiftKey)
 
     // 边缘自动滚动：拖框/拖标尺时光标靠近边缘，自动滚动以选取超出一屏的内容。
@@ -1900,6 +2048,12 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 zoomLevel={zoomLevel}
                 timelineWidth={timelineWidth}
                 height={timeRulerHeight}
+                phases={phaseMarkers}
+                hiddenTickRanges={hiddenTickRanges}
+                onContextMenu={(clientX, clientY, time) => {
+                  if (isReadOnly) return
+                  setContextMenu({ type: 'rulerEmpty', x: clientX, y: clientY, time })
+                }}
               />
 
               {/* HP 轨道在 DamageEventTrack 之前渲染，让伤害轨的网格线 / 事件竖线（由
@@ -1913,6 +2067,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   height={HP_CURVE_HEIGHT}
                   viewportWidth={viewportWidth}
                   scrollLeft={clampedScrollLeft}
+                  phases={phaseMarkers}
                 />
               )}
 
@@ -1960,6 +2115,37 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onAnnotationContextMenu={handleAnnotationContextMenu}
                 onAnnotationDragStart={handleAnnotationDragStart}
                 onAnnotationDragEnd={handleAnnotationDragEnd}
+                phases={phaseMarkers}
+              />
+
+              <PhaseLabels
+                phases={phaseMarkers}
+                boxes={phaseLabelBoxes}
+                zoomLevel={zoomLevel}
+                editingPhaseId={editingPhaseId}
+                isReadOnly={isReadOnly}
+                fontFamily={phaseFontFamily}
+                hints={{
+                  idle: t('editor:phase.hoverHintTimeline'),
+                  selected: t('editor:phase.dragToAdjust'),
+                  rename: t('editor:phase.renameTooltip'),
+                  remove: t('editor:phase.deleteTooltip', { key: deleteKeyLabel }),
+                }}
+                onSelect={id => {
+                  if (panJustEndedRef.current) return
+                  selectPhase(id)
+                }}
+                onDragMove={handlePhaseDragMove}
+                onDragEnd={handlePhaseDragEnd}
+                onRename={startRenamePhase}
+                onDelete={requestDeletePhase}
+                onContextMenu={(id, clientX, clientY) => {
+                  selectPhase(id)
+                  if (isReadOnly) return
+                  const time = sortedPhases.find(p => p.id === id)?.time ?? 0
+                  setContextMenu({ type: 'phase', phaseId: id, x: clientX, y: clientY, time })
+                }}
+                onHint={setPhaseHint}
               />
             </Layer>
             {/* 固定区域十字准线纵线（由 ref 直接控制，绕过 React 渲染） */}
@@ -2135,6 +2321,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   updateGroupDrag(x)
                 }}
                 onAnnotationDragMove={reportAnnotationDrag}
+                phases={phaseMarkers}
               />
             </Stage>
           </div>
@@ -2188,6 +2375,51 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
         onSelectAll={selectAll}
         onSelectAllDamageEvents={selectAllDamageEvents}
         onSelectAllCasts={selectAllCasts}
+        onAddPhase={handleAddPhase}
+        onRenamePhase={startRenamePhase}
+        onDeletePhase={id => requestDeletePhase(id)}
+      />
+
+      {/* 阶段名悬停提示（延迟出现，不拦截指针） */}
+      {phaseHint && (
+        <div
+          className="pointer-events-none fixed z-50 whitespace-nowrap rounded bg-gray-900 px-1.5 py-0.5 text-[11px] text-white"
+          style={{ left: phaseHint.x, top: phaseHint.y }}
+        >
+          {phaseHint.text}
+        </div>
+      )}
+
+      {/* 阶段改名：覆盖在标尺标签位置 */}
+      {editingPhaseId &&
+        (() => {
+          const rect = phaseLabelRect(editingPhaseId)
+          const marker = phaseMarkers.find(p => p.id === editingPhaseId)
+          if (!rect || !marker) return null
+          return (
+            <PhaseNameInput
+              key={editingPhaseId}
+              initialName={marker.name}
+              color={marker.color}
+              className="fixed z-50"
+              style={{
+                left: rect.left,
+                top: rect.top - 1,
+                width: Math.max(120, rect.width + 40),
+              }}
+              onCommit={name => {
+                renamePhase(editingPhaseId, name)
+                setEditingPhaseId(null)
+              }}
+              onCancel={() => setEditingPhaseId(null)}
+            />
+          )
+        })()}
+
+      <PhaseDeleteConfirm
+        request={phaseDeleteRequest}
+        onConfirm={removePhase}
+        onClose={() => setPhaseDeleteRequest(null)}
       />
 
       <PasteConfirmDialog

@@ -8,6 +8,7 @@ import { DAMAGE_TIME_LINE_STYLE, TIMELINE_START_TIME, useCanvasColors } from './
 import AnnotationIcon from './AnnotationIcon'
 import type { DamageEvent, Annotation } from '@/types/timeline'
 import { computeDamageCardGeometry } from './cardGeometry'
+import PhaseBands, { type PhaseMarker } from './PhaseBands'
 
 interface DamageEventTrackProps {
   events: DamageEvent[]
@@ -60,6 +61,8 @@ interface DamageEventTrackProps {
   onAnnotationDragEnd: (annotationId: string, newX: number) => void
   /** 他人正在拖动的对象 id 集合，在此集合内的 damage event / annotation 隐藏原始渲染 */
   peerDraggingIds?: Set<string>
+  /** 阶段标记（已排序）：在背景之上画色带 */
+  phases?: PhaseMarker[]
 }
 
 export default function DamageEventTrack({
@@ -98,6 +101,7 @@ export default function DamageEventTrack({
   onAnnotationDragMove,
   onAnnotationDragEnd,
   peerDraggingIds,
+  phases,
 }: DamageEventTrackProps) {
   const colors = useCanvasColors()
 
@@ -184,6 +188,10 @@ export default function DamageEventTrack({
           onContextMenu({ type: 'damageTrackEmpty' }, e.evt.clientX, e.evt.clientY, time)
         }}
       />
+
+      {phases && (
+        <PhaseBands phases={phases} zoomLevel={zoomLevel} y={yOffset} height={trackHeight} />
+      )}
 
       {/* 时间刻度网格线 */}
       {gridLines}

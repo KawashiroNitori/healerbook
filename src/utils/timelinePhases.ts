@@ -37,6 +37,23 @@ export function phaseColor(sortedIndex: number): string {
   return PHASE_COLORS[sortedIndex % PHASE_COLORS.length]
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16)
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]
+}
+
+/** `#rrggbb` → `rgba(r, g, b, alpha)`；Canvas / Konva 不支持 color-mix，统一用此生成渐变色 */
+export function phaseColorAlpha(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/** 阶段文字色：该色与黑色按 72% : 28% 混合，保证浅底上的对比度 */
+export function phaseTextColor(hex: string): string {
+  const [r, g, b] = hexToRgb(hex).map(c => Math.round(c * 0.72))
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 /** 缩略图 / 窄工具栏用的短标签：有冒号取冒号前，否则取前 6 个字符 */
 export function shortPhaseLabel(name: string): string {
   const idx = name.search(/[:：]/)

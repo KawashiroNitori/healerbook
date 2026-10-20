@@ -14,6 +14,7 @@ import { MousePointerClick } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { AnnotationAnchor } from '@/types/timeline'
 import { modKey, deleteKeyLabel } from '@/utils/platform'
+import { formatTimeWithDecimal } from '@/utils/formatters'
 
 export type ContextMenuState =
   | {
@@ -59,6 +60,19 @@ export type ContextMenuState =
       type: 'multiSelection'
       count: number
     }
+  | {
+      x: number
+      y: number
+      time: number
+      type: 'phase'
+      phaseId: string
+    }
+  | {
+      x: number
+      y: number
+      time: number
+      type: 'rulerEmpty'
+    }
 
 interface TimelineContextMenuProps {
   menu: ContextMenuState | null
@@ -89,6 +103,21 @@ interface TimelineContextMenuProps {
   onSelectAllDamageEvents?: () => void
   /** 全选当前过滤器下可见的所有技能 cast（技能区菜单项） */
   onSelectAllCasts?: () => void
+  /** 在 time 处添加阶段（标尺 / 轨道空白处菜单项） */
+  onAddPhase?: (time: number) => void
+  onRenamePhase?: (phaseId: string) => void
+  onDeletePhase?: (phaseId: string) => void
+}
+
+/** 「在此处添加阶段」菜单项，右侧标注插入时间 */
+function AddPhaseItem({ time, onAdd }: { time: number; onAdd: (time: number) => void }) {
+  const { t } = useTranslation('editor')
+  return (
+    <DropdownMenuItem onClick={() => onAdd(time)}>
+      {t('editor:phase.addHere')}
+      <DropdownMenuShortcut>{formatTimeWithDecimal(time)}</DropdownMenuShortcut>
+    </DropdownMenuItem>
+  )
 }
 
 export default function TimelineContextMenu({
@@ -112,6 +141,9 @@ export default function TimelineContextMenu({
   onSelectAll,
   onSelectAllDamageEvents,
   onSelectAllCasts,
+  onAddPhase,
+  onRenamePhase,
+  onDeletePhase,
 }: TimelineContextMenuProps) {
   const { t } = useTranslation(['editor', 'common'])
   if (!menu) return null
@@ -213,6 +245,15 @@ export default function TimelineContextMenu({
             >
               {t('editor:contextMenu.addAnnotation')}
             </DropdownMenuItem>
+            {onAddPhase && (
+              <AddPhaseItem
+                time={menu.time}
+                onAdd={time => {
+                  onAddPhase(time)
+                  onClose()
+                }}
+              />
+            )}
             {onPasteSelection && (
               <DropdownMenuItem
                 disabled={pasteAvailable !== true}
@@ -312,6 +353,15 @@ export default function TimelineContextMenu({
             >
               {t('editor:contextMenu.addAnnotation')}
             </DropdownMenuItem>
+            {onAddPhase && (
+              <AddPhaseItem
+                time={menu.time}
+                onAdd={time => {
+                  onAddPhase(time)
+                  onClose()
+                }}
+              />
+            )}
             {onPasteSelection && (
               <DropdownMenuItem
                 disabled={pasteAvailable !== true}
@@ -351,6 +401,40 @@ export default function TimelineContextMenu({
             )}
           </>
         )}
+        {menu.type === 'rulerEmpty' && onAddPhase && (
+          <AddPhaseItem
+            time={menu.time}
+            onAdd={time => {
+              onAddPhase(time)
+              onClose()
+            }}
+          />
+        )}
+
+        {menu.type === 'phase' && (
+          <>
+            <DropdownMenuItem
+              onClick={() => {
+                onRenamePhase?.(menu.phaseId)
+                onClose()
+              }}
+            >
+              {t('editor:phase.rename')}
+              <DropdownMenuShortcut>{t('editor:phase.renameShortcut')}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => {
+                onDeletePhase?.(menu.phaseId)
+                onClose()
+              }}
+            >
+              {t('editor:phase.delete')}
+              <DropdownMenuShortcut>{deleteKeyLabel}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </>
+        )}
+
         {menu.type === 'annotation' && (
           <>
             {!isReadOnly && (

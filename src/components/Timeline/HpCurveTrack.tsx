@@ -11,6 +11,7 @@ import { memo } from 'react'
 import { Line, Rect } from 'react-konva'
 import type { HpTimelinePoint } from '@/types/hpTimeline'
 import { TIMELINE_START_TIME, useCanvasColors } from './constants'
+import PhaseBands, { type PhaseMarker } from './PhaseBands'
 
 interface HpCurveTrackProps {
   hpTimeline: HpTimelinePoint[]
@@ -23,6 +24,8 @@ interface HpCurveTrackProps {
   height: number
   viewportWidth: number
   scrollLeft: number
+  /** 阶段标记（已排序）：在背景之上画色带 */
+  phases?: PhaseMarker[]
 }
 
 const HpCurveTrack = memo(function HpCurveTrack({
@@ -33,6 +36,7 @@ const HpCurveTrack = memo(function HpCurveTrack({
   height,
   viewportWidth,
   scrollLeft,
+  phases,
 }: HpCurveTrackProps) {
   const colors = useCanvasColors()
 
@@ -121,6 +125,8 @@ const HpCurveTrack = memo(function HpCurveTrack({
         listening={false}
         perfectDrawEnabled={false}
       />
+
+      {phases && <PhaseBands phases={phases} zoomLevel={zoomLevel} y={yOffset} height={height} />}
 
       {/* maxHP 基线 */}
       <Line

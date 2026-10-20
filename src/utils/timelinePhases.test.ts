@@ -7,6 +7,8 @@ import {
   defaultPhaseName,
   normalizeRawPhases,
   phaseColor,
+  phaseColorAlpha,
+  phaseTextColor,
   rangesOverlap,
   shortPhaseLabel,
   sortPhases,
@@ -42,6 +44,13 @@ describe('phaseColor', () => {
     expect(phaseColor(0)).toBe('#6b7280')
     expect(phaseColor(6)).toBe('#ca8a04')
     expect(phaseColor(7)).toBe('#6b7280')
+  })
+})
+
+describe('phaseColorAlpha / phaseTextColor', () => {
+  it('转为 rgba 与加深色', () => {
+    expect(phaseColorAlpha('#3b82f6', 0.18)).toBe('rgba(59, 130, 246, 0.18)')
+    expect(phaseTextColor('#3b82f6')).toBe('rgb(42, 94, 177)')
   })
 })
 

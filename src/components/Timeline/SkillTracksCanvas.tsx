@@ -7,6 +7,7 @@ import { Group, Layer, Line, Rect, Shape, Text } from 'react-konva'
 import type Konva from 'konva'
 import AnnotationIcon from './AnnotationIcon'
 import CastEventIcon from './CastEventIcon'
+import PhaseBands, { type PhaseMarker } from './PhaseBands'
 import {
   DAMAGE_TIME_LINE_STYLE,
   TIMELINE_START_TIME,
@@ -103,6 +104,8 @@ interface SkillTracksCanvasProps {
   onCastDragMove?: (castEventId: string, x: number) => void
   /** annotation 拖动中回调（供 index.tsx 节流上报 awareness） */
   onAnnotationDragMove?: (annotationId: string, newX: number) => void
+  /** 阶段标记（已排序）：在轨道背景之上画色带 */
+  phases?: PhaseMarker[]
 }
 
 export default function SkillTracksCanvas({
@@ -152,6 +155,7 @@ export default function SkillTracksCanvas({
   onCastDragStart,
   onCastDragMove,
   onAnnotationDragMove,
+  phases,
 }: SkillTracksCanvasProps) {
   const draggingId = useUIStore(s => s.draggingId)
   const setDraggingId = useUIStore(s => s.setDraggingId)
@@ -280,6 +284,15 @@ export default function SkillTracksCanvas({
             }}
           />
         ))}
+
+        {phases && (
+          <PhaseBands
+            phases={phases}
+            zoomLevel={zoomLevel}
+            y={0}
+            height={skillTracks.length * trackHeight}
+          />
+        )}
 
         {/* 不可放阴影（PlacementEngine 统一：合并 CD + placement 补集，仅编辑模式）。
             渲染时从引擎 shadow 里减掉同轨每个 cast 的 [t, t+cd)（已有的可见 CD 条区域），
