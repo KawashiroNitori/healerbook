@@ -104,7 +104,7 @@ phases?: { fflogsPhaseId: number; name: string /* FFLogs 原文 */; time: number
 1. `getReport` 的 GraphQL 查询追加 `fights.phaseTransitions { id startTime }` 与 `report.phases { encounterID phases { id name isIntermission } }`。
 2. 对选中 fight：取 `phases` 中 `encounterID === fight.encounterID` 的那组名称表，把每个 transition 映射为 `{ fflogsPhaseId, rawName, time }`，其中 `time = (startTime - fightStartTime) / 1000`，`fightStartTime` 与伤害事件用同一个 `resolveFightStartTime`。
 3. **同一时刻多个阶段**（如 DSR 样本 P1/P2 同为 0.0）：时间相同（差 < 1 秒）的只保留**最后一个**（较晚出现的才是实际生效的阶段）。【我的决定】
-4. 第一阶段时间若早于时间轴起点 `TIMELINE_START_TIME`（-30s），钳到起点；否则保留原值（可能是小负数）。【我的决定】
+4. 早于 0 秒的阶段时间钳到 0（先钳制后去重）。（用户决定，2026-10-21）原因：FFLogs 把第一阶段的 transition 记在 `fight.startTime`（记录开始），而时间轴零点是首个 `limitbreakupdate`，前者通常早约 1 秒（实测 TEA 报告 `wr9NgptqAdK3a2nJ#1`：167904 vs 168887 ms），不钳制会显示为 `-0:01.0`。手动编辑的下限仍为 `TIMELINE_START_TIME`。
 5. 名称按 §5.3 翻译后写入 `timeline.phases`。
 6. 没有阶段数据（单阶段副本或 FFLogs 未收录）→ 不写 `phases` 字段。
 
@@ -222,7 +222,7 @@ phases?: { fflogsPhaseId: number; name: string /* FFLogs 原文 */; time: number
 ## 12. 我替用户做的决定（用户已于 2026-10-21 review 并确认保留）
 
 - 导出（Souma / Excel）和复制粘贴不带阶段。
-- 导入时同一时刻多个阶段只留最后一个；第一阶段早于 -30s 时钳到 -30s。
+- 导入时同一时刻多个阶段只留最后一个。（原「第一阶段早于 -30s 时钳到 -30s」已改为「早于 0 秒钳到 0」，见 §5.1 第 4 条）
 - 阶段名对照表 key：`encounter:phase.e{encounterId}.p{fflogsPhaseId}`。
 - 回放模式下阶段只读（沿用 `content` 能力规则）。
 - 相邻阶段最小间隔 1 秒；清空名字视为取消改名；名称上限 50 字符。

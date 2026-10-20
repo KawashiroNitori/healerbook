@@ -225,7 +225,8 @@ describe('extractFightStats', () => {
 
     const out = extractFightStats(report, fight, events)
     expect(out.phases).toEqual([
-      { fflogsPhaseId: 1, name: 'P1: Raw', time: -1 },
+      // 第一阶段早于零点 1 秒 → 钳到 0
+      { fflogsPhaseId: 1, name: 'P1: Raw', time: 0 },
       { fflogsPhaseId: 2, name: 'P2: Raw', time: 60 },
     ])
   })

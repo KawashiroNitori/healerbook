@@ -16,12 +16,18 @@ import {
   phaseColor,
   phaseColorAlpha,
   phaseTextColor,
+  rangesOverlap,
   shortPhaseLabel,
   sortPhases,
 } from '@/utils/timelinePhases'
 
 /** 缩略图上阶段渐变的固定宽度（px） */
 const MINIMAP_PHASE_BAND_WIDTH = 64
+/** 阶段短标签字体：与时间刻度同字号，半粗体区分 */
+const MINIMAP_PHASE_LABEL_FONT =
+  '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+/** 顶部时间刻度带高度（px），阶段短标签只画在其中 */
+const MINIMAP_TICK_STRIP_HEIGHT = 24
 
 interface TimelineMinimapProps {
   /** 缩略图宽度 */
@@ -175,21 +181,19 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
       ctx.lineTo(zeroX, height)
       ctx.stroke()
 
-      // 阶段：起点竖线 + 固定 64px 宽、铺满整个高度的渐变（只显示，不改变点击行为）
-      const phases = sortPhases(timeline.phases ?? []).map((p, i) => ({
-        ...p,
-        color: phaseColor(i),
-        x: (p.time - TIMELINE_START_TIME) * zoomLevel * minimapScale,
-      }))
-      for (const p of phases) {
-        const grad = ctx.createLinearGradient(p.x, 0, p.x + MINIMAP_PHASE_BAND_WIDTH, 0)
-        grad.addColorStop(0, phaseColorAlpha(p.color, theme === 'dark' ? 0.5 : 0.4))
-        grad.addColorStop(1, phaseColorAlpha(p.color, 0))
-        ctx.fillStyle = grad
-        ctx.fillRect(p.x, 0, MINIMAP_PHASE_BAND_WIDTH, height)
-        ctx.fillStyle = p.color
-        ctx.fillRect(p.x - 1, 0, 2, height)
-      }
+      // 阶段及其短标签占位：标签左缘在竖线右侧 4px，最多延伸到下一个阶段竖线前 2px
+      ctx.font = MINIMAP_PHASE_LABEL_FONT
+      const phases = sortPhases(timeline.phases ?? []).map((p, i, arr) => {
+        const x = (p.time - TIMELINE_START_TIME) * zoomLevel * minimapScale
+        const label = shortPhaseLabel(p.name)
+        const nextX =
+          i + 1 < arr.length
+            ? (arr[i + 1].time - TIMELINE_START_TIME) * zoomLevel * minimapScale
+            : Infinity
+        const labelLeft = x + 4
+        const labelRight = Math.min(labelLeft + ctx.measureText(label).width, nextX - 2)
+        return { ...p, color: phaseColor(i), x, label, labelLeft, labelRight }
+      })
 
       // 再绘制时间标签（确保在最上层）
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -205,6 +209,19 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         const textMetrics = ctx.measureText(timeText)
         const textWidth = textMetrics.width
         const textPadding = 4
+
+        // 与阶段短标签重叠的刻度文字（连同底色）不画，避免两段文字叠在一起
+        const labelBox: [number, number] = [
+          x - textWidth / 2 - textPadding,
+          x + textWidth / 2 + textPadding,
+        ]
+        if (
+          phases.some(
+            p => p.labelRight > p.labelLeft && rangesOverlap(labelBox, [p.labelLeft, p.labelRight])
+          )
+        ) {
+          continue
+        }
 
         ctx.fillStyle = colors.timeLabelBg
         ctx.fillRect(x - textWidth / 2 - textPadding, 4, textWidth + textPadding * 2, 16)
@@ -362,14 +379,34 @@ const TimelineMinimap = forwardRef<TimelineMinimapHandle, TimelineMinimapProps>(
         ctx.fillText(i18n.t('editor:timelineMinimap.fatal'), 2, lineY + 3)
       }
 
+      // 阶段：起点竖线 + 固定 64px 宽、铺满整个高度的渐变（只显示，不改变点击行为）。
+      // 在刻度标签、伤害柱等内容之后绘制，盖在它们之上（与主时间轴一致）。
+      for (const p of phases) {
+        const grad = ctx.createLinearGradient(p.x, 0, p.x + MINIMAP_PHASE_BAND_WIDTH, 0)
+        grad.addColorStop(0, phaseColorAlpha(p.color, theme === 'dark' ? 0.5 : 0.4))
+        grad.addColorStop(1, phaseColorAlpha(p.color, 0))
+        ctx.fillStyle = grad
+        ctx.fillRect(p.x, 0, MINIMAP_PHASE_BAND_WIDTH, height)
+        ctx.fillStyle = p.color
+        ctx.fillRect(p.x - 1, 0, 2, height)
+      }
+
       // 阶段短标签（左上角，最后绘制保证在最上层）
       if (phases.length > 0) {
-        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        // 与时间刻度文本同字号、同基线，仅用半粗体区分
+        ctx.font = MINIMAP_PHASE_LABEL_FONT
         ctx.textAlign = 'left'
         ctx.textBaseline = 'top'
         for (const p of phases) {
+          if (p.labelRight <= p.labelLeft) continue
+          // 相邻阶段太近时裁到下一条竖线前，避免阶段名互相叠压
+          ctx.save()
+          ctx.beginPath()
+          ctx.rect(p.labelLeft, 0, p.labelRight - p.labelLeft, MINIMAP_TICK_STRIP_HEIGHT)
+          ctx.clip()
           ctx.fillStyle = theme === 'dark' ? p.color : phaseTextColor(p.color)
-          ctx.fillText(shortPhaseLabel(p.name), p.x + 4, 3)
+          ctx.fillText(p.label, p.labelLeft, 7)
+          ctx.restore()
         }
       }
 

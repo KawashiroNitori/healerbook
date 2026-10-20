@@ -15,7 +15,7 @@ import { parseTimeString } from '@/components/ui/time-input-utils'
 import { phaseColorAlpha, phaseTextColor } from '@/utils/timelinePhases'
 import type { TimelinePhase } from '@/types/timeline'
 import PhaseNameInput from '../PhaseNameInput'
-import { TIME_COL_WIDTH, CAST_START_COL_WIDTH, HEADER_HEIGHT, PHASE_ROW_HEIGHT } from './constants'
+import { TIME_COL_WIDTH, CAST_START_COL_WIDTH, PHASE_ROW_HEIGHT } from './constants'
 
 interface PhaseRowProps {
   phase: TimelinePhase
@@ -27,6 +27,8 @@ interface PhaseRowProps {
   /** 表格总宽度 */
   tableWidth: number
   showCastStartTime: boolean
+  /** 吸顶位置：表头的实际高度（技能列头可能把表头撑得比 HEADER_HEIGHT 高） */
+  stickyTop: number
   isReadOnly: boolean
   /** 当前正在编辑的字段 */
   editing: 'name' | 'time' | null
@@ -95,6 +97,7 @@ export default function PhaseRow({
   wrapperWidth,
   tableWidth,
   showCastStartTime,
+  stickyTop,
   isReadOnly,
   editing,
   onStartEdit,
@@ -108,6 +111,7 @@ export default function PhaseRow({
   const isDark = useUIStore(s => s.theme === 'dark')
   const textColor = isDark ? color : phaseTextColor(color)
   const borderColor = phaseColorAlpha(color, 0.3)
+  const leadingBorder = `3px solid ${color}`
 
   const timeLeft = showCastStartTime ? CAST_START_COL_WIDTH : 0
   const leadingWidth = timeLeft + TIME_COL_WIDTH
@@ -117,7 +121,7 @@ export default function PhaseRow({
   const solid = 'hsl(var(--background))'
   const cellStyle = {
     position: 'sticky' as const,
-    top: HEADER_HEIGHT,
+    top: stickyTop,
     height: PHASE_ROW_HEIGHT,
     padding: 0,
     borderBottom: `1px solid ${borderColor}`,
@@ -143,10 +147,18 @@ export default function PhaseRow({
       }}
       onClick={e => e.stopPropagation()}
     >
+      {/* 阶段行的左边缘（色条 + 渐变起点）始终落在最左一列：显示咏唱开始列时从它开始 */}
       {showCastStartTime && (
         <td
           className="z-[13]"
-          style={{ ...cellStyle, left: 0, background: solid, width: CAST_START_COL_WIDTH }}
+          style={{
+            ...cellStyle,
+            left: 0,
+            width: CAST_START_COL_WIDTH,
+            minWidth: CAST_START_COL_WIDTH,
+            borderLeft: leadingBorder,
+            background: `linear-gradient(to right, ${phaseColorAlpha(color, 0.22)}, ${phaseColorAlpha(color, 0.19)}), ${solid}`,
+          }}
         >
           {topEdge}
         </td>
@@ -159,8 +171,8 @@ export default function PhaseRow({
           width: TIME_COL_WIDTH,
           minWidth: TIME_COL_WIDTH,
           color: textColor,
-          borderLeft: `3px solid ${color}`,
-          background: `linear-gradient(to right, ${phaseColorAlpha(color, 0.22)}, ${phaseColorAlpha(color, 0.16)}), ${solid}`,
+          borderLeft: showCastStartTime ? undefined : leadingBorder,
+          background: `linear-gradient(to right, ${phaseColorAlpha(color, showCastStartTime ? 0.19 : 0.22)}, ${phaseColorAlpha(color, 0.16)}), ${solid}`,
         }}
       >
         {topEdge}

@@ -312,7 +312,8 @@ describe('parseFightPhases', () => {
     )
     expect(result.fightStartTime).toBe(12000)
     expect(result.phases).toEqual([
-      { fflogsPhaseId: 1, name: 'P1: Raw', time: -2 },
+      // 第一阶段记在 fight.startTime（早于零点 2 秒）→ 钳到 0
+      { fflogsPhaseId: 1, name: 'P1: Raw', time: 0 },
       { fflogsPhaseId: 2, name: 'P2: Raw', time: 60 },
     ])
   })

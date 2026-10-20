@@ -82,7 +82,7 @@ import {
   phaseColor,
   sortPhases,
 } from '@/utils/timelinePhases'
-import type { PhaseMarker } from './PhaseBands'
+import PhaseBands, { type PhaseMarker } from './PhaseBands'
 import PhaseLabels, { type PhaseHint } from './PhaseLabels'
 import { computePhaseLabelBoxes } from './phaseLabelLayout'
 import PhaseNameInput from '../PhaseNameInput'
@@ -2067,7 +2067,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   height={HP_CURVE_HEIGHT}
                   viewportWidth={viewportWidth}
                   scrollLeft={clampedScrollLeft}
-                  phases={phaseMarkers}
                 />
               )}
 
@@ -2115,7 +2114,6 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 onAnnotationContextMenu={handleAnnotationContextMenu}
                 onAnnotationDragStart={handleAnnotationDragStart}
                 onAnnotationDragEnd={handleAnnotationDragEnd}
-                phases={phaseMarkers}
               />
 
               <PhaseLabels
@@ -2150,6 +2148,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
             </Layer>
             {/* 固定区域十字准线纵线（由 ref 直接控制，绕过 React 渲染） */}
             <Layer ref={fixedOverlayLayerRef} x={-clampedScrollLeft} listening={false}>
+              {/* 阶段色带盖在伤害事件卡片与 HP 曲线之上（标尺部分在 TimeRuler 内，位于刻度与阶段名之下） */}
+              <PhaseBands
+                phases={phaseMarkers}
+                zoomLevel={zoomLevel}
+                y={timeRulerHeight}
+                height={eventTrackHeight + hpTrackHeight}
+              />
               <Line
                 ref={crosshairFixedLineRef}
                 points={CROSSHAIR_LINE_POINTS}

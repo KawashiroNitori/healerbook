@@ -314,6 +314,9 @@ export default function TimelineTableView() {
   const tableRef = useRef<HTMLTableElement>(null)
   const [showRightShadow, setShowRightShadow] = useState(false)
   const [wrapperWidth, setWrapperWidth] = useState(0)
+  // 表头实际高度：技能列头（职业图标 + 技能图标）会把行撑得比 HEADER_HEIGHT 高，
+  // 阶段行吸顶位置必须用实测值，否则顶部会被表头盖住一截
+  const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT)
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current
@@ -322,6 +325,7 @@ export default function TimelineTableView() {
     const check = () => {
       setShowRightShadow(table.offsetWidth < wrapper.clientWidth)
       setWrapperWidth(wrapper.clientWidth)
+      setHeaderHeight(table.tHead?.offsetHeight ?? HEADER_HEIGHT)
     }
     check()
     const ro = new ResizeObserver(check)
@@ -425,7 +429,8 @@ export default function TimelineTableView() {
     if (!table || !tbody) return null
     const rowsWithTime: HTMLTableRowElement[] = []
     const tops: number[] = []
-    let y = table.tHead?.offsetHeight ?? HEADER_HEIGHT
+    const headerHeight = table.tHead?.offsetHeight ?? HEADER_HEIGHT
+    let y = headerHeight
     for (const r of tbody.rows) {
       if (r.dataset.rowTime !== undefined) {
         rowsWithTime.push(r)
@@ -433,7 +438,7 @@ export default function TimelineTableView() {
       }
       y += r.offsetHeight
     }
-    return { rows: rowsWithTime, tops }
+    return { rows: rowsWithTime, tops, headerHeight }
   }, [])
 
   // 阅读位置：表头下方第一条可见行的时间，供工具栏判定当前阶段
@@ -445,13 +450,13 @@ export default function TimelineTableView() {
       const wrapper = wrapperRef.current
       const layout = measureRowLayout()
       if (!wrapper || !layout) return
-      const { rows: trs, tops } = layout
+      const { rows: trs, tops, headerHeight: headerH } = layout
       if (trs.length === 0) {
         useTimelineStore.getState().setViewAnchorTime(null)
         return
       }
       // 二分：第一条底边越过表头下缘的行
-      const line = wrapper.scrollTop + HEADER_HEIGHT
+      const line = wrapper.scrollTop + headerH
       let lo = 0
       let hi = trs.length - 1
       while (lo < hi) {
@@ -485,7 +490,8 @@ export default function TimelineTableView() {
     // 同一时刻阶段行排最前，取第一条时间 ≥ 目标的行即为该阶段行
     const idx = layout.rows.findIndex(r => Number(r.dataset.rowTime) >= scrollToTimeRequest.time)
     if (idx >= 0) {
-      wrapper.scrollTo({ top: layout.tops[idx] - HEADER_HEIGHT, behavior: 'smooth' })
+      // 让目标行贴住表头下缘（用表头实际高度）
+      wrapper.scrollTo({ top: layout.tops[idx] - layout.headerHeight, behavior: 'smooth' })
     }
   }, [scrollToTimeRequest, measureRowLayout])
 
@@ -539,12 +545,12 @@ export default function TimelineTableView() {
       className="h-full w-full overflow-auto bg-neutral-200 dark:bg-neutral-900"
     >
       <div className="relative inline-block align-top bg-background">
-        {/* 表头下方的线性渐变阴影：sticky 固定在视口顶部 HEADER_HEIGHT 处，宽度贴合表格 */}
+        {/* 表头下方的线性渐变阴影：sticky 固定在表头实际下缘处，宽度贴合表格 */}
         <div
           aria-hidden
           className="pointer-events-none sticky left-0 z-[15] w-full"
           style={{
-            top: HEADER_HEIGHT,
+            top: headerHeight,
             height: 16,
             marginBottom: -16,
             background: 'linear-gradient(to bottom, rgba(0,0,0,0.18), rgba(0,0,0,0))',
@@ -605,6 +611,7 @@ export default function TimelineTableView() {
                   wrapperWidth={wrapperWidth}
                   tableWidth={tableWidth}
                   showCastStartTime={showCastStartTime}
+                  stickyTop={headerHeight}
                   isReadOnly={isReadOnly}
                   editing={editingPhase?.id === row.id ? editingPhase.field : null}
                   onStartEdit={field => setEditingPhase({ id: row.id, field })}

@@ -102,12 +102,15 @@ export function defaultPhaseName(sorted: readonly TimelinePhase[], time: number)
 }
 
 /**
- * 导入数据规整：先把早于时间轴起点的钳到起点，再按时间排序，
+ * 导入数据规整：先把早于 0 秒的钳到 0，再按时间排序，
  * 相邻差 < PHASE_MIN_GAP 的只留后一个（同一时刻多个 transition 时，较晚出现的才是实际生效的阶段）。
+ *
+ * 钳到 0 而非时间轴起点：FFLogs 把第一阶段记在 fight.startTime（记录开始），
+ * 而时间轴零点是首个 limitbreakupdate，前者通常早约 1 秒；第一阶段语义上就是开场，应与零点对齐。
  */
 export function normalizeRawPhases(raw: readonly RawPhase[]): RawPhase[] {
   const sorted = raw
-    .map(p => ({ ...p, time: Math.max(TIMELINE_START_TIME, p.time) }))
+    .map(p => ({ ...p, time: Math.max(0, p.time) }))
     // Array.prototype.sort 稳定：同时刻保持 FFLogs 给出的先后
     .sort((a, b) => a.time - b.time)
   const out: RawPhase[] = []

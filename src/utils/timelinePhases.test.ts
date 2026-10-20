@@ -149,9 +149,14 @@ describe('normalizeRawPhases', () => {
     expect(normalizeRawPhases([raw(1, 10), raw(2, 10.9)]).map(x => x.fflogsPhaseId)).toEqual([2])
   })
 
-  it('早于时间轴起点的钳到起点（先钳制后去重）', () => {
-    expect(normalizeRawPhases([raw(1, -100), raw(2, -40)])).toEqual([raw(2, -30)])
-    expect(normalizeRawPhases([raw(1, -100), raw(2, 50)])).toEqual([raw(1, -30), raw(2, 50)])
+  it('早于 0 秒的钳到 0（FFLogs 第一阶段记在记录开始，略早于时间轴零点）', () => {
+    expect(normalizeRawPhases([raw(1, -0.983), raw(2, 117.1)])).toEqual([raw(1, 0), raw(2, 117.1)])
+    expect(normalizeRawPhases([raw(1, -100), raw(2, 50)])).toEqual([raw(1, 0), raw(2, 50)])
+  })
+
+  it('先钳制后去重：钳到 0 后与下一阶段相距不足 1 秒时只留后一个', () => {
+    expect(normalizeRawPhases([raw(1, -100), raw(2, -40)])).toEqual([raw(2, 0)])
+    expect(normalizeRawPhases([raw(1, -1), raw(2, 0.5)])).toEqual([raw(2, 0.5)])
   })
 
   it('空数组', () => {

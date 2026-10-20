@@ -104,7 +104,7 @@ interface SkillTracksCanvasProps {
   onCastDragMove?: (castEventId: string, x: number) => void
   /** annotation 拖动中回调（供 index.tsx 节流上报 awareness） */
   onAnnotationDragMove?: (annotationId: string, newX: number) => void
-  /** 阶段标记（已排序）：在轨道背景之上画色带 */
+  /** 阶段标记（已排序）：在 overlay 层画色带，盖在技能之上 */
   phases?: PhaseMarker[]
 }
 
@@ -284,15 +284,6 @@ export default function SkillTracksCanvas({
             }}
           />
         ))}
-
-        {phases && (
-          <PhaseBands
-            phases={phases}
-            zoomLevel={zoomLevel}
-            y={0}
-            height={skillTracks.length * trackHeight}
-          />
-        )}
 
         {/* 不可放阴影（PlacementEngine 统一：合并 CD + placement 补集，仅编辑模式）。
             渲染时从引擎 shadow 里减掉同轨每个 cast 的 [t, t+cd)（已有的可见 CD 条区域），
@@ -865,6 +856,15 @@ export default function SkillTracksCanvas({
 
       {/* 十字准线叠加层（由 ref 直接控制） */}
       <Layer ref={overlayLayerRef} x={-scrollLeft} y={-scrollTop} listening={false}>
+        {/* 阶段色带盖在技能图标 / 持续条之上（不响应事件） */}
+        {phases && (
+          <PhaseBands
+            phases={phases}
+            zoomLevel={zoomLevel}
+            y={0}
+            height={skillTracks.length * trackHeight}
+          />
+        )}
         <Line
           ref={crosshairLineRef}
           points={CROSSHAIR_LINE_POINTS}
