@@ -23,6 +23,7 @@ export function timelineToLocalInit(
     damageEvents: timeline.damageEvents,
     castEvents: timeline.castEvents,
     annotations: timeline.annotations ?? [],
+    phases: timeline.phases ?? [],
     statData: timeline.statData,
     createdAt: timeline.createdAt,
     ...overrides,

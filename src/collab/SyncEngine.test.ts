@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import * as Y from 'yjs'
 import { SyncEngine } from './SyncEngine'
-import { buildYDoc, yAddCastEvent, projectTimeline } from './docSchema'
+import { buildYDoc, yAddCastEvent, yAddPhase, projectTimeline } from './docSchema'
 import type { TimelineContent } from './types'
 
 const content: TimelineContent = {
@@ -47,6 +47,16 @@ describe('SyncEngine', () => {
     expect(projectTimeline(e.doc).castEvents).toHaveLength(1)
     e.undoManager.undo()
     expect(projectTimeline(e.doc).castEvents).toHaveLength(0)
+  })
+
+  it('阶段编辑可撤销 / 重做', async () => {
+    const e = await SyncEngine.create('t4', buildYDoc(content))
+    yAddPhase(e.doc, { id: 'p1', name: 'P1', time: 0 })
+    expect(projectTimeline(e.doc).phases).toHaveLength(1)
+    e.undoManager.undo()
+    expect(projectTimeline(e.doc).phases).toHaveLength(0)
+    e.undoManager.redo()
+    expect(projectTimeline(e.doc).phases).toHaveLength(1)
   })
 })
 

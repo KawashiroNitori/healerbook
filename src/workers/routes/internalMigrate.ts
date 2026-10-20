@@ -39,6 +39,7 @@ function toContent(timeline: ReturnType<typeof parseFromAny>): TimelineContent {
     ...(timeline.syncEvents !== undefined ? { syncEvents: timeline.syncEvents } : {}),
     ...(timeline.isReplayMode !== undefined ? { isReplayMode: timeline.isReplayMode } : {}),
     ...(timeline.statData !== undefined ? { statData: timeline.statData } : {}),
+    ...(timeline.phases !== undefined ? { phases: timeline.phases } : {}),
   }
 }
 

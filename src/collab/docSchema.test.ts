@@ -11,6 +11,9 @@ import {
   yAddAnnotation,
   yRemoveCastEvent,
   yReplaceComposition,
+  yAddPhase,
+  yUpdatePhase,
+  yRemovePhase,
   mapOf,
 } from './docSchema'
 import { Y_MAP, LOCAL_ORIGIN } from './constants'
@@ -163,6 +166,73 @@ describe('granular mutators', () => {
     const after = projectTimeline(doc).damageEvents.find(e => e.id === 'd1')!
     expect(after.targetMitigationDisabled).toBeUndefined()
     expect(after.snapshotTime).toBeUndefined()
+  })
+})
+
+describe('phases', () => {
+  const withPhases: TimelineContent = {
+    ...sample,
+    phases: [
+      { id: 'p2', name: 'P2', time: 100 },
+      { id: 'p1', name: 'P1', time: 0 },
+    ],
+  }
+
+  it('buildYDoc 写入 phases Map，投影按 time 排序', () => {
+    const doc = buildYDoc(withPhases)
+    expect(doc.getMap(Y_MAP.phases).size).toBe(2)
+    expect(projectTimeline(doc).phases).toEqual([
+      { id: 'p1', name: 'P1', time: 0 },
+      { id: 'p2', name: 'P2', time: 100 },
+    ])
+  })
+
+  it('无阶段时投影为空数组', () => {
+    expect(projectTimeline(buildYDoc(sample)).phases).toEqual([])
+  })
+
+  it('yAddPhase / yUpdatePhase / yRemovePhase', () => {
+    const doc = buildYDoc(withPhases)
+    yAddPhase(doc, { id: 'p3', name: 'P3', time: 200 })
+    expect(projectTimeline(doc).phases?.map(p => p.id)).toEqual(['p1', 'p2', 'p3'])
+
+    yUpdatePhase(doc, 'p2', { name: '转场' })
+    yUpdatePhase(doc, 'p3', { time: 50 })
+    expect(projectTimeline(doc).phases).toEqual([
+      { id: 'p1', name: 'P1', time: 0 },
+      { id: 'p3', name: 'P3', time: 50 },
+      { id: 'p2', name: '转场', time: 100 },
+    ])
+
+    yRemovePhase(doc, 'p1')
+    expect(projectTimeline(doc).phases?.map(p => p.id)).toEqual(['p3', 'p2'])
+  })
+
+  it('yUpdatePhase 对不存在的 id 是 no-op', () => {
+    const doc = buildYDoc(withPhases)
+    yUpdatePhase(doc, 'nope', { name: 'x' })
+    expect(projectTimeline(doc).phases).toHaveLength(2)
+  })
+
+  it('阶段操作不触碰其他集合', () => {
+    const doc = buildYDoc(withPhases)
+    const before = projectTimeline(doc)
+    yAddPhase(doc, { id: 'p3', name: 'P3', time: 5 })
+    yUpdatePhase(doc, 'p1', { time: 8 })
+    yRemovePhase(doc, 'p2')
+    const after = projectTimeline(doc, before)
+    expect(after.damageEvents).toEqual(before.damageEvents)
+    expect(after.castEvents).toEqual(before.castEvents)
+    expect(after.annotations).toEqual(before.annotations)
+  })
+
+  it('未变动的阶段在两次投影间保持同一引用', () => {
+    const doc = buildYDoc(withPhases)
+    const first = projectTimeline(doc)
+    yUpdatePhase(doc, 'p2', { name: 'changed' })
+    const second = projectTimeline(doc, first)
+    expect(second.phases?.find(p => p.id === 'p1')).toBe(first.phases?.find(p => p.id === 'p1'))
+    expect(second.phases?.find(p => p.id === 'p2')).not.toBe(first.phases?.find(p => p.id === 'p2'))
   })
 })
 

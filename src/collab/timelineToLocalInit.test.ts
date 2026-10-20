@@ -19,10 +19,11 @@ const base = {
 } as unknown as Timeline
 
 describe('timelineToLocalInit', () => {
-  it('14 字段透传，annotations 兜底空数组', () => {
+  it('15 字段透传，annotations / phases 兜底空数组', () => {
     const r = timelineToLocalInit(base)
     expect(r.name).toBe('T1')
     expect(r.annotations).toEqual([])
+    expect(r.phases).toEqual([])
     expect(r.createdAt).toBe(100)
     expect(Object.keys(r).sort()).toEqual(
       [
@@ -38,6 +39,7 @@ describe('timelineToLocalInit', () => {
         'damageEvents',
         'castEvents',
         'annotations',
+        'phases',
         'statData',
         'createdAt',
       ].sort()

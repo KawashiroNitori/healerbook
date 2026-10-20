@@ -43,6 +43,7 @@ export class SyncEngine {
         Y_MAP.damageEvents,
         Y_MAP.castEvents,
         Y_MAP.annotations,
+        Y_MAP.phases,
         Y_MAP.composition,
         Y_MAP.statData,
       ].map(n => doc.getMap(n)),

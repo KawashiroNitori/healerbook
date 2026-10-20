@@ -1,8 +1,16 @@
 import * as Y from 'yjs'
 import { Y_MAP, LOCAL_ORIGIN, EXIT_REPLAY_ORIGIN } from './constants'
 import type { TimelineContent } from './types'
-import type { DamageEvent, CastEvent, Annotation, Timeline, Composition } from '@/types/timeline'
+import type {
+  DamageEvent,
+  CastEvent,
+  Annotation,
+  Timeline,
+  Composition,
+  TimelinePhase,
+} from '@/types/timeline'
 import { normalizeActionId } from '@/utils/normalizeActionId'
+import { sortPhases } from '@/utils/timelinePhases'
 import { toLevel } from '@/types/level'
 
 /** meta Map 里存放的标量字段名 */
@@ -49,6 +57,11 @@ export function buildYDoc(content: TimelineContent): Y.Doc {
     const an = doc.getMap<Y.Map<unknown>>(Y_MAP.annotations)
     for (const a of content.annotations ?? []) {
       an.set(a.id, entryToYMap(a as unknown as Record<string, unknown>))
+    }
+
+    const ph = doc.getMap<Y.Map<unknown>>(Y_MAP.phases)
+    for (const p of content.phases ?? []) {
+      ph.set(p.id, entryToYMap(p as unknown as Record<string, unknown>))
     }
 
     const comp = doc.getMap<Y.Map<unknown>>(Y_MAP.composition)
@@ -189,6 +202,34 @@ export function yRemoveAnnotation(doc: Y.Doc, id: string): void {
   }, LOCAL_ORIGIN)
 }
 
+// Phase mutators(阶段只挪自己:不得级联改动其他集合)
+
+export function yAddPhase(doc: Y.Doc, phase: TimelinePhase): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.phases).set(phase.id, entryToYMap(phase as unknown as Record<string, unknown>))
+  }, LOCAL_ORIGIN)
+}
+
+export function yUpdatePhase(
+  doc: Y.Doc,
+  id: string,
+  patch: Partial<Pick<TimelinePhase, 'name' | 'time'>>
+): void {
+  doc.transact(() => {
+    const ymap = mapOf(doc, Y_MAP.phases).get(id)
+    if (!ymap) return
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) ymap.set(k, v)
+    }
+  }, LOCAL_ORIGIN)
+}
+
+export function yRemovePhase(doc: Y.Doc, id: string): void {
+  doc.transact(() => {
+    mapOf(doc, Y_MAP.phases).delete(id)
+  }, LOCAL_ORIGIN)
+}
+
 // Meta / composition / statData mutators
 
 /** 改 meta 标量字段(name/description/isReplayMode 等) */
@@ -312,6 +353,13 @@ export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
     return true
   }) // sanitizer
 
+  const phases = sortPhases(
+    projectCollection<TimelinePhase>(
+      doc.getMap<Y.Map<unknown>>(Y_MAP.phases).values(),
+      indexById(prev?.phases)
+    )
+  )
+
   const statData =
     doc.getMap(Y_MAP.statData).size > 0
       ? ymapToObject<Timeline['statData']>(doc.getMap(Y_MAP.statData))
@@ -332,6 +380,7 @@ export function projectTimeline(doc: Y.Doc, prev?: Timeline): Timeline {
     damageEvents,
     castEvents,
     annotations,
+    phases,
     statData,
     statusEvents: [], // 派生,不进 Y.Doc;由消费方重算
     updatedAt: 0, // 由调用方用本地元数据填

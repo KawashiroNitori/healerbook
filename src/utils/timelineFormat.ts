@@ -23,12 +23,14 @@ import type {
   TempMitigation,
   TempMitigationType,
   Timeline,
+  TimelinePhase,
 } from '@/types/timeline'
 import { MAX_PARTY_SIZE } from '@/types/timeline'
 import type {
   V2Annotation,
   V2CastEvents,
   V2DamageEvent,
+  V2Phase,
   V2PlayerDamageDetail,
   V2StatusSnapshot,
   V2SyncEvent,
@@ -40,6 +42,7 @@ import { toLevel } from '@/types/level'
 import { generateId } from '@/utils/id'
 import { normalizeActionId } from './normalizeActionId'
 import { generateObjectId } from '@/utils/shortId'
+import { sortPhases } from './timelinePhases'
 
 // ──────────────────────────────────────────────────────────────
 // 枚举映射
@@ -225,6 +228,8 @@ export function toV2(timeline: Timeline): V2Timeline {
   if (an.length > 0) out.an = an
   const se = (timeline.syncEvents ?? []).map(toV2SyncEvent)
   if (se.length > 0) out.se = se
+  const ph = sortPhases(timeline.phases ?? []).map((p): V2Phase => ({ n: p.name, t: p.time }))
+  if (ph.length > 0) out.ph = ph
   if (timeline.isReplayMode) out.r = 1
   if (timeline.statData !== undefined) out.sd = timeline.statData
   return out
@@ -375,6 +380,9 @@ export function hydrateFromV2(v2: V2Timeline, overrides: Partial<Timeline> = {})
     castEvents: fromV2CastEvents(v2.ce),
     statusEvents: [],
     annotations: v2.an ? v2.an.map(fromV2Annotation) : [],
+    phases: (v2.ph ?? []).map(
+      (p): TimelinePhase => ({ id: generateObjectId(), name: p.n, time: p.t })
+    ),
     createdAt: v2.ca,
     updatedAt: v2.ua,
   }

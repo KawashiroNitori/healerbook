@@ -24,6 +24,7 @@ function toContent(t: Timeline): TimelineContent {
   if (t.syncEvents !== undefined) content.syncEvents = t.syncEvents
   if (t.isReplayMode !== undefined) content.isReplayMode = t.isReplayMode
   if (t.statData !== undefined) content.statData = t.statData
+  if (t.phases !== undefined) content.phases = t.phases
   return content
 }
 

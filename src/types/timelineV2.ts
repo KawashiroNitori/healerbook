@@ -116,6 +116,14 @@ export interface V2SyncEvent {
   so?: 1
 }
 
+/** 阶段标记；id 不持久化，读入时重生成（同 V2Annotation） */
+export interface V2Phase {
+  /** name */
+  n: string
+  /** time（秒） */
+  t: number
+}
+
 import type { TimelineStatData } from './statData'
 import type { Level } from './level'
 
@@ -143,6 +151,8 @@ export interface V2Timeline {
   an?: V2Annotation[]
   /** syncEvents */
   se?: V2SyncEvent[]
+  /** phases（阶段标记）；缺席 = 无阶段 */
+  ph?: V2Phase[]
   /** isReplayMode；false 时字段缺席 */
   r?: 1
   /** statData（技能数值覆盖） */

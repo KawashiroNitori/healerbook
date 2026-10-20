@@ -778,6 +778,42 @@ describe('level 字段编解码', () => {
   })
 })
 
+describe('phases 字段编解码', () => {
+  it('按时间排序写入 ph 短键，往返后 name / time 一致、id 重新生成', () => {
+    const tl: Timeline = {
+      ...makeEditorTimeline(),
+      phases: [
+        { id: 'b', name: 'P2: X', time: 120.5 },
+        { id: 'a', name: 'P1', time: -5 },
+      ],
+    }
+    const v2 = toV2(tl)
+    expect(v2.ph).toEqual([
+      { n: 'P1', t: -5 },
+      { n: 'P2: X', t: 120.5 },
+    ])
+    const back = hydrateFromV2(v2)
+    expect(back.phases?.map(p => [p.name, p.time])).toEqual([
+      ['P1', -5],
+      ['P2: X', 120.5],
+    ])
+    expect(back.phases?.every(p => typeof p.id === 'string' && p.id.length > 0)).toBe(true)
+  })
+
+  it('phases 缺席或为空时不写 ph', () => {
+    expect(toV2(makeEditorTimeline()).ph).toBeUndefined()
+    expect(toV2({ ...makeEditorTimeline(), phases: [] }).ph).toBeUndefined()
+  })
+
+  it('无 ph 的存量数据解码为空数组', () => {
+    expect(hydrateFromV2(toV2(makeEditorTimeline())).phases).toEqual([])
+  })
+
+  it('V1 迁移不产生 ph', () => {
+    expect(migrateV1ToV2(makeV1EditorTimeline()).ph).toBeUndefined()
+  })
+})
+
 describe('castWindow 序列化', () => {
   function roundtripDamageEvent(ev: import('@/types/timeline').DamageEvent) {
     const tl: Timeline = {

@@ -4,6 +4,7 @@ export const Y_MAP = {
   damageEvents: 'damageEvents',
   castEvents: 'castEvents',
   annotations: 'annotations',
+  phases: 'phases',
   composition: 'composition',
   statData: 'statData',
 } as const
