@@ -2,7 +2,7 @@
  * 编辑器工具栏组件
  */
 
-import { useState, lazy, Suspense } from 'react'
+import { useState, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from 'react-i18next'
 import {
@@ -61,6 +61,7 @@ import {
 import FilterMenu from './FilterMenu/FilterMenu'
 import SharePopover from './SharePopover'
 import SettingsDialog from './SettingsDialog'
+import PhaseNavigator from './PhaseNavigator'
 const ExportExcelDialog = lazy(() => import('./ExportExcelDialog'))
 const ExportSoumaDialog = lazy(() => import('./ExportSoumaDialog'))
 const ImportIntoTimelineDialog = lazy(() => import('./ImportIntoTimelineDialog'))
@@ -159,6 +160,30 @@ export default function EditorToolbar({
   const isUnsupportedEncounter =
     !!encounterId && statisticsQuery.isSuccess && statisticsQuery.data === null
 
+  // 工具栏宽度（决定阶段入口文字档位）与按钮区右缘渐隐
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const buttonsScrollRef = useRef<HTMLDivElement>(null)
+  const buttonsInnerRef = useRef<HTMLDivElement>(null)
+  const [toolbarWidth, setToolbarWidth] = useState(0)
+  const [showButtonsFade, setShowButtonsFade] = useState(false)
+  const updateButtonsFade = useCallback(() => {
+    const el = buttonsScrollRef.current
+    if (!el) return
+    // 溢出且未滚到最右时显示渐隐
+    setShowButtonsFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 1)
+  }, [])
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current
+    if (!toolbar) return
+    const ro = new ResizeObserver(() => {
+      setToolbarWidth(toolbar.clientWidth)
+      updateButtonsFade()
+    })
+    ro.observe(toolbar)
+    if (buttonsInnerRef.current) ro.observe(buttonsInnerRef.current)
+    return () => ro.disconnect()
+  }, [updateButtonsFade])
+
   const handleExitReplayMode = () => {
     exitReplayMode()
     setShowExitReplayConfirm(false)
@@ -202,443 +227,475 @@ export default function EditorToolbar({
         onCancel={cancelAutoMitigate}
       />
       <TooltipProvider>
-        <div className="h-12 border-b bg-background overflow-x-auto scrollbar-hide">
-          <div className="h-full w-max flex items-center px-4 gap-2">
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-2">
-              <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-              <Slider
-                value={[zoomLevel]}
-                onValueChange={handleZoomChange}
-                min={10}
-                max={100}
-                className="w-24"
-                disabled={viewMode === 'table'}
-              />
-              <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-            </div>
+        <div ref={toolbarRef} className="h-12 border-b bg-background flex items-center">
+          {/* 左侧按钮区：单独横向滚动；放不下时右缘渐隐 */}
+          <div className="relative h-full min-w-0 flex-1">
+            <div
+              ref={buttonsScrollRef}
+              onScroll={updateButtonsFade}
+              className="h-full overflow-x-auto scrollbar-hide"
+            >
+              <div ref={buttonsInnerRef} className="h-full w-max flex items-center px-4 gap-2">
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-2">
+                  <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <Slider
+                    value={[zoomLevel]}
+                    onValueChange={handleZoomChange}
+                    min={10}
+                    max={100}
+                    className="w-24"
+                    disabled={viewMode === 'table'}
+                  />
+                  <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+                </div>
 
-            {/* 更多操作菜单（对所有身份可用，不与已有同功能按钮做互斥） */}
-            <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
-              <Tooltip
-                open={moreMenuOpen ? false : moreTooltipOpen}
-                onOpenChange={setMoreTooltipOpen}
-              >
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{t('editor:editorToolbar.more')}</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
-                <DropdownMenuItem onSelect={() => onCreateCopy()}>
-                  <Copy className="w-4 h-4" />
-                  {t('editor:editorToolbar.createCopy')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* 平移 / 框选 工具切换（仅时间轴视图；只读/回放也可切换以便选中、复制） */}
-            {viewMode !== 'table' && (
-              <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={canvasTool === 'pan' ? 'default' : 'ghost'}
-                      size="icon"
-                      className="h-6 w-6"
-                      aria-pressed={canvasTool === 'pan'}
-                      aria-label={t('editor:editorToolbar.panTool')}
-                      onClick={() => setCanvasTool('pan')}
-                    >
-                      <Hand className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{t('editor:editorToolbar.panTool')}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={canvasTool === 'select' ? 'default' : 'ghost'}
-                      size="icon"
-                      className="h-6 w-6"
-                      aria-pressed={canvasTool === 'select'}
-                      aria-label={t('editor:editorToolbar.selectTool')}
-                      onClick={() => setCanvasTool('select')}
-                    >
-                      <BoxSelect className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {t('editor:editorToolbar.selectTool')}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-
-            <div className="w-px h-6 bg-border mx-1" />
-
-            {/* Undo / Redo（回放模式下不展示） */}
-            {!isReplayMode && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={handleUndo}
-                      disabled={isReadOnly || !canUndo}
-                    >
-                      <Undo2 className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="flex items-center gap-1.5">
-                    {t('editor:editorToolbar.undo')}
-                    <KbdGroup>
-                      <Kbd>{modKeyLabel}</Kbd>
-                      <Kbd>Z</Kbd>
-                    </KbdGroup>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={handleRedo}
-                      disabled={isReadOnly || !canRedo}
-                    >
-                      <Redo2 className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="flex items-center gap-1.5">
-                    {t('editor:editorToolbar.redo')}
-                    <KbdGroup>
-                      <Kbd>{modKeyLabel}</Kbd>
-                      <Kbd>{shiftKeyLabel}</Kbd>
-                      <Kbd>Z</Kbd>
-                    </KbdGroup>
-                  </TooltipContent>
-                </Tooltip>
-
-                <div className="w-px h-6 bg-border mx-1" />
-              </>
-            )}
-
-            {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
-            {isReplayMode ? (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900 dark:hover:text-blue-200"
-                    disabled={!editLock.can('exitReplay')}
-                  >
-                    <BugPlay className="w-4 h-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent side="bottom" align="start" className="w-80">
-                  <div className="space-y-3">
-                    <p className="font-semibold text-sm">
-                      {t('editor:editorToolbar.replayModeTitle')}
-                    </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {t('editor:editorToolbar.replayModeDescPrefix')}
-                      <br />
-                      {t('editor:editorToolbar.replayModeDescBefore')}
-                      <b>{t('editor:editorToolbar.exitReplayMode')}</b>
-                      {t('editor:editorToolbar.replayModeDescAfter')}
-                    </p>
-                    <div className="flex justify-end">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setShowExitReplayConfirm(true)}
-                      >
-                        {t('editor:editorToolbar.exitReplayMode')}
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
-                    onClick={toggleManualLock}
-                    disabled={lockForced}
-                  >
-                    {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {lockForced
-                    ? contentReason === 'viewer'
-                      ? t('editor:editorToolbar.readOnlyViewer')
-                      : contentReason === 'offline'
-                        ? t('editor:editorToolbar.readOnlyOffline')
-                        : t('editor:editorToolbar.readOnly')
-                    : isReadOnly
-                      ? t('editor:editorToolbar.switchToEdit')
-                      : t('editor:editorToolbar.switchToReadOnly')}
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            {/* 视图菜单 */}
-            <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
-              <Tooltip
-                open={viewMenuOpen ? false : viewTooltipOpen}
-                onOpenChange={setViewTooltipOpen}
-              >
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{t('editor:editorToolbar.view')}</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
-                <DropdownMenuRadioGroup
-                  value={viewMode}
-                  onValueChange={v => {
-                    const mode = v as 'timeline' | 'table'
-                    track('view-mode-change', { mode })
-                    onViewModeChange(mode)
-                  }}
-                >
-                  <DropdownMenuRadioItem value="timeline">
-                    {t('editor:editorToolbar.timelineView')}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="table">
-                    {t('editor:editorToolbar.tableView')}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    {t('editor:editorToolbar.damageEvents')}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuCheckboxItem
-                      checked={showActualDamage}
-                      onCheckedChange={checked => {
-                        track('view-toggle-actual-damage', { checked })
-                        toggleShowActualDamage()
-                      }}
-                    >
-                      {t('editor:editorToolbar.actualDamage')}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={showOriginalDamage}
-                      onCheckedChange={checked => {
-                        track('view-toggle-original-damage', { checked })
-                        toggleShowOriginalDamage()
-                      }}
-                    >
-                      {t('editor:editorToolbar.originalDamage')}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={showCastStartTime}
-                      onCheckedChange={checked => {
-                        track('view-toggle-cast-start-time', { checked })
-                        toggleShowCastStartTime()
-                      }}
-                    >
-                      {t('editor:editorToolbar.showCastStartTime')}
-                    </DropdownMenuCheckboxItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={enableHpSimulation}
-                  onCheckedChange={checked => {
-                    track('view-toggle-hp-simulation', { checked })
-                    toggleEnableHpSimulation()
-                  }}
-                >
-                  {t('editor:editorToolbar.hpSimulation')}
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={showResourceHover}
-                  onCheckedChange={checked => {
-                    track('view-toggle-resource-hover', { checked })
-                    toggleShowResourceHover()
-                  }}
-                >
-                  {t('editor:editorToolbar.showResourceHover')}
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* 过滤菜单 */}
-            <FilterMenu />
-
-            {/* 共享 */}
-            {timeline && (
-              <>
-                <div className="w-px h-6 bg-border mx-1" />
-                <SharePopover
-                  timeline={timeline}
-                  isPublished={isPublished}
-                  viewMode={viewMode}
-                  onPublished={newId => onPublished?.(newId)}
-                  onCreateCopy={onCreateCopy}
-                  role={shareRole.role}
-                  isAuthor={shareRole.isAuthor}
-                  allowEditRequests={shareRole.allowEditRequests}
-                  hasPendingRequest={shareRole.hasPendingRequest}
-                />
-              </>
-            )}
-
-            {/* 导入 */}
-            {!isReplayMode && sessionRole !== 'viewer' && (
-              <>
-                <div className="w-px h-6 bg-border mx-1" />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      disabled={!editLock.can('content') || isOptimizing}
-                      onClick={() => setShowAutoMitigateDisclaimer(true)}
-                      aria-label={t('editor:editorToolbar.autoMitigate')}
-                    >
-                      {isOptimizing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Wand2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {t('editor:editorToolbar.autoMitigateExperimental')}
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setShowImportDialog(true)}
-                        disabled={!editLock.can('content')}
-                      >
-                        <FileInput className="w-4 h-4" />
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {editLock.can('content')
-                      ? t('editor:editorToolbar.import')
-                      : contentReason === 'viewer'
-                        ? t('editor:editorToolbar.readOnlyViewer')
-                        : contentReason === 'offline'
-                          ? t('editor:editorToolbar.readOnlyOffline')
-                          : t('editor:editorToolbar.readOnly')}
-                  </TooltipContent>
-                </Tooltip>
-              </>
-            )}
-
-            {/* 导出 */}
-            {timeline && (
-              <>
-                {/* 导入隐藏时（回放 / viewer），由导出补上与「共享」隔开的分割线 */}
-                {(isReplayMode || sessionRole === 'viewer') && (
-                  <div className="w-px h-6 bg-border mx-1" />
-                )}
-                <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+                {/* 更多操作菜单（对所有身份可用，不与已有同功能按钮做互斥） */}
+                <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
                   <Tooltip
-                    open={exportMenuOpen ? false : exportTooltipOpen}
-                    onOpenChange={setExportTooltipOpen}
+                    open={moreMenuOpen ? false : moreTooltipOpen}
+                    onOpenChange={setMoreTooltipOpen}
                   >
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <FileOutput className="w-4 h-4" />
+                          <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      {t('editor:editorToolbar.export')}
-                    </TooltipContent>
+                    <TooltipContent side="bottom">{t('editor:editorToolbar.more')}</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        track('souma-export-start')
-                        setShowSoumaDialog(true)
-                      }}
-                    >
-                      {t('editor:editorToolbar.exportSoumaItem')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        track('excel-export-start')
-                        setShowExportDialog(true)
-                      }}
-                    >
-                      {t('editor:editorToolbar.exportExcelItem')}
+                    <DropdownMenuItem onSelect={() => onCreateCopy()}>
+                      <Copy className="w-4 h-4" />
+                      {t('editor:editorToolbar.createCopy')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </>
-            )}
 
-            {/* 设置：只读下也可打开查看，对话框内写入控件由只读态控制。
+                {/* 平移 / 框选 工具切换（仅时间轴视图；只读/回放也可切换以便选中、复制） */}
+                {viewMode !== 'table' && (
+                  <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={canvasTool === 'pan' ? 'default' : 'ghost'}
+                          size="icon"
+                          className="h-6 w-6"
+                          aria-pressed={canvasTool === 'pan'}
+                          aria-label={t('editor:editorToolbar.panTool')}
+                          onClick={() => setCanvasTool('pan')}
+                        >
+                          <Hand className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {t('editor:editorToolbar.panTool')}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={canvasTool === 'select' ? 'default' : 'ghost'}
+                          size="icon"
+                          className="h-6 w-6"
+                          aria-pressed={canvasTool === 'select'}
+                          aria-label={t('editor:editorToolbar.selectTool')}
+                          onClick={() => setCanvasTool('select')}
+                        >
+                          <BoxSelect className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {t('editor:editorToolbar.selectTool')}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+
+                <div className="w-px h-6 bg-border mx-1" />
+
+                {/* Undo / Redo（回放模式下不展示） */}
+                {!isReplayMode && (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={handleUndo}
+                          disabled={isReadOnly || !canUndo}
+                        >
+                          <Undo2 className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="flex items-center gap-1.5">
+                        {t('editor:editorToolbar.undo')}
+                        <KbdGroup>
+                          <Kbd>{modKeyLabel}</Kbd>
+                          <Kbd>Z</Kbd>
+                        </KbdGroup>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={handleRedo}
+                          disabled={isReadOnly || !canRedo}
+                        >
+                          <Redo2 className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="flex items-center gap-1.5">
+                        {t('editor:editorToolbar.redo')}
+                        <KbdGroup>
+                          <Kbd>{modKeyLabel}</Kbd>
+                          <Kbd>{shiftKeyLabel}</Kbd>
+                          <Kbd>Z</Kbd>
+                        </KbdGroup>
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <div className="w-px h-6 bg-border mx-1" />
+                  </>
+                )}
+
+                {/* Replay Mode / Read-Only Toggle (mutually exclusive) */}
+                {isReplayMode ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900 dark:hover:text-blue-200"
+                        disabled={!editLock.can('exitReplay')}
+                      >
+                        <BugPlay className="w-4 h-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent side="bottom" align="start" className="w-80">
+                      <div className="space-y-3">
+                        <p className="font-semibold text-sm">
+                          {t('editor:editorToolbar.replayModeTitle')}
+                        </p>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {t('editor:editorToolbar.replayModeDescPrefix')}
+                          <br />
+                          {t('editor:editorToolbar.replayModeDescBefore')}
+                          <b>{t('editor:editorToolbar.exitReplayMode')}</b>
+                          {t('editor:editorToolbar.replayModeDescAfter')}
+                        </p>
+                        <div className="flex justify-end">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setShowExitReplayConfirm(true)}
+                          >
+                            {t('editor:editorToolbar.exitReplayMode')}
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-7 w-7 ${isReadOnly ? 'text-red-600 hover:text-red-700' : ''}`}
+                        onClick={toggleManualLock}
+                        disabled={lockForced}
+                      >
+                        {isReadOnly ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {lockForced
+                        ? contentReason === 'viewer'
+                          ? t('editor:editorToolbar.readOnlyViewer')
+                          : contentReason === 'offline'
+                            ? t('editor:editorToolbar.readOnlyOffline')
+                            : t('editor:editorToolbar.readOnly')
+                        : isReadOnly
+                          ? t('editor:editorToolbar.switchToEdit')
+                          : t('editor:editorToolbar.switchToReadOnly')}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
+                {/* 视图菜单 */}
+                <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
+                  <Tooltip
+                    open={viewMenuOpen ? false : viewTooltipOpen}
+                    onOpenChange={setViewTooltipOpen}
+                  >
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{t('editor:editorToolbar.view')}</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
+                    <DropdownMenuRadioGroup
+                      value={viewMode}
+                      onValueChange={v => {
+                        const mode = v as 'timeline' | 'table'
+                        track('view-mode-change', { mode })
+                        onViewModeChange(mode)
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="timeline">
+                        {t('editor:editorToolbar.timelineView')}
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="table">
+                        {t('editor:editorToolbar.tableView')}
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        {t('editor:editorToolbar.damageEvents')}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuCheckboxItem
+                          checked={showActualDamage}
+                          onCheckedChange={checked => {
+                            track('view-toggle-actual-damage', { checked })
+                            toggleShowActualDamage()
+                          }}
+                        >
+                          {t('editor:editorToolbar.actualDamage')}
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={showOriginalDamage}
+                          onCheckedChange={checked => {
+                            track('view-toggle-original-damage', { checked })
+                            toggleShowOriginalDamage()
+                          }}
+                        >
+                          {t('editor:editorToolbar.originalDamage')}
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={showCastStartTime}
+                          onCheckedChange={checked => {
+                            track('view-toggle-cast-start-time', { checked })
+                            toggleShowCastStartTime()
+                          }}
+                        >
+                          {t('editor:editorToolbar.showCastStartTime')}
+                        </DropdownMenuCheckboxItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={enableHpSimulation}
+                      onCheckedChange={checked => {
+                        track('view-toggle-hp-simulation', { checked })
+                        toggleEnableHpSimulation()
+                      }}
+                    >
+                      {t('editor:editorToolbar.hpSimulation')}
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={showResourceHover}
+                      onCheckedChange={checked => {
+                        track('view-toggle-resource-hover', { checked })
+                        toggleShowResourceHover()
+                      }}
+                    >
+                      {t('editor:editorToolbar.showResourceHover')}
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* 过滤菜单 */}
+                <FilterMenu />
+
+                {/* 共享 */}
+                {timeline && (
+                  <>
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <SharePopover
+                      timeline={timeline}
+                      isPublished={isPublished}
+                      viewMode={viewMode}
+                      onPublished={newId => onPublished?.(newId)}
+                      onCreateCopy={onCreateCopy}
+                      role={shareRole.role}
+                      isAuthor={shareRole.isAuthor}
+                      allowEditRequests={shareRole.allowEditRequests}
+                      hasPendingRequest={shareRole.hasPendingRequest}
+                    />
+                  </>
+                )}
+
+                {/* 导入 */}
+                {!isReplayMode && sessionRole !== 'viewer' && (
+                  <>
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={!editLock.can('content') || isOptimizing}
+                          onClick={() => setShowAutoMitigateDisclaimer(true)}
+                          aria-label={t('editor:editorToolbar.autoMitigate')}
+                        >
+                          {isOptimizing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {t('editor:editorToolbar.autoMitigateExperimental')}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setShowImportDialog(true)}
+                            disabled={!editLock.can('content')}
+                          >
+                            <FileInput className="w-4 h-4" />
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {editLock.can('content')
+                          ? t('editor:editorToolbar.import')
+                          : contentReason === 'viewer'
+                            ? t('editor:editorToolbar.readOnlyViewer')
+                            : contentReason === 'offline'
+                              ? t('editor:editorToolbar.readOnlyOffline')
+                              : t('editor:editorToolbar.readOnly')}
+                      </TooltipContent>
+                    </Tooltip>
+                  </>
+                )}
+
+                {/* 导出 */}
+                {timeline && (
+                  <>
+                    {/* 导入隐藏时（回放 / viewer），由导出补上与「共享」隔开的分割线 */}
+                    {(isReplayMode || sessionRole === 'viewer') && (
+                      <div className="w-px h-6 bg-border mx-1" />
+                    )}
+                    <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+                      <Tooltip
+                        open={exportMenuOpen ? false : exportTooltipOpen}
+                        onOpenChange={setExportTooltipOpen}
+                      >
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <FileOutput className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          {t('editor:editorToolbar.export')}
+                        </TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="start" onCloseAutoFocus={e => e.preventDefault()}>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            track('souma-export-start')
+                            setShowSoumaDialog(true)
+                          }}
+                        >
+                          {t('editor:editorToolbar.exportSoumaItem')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            track('excel-export-start')
+                            setShowExportDialog(true)
+                          }}
+                        >
+                          {t('editor:editorToolbar.exportExcelItem')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                )}
+
+                {/* 设置：只读下也可打开查看，对话框内写入控件由只读态控制。
                 不依赖 statData 是否存在——存量时间轴可能缺 statData，但绑定副本 /
                 等级两项与 statData 无关，不应被它一并锁死。 */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setShowSettingsDialog(true)}
-                  disabled={!timeline}
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{t('editor:editorToolbar.settings')}</TooltipContent>
-            </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setShowSettingsDialog(true)}
+                      disabled={!timeline}
+                    >
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {t('editor:editorToolbar.settings')}
+                  </TooltipContent>
+                </Tooltip>
 
-            {/* Exit Replay Mode Confirmation */}
-            <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('editor:editorToolbar.exitReplayMode')}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('editor:editorToolbar.exitReplayConfirmDesc')}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleExitReplayMode}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {t('editor:editorToolbar.exitReplayConfirm')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                {/* Exit Replay Mode Confirmation */}
+                <AlertDialog open={showExitReplayConfirm} onOpenChange={setShowExitReplayConfirm}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {t('editor:editorToolbar.exitReplayMode')}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('editor:editorToolbar.exitReplayConfirmDesc')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleExitReplayMode}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {t('editor:editorToolbar.exitReplayConfirm')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-y-0 right-0 w-24 transition-opacity duration-150 ${
+                showButtonsFade ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{
+                background:
+                  'linear-gradient(to right, hsl(var(--background) / 0), hsl(var(--background)) 80%)',
+              }}
+            />
           </div>
+
+          {/* 阶段跳转入口：固定在最右端，不参与滚动 */}
+          {timeline && (
+            <div className="flex h-full shrink-0 items-center pr-4 pl-1">
+              <PhaseNavigator width={toolbarWidth} />
+            </div>
+          )}
         </div>
       </TooltipProvider>
 

@@ -50,6 +50,8 @@ export default function PhaseDeleteConfirm({
         side="bottom"
         align="end"
         className="w-auto p-3 space-y-2"
+        // 供下拉菜单识别「点在确认框里」而不收起（删除后菜单保持展开）
+        data-phase-delete-confirm=""
         onOpenAutoFocus={e => {
           e.preventDefault()
           deleteRef.current?.focus()

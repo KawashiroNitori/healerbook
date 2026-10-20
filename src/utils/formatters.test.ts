@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { formatTimeWithDecimal, formatDamageValue, splitDeciseconds } from './formatters'
+import {
+  formatTimeMinSec,
+  formatTimeWithDecimal,
+  formatDamageValue,
+  splitDeciseconds,
+} from './formatters'
+
+describe('formatTimeMinSec', () => {
+  it('m:ss，向下取整到秒', () => {
+    expect(formatTimeMinSec(0)).toBe('0:00')
+    expect(formatTimeMinSec(209.2)).toBe('3:29')
+    expect(formatTimeMinSec(59.99)).toBe('0:59')
+    expect(formatTimeMinSec(-5.5)).toBe('-0:05')
+  })
+})
 
 describe('formatTimeWithDecimal', () => {
   it('常规格式 mm:ss.f，秒数补零到两位整数', () => {

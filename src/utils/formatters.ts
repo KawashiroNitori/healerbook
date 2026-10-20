@@ -24,6 +24,14 @@ export function formatTimeWithDecimal(seconds: number): string {
   return `${sign}${minutes}:${sec < 10 ? '0' : ''}${sec}.${tenths}`
 }
 
+/** 精确到秒的 m:ss（向下取整到秒，负数带负号） */
+export function formatTimeMinSec(seconds: number): string {
+  const sign = seconds < 0 ? '-' : ''
+  const total = Math.floor(Math.abs(seconds))
+  const sec = total % 60
+  return `${sign}${Math.floor(total / 60)}:${sec < 10 ? '0' : ''}${sec}`
+}
+
 /**
  * 伤害数值缩略：≥10000 显示为 x.xw，否则用千分位分隔
  */
