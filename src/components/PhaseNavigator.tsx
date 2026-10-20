@@ -59,6 +59,19 @@ export default function PhaseNavigator({ width }: PhaseNavigatorProps) {
   // 点在项内的改名 / 删除按钮上时，阻止该项的 onSelect（跳转并收起菜单）
   const actionClickRef = useRef(false)
 
+  // 改名框 / 删除确认打开期间冻结菜单项的悬停焦点：Radix 菜单项在指针移入时会抢焦点、
+  // 移出时把焦点交还菜单容器，导致改名框失焦提交、删除确认因焦点移出而关闭。
+  // 对指针事件 preventDefault 后，Radix 会跳过它自带的处理（composeEventHandlers）。
+  const interactionLocked = editingId !== null || deleteRequest !== null
+  const lockedPointerProps = {
+    onPointerMove: (e: React.PointerEvent) => {
+      if (interactionLocked) e.preventDefault()
+    },
+    onPointerLeave: (e: React.PointerEvent) => {
+      if (interactionLocked) e.preventDefault()
+    },
+  }
+
   const sorted = useMemo(() => sortPhases(phases ?? []), [phases])
   const curIdx = currentPhaseIndex(sorted, anchorTime ?? -Infinity)
   const current = curIdx >= 0 ? sorted[curIdx] : null
@@ -170,12 +183,17 @@ export default function PhaseNavigator({ width }: PhaseNavigatorProps) {
                 </div>
               )
             }
-            const showActions = !isReadOnly && hoveredId === p.id
+            // 删除确认打开期间，被删项保持露出按钮（确认框锚定在其垃圾桶上）
+            const showActions =
+              !isReadOnly && (hoveredId === p.id || deleteRequest?.phaseId === p.id)
             return (
               <DropdownMenuItem
                 key={p.id}
-                onMouseEnter={() => setHoveredId(p.id)}
-                onMouseLeave={() => setHoveredId(h => (h === p.id ? null : h))}
+                {...lockedPointerProps}
+                onMouseEnter={() => !interactionLocked && setHoveredId(p.id)}
+                onMouseLeave={() =>
+                  !interactionLocked && setHoveredId(h => (h === p.id ? null : h))
+                }
                 onSelect={e => {
                   if (actionClickRef.current) {
                     actionClickRef.current = false
@@ -237,6 +255,7 @@ export default function PhaseNavigator({ width }: PhaseNavigatorProps) {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                {...lockedPointerProps}
                 className="flex items-center justify-between gap-2"
                 onSelect={e => {
                   e.preventDefault()

@@ -56,6 +56,8 @@ export default function PhaseDeleteConfirm({
           e.preventDefault()
           deleteRef.current?.focus()
         }}
+        // 焦点被宿主（如下拉菜单的悬停聚焦）移走时不关闭；Esc 与点击外部仍会关闭
+        onFocusOutside={e => e.preventDefault()}
         // 阻止冒泡到时间轴容器：避免触发框选 / 取消选中
         onPointerDown={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
