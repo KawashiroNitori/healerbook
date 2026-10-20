@@ -407,6 +407,115 @@ describe('annotation CRUD', () => {
   })
 })
 
+describe('phases', () => {
+  beforeEach(() => {
+    // eslint-disable-next-line no-global-assign
+    indexedDB = new IDBFactory()
+    useTimelineStore.getState().reset()
+  })
+
+  const seed: TimelineContent = {
+    ...baseContent,
+    damageEvents: [
+      { id: 'd1', name: 'AOE', time: 10, damage: 1000, type: 'aoe', damageType: 'magical' },
+    ],
+    castEvents: [{ id: 'c1', actionId: RAMPART_ID, timestamp: 5, playerId: 1 }],
+    annotations: [{ id: 'a1', text: '备注', time: 8, anchor: { type: 'damageTrack' } }],
+    phases: [{ id: 'p1', name: 'P1', time: 0 }],
+  }
+
+  it('addPhase / updatePhase / removePhase', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('phase-crud', { role: 'local', seedContent: seed })
+    const s = useTimelineStore.getState()
+    s.addPhase({ id: 'p2', name: 'P2', time: 100 })
+    expect(useTimelineStore.getState().timeline!.phases?.map(p => p.id)).toEqual(['p1', 'p2'])
+
+    s.updatePhase('p2', { name: '转场', time: 50 })
+    expect(useTimelineStore.getState().timeline!.phases?.[1]).toEqual({
+      id: 'p2',
+      name: '转场',
+      time: 50,
+    })
+
+    s.removePhase('p1')
+    expect(useTimelineStore.getState().timeline!.phases?.map(p => p.id)).toEqual(['p2'])
+  })
+
+  it('阶段操作不改动伤害事件 / cast / 备注', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('phase-iso', { role: 'local', seedContent: seed })
+    const before = useTimelineStore.getState().timeline!
+    const s = useTimelineStore.getState()
+    s.addPhase({ id: 'p2', name: 'P2', time: 3 })
+    s.updatePhase('p1', { time: 9 })
+    s.removePhase('p2')
+    const after = useTimelineStore.getState().timeline!
+    expect(after.damageEvents).toEqual(before.damageEvents)
+    expect(after.castEvents).toEqual(before.castEvents)
+    expect(after.annotations).toEqual(before.annotations)
+  })
+
+  it('删除选中的阶段时清空阶段选中', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('phase-del-sel', { role: 'local', seedContent: seed })
+    useTimelineStore.getState().selectPhase('p1')
+    useTimelineStore.getState().removePhase('p1')
+    expect(useTimelineStore.getState().selectedPhaseId).toBeNull()
+  })
+
+  it('阶段选中与其他选中互斥', async () => {
+    await useTimelineStore
+      .getState()
+      .openTimeline('phase-sel', { role: 'local', seedContent: seed })
+    const s = useTimelineStore.getState()
+    s.setSelection({ eventIds: ['d1'], castEventIds: ['c1'], annotationIds: ['a1'] })
+    s.selectPhase('p1')
+    let st = useTimelineStore.getState()
+    expect(st.selectedPhaseId).toBe('p1')
+    expect(st.selectedEventIds).toEqual([])
+    expect(st.selectedCastEventIds).toEqual([])
+    expect(st.selectedAnnotationIds).toEqual([])
+
+    s.setSelection({ eventIds: ['d1'] })
+    st = useTimelineStore.getState()
+    expect(st.selectedPhaseId).toBeNull()
+    expect(st.selectedEventIds).toEqual(['d1'])
+
+    s.selectPhase('p1')
+    s.clearSelection()
+    expect(useTimelineStore.getState().selectedPhaseId).toBeNull()
+  })
+
+  it('切换文档清空阶段选中', async () => {
+    await useTimelineStore.getState().openTimeline('phase-a', { role: 'local', seedContent: seed })
+    useTimelineStore.getState().selectPhase('p1')
+    await useTimelineStore.getState().openTimeline('phase-b', { role: 'local', seedContent: seed })
+    expect(useTimelineStore.getState().selectedPhaseId).toBeNull()
+  })
+
+  it('requestScrollToTime 每次请求 seq 递增', () => {
+    const s = useTimelineStore.getState()
+    s.requestScrollToTime(10)
+    const first = useTimelineStore.getState().scrollToTimeRequest!
+    s.requestScrollToTime(10)
+    const second = useTimelineStore.getState().scrollToTimeRequest!
+    expect(first.time).toBe(10)
+    expect(second.time).toBe(10)
+    expect(second.seq).toBeGreaterThan(first.seq)
+  })
+
+  it('setViewAnchorTime 写入阅读位置', () => {
+    useTimelineStore.getState().setViewAnchorTime(42)
+    expect(useTimelineStore.getState().viewAnchorTime).toBe(42)
+    useTimelineStore.getState().setViewAnchorTime(null)
+    expect(useTimelineStore.getState().viewAnchorTime).toBeNull()
+  })
+})
+
 describe('timelineStore - snapshot 兜底渲染数据源', () => {
   beforeEach(() => {
     // eslint-disable-next-line no-global-assign

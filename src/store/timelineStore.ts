@@ -23,6 +23,7 @@ import type {
   Composition,
   Annotation,
   SyncEvent,
+  TimelinePhase,
 } from '@/types/timeline'
 import type { PartyState } from '@/types/partyState'
 import type { EncounterStatistics } from '@/types/mitigation'
@@ -51,6 +52,9 @@ import {
   yAddAnnotation,
   yUpdateAnnotation,
   yRemoveAnnotation,
+  yAddPhase,
+  yUpdatePhase,
+  yRemovePhase,
   ySetMeta,
   yReplaceComposition,
   yReplaceStatData,
@@ -103,6 +107,12 @@ interface TimelineState {
   selectedAnnotationIds: string[]
   /** 当前选择是否由「全选 / 全选技能 / 全选伤害事件」操作产生（决定复制后粘贴用绝对时间） */
   selectionFromSelectAll: boolean
+  /** 选中的阶段 ID；与其他选中互斥（框选不含阶段） */
+  selectedPhaseId: string | null
+  /** 当前活动视图的「阅读位置」时间（秒），由时间轴 / 表格视图写入，工具栏据此判定当前阶段 */
+  viewAnchorTime: number | null
+  /** 跳转请求；seq 自增，保证重复跳到同一时间也能触发 */
+  scrollToTimeRequest: { time: number; seq: number } | null
   /** 缩放级别 (像素/秒) */
   zoomLevel: number
   /** 待恢复的滚动进度 (0-1) */
@@ -193,6 +203,18 @@ interface TimelineState {
   updateAnnotation: (id: string, updates: Partial<Pick<Annotation, 'text' | 'time'>>) => void
   /** 删除备注 */
   removeAnnotation: (id: string) => void
+  /** 选中阶段（会清空其他选中）；传 null 取消阶段选中 */
+  selectPhase: (id: string | null) => void
+  /** 添加阶段 */
+  addPhase: (phase: TimelinePhase) => void
+  /** 更新阶段名称 / 开始时间 */
+  updatePhase: (id: string, updates: Partial<Pick<TimelinePhase, 'name' | 'time'>>) => void
+  /** 删除阶段 */
+  removePhase: (id: string) => void
+  /** 写入当前视图的阅读位置时间 */
+  setViewAnchorTime: (time: number | null) => void
+  /** 请求当前视图跳转到某时间 */
+  requestScrollToTime: (time: number) => void
   /** 批量平移选中对象的时间（同一事务，单步 undo） */
   bulkMoveSelection: (delta: number) => void
   /** 批量删除选中对象（同一事务，单步 undo），随后清空选择 */
@@ -241,6 +263,9 @@ const initialUiState = {
   selectedCastEventIds: [],
   selectedAnnotationIds: [],
   selectionFromSelectAll: false,
+  selectedPhaseId: null as string | null,
+  viewAnchorTime: null as number | null,
+  scrollToTimeRequest: null as { time: number; seq: number } | null,
   zoomLevel: 30, // xx 像素 / 秒
   pendingScrollProgress: null,
   currentScrollLeft: 0,
@@ -278,6 +303,7 @@ const sessionResetFields = {
   selectedCastEventIds: [] as string[],
   selectedAnnotationIds: [] as string[],
   selectionFromSelectAll: false,
+  selectedPhaseId: null as string | null,
 }
 
 /** 由多选数组派生旧的单选字段：仅当总选中数==1 且为该类型时给出 id */
@@ -579,6 +605,8 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         selectedAnnotationIds: next.annotationIds,
         // 默认重置；仅全选类操作显式置 true。任何手动改选（框选/点选/删除清理）都会归 false
         selectionFromSelectAll: opts?.fromSelectAll ?? false,
+        // 阶段选中与其他选中互斥：任何整组改选都会取消阶段选中
+        selectedPhaseId: null,
         ...deriveSingle(next),
       })
       get().engine?.awareness.setLocalStateField('selection', next)
@@ -804,6 +832,36 @@ export const useTimelineStore = create<TimelineState>()((set, get) => {
         })
       }
     },
+
+    selectPhase: id => {
+      // 先清空事件 / 技能 / 备注选中，再单独记录阶段
+      get().setSelection({})
+      set({ selectedPhaseId: id })
+    },
+
+    addPhase: phase => {
+      const engine = get().engine
+      if (!engine) return
+      yAddPhase(engine.doc, phase)
+    },
+
+    updatePhase: (id, updates) => {
+      const engine = get().engine
+      if (!engine) return
+      yUpdatePhase(engine.doc, id, updates)
+    },
+
+    removePhase: id => {
+      const engine = get().engine
+      if (!engine) return
+      yRemovePhase(engine.doc, id)
+      if (get().selectedPhaseId === id) set({ selectedPhaseId: null })
+    },
+
+    setViewAnchorTime: time => set({ viewAnchorTime: time }),
+
+    requestScrollToTime: time =>
+      set(s => ({ scrollToTimeRequest: { time, seq: (s.scrollToTimeRequest?.seq ?? 0) + 1 } })),
 
     bulkMoveSelection: delta => {
       const engine = get().engine
