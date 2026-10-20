@@ -87,6 +87,8 @@ export interface Timeline {
   statusEvents: StatusEvent[]
   /** 备注列表 */
   annotations: Annotation[]
+  /** 阶段标记（纯展示 / 导航，不参与计算）；存量时间轴无此字段 = 无阶段 */
+  phases?: TimelinePhase[]
   /** 时间轴内部统计数据（盾值、治疗量、安全血量） */
   statData?: TimelineStatData
   /** 是否为回放模式 */
@@ -288,6 +290,31 @@ export interface Annotation {
   time: number
   /** 锚定目标 */
   anchor: AnnotationAnchor
+}
+
+/**
+ * 时间轴阶段标记（纯展示 / 导航用，不参与计算）。
+ * 无序号字段：P1、P2 等完全由 name 承载；颜色与顺序按 time 排序后的位置推导，不存储。
+ */
+export interface TimelinePhase {
+  id: string
+  /** 自由文本，完整显示名，如 "P3: Exdeath and Chaos"、"P4.5"、"转场" */
+  name: string
+  /** 开始时间（秒），与 DamageEvent.time 同口径（相对 resolveFightStartTime 零点，可为负） */
+  time: number
+}
+
+/**
+ * 未翻译的 FFLogs 阶段数据。导入解析与副本模板（KV）共用；
+ * 翻译推迟到写入时间轴那一刻（见 utils/phaseNames.ts）。
+ */
+export interface RawPhase {
+  /** FFLogs report.phases[].phases[].id */
+  fflogsPhaseId: number
+  /** FFLogs 原文（只有英文） */
+  name: string
+  /** 开始时间（秒），与 DamageEvent.time 同口径 */
+  time: number
 }
 
 /**

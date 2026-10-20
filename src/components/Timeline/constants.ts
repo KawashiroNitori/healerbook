@@ -4,8 +4,8 @@
 
 import { useUIStore } from '@/store/uiStore'
 
-/** 时间轴起点（秒），允许展示战斗开始前的 prepull 阶段 */
-export const TIMELINE_START_TIME = -30
+// 定义在无依赖模块中，供 Worker / 纯函数引用；此处转出以保持现有引用不变
+export { TIMELINE_START_TIME } from '@/constants/timeline'
 
 /** Canvas 主题色定义 */
 interface CanvasColors {
