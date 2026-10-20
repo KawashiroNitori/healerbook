@@ -25,6 +25,8 @@ export const NAMESPACES = ['common', 'home', 'editor', 'import', 'share'] as con
 const lazyCatalogs = import.meta.glob<{ default: Record<string, unknown> }>([
   './locales/*/*.json',
   '!./locales/zh-CN/*.json',
+  // 阶段名对照表由 utils/phaseNames.ts 静态引入，不走 i18next 懒加载
+  '!./locales/*/encounter.json',
 ])
 
 /** 把目标语言的 5 个 namespace 注入 i18next；已加载或为默认语言时直接返回 */
