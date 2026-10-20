@@ -198,4 +198,5 @@ HP 条下方有一个彩色横条，展示伤害的构成：
 - 需要适配不同同步等级？→ [如何设置时间轴等级](./howto/timeline-level)
 - 需要调整队伍职业？→ [如何管理小队阵容](./howto/manage-composition)
 - 想给队友标注重点？→ [如何使用备注](./howto/annotations)
+- 战斗太长不好定位？→ [如何使用阶段](./howto/timeline-phases)
 - 键盘快捷键不够熟？→ [键盘快捷键速查](./howto/keyboard-shortcuts)
