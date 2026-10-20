@@ -13,7 +13,10 @@ import {
 import { getStatisticsKVKey } from '../kvKeys'
 import type { Timeline } from '@/types/timeline'
 import { generateId } from '@/utils/id'
+import { generateObjectId } from '@/utils/shortId'
 import { serializeForServer } from '@/utils/timelineFormat'
+import { rawPhasesToTimelinePhases } from '@/utils/phaseNames'
+import { DEFAULT_LOCALE } from '@/types/i18n'
 
 const app = new Hono<AppEnv>()
 
@@ -87,10 +90,14 @@ app.get('/import', async c => {
     })
     const events = eventsData.events || []
 
-    const { composition, playerMap, damageEvents, castEvents, syncEvents } = parseFightImport(
-      report,
-      fight,
-      events
+    const { composition, playerMap, damageEvents, castEvents, syncEvents, phases } =
+      parseFightImport(report, fight, events)
+    // 按导入者语言翻译阶段名，结果作为普通文本写入时间轴
+    const timelinePhases = rawPhasesToTimelinePhases(
+      phases,
+      fight.encounterID || 0,
+      c.get('lang') ?? DEFAULT_LOCALE,
+      generateObjectId
     )
 
     const timelineName = resolveImportTimelineName(fight)
@@ -128,6 +135,7 @@ app.get('/import', async c => {
       syncEvents,
       statusEvents: [],
       annotations: [],
+      ...(timelinePhases.length > 0 ? { phases: timelinePhases } : {}),
       isReplayMode: true,
       fflogsSource: { reportCode, fightId },
       ...(statData ? { statData } : {}),

@@ -111,4 +111,55 @@ describe('mapV2ReportToReport', () => {
     expect([...bossIds]).toContain(500)
     expect([...bossIds]).not.toContain(700)
   })
+
+  it('透传阶段切换点与阶段名称表', () => {
+    const report = mapV2ReportToReport(
+      {
+        ...payload,
+        fights: [
+          {
+            id: 12,
+            name: 'Boss',
+            difficulty: 100,
+            kill: true,
+            startTime: 0,
+            endTime: 1000,
+            encounterID: 1085,
+            phaseTransitions: [{ id: 1, startTime: 0 }],
+          },
+        ],
+        phases: [
+          { encounterID: 1085, phases: [{ id: 1, name: 'P1: Raw', isIntermission: false }] },
+        ],
+      },
+      'ABC123'
+    )
+    expect(report.fights[0].phaseTransitions).toEqual([{ id: 1, startTime: 0 }])
+    expect(report.phases).toEqual([
+      { encounterID: 1085, phases: [{ id: 1, name: 'P1: Raw', isIntermission: false }] },
+    ])
+  })
+
+  it('无阶段字段时输出也不带', () => {
+    const { phases: _phases, ...noPhases } = payload
+    void _phases
+    const report = mapV2ReportToReport(
+      {
+        ...noPhases,
+        fights: [
+          {
+            id: 12,
+            name: 'Boss',
+            difficulty: 100,
+            startTime: 0,
+            endTime: 1000,
+            encounterID: 1085,
+          },
+        ],
+      },
+      'ABC123'
+    )
+    expect(report.phases).toBeUndefined()
+    expect(report.fights[0].phaseTransitions).toBeUndefined()
+  })
 })

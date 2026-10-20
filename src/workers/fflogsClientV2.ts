@@ -9,7 +9,12 @@ import type {
   FFLogsEventDataType,
   FFLogsEvent,
 } from '@/types/fflogs'
-import type { FFLogsV2Fight, FFLogsV2Actor, FFLogsV2Ability } from '@/types/fflogs'
+import type {
+  FFLogsV2Fight,
+  FFLogsV2Actor,
+  FFLogsV2Ability,
+  FFLogsEncounterPhases,
+} from '@/types/fflogs'
 import type { RankingEntry } from '@/types/apiContracts'
 import type { AppLanguage } from '@/types/i18n'
 import { buildComposition } from '@/utils/rosterUtils'
@@ -65,6 +70,7 @@ interface V2ReportPayload {
   startTime: number
   endTime: number
   fights: FFLogsV2Fight[]
+  phases?: FFLogsEncounterPhases[] | null
   masterData: {
     actors: FFLogsV2Actor[]
     enemyActors: FFLogsV2Actor[]
@@ -101,7 +107,9 @@ export function mapV2ReportToReport(report: V2ReportPayload, reportCode: string)
       endTime: fight.endTime,
       encounterID: fight.encounterID,
       gameZoneId: fight.gameZone?.id != null ? Math.floor(fight.gameZone.id) : undefined,
+      ...(fight.phaseTransitions ? { phaseTransitions: fight.phaseTransitions } : {}),
     })),
+    ...(report.phases ? { phases: report.phases } : {}),
     friendlies: report.masterData.actors.map(toActor),
     enemies: (report.masterData.enemyActors ?? []).map(toActor),
     abilities: report.masterData.abilities.map(ability => ({
@@ -369,6 +377,18 @@ export class FFLogsClientV2 {
               encounterID
               gameZone {
                 id
+              }
+              phaseTransitions {
+                id
+                startTime
+              }
+            }
+            phases {
+              encounterID
+              phases {
+                id
+                name
+                isIntermission
               }
             }
             masterData(translate: false) {

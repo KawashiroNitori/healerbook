@@ -29,6 +29,7 @@ interface JsonBody {
   r?: 1
   fs?: { rc: string; fi: number }
   gz?: number
+  ph?: Array<{ n: string; t: number }>
   ca?: number
   ua?: number
 }
@@ -258,6 +259,58 @@ describe('handleFFLogsImport', () => {
       expect(response.status).toBe(200)
       const timeline = (await response.json()) as JsonBody
       expect(timeline.gz).toBe(1321)
+    })
+
+    it('报告带阶段时输出 ph（空对照表下保留 FFLogs 原文）', async () => {
+      mockGetReport.mockResolvedValue(
+        makeReport(
+          [
+            makeFight(5, {
+              phaseTransitions: [
+                { id: 1, startTime: 0 },
+                { id: 2, startTime: 209200 },
+              ],
+            }),
+          ],
+          {
+            phases: [
+              {
+                encounterID: 93,
+                phases: [
+                  { id: 1, name: 'P1: Raw', isIntermission: false },
+                  { id: 2, name: 'P2: Raw', isIntermission: false },
+                ],
+              },
+            ],
+          }
+        )
+      )
+      mockGetEvents.mockResolvedValue({ events: [] })
+
+      const request = new Request(
+        'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
+      )
+      const response = await app.fetch(request, mockEnv)
+
+      expect(response.status).toBe(200)
+      const timeline = (await response.json()) as JsonBody
+      expect(timeline.ph).toEqual([
+        { n: 'P1: Raw', t: 0 },
+        { n: 'P2: Raw', t: 209.2 },
+      ])
+    })
+
+    it('报告无阶段时不输出 ph', async () => {
+      mockGetReport.mockResolvedValue(makeReport([makeFight(5)]))
+      mockGetEvents.mockResolvedValue({ events: [] })
+
+      const request = new Request(
+        'https://example.com/api/fflogs/import?reportCode=ABC123&fightId=5'
+      )
+      const response = await app.fetch(request, mockEnv)
+
+      const timeline = (await response.json()) as JsonBody
+      expect(timeline.ph).toBeUndefined()
     })
 
     it('FFLogs 未返回 gameZoneID 时不应输出 gz', async () => {

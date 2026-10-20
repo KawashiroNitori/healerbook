@@ -18,7 +18,9 @@ import type {
   PlayerDamageDetail,
   DamageType,
   SyncEvent,
+  RawPhase,
 } from '@/types/timeline'
+import { normalizeRawPhases } from './timelinePhases'
 import { SOUMA_SYNC_RULES } from '@/data/soumaSyncRules'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { resolveActions } from '@/data/resolveAction'
@@ -903,6 +905,29 @@ export function parseSyncEvents(
 }
 
 /**
+ * 解析单场 fight 的阶段切换为未翻译的 RawPhase（已排序、去重、钳到时间轴起点）。
+ * 时间零点与伤害事件相同（fightStartTime 由调用方用 resolveFightStartTime 求得）。
+ * 名称表按 encounterID 匹配；查不到名称的 transition 跳过。
+ */
+export function parseFightPhases(
+  report: FFLogsReport,
+  fight: FFLogsReport['fights'][number],
+  fightStartTime: number
+): RawPhase[] {
+  const transitions = fight.phaseTransitions ?? []
+  if (transitions.length === 0) return []
+  const group = (report.phases ?? []).find(g => g.encounterID === fight.encounterID)
+  const names = new Map(group?.phases.map(p => [p.id, p.name] as const) ?? [])
+  const raw: RawPhase[] = []
+  for (const tr of transitions) {
+    const name = names.get(tr.id)
+    if (name === undefined) continue
+    raw.push({ fflogsPhaseId: tr.id, name, time: (tr.startTime - fightStartTime) / 1000 })
+  }
+  return normalizeRawPhases(raw)
+}
+
+/**
  * 从事件列表提取盾值原始样本（按 statusId = abilityGameID - 1000000 聚样）。
  *
  * 非变异：FFLogs 把泛输血（1002613）记成泛血印（1002643），此处用局部变量修正，
@@ -1067,6 +1092,8 @@ export interface FightImportResult {
   damageEvents: DamageEvent[]
   castEvents: CastEvent[]
   syncEvents: SyncEvent[]
+  /** 未翻译的阶段（与伤害事件同零点） */
+  phases: RawPhase[]
 }
 
 /**
@@ -1116,8 +1143,9 @@ export function parseFightImport(
   })
   const castEvents = parseCastEvents(events, fightStartTime, playerMap)
   const syncEvents = parseSyncEvents(events, fightStartTime, playerMap, abilityMap)
+  const phases = parseFightPhases(report, fight, fightStartTime)
 
-  return { composition, fightStartTime, playerMap, damageEvents, castEvents, syncEvents }
+  return { composition, fightStartTime, playerMap, damageEvents, castEvents, syncEvents, phases }
 }
 
 /**

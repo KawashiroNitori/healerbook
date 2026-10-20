@@ -14,6 +14,7 @@ import {
   parseStatData,
   buildBossIds,
   parseFightImport,
+  parseFightPhases,
   buildTargetabilityIntervals,
   isTargetableAt,
   resolveImportTimelineLevel,
@@ -223,6 +224,97 @@ describe('parseFightImport 时间基准', () => {
     const events: FFLogsEvent[] = [{ type: 'damage', timestamp: 5000, targetID: 1 }]
     const result = parseFightImport(report, fight, events)
     expect(result.fightStartTime).toBe(5000)
+  })
+})
+
+describe('parseFightPhases', () => {
+  const names = (encounterID: number) => ({
+    encounterID,
+    phases: [
+      { id: 1, name: 'P1: Raw' },
+      { id: 2, name: 'P2: Raw' },
+      { id: 3, name: 'P3: Raw' },
+    ],
+  })
+  const reportWith = (phases: FFLogsReport['phases']) =>
+    ({ fights: [], friendlies: [], phases }) as unknown as FFLogsReport
+  const fightWith = (phaseTransitions?: { id: number; startTime: number }[]) => ({
+    id: 1,
+    name: 'Boss',
+    startTime: 10000,
+    endTime: 900000,
+    encounterID: 1085,
+    phaseTransitions,
+  })
+
+  it('按 fightStartTime 换算为秒', () => {
+    const out = parseFightPhases(
+      reportWith([names(1085)]),
+      fightWith([
+        { id: 1, startTime: 12000 },
+        { id: 2, startTime: 221200 },
+      ]),
+      12000
+    )
+    expect(out).toEqual([
+      { fflogsPhaseId: 1, name: 'P1: Raw', time: 0 },
+      { fflogsPhaseId: 2, name: 'P2: Raw', time: 209.2 },
+    ])
+  })
+
+  it('只用本 encounter 的名称表，查不到名称的 transition 跳过', () => {
+    const out = parseFightPhases(
+      reportWith([
+        { encounterID: 9999, phases: [{ id: 3, name: 'Other' }] },
+        { encounterID: 1085, phases: [{ id: 1, name: 'P1: Raw' }] },
+      ]),
+      fightWith([
+        { id: 1, startTime: 10000 },
+        { id: 3, startTime: 50000 },
+      ]),
+      10000
+    )
+    expect(out).toEqual([{ fflogsPhaseId: 1, name: 'P1: Raw', time: 0 }])
+  })
+
+  it('同一时刻的多个 transition 只留后一个', () => {
+    const out = parseFightPhases(
+      reportWith([names(1085)]),
+      fightWith([
+        { id: 1, startTime: 10000 },
+        { id: 2, startTime: 10000 },
+        { id: 3, startTime: 90000 },
+      ]),
+      10000
+    )
+    expect(out.map(p => p.fflogsPhaseId)).toEqual([2, 3])
+  })
+
+  it('无 transition 或无名称表时返回空数组', () => {
+    expect(parseFightPhases(reportWith([names(1085)]), fightWith(undefined), 0)).toEqual([])
+    expect(
+      parseFightPhases(reportWith(undefined), fightWith([{ id: 1, startTime: 0 }]), 0)
+    ).toEqual([])
+  })
+
+  it('parseFightImport 带出 phases，零点与伤害事件一致', () => {
+    const events: FFLogsEvent[] = [
+      { type: 'limitbreakupdate', timestamp: 12000 },
+      { type: 'damage', timestamp: 15000, targetID: 1 },
+    ]
+    const result = parseFightImport(
+      reportWith([names(1085)]),
+      fightWith([
+        { id: 1, startTime: 10000 },
+        { id: 2, startTime: 72000 },
+      ]),
+      events
+    )
+    expect(result.fightStartTime).toBe(12000)
+    expect(result.phases).toEqual([
+      { fflogsPhaseId: 1, name: 'P1: Raw', time: -2 },
+      { fflogsPhaseId: 2, name: 'P2: Raw', time: 60 },
+    ])
   })
 })
 

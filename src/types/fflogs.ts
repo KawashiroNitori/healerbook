@@ -56,6 +56,20 @@ export interface FFLogsReport {
   enemies?: FFLogsReportActor[]
   /** 技能元数据（V2 API 提供） */
   abilities?: FFLogsAbility[]
+  /** 各 encounter 的阶段名称表（只有英文） */
+  phases?: FFLogsEncounterPhases[]
+}
+
+/** report.phases 的单个 encounter 名称表 */
+export interface FFLogsEncounterPhases {
+  encounterID: number
+  phases: { id: number; name: string; isIntermission?: boolean }[]
+}
+
+/** 阶段切换点；startTime 为报告相对毫秒，与事件时间戳同基准 */
+export interface FFLogsPhaseTransition {
+  id: number
+  startTime: number
 }
 
 /**
@@ -78,6 +92,8 @@ export interface FFLogsFight {
   encounterID?: number
   /** FFXIV 游戏内区域 id（gameZone 缺失时为 undefined） */
   gameZoneId?: number
+  /** 阶段切换点；单阶段副本缺席 */
+  phaseTransitions?: FFLogsPhaseTransition[]
 }
 
 /**
@@ -264,6 +280,8 @@ export interface FFLogsV2Fight {
   encounterID: number
   /** FFXIV 游戏内区域（可为 null，对应某些异常战斗） */
   gameZone?: { id: number } | null
+  /** 阶段切换点（单阶段副本为 null / 缺席） */
+  phaseTransitions?: FFLogsPhaseTransition[] | null
 }
 
 export interface FFLogsV2Actor {
