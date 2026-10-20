@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>表格视图阶段</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; margin: 0; padding: 20px 24px; background: #f3f4f6; color: #111827; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  .sub { font-size: 13px; color: #4b5563; margin: 0 0 12px; line-height: 1.6; }
+  .ctrl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+  .ctrl button { padding: 4px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; }
+  .ctrl button.on { border-color: #7e22ce; background: #f3e8ff; color: #7e22ce; font-weight: 600; }
+  .desc { font-size: 13px; color: #374151; margin: 0 0 10px; min-height: 40px; line-height: 1.6; }
+
+  .shell { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; max-width: 980px; }
+  .tb { height: 48px; display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; position: relative; }
+  .tb .btns { flex: 1; display: flex; gap: 8px; padding: 0 16px; align-items: center; }
+  .ic { width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: #f3f4f6; color: #374151; font-size: 14px; }
+  .pin { padding: 0 12px; position: relative; }
+  .phase { display: inline-flex; gap: 6px; align-items: center; height: 30px; padding: 0 10px; border: 1px solid #c084fc; border-radius: 6px; background: #faf5ff; color: #7e22ce; font-weight: 500; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .phase .t { color: #a78bfa; font-variant-numeric: tabular-nums; }
+  .dd { position: absolute; right: 12px; top: 40px; z-index: 50; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.14); padding: 4px 0; width: 240px; font-size: 13px; display: none; }
+  .dd.open { display: block; }
+  .dd div { padding: 7px 12px; display: flex; justify-content: space-between; cursor: pointer; }
+  .dd div:hover { background: #f9fafb; }
+  .dd .cur { background: #f3e8ff; color: #7e22ce; }
+  .dd span:last-child { color: #9ca3af; font-variant-numeric: tabular-nums; }
+
+  .wrap { height: 460px; overflow: auto; background: #e5e5e5; position: relative; }
+  table { border-collapse: separate; border-spacing: 0; font-size: 12px; background: #fff; }
+  th, td { border-bottom: 1px solid #e5e7eb; border-right: 1px solid #f3f4f6; height: 40px; padding: 0 8px; white-space: nowrap; }
+  th { position: sticky; top: 0; z-index: 30; background: #fff; height: 48px; font-weight: 600; color: #374151; }
+  .c-time { width: 72px; min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; position: sticky; left: 0; background: #fff; z-index: 10; }
+  th.c-time { z-index: 40; }
+  .c-name { width: 128px; min-width: 128px; font-weight: 600; position: sticky; left: 72px; background: #fff; z-index: 10; }
+  th.c-name { z-index: 40; }
+  .c-num { width: 80px; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; color: #374151; }
+  .c-sk { width: 40px; min-width: 40px; padding: 0; text-align: center; }
+  .lit { background: rgba(16,185,129,.3); }
+  .cd { background: rgba(59,130,246,.15); }
+  .ann td { background: rgba(254,252,232,.6); color: #6b7280; font-style: italic; height: auto; padding: 8px; }
+
+  /* 阶段行 */
+  .ph td { height: 30px; padding: 0; border-bottom: 1px solid #e9d5ff; background: #fff; }
+  .ph .pt { text-align: right; padding: 0 8px; color: #7e22ce; font-weight: 600; font-variant-numeric: tabular-nums; position: sticky; left: 0; z-index: 12; border-left: 3px solid #a855f7; background: linear-gradient(to right, rgba(168,85,247,.22), rgba(168,85,247,.16)), #fff; }
+  .ph .pl { position: relative; background: linear-gradient(to right, rgba(168,85,247,.16), rgba(168,85,247,0)); }
+  .ph .plbl { position: sticky; left: 72px; display: inline-flex; align-items: center; height: 30px; padding: 0 10px; color: #7e22ce; font-weight: 600; }
+  /* 阶段行上一行的下边线改成同样的浅紫，让阶段行上下边缘一致 */
+  tbody tr:has(+ tr.ph) td { border-bottom-color: #e9d5ff; }
+  .ph.stick td { position: sticky; top: 48px; z-index: 25; }
+  .ph.stick .pl { background: linear-gradient(to right, rgba(168,85,247,.16), rgba(168,85,247,0)), #fff; }
+  .ph.stick .pt { background: linear-gradient(to right, rgba(168,85,247,.22), rgba(168,85,247,.16)), #fff; }
+  .ph.stick .pt { z-index: 35; }
+  /* 方案 C：首行上边框 */
+  tr.first td { border-top: 2px solid #a855f7; }
+  tr.first .c-time { color: #7e22ce; font-weight: 600; }
+  .ptag { display: block; font-size: 10px; line-height: 10px; color: #a855f7; font-weight: 600; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h2>v15：阶段行上下边缘统一为浅紫</h2>
+<p class="sub">列宽和行高按编辑器实际尺寸复刻：时间 72、事件名 128、伤害 80、技能 40，行高 40。黄底那行是现有的备注行。右上角是同一个阶段入口，在表格视图里点选会滚动到对应阶段。三种方案可以切换。</p>
+
+<div class="ctrl">
+  <button data-s="row" class="on">A 阶段分隔行</button>
+  <button data-s="stick">B 阶段分隔行 + 吸顶</button>
+  <button data-s="edge">C 不加行，首行紫色上边</button>
+</div>
+<p class="desc" id="desc"></p>
+
+<div class="shell">
+  <div class="tb">
+    <div class="btns"><span class="ic">−</span><span class="ic">+</span><span class="ic">⋯</span><span class="ic">↶</span><span class="ic">↷</span><span class="ic">▦</span></div>
+    <div class="pin"><span class="phase" id="entry"></span><div class="dd" id="dd"></div></div>
+  </div>
+  <div class="wrap" id="wrap"><table id="tbl"></table></div>
+</div>
+
+<script>
+  const PHASES = [
+    { short: 'P1', name: 'P1: Kefka', t: 0 }, { short: 'P2', name: 'P2: Forsaken Kefka', t: 209.2 },
+    { short: 'P3', name: 'P3: Exdeath and Chaos', t: 429.0 }, { short: 'P4', name: 'P4: Kefka Says', t: 739.0 },
+    { short: 'P5', name: 'P5: Ultima Kefka', t: 903.1 },
+  ]
+  const END = 1127
+  const NAMES = ['Ultimate Embrace', 'Grand Cross', 'Hyperdrive', 'Light of Judgment', 'Forsaken', 'Trine', 'Celestriad', 'Meteor', 'Graven Image']
+  const fmt = s => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0')
+  const fmtS = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0')
+  const $ = id => document.getElementById(id)
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  const EV = []; for (let t = 9.4; t < END; t += 11 + rnd() * 16) EV.push({ t: +t.toFixed(1), name: NAMES[EV.length % NAMES.length], raw: Math.round(80000 + rnd() * 140000) })
+  const ANN = [{ t: 216, text: '这里开减伤 1 + 秘策' }, { t: 445, text: '分摊后奶满' }]
+  const SK = ['盾', '扇', '野', '节', '慰', '庇', '展', '秘']
+  const DESC = {
+    row: 'A：在每个阶段的第一个伤害事件前插一行紫色的阶段行，时间列显示阶段开始时间，后面是阶段名，背景从时间列开始向右渐隐，一直延伸到表格最右侧的技能列。跟备注行一样，横向滚动时阶段名会固定在可视区域左侧。',
+    stick: 'B：跟 A 一样插阶段行，另外当前阶段的那一行会吸在表头下方；滚到下一阶段时，新的阶段行把它顶替掉。往下翻任何时候都能看到自己在哪个阶段。',
+    edge: 'C：不插行。每个阶段第一行的上边框画成紫色粗线，时间列下方加一个很小的阶段号。最省空间，但阶段名只能在入口里看到。',
+  }
+  let s = 'row', cur = 0
+
+  function render() {
+    $('desc').textContent = DESC[s]
+    let h = '<thead><tr><th class="c-time">时间</th><th class="c-name" style="text-align:left">事件</th><th class="c-num">原始伤害</th><th class="c-num">实际伤害</th>'
+    SK.forEach(k => h += `<th class="c-sk">${k}</th>`)
+    h += '</tr></thead><tbody>'
+    const rows = [...EV.map(e => ({ k: 'd', ...e })), ...ANN.map(a => ({ k: 'a', ...a }))]
+    if (s !== 'edge') PHASES.forEach((p, i) => rows.push({ k: 'p', i, t: p.t - 0.001 }))
+    rows.sort((a, b) => a.t - b.t)
+    const firstOf = new Set(); if (s === 'edge') PHASES.forEach((p, i) => { const e = EV.find(e => e.t >= p.t); if (e) firstOf.add(e.t + ':' + i) })
+    rows.forEach(r => {
+      if (r.k === 'p') {
+        const p = PHASES[r.i]
+        h += `<tr class="ph ${s === 'stick' ? 'stick' : ''}" id="ph${r.i}"><td class="pt">${fmt(p.t)}</td><td class="pl" colspan="${3 + SK.length}"><span class="plbl">${p.name}</span></td></tr>`
+      } else if (r.k === 'a') {
+        h += `<tr class="ann"><td class="c-time" style="background:rgba(254,252,232,1)">${fmt(r.t)}</td><td colspan="${3 + SK.length}">📝 ${r.text}</td></tr>`
+      } else {
+        const pi = PHASES.findIndex((p, i) => firstOf.has(r.t + ':' + i))
+        const isFirst = pi >= 0
+        h += `<tr class="${isFirst ? 'first' : ''}" ${isFirst ? `id="ph${pi}"` : ''}><td class="c-time">${fmt(r.t)}${isFirst ? `<span class="ptag">${PHASES[pi].short}</span>` : ''}</td><td class="c-name">${r.name}</td><td class="c-num">${r.raw.toLocaleString()}</td><td class="c-num">${Math.round(r.raw * .62).toLocaleString()}</td>`
+        SK.forEach((k, j) => { const v = (Math.floor(r.t) * 7 + j * 13) % 11; h += `<td class="c-sk ${v === 0 ? 'lit' : v === 1 ? 'cd' : ''}"></td>` })
+        h += '</tr>'
+      }
+    })
+    $('tbl').innerHTML = h + '</tbody>'
+    renderEntry()
+  }
+  function renderEntry() {
+    const p = PHASES[cur]
+    $('entry').innerHTML = `${p.name} <span class="t">${fmtS(p.t)}</span> ▾`
+    $('dd').innerHTML = PHASES.map((q, k) => `<div data-k="${k}" class="${k === cur ? 'cur' : ''}"><span>${q.name}</span><span>${fmtS(q.t)}</span></div>`).join('')
+  }
+  function updateCur() {
+    const wrap = $('wrap'), top = wrap.getBoundingClientRect().top + 48 + 2
+    let i = 0
+    PHASES.forEach((p, k) => {
+      // 找到该阶段第一个事件行，判断是否已经滚过表头
+      const ev = EV.find(e => e.t >= p.t)
+      const rowEl = [...$('tbl').rows].find(tr => tr.cells[0] && tr.cells[0].textContent.startsWith(fmt(ev ? ev.t : p.t)))
+      if (rowEl && rowEl.getBoundingClientRect().top <= top + 30) i = k
+    })
+    if (i !== cur) { cur = i; renderEntry() }
+  }
+  $('wrap').addEventListener('scroll', updateCur)
+  $('entry').onclick = e => { e.stopPropagation(); $('dd').classList.toggle('open') }
+  $('dd').onclick = e => {
+    const row = e.target.closest('[data-k]'); if (!row) return
+    const k = +row.dataset.k, el = $('ph' + k), wrap = $('wrap')
+    if (el) {
+      const off = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop - 48
+      wrap.scrollTo({ top: Math.max(0, off - (k === 0 ? 0 : 0)), behavior: 'smooth' })
+    }
+    $('dd').classList.remove('open')
+  }
+  document.addEventListener('click', () => $('dd').classList.remove('open'))
+  document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { s = b.dataset.s; document.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b)); render(); updateCur() })
+  render()
+</script>
+</body>
+</html>

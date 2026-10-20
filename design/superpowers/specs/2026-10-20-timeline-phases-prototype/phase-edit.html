@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>阶段编辑原型</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; margin: 0; padding: 20px 24px; background: #f3f4f6; color: #111827; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  .sub { font-size: 13px; color: #4b5563; margin: 0 0 10px; line-height: 1.7; }
+  .sub kbd { font: 11px ui-monospace, monospace; padding: 0 4px; border: 1px solid #d1d5db; border-radius: 3px; background: #fff; }
+  .ctrl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+  .ctrl button { padding: 4px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; }
+  .ctrl button.on { border-color: #7e22ce; background: #f3e8ff; color: #7e22ce; font-weight: 600; }
+  .ctrl .gap { width: 14px; }
+  .log { font-size: 12px; color: #6b7280; margin: 8px 0 0; min-height: 18px; }
+
+  .shell { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; }
+  .tb { height: 48px; display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; }
+  .tb .bw { flex: 1; min-width: 0; position: relative; height: 100%; }
+  .tb .btns { height: 100%; overflow-x: auto; display: flex; gap: 8px; padding: 0 16px; align-items: center; scrollbar-width: none; }
+  .tb .btns::-webkit-scrollbar { display: none; }
+  .tb .fade { position: absolute; right: 0; top: 0; bottom: 0; width: 96px; pointer-events: none; background: linear-gradient(to right, rgba(255,255,255,0), #fff 80%); opacity: 0; transition: opacity .15s; }
+  .tb .fade.on { opacity: 1; }
+  .ic { flex: none; }
+  .shell { max-width: 100%; }
+  .ic { width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: #f3f4f6; color: #374151; font-size: 14px; }
+  .pin { padding: 0 12px; position: relative; }
+  .entry { --pc: #a855f7; display: inline-flex; gap: 6px; align-items: center; height: 30px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--pc) 55%, #fff); border-radius: 6px; background: color-mix(in srgb, var(--pc) 6%, #fff); color: var(--pt); font-weight: 500; font-size: 13px; cursor: pointer; white-space: nowrap; user-select: none; }
+  .entry:hover { background: color-mix(in srgb, var(--pc) 12%, #fff); }
+  .entry.empty { border-style: dashed; background: #fff; }
+  .entry .t { color: color-mix(in srgb, var(--pc) 60%, #fff); font-variant-numeric: tabular-nums; }
+  .dd { position: absolute; right: 12px; top: 40px; z-index: 60; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.14); padding: 4px 0; width: 260px; font-size: 13px; display: none; }
+  .dd.open { display: block; }
+  .dd .it { padding: 7px 12px; display: flex; justify-content: space-between; cursor: pointer; }
+  .dd .it:hover { background: #f9fafb; }
+  .dd .cur { background: color-mix(in srgb, var(--pc) 12%, #fff); color: var(--pt); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--pc); margin-right: 8px; vertical-align: 0; }
+  [style*="--pc"], .entry { --pt: color-mix(in srgb, var(--pc) 72%, #000); }
+  .dd .it span:last-child { color: #9ca3af; font-variant-numeric: tabular-nums; }
+  .dd .sepl { height: 1px; background: #e5e7eb; margin: 4px 0; }
+  .dd .add span:first-child { color: #111827; }
+
+  /* 时间轴 */
+  .tl { height: 190px; overflow-x: auto; overflow-y: hidden; position: relative; user-select: none; }
+  .inner { position: relative; height: 100%; }
+  .ruler { position: absolute; left: 0; right: 0; top: 0; height: 30px; background: #f3f4f6; }
+  .gl { position: absolute; top: 0; width: 1px; height: 30px; background: #d1d5db; }
+  .tt { position: absolute; top: 8px; font: 12px Arial, sans-serif; color: #6b7280; white-space: nowrap; }
+  .dmgrow { position: absolute; left: 0; right: 0; top: 30px; height: 40px; background: #e5e7eb; }
+  .card { position: absolute; top: 6px; height: 28px; padding: 0 6px; border-radius: 4px; background: #fff; border: 1px solid #9ca3af; font-size: 10px; line-height: 26px; white-space: nowrap; }
+  .trk { position: absolute; left: 0; right: 0; height: 30px; }
+  .icon { position: absolute; top: 5px; width: 20px; height: 20px; border-radius: 3px; background: #60a5fa; }
+  .gbar { position: absolute; top: 13px; height: 4px; background: #22c55e; border-radius: 2px; }
+  .pfade { position: absolute; top: 0; bottom: 0; width: 200px; border-left: 2px solid var(--pc); background: linear-gradient(to right, color-mix(in srgb, var(--pc) 18%, transparent), color-mix(in srgb, var(--pc) 0%, transparent)); pointer-events: none; }
+  .pname { position: absolute; top: 8px; padding-left: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--pt); cursor: pointer; z-index: 5; }
+  .pname.sel { top: 5px; padding-left: 4px; cursor: ew-resize; }
+  .pname.sel .chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px 2px 6px; border-radius: 4px; background: var(--pc); color: #fff; }
+  .chip .act { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 16px; border-radius: 3px; cursor: pointer; opacity: .85; }
+  .chip .act:hover { background: rgba(255,255,255,.28); opacity: 1; }
+  .chip .act.first { margin-left: 6px; }
+  /* 悬停暗示：淡底色 + 拖动光标 + tooltip */
+  .pname:not(.sel):hover { background: color-mix(in srgb, var(--pc) 14%, transparent); border-radius: 4px; padding-right: 4px; }
+  body:not(.ro) .pname { cursor: ew-resize; }
+  .pname[data-tip]::after { content: attr(data-tip); position: absolute; left: 4px; top: 22px; padding: 3px 7px; border-radius: 4px; background: #111827; color: #fff; font-size: 11px; font-weight: 400; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; }
+  .pname[data-tip]:hover::after { opacity: 1; transition-delay: .45s; }
+  .pname.sel[data-tip]::after { top: 24px; }
+  /* 下拉菜单：悬停露出操作 */
+  .dd .it .rt { display: inline-flex; align-items: center; gap: 4px; }
+  .dd .it .acts { display: none; gap: 2px; }
+  .dd .it:hover .acts { display: inline-flex; }
+  /* 悬停时操作图标顶替时间的位置，宽度不跳 */
+  .dd .it .rt { min-width: 48px; justify-content: flex-end; }
+  .dd .it:hover .rt > span:last-child { display: none; }
+  .dd .it .acts span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 20px; border-radius: 4px; color: #6b7280; }
+  .dd .it .acts span:hover { background: #e5e7eb; color: #111827; }
+  .dd .it .acts span.del:hover { background: #fee2e2; color: #dc2626; }
+  .dd .it input { font: 13px -apple-system, "PingFang SC", sans-serif; border: 1.5px solid var(--pc); border-radius: 4px; padding: 1px 5px; outline: none; width: 150px; }
+  .pname input, .tblname input, .tbltime input { font: 600 12px -apple-system, "PingFang SC", sans-serif; color: var(--pt); border: 1.5px solid var(--pc); border-radius: 4px; padding: 1px 5px; outline: none; background: #fff; }
+  .mini { height: 52px; position: relative; background: #fff; border-top: 1px solid #e5e7eb; cursor: pointer; }
+  .mband { position: absolute; top: 0; bottom: 0; width: 64px; border-left: 2px solid var(--pc); background: linear-gradient(to right, color-mix(in srgb, var(--pc) 40%, transparent), color-mix(in srgb, var(--pc) 0%, transparent)); color: var(--pt); font-size: 10px; font-weight: 600; padding: 2px 0 0 4px; pointer-events: none; }
+  .mbars i { position: absolute; bottom: 4px; width: 3px; border-radius: 1px; background: #f59e0b; }
+  .vp { position: absolute; top: 2px; bottom: 2px; border: 1.5px solid #2563eb; background: rgba(37,99,235,.08); border-radius: 2px; pointer-events: none; }
+
+  /* 表格 */
+  .wrap { height: 380px; overflow: auto; background: #e5e5e5; }
+  table { border-collapse: separate; border-spacing: 0; font-size: 12px; background: #fff; }
+  th, td { border-bottom: 1px solid #e5e7eb; height: 40px; padding: 0 8px; white-space: nowrap; }
+  th { position: sticky; top: 0; z-index: 30; background: #fff; height: 48px; font-weight: 600; color: #374151; }
+  .c-time { width: 72px; min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; position: sticky; left: 0; background: #fff; z-index: 10; }
+  th.c-time { z-index: 40; }
+  .c-name { width: 128px; min-width: 128px; font-weight: 600; }
+  .c-num { width: 80px; min-width: 80px; text-align: right; color: #374151; font-variant-numeric: tabular-nums; }
+  .c-sk { width: 40px; min-width: 40px; padding: 0; }
+  .ph td { height: 30px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--pc) 30%, #fff); position: sticky; top: 48px; z-index: 25; }
+  .ph .tbltime { text-align: right; padding: 0 8px; color: var(--pt); font-weight: 600; font-variant-numeric: tabular-nums; left: 0; z-index: 35; border-left: 3px solid var(--pc); background: linear-gradient(to right, color-mix(in srgb, var(--pc) 22%, transparent), color-mix(in srgb, var(--pc) 16%, transparent)), #fff; cursor: text; }
+  .ph .tblrest { background: linear-gradient(to right, color-mix(in srgb, var(--pc) 16%, transparent), color-mix(in srgb, var(--pc) 0%, transparent)), #fff; }
+  .ph .tblname { position: sticky; left: 72px; display: inline-flex; align-items: center; height: 30px; padding: 0 10px; color: var(--pt); font-weight: 600; cursor: default; }
+
+  /* 表格阶段行的悬停暗示 */
+  body:not(.ro) .ph .tbltime:hover { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--pc) 55%, transparent); }
+  body:not(.ro) .ph .tbltime:hover .tv { text-decoration: underline dotted; text-underline-offset: 3px; }
+  body:not(.ro) .ph .tblname .nmv { border-radius: 4px; padding: 2px 4px; margin-left: -4px; }
+  body:not(.ro) .ph .tblname .nmv:hover { background: color-mix(in srgb, var(--pc) 14%, transparent); cursor: text; }
+  .ph .tacts { display: none; gap: 2px; margin-left: 6px; }
+  body:not(.ro) .ph:hover .tacts { display: inline-flex; }
+  .ph .tacts span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 20px; border-radius: 4px; color: #6b7280; cursor: pointer; }
+  .ph .tacts span:hover { background: #e5e7eb; color: #111827; }
+  .ph .tacts span.del:hover { background: #fee2e2; color: #dc2626; }
+  .tip[data-tip] { position: relative; }
+  .tip[data-tip]::after { content: attr(data-tip); position: absolute; left: 0; top: calc(100% + 4px); padding: 3px 7px; border-radius: 4px; background: #111827; color: #fff; font-size: 11px; font-weight: 400; font-style: normal; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; z-index: 50; text-decoration: none; }
+  .tip[data-tip]:hover::after { opacity: 1; transition-delay: .45s; }
+  .confirm { position: fixed; z-index: 120; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.16); padding: 12px; display: none; font-size: 14px; }
+  .confirm.open { display: block; }
+  .confirm .nm { font-size: 12px; color: #6b7280; margin-top: 2px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .confirm .bt { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  .confirm button { height: 30px; padding: 0 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .confirm .cancel { border: 1px solid #e5e7eb; background: #fff; }
+  .confirm .cancel:hover { background: #f3f4f6; }
+  .confirm .ok { border: none; background: #ef4444; color: #fff; }
+  .confirm .ok:hover { background: #dc2626; }
+  .menu { position: fixed; z-index: 100; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.16); padding: 4px 0; min-width: 180px; font-size: 13px; display: none; }
+  .menu.open { display: block; }
+  .menu div { padding: 7px 14px; cursor: pointer; display: flex; justify-content: space-between; gap: 16px; }
+  .menu div:hover { background: #f3f4f6; }
+  .menu .danger { color: #dc2626; }
+  .menu span.k { color: #9ca3af; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<h2>v25（表格视图悬停提示）：阶段名为自由文本（P4.5、转场都行）+ 宽度调节</h2>
+<p class="sub"><b>v22 新增</b>：① 鼠标悬停在阶段名上，会出现淡底色和拖动光标，停留片刻弹出提示。② 选中后的实底标签里带 ✎ 重命名和 🗑 删除两个图标。③ 右键菜单在右侧标出快捷方式。④ 阶段入口的下拉菜单里，悬停某一项时，右侧的时间会被 ✎ / 🗑 顶替。⑤ 所有删除操作（🗑、右键菜单、Del 键）都会先弹出「确认删除？」。⑥ 表格视图：悬停在阶段行的时间上，出现描边、虚线下划线和「单击修改开始时间」；悬停在名字上，出现淡底色和「双击重命名 · 右键更多」；悬停整行时，名字后面露出 ✎ / 🗑。<br><b>v19</b>：阶段名是整段自由文本，没有自动编号。缩略图和窄屏入口用短标签：名字里有冒号就取冒号前面，比如「P3: Exdeath and Chaos」显示为「P3」；没有冒号就截取前 6 个字。新阶段按位置预填「P{n}」作为默认名，其他阶段的名字不会被改动。<br>
+  <b>时间轴视图</b>：在标尺或空白处右键可以「在此处添加阶段」。单击阶段名选中，拖动改时间。双击阶段名改名，<kbd>Enter</kbd> 确认，<kbd>Esc</kbd> 取消。右键阶段名可以重命名或删除，选中后按 <kbd>Delete</kbd> 也能删除。<br>
+  <b>表格视图</b>：点阶段行的时间可以直接输入，比如 <kbd>7:12.5</kbd>。双击阶段名改名。右键阶段行可以重命名或删除。右键伤害事件行可以「在此行前添加阶段」。<br>
+  <b>阶段入口</b>：下拉菜单底部有「在当前位置添加阶段」。点「清空阶段」可以看没有阶段时的样子。
+</p>
+
+<div class="ctrl">
+  <button data-v="timeline" class="on">时间轴视图</button><button data-v="table">表格视图</button>
+  <span class="gap"></span>
+  <button id="ro">只读模式：关</button>
+  <button id="clear">清空阶段</button><button id="reset">恢复 FFLogs 阶段</button>
+</div>
+<div class="ctrl">宽度 <input id="w" type="range" min="340" max="1200" value="1100"> <span id="wv">1100px</span>
+  <button data-w="375">手机 375</button><button data-w="600">中等 600</button><button data-w="1100">宽屏 1100</button></div>
+
+<div class="shell" id="shell" style="width:1100px">
+  <div class="tb">
+    <div class="bw"><div class="btns" id="btns"><span class="ic">−</span><input type="range" style="width:96px;flex:none"><span class="ic">+</span><span class="ic">⋯</span><span class="ic">✋</span><span class="ic">⬚</span><span class="ic">↶</span><span class="ic">↷</span><span class="ic">▶</span><span class="ic">🔓</span><span class="ic">👁</span><span class="ic">⤓</span></div><div class="fade" id="fade"></div></div>
+    <div class="pin"><span class="entry" id="entry"></span><div class="dd" id="dd"></div></div>
+  </div>
+  <div id="vTimeline">
+    <div class="tl" id="tl"><div class="inner" id="inner"></div></div>
+    <div class="mini" id="mini"><div class="mbars" id="mbars"></div><div id="mbands"></div><div class="vp" id="vp"></div></div>
+  </div>
+  <div id="vTable" style="display:none"><div class="wrap" id="wrap"><table id="tbl"></table></div></div>
+</div>
+<p class="log" id="log"></p>
+<div class="menu" id="menu"></div>
+<div class="confirm" id="confirm"><div>确认删除？</div><div class="nm" id="cfName"></div><div class="bt"><button class="cancel" id="cfNo">取消</button><button class="ok" id="cfYes">删除</button></div></div>
+
+<script>
+  const FFLOGS = [
+    { name: 'P1: Kefka', t: 0 }, { name: 'P2: Forsaken Kefka', t: 209.2 }, { name: 'P3: Exdeath and Chaos', t: 429.0 },
+    { name: 'P4: Kefka Says', t: 739.0 }, { name: 'P5: Ultima Kefka', t: 903.1 },
+  ]
+  const END = 1127, Z = 12, LEAD = 40
+  const NAMES = ['Ultimate Embrace', 'Grand Cross', 'Hyperdrive', 'Light of Judgment', 'Forsaken', 'Trine', 'Celestriad', 'Meteor', 'Graven Image']
+  const SK = ['盾', '扇', '野', '节', '慰', '庇', '展', '秘']
+  const $ = id => document.getElementById(id)
+  const fmt = s => { const neg = s < 0; s = Math.abs(s); return (neg ? '-' : '') + Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0') }
+  const fmtS = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0')
+  const parseT = str => { const m = String(str).trim().match(/^(\d+):(\d{1,2}(?:\.\d+)?)$|^(\d+(?:\.\d+)?)$/); if (!m) return null; return m[3] !== undefined ? +m[3] : +m[1] * 60 + +m[2] }
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  const EV = []; for (let t = 9.4; t < END; t += 11 + rnd() * 16) EV.push({ t: +t.toFixed(1), name: NAMES[EV.length % NAMES.length], raw: Math.round(80000 + rnd() * 140000) })
+
+  let uid = 0
+  // 灰、绿、蓝、紫、橙、粉、金 按阶段顺序循环
+  const PALETTE = ['#6b7280', '#22c55e', '#3b82f6', '#a855f7', '#f97316', '#ec4899', '#ca8a04']
+  const pc = p => PALETTE[phases.indexOf(p) % PALETTE.length]
+  // 短标签：名字里有冒号取冒号前，否则截取前 6 个字
+  const shortOf = p => { const i = p.name.search(/[:：]/); if (i > 0) return p.name.slice(0, i).trim(); return p.name.length > 6 ? p.name.slice(0, 6) + '…' : p.name }
+  let phases = FFLOGS.map(p => ({ id: ++uid, ...p }))
+  let ddEdit = null
+  let view = 'timeline', ro = false, sel = null, editing = null, drag = null, cur = 0
+  const sortP = () => phases.sort((a, b) => a.t - b.t)
+  const log = m => $('log').textContent = m
+  const ctx = document.createElement('canvas').getContext('2d')
+  const textW = (t, f) => { ctx.font = f; return ctx.measureText(t).width }
+
+  function addPhase(t) {
+    t = Math.max(0, Math.round(t * 10) / 10)
+    if (phases.some(p => Math.abs(p.t - t) < 1)) { log('这个位置已经有阶段了'); return }
+    const idx = phases.filter(p => p.t < t).length
+    const p = { id: ++uid, name: 'P' + (idx + 1), t }
+    phases.push(p); sortP(); sel = p.id; editing = p.id
+    log(`已在 ${fmt(t)} 添加阶段「${p.name}」，直接输入新名字或按 Enter 保留`)
+    render()
+  }
+  // 删除确认：锚定在触发元素下方，右对齐（同 SortablePresetRow 的 side=bottom align=end）
+  let confirmFor = null
+  function askDelete(p, anchor) {
+    const c = $('confirm'), r = anchor ? anchor.getBoundingClientRect() : { left: 200, right: 260, bottom: 200 }
+    $('cfName').textContent = p.name
+    c.classList.add('open')
+    const w = c.offsetWidth
+    c.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px'
+    c.style.top = (r.bottom + 6) + 'px'
+    confirmFor = p.id
+    $('cfYes').focus()
+  }
+  function closeConfirm() { $('confirm').classList.remove('open'); confirmFor = null }
+  $('cfNo').onclick = e => { e.stopPropagation(); closeConfirm() }
+  $('cfYes').onclick = e => { e.stopPropagation(); const id = confirmFor; closeConfirm(); if (id !== null) delPhase(id) }
+  $('confirm').addEventListener('keydown', e => { if (e.key === 'Escape') { closeConfirm(); e.stopPropagation() } })
+  function delPhase(id) { const p = phases.find(x => x.id === id); phases = phases.filter(x => x.id !== id); if (sel === id) sel = null; log(`已删除「${p.name}」`); render() }
+  function clampT(p, t) {
+    const i = phases.indexOf(p), lo = i > 0 ? phases[i - 1].t + 1 : 0, hi = i < phases.length - 1 ? phases[i + 1].t - 1 : END
+    return Math.round(Math.min(hi, Math.max(lo, t)) * 10) / 10
+  }
+
+  // ---------- 菜单 ----------
+  function openMenu(x, y, items) {
+    const m = $('menu')
+    m.innerHTML = items.map((it, i) => `<div data-i="${i}" class="${it.danger ? 'danger' : ''}"><span>${it.label}</span>${it.k ? `<span class="k">${it.k}</span>` : ''}</div>`).join('')
+    m.style.left = x + 'px'; m.style.top = y + 'px'; m.classList.add('open')
+    m.onclick = e => { const d = e.target.closest('[data-i]'); if (!d) return; closeMenus(); items[+d.dataset.i].fn() }
+  }
+  function closeMenus() { $('menu').classList.remove('open'); $('dd').classList.remove('open') }
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.menu') && !e.target.closest('#entry') && !e.target.closest('#dd')) closeMenus()
+    if (!e.target.closest('.confirm') && !e.target.closest('[data-act]') && !e.target.closest('[data-dact]') && !e.target.closest('[data-tact]') && !e.target.closest('.menu')) closeConfirm()
+  })
+  document.addEventListener('keydown', e => {
+    if (editing || confirmFor !== null) return
+    if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !ro) { askDelete(phases.find(x => x.id === sel), document.querySelector(`.pname[data-pid="${sel}"]`)); e.preventDefault() }
+    if (e.key === 'Escape') { sel = null; closeMenus(); render() }
+  })
+
+  // ---------- 入口 ----------
+  function viewTime() {
+    if (view === 'timeline') return ($('tl').scrollLeft + LEAD) / Z
+    const wrap = $('wrap'), rows = [...$('tbl').querySelectorAll('tr[data-t]')]
+    const r = rows.find(tr => tr.offsetTop >= wrap.scrollTop + 48 + 30)
+    return r ? +r.dataset.t : 0
+  }
+  function computeCur() {
+    const t = viewTime(); let i = -1
+    phases.forEach((p, k) => { if (p.t <= t + .05) i = k })
+    return i
+  }
+  function renderEntry() {
+    const e = $('entry')
+    if (!phases.length) {
+      e.className = 'entry empty'; e.innerHTML = ro ? '无阶段' : '＋ 阶段'
+    } else {
+      e.className = 'entry'
+      e.style.setProperty('--pc', cur >= 0 ? pc(phases[cur]) : '#9ca3af')
+      const p = phases[Math.max(0, cur)]
+      const w = $('shell').offsetWidth
+      e.innerHTML = cur < 0 ? `开场前 ▾` : w >= 900 ? `${p.name} <span class="t">${fmtS(p.t)}</span> ▾` : w >= 520 ? `${shortOf(p)} <span class="t">${fmtS(p.t)}</span> ▾` : `${shortOf(p)} ▾`
+    }
+    let h = phases.map((q, k) => ddEdit === q.id
+      ? `<div class="it" style="--pc:${pc(q)}" data-k="${k}"><span><i class="dot"></i><input id="ddrn" value="${q.name.replace(/"/g, '&quot;')}"></span><span>${fmtS(q.t)}</span></div>`
+      : `<div class="it ${k === cur ? 'cur' : ''}" style="--pc:${pc(q)}" data-k="${k}"><span><i class="dot"></i>${q.name}</span><span class="rt">${ro ? '' : `<span class="acts"><span data-dact="rename" title="重命名"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="del" data-dact="delete" title="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></span></span>`}<span>${fmtS(q.t)}</span></span></div>`).join('')
+    if (!ro) h += (phases.length ? '<div class="sepl"></div>' : '') + `<div class="it add" data-add="1"><span>＋ 在当前位置添加阶段</span><span>${fmtS(viewTime())}</span></div>`
+    $('dd').innerHTML = h
+  }
+  $('entry').onclick = e => {
+    e.stopPropagation()
+    if (!phases.length) { if (!ro) addPhase(viewTime()); return }
+    renderEntry(); $('dd').classList.toggle('open')
+  }
+  $('dd').onclick = e => {
+    const it = e.target.closest('.it'); if (!it || e.target.tagName === 'INPUT') return
+    const dact = e.target.closest('[data-dact]')
+    if (dact) {
+      e.stopPropagation()
+      const p = phases[+it.dataset.k]
+      if (dact.dataset.dact === 'rename') { ddEdit = p.id; renderEntry(); wireInputs() } else askDelete(p, dact)
+      return
+    }
+    closeMenus()
+    if (it.dataset.add) { addPhase(viewTime()); return }
+    jumpTo(phases[+it.dataset.k])
+  }
+  function jumpTo(p) {
+    if (view === 'timeline') $('tl').scrollTo({ left: Math.max(0, p.t * Z - LEAD), behavior: 'smooth' })
+    else { const r = $('tbl').querySelector(`tr[data-pid="${p.id}"]`); if (r) $('wrap').scrollTo({ top: r.offsetTop - 48, behavior: 'smooth' }) }
+  }
+
+  // ---------- 时间轴 ----------
+  function renderTimeline() {
+    const inner = $('inner'); inner.style.width = END * Z + 'px'
+    const label = p => p.id === sel ? `${p.name}  ${fmt(p.t)}` : p.name
+    const occ = phases.map(p => { const x = p.t * Z; return [x - 2, x + 6 + textW(label(p), '600 12px -apple-system') + (p.id === sel ? (ro ? 14 : 58) : 8)] })
+    let h = '<div class="ruler" data-bg="1">'
+    for (let t = 0; t <= END; t += 10) {
+      const x = t * Z, a = x + 4, b = a + textW(fmtS(t), '12px Arial')
+      if (!occ.some(([l, r]) => (a < r && b > l) || (x >= l && x <= r))) h += `<div class="gl" style="left:${x}px"></div><span class="tt" style="left:${a}px">${fmtS(t)}</span>`
+    }
+    h += '</div><div class="dmgrow" data-bg="1">'
+    EV.forEach((d, k) => { if (k % 2 === 0) h += `<div class="card" style="left:${d.t * Z}px">${d.name}</div>` })
+    h += '</div>'
+    for (let r = 0; r < 3; r++) {
+      h += `<div class="trk" data-bg="1" style="top:${70 + r * 30}px;background:${r % 2 ? '#fff' : '#fafafa'}">`
+      for (let s = 15 + r * 11; s < END; s += 47 + r * 9) h += `<div class="icon" style="left:${s * Z}px"></div><div class="gbar" style="left:${s * Z + 22}px;width:${(15 + r * 5) * Z}px"></div>`
+      h += '</div>'
+    }
+    phases.forEach(p => {
+      const x = p.t * Z
+      h += `<div class="pfade" style="--pc:${pc(p)};left:${x}px"></div>`
+      if (editing === p.id) h += `<span class="pname" style="--pc:${pc(p)};left:${x + 4}px;top:4px"><input id="rn" value="${p.name.replace(/"/g, '&quot;')}" size="${Math.max(8, p.name.length + 2)}"></span>`
+      else if (p.id === sel) h += `<span class="pname sel" data-pid="${p.id}" ${ro ? '' : 'data-tip="拖动调整开始时间"'} style="--pc:${pc(p)};left:${x + 4}px"><span class="chip">${p.name}&nbsp;&nbsp;<span style="opacity:.8">${fmt(p.t)}</span>${ro ? '' : `<span class="act first" data-act="rename" title="重命名（双击）"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="act" data-act="delete" title="删除（Del）"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></span>`}</span></span>`
+      else h += `<span class="pname" data-pid="${p.id}" ${ro ? '' : 'data-tip="拖动调整时间 · 双击重命名 · 右键更多"'} style="--pc:${pc(p)};left:${x + 6}px">${p.name}</span>`
+    })
+    inner.innerHTML = h
+    // 缩略图
+    const W = $('mini').clientWidth
+    $('mbars').innerHTML = EV.map(d => `<i style="left:${d.t / END * W}px;height:${10 + (d.raw / 220000) * 28}px"></i>`).join('')
+    $('mbands').innerHTML = phases.map((p, i) => `<div class="mband" style="--pc:${pc(p)};left:${p.t / END * W}px">${shortOf(p)}</div>`).join('')
+    updateVp()
+  }
+  function updateVp() {
+    const W = $('mini').clientWidth, tl = $('tl'), total = END * Z
+    $('vp').style.left = tl.scrollLeft / total * W + 'px'; $('vp').style.width = Math.max(6, tl.clientWidth / total * W) + 'px'
+  }
+  $('inner').addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.tagName === 'INPUT') return
+    const el = e.target.closest('[data-pid]')
+    if (!el) { if (sel) { sel = null; render() } return }
+    const p = phases.find(x => x.id === +el.dataset.pid)
+    const act = e.target.closest('[data-act]')
+    if (act && !ro) { e.preventDefault(); if (act.dataset.act === 'rename') { editing = p.id; render() } else askDelete(p, act); return }
+    const changed = sel !== p.id
+    sel = p.id
+    if (!ro) drag = { p, x: e.clientX, t: p.t, moved: false }
+    if (changed) render()
+    e.preventDefault()
+  })
+  window.addEventListener('pointermove', e => {
+    if (!drag) return
+    if (Math.abs(e.clientX - drag.x) > 2) drag.moved = true
+    if (!drag.moved) return
+    drag.p.t = clampT(drag.p, drag.t + (e.clientX - drag.x) / Z); render()
+  })
+  window.addEventListener('pointerup', () => { if (drag && drag.moved) log(`「${drag.p.name}」开始时间改为 ${fmt(drag.p.t)}（伤害事件和技能不动）`); drag = null })
+  $('inner').addEventListener('dblclick', e => {
+    const el = e.target.closest('[data-pid]'); if (!el || ro || e.target.closest('[data-act]')) return
+    editing = +el.dataset.pid; render()
+  })
+  $('inner').addEventListener('contextmenu', e => {
+    e.preventDefault()
+    const el = e.target.closest('[data-pid]')
+    const rect = $('inner').getBoundingClientRect(), t = (e.clientX - rect.left) / Z
+    if (ro) return
+    if (el) {
+      const p = phases.find(x => x.id === +el.dataset.pid); sel = p.id; render()
+      openMenu(e.clientX, e.clientY, [{ label: '重命名', k: '双击', fn: () => { editing = p.id; render() } }, { label: '删除阶段', k: 'Del', danger: true, fn: () => askDelete(p, document.querySelector(`.pname[data-pid="${p.id}"]`)) }])
+    } else openMenu(e.clientX, e.clientY, [{ label: '在此处添加阶段', k: fmt(Math.max(0, t)), fn: () => addPhase(t) }])
+  })
+  $('tl').addEventListener('scroll', () => { const c = computeCur(); if (c !== cur) { cur = c; renderEntry() } updateVp() })
+  $('mini').addEventListener('click', e => {
+    const r = $('mini').getBoundingClientRect(), t = (e.clientX - r.left) / r.width * END
+    let k = -1; phases.forEach((p, i) => { if (p.t <= t) k = i })
+    $('tl').scrollTo({ left: Math.max(0, (k >= 0 ? phases[k].t : t) * Z - LEAD), behavior: 'smooth' })
+  })
+
+  // ---------- 表格 ----------
+  function renderTable() {
+    let h = '<thead><tr><th class="c-time">时间</th><th class="c-name" style="text-align:left">事件</th><th class="c-num">原始伤害</th><th class="c-num">实际伤害</th>'
+    SK.forEach(k => h += `<th class="c-sk">${k}</th>`)
+    h += '</tr></thead><tbody>'
+    const rows = [...EV.map(e => ({ k: 'd', ...e })), ...phases.map(p => ({ k: 'p', p, t: p.t - 0.001 }))].sort((a, b) => a.t - b.t)
+    rows.forEach(r => {
+      if (r.k === 'p') {
+        const p = r.p
+        const timeCell = editing === 'time' + p.id ? `<input id="te" value="${fmt(p.t)}" size="7">` : `<span class="tv tip" ${ro ? '' : 'data-tip="单击修改开始时间"'}>${fmt(p.t)}</span>`
+        const nameCell = editing === p.id ? `<input id="rn" value="${p.name.replace(/"/g, '&quot;')}" size="${Math.max(8, p.name.length + 2)}">` : p.name
+        h += `<tr class="ph" style="--pc:${pc(p)}" data-pid="${p.id}" data-t="${p.t}"><td class="tbltime" data-time="${p.id}">${timeCell}</td><td class="tblrest" colspan="${3 + SK.length}"><span class="tblname" data-name="${p.id}">${editing === p.id ? nameCell : `<span class="nmv tip" ${ro ? '' : 'data-tip="双击重命名 · 右键更多"'}>${nameCell}</span><span class="tacts"><span data-tact="rename" title="重命名（双击）"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="del" data-tact="delete" title="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></span></span>`}</span></td></tr>`
+      } else {
+        h += `<tr data-t="${r.t}" data-ev="1"><td class="c-time">${fmt(r.t)}</td><td class="c-name">${r.name}</td><td class="c-num">${r.raw.toLocaleString()}</td><td class="c-num">${Math.round(r.raw * .62).toLocaleString()}</td>`
+        SK.forEach((k, j) => { const v = (Math.floor(r.t) * 7 + j * 13) % 11; h += `<td class="c-sk" style="background:${v === 0 ? 'rgba(16,185,129,.3)' : v === 1 ? 'rgba(59,130,246,.15)' : ''}"></td>` })
+        h += '</tr>'
+      }
+    })
+    $('tbl').innerHTML = h + '</tbody>'
+    // 阶段行上一行的下边线跟随该阶段颜色
+    $('tbl').querySelectorAll('tr.ph').forEach(tr => { const prev = tr.previousElementSibling; if (prev) [...prev.cells].forEach(td => td.style.borderBottomColor = `color-mix(in srgb, ${tr.style.getPropertyValue('--pc')} 30%, #fff)`) })
+  }
+  $('tbl').addEventListener('click', e => {
+    const ta = e.target.closest('[data-tact]')
+    if (ta && !ro) {
+      const p = phases.find(x => x.id === +ta.closest('tr.ph').dataset.pid)
+      if (ta.dataset.tact === 'rename') { editing = p.id; render() } else askDelete(p, ta)
+      return
+    }
+    const tc = e.target.closest('[data-time]'); if (!tc || ro || e.target.tagName === 'INPUT') return
+    editing = 'time' + tc.dataset.time; render()
+  })
+  $('tbl').addEventListener('dblclick', e => {
+    const nc = e.target.closest('[data-name]'); if (!nc || ro || e.target.closest('[data-tact]')) return
+    editing = +nc.dataset.name; render()
+  })
+  $('tbl').addEventListener('contextmenu', e => {
+    e.preventDefault(); if (ro) return
+    const ph = e.target.closest('tr.ph'), ev = e.target.closest('tr[data-ev]')
+    if (ph) {
+      const p = phases.find(x => x.id === +ph.dataset.pid)
+      openMenu(e.clientX, e.clientY, [{ label: '重命名', k: '双击名称', fn: () => { editing = p.id; render() } }, { label: '修改开始时间', k: '单击时间', fn: () => { editing = 'time' + p.id; render() } }, { label: '删除阶段', danger: true, fn: () => askDelete(p, document.querySelector(`tr.ph[data-pid="${p.id}"] .tblname`)) }])
+    } else if (ev) {
+      const t = +ev.dataset.t
+      openMenu(e.clientX, e.clientY, [{ label: '在此行前添加阶段', k: fmt(t), fn: () => addPhase(t - 0.1) }])
+    }
+  })
+  $('wrap').addEventListener('scroll', () => { const c = computeCur(); if (c !== cur) { cur = c; renderEntry() } })
+
+  // ---------- 输入框提交 ----------
+  function wireInputs() {
+    const dr = $('ddrn')
+    if (dr) {
+      dr.focus(); dr.select()
+      const commit = ok => { if (ddEdit === null) return; const p = phases.find(x => x.id === ddEdit); const v = dr.value.trim(); ddEdit = null; if (ok && v && p) { if (v !== p.name) log(`已改名为「${v}」`); p.name = v } render(); $('dd').classList.add('open') }
+      dr.onkeydown = e => { if (e.key === 'Enter') commit(true); if (e.key === 'Escape') commit(false); e.stopPropagation() }
+      dr.onblur = () => commit(true)
+    }
+    const rn = $('rn')
+    if (rn) {
+      rn.focus(); rn.select()
+      const commit = ok => { if (editing === null) return; const p = phases.find(x => x.id === editing); const v = rn.value.trim(); editing = null; if (ok && v && p) { if (v !== p.name) log(`已改名为「${v}」`); p.name = v } render() }
+      rn.onkeydown = e => { if (e.key === 'Enter') commit(true); if (e.key === 'Escape') commit(false); e.stopPropagation() }
+      rn.onblur = () => commit(true)
+    }
+    const te = $('te')
+    if (te) {
+      te.focus(); te.select()
+      const id = +String(editing).slice(4)
+      const commit = ok => {
+        if (editing === null) return
+        const p = phases.find(x => x.id === id); editing = null
+        if (ok && p) { const v = parseT(te.value); if (v === null) log('时间格式不对，例：7:12.5'); else { const nt = clampT(p, v); if (nt !== v) log(`已限制在相邻阶段之间：${fmt(nt)}`); else log(`「${p.name}」开始时间改为 ${fmt(nt)}`); p.t = nt; sortP() } }
+        render()
+      }
+      te.onkeydown = e => { if (e.key === 'Enter') commit(true); if (e.key === 'Escape') commit(false); e.stopPropagation() }
+      te.onblur = () => commit(true)
+    }
+  }
+
+  function render() {
+    $('vTimeline').style.display = view === 'timeline' ? '' : 'none'
+    $('vTable').style.display = view === 'table' ? '' : 'none'
+    if (view === 'timeline') renderTimeline(); else renderTable()
+    cur = computeCur()
+    renderEntry(); wireInputs()
+  }
+
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { view = b.dataset.v; document.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('on', x === b)); editing = null; render() })
+  $('ro').onclick = () => { ro = !ro; document.body.classList.toggle('ro', ro); $('ro').textContent = '只读模式：' + (ro ? '开' : '关'); $('ro').classList.toggle('on', ro); editing = null; drag = null; render(); log(ro ? '只读：可以看、可以跳转，不能添加 / 改名 / 拖动 / 删除' : '') }
+  $('clear').onclick = () => { phases = []; sel = null; editing = null; render(); log('已清空阶段：入口变为「＋ 阶段」，点它会在当前视口位置添加') }
+  $('reset').onclick = () => { phases = FFLOGS.map(p => ({ id: ++uid, ...p })); sel = null; editing = null; render(); log('已恢复 FFLogs 阶段') }
+  function updateFade() { const b = $('btns'); $('fade').classList.toggle('on', b.scrollWidth > b.clientWidth + 1 && b.scrollLeft + b.clientWidth < b.scrollWidth - 1) }
+  $('btns').addEventListener('scroll', updateFade)
+  function setWidth(w) { $('shell').style.width = w + 'px'; $('w').value = w; $('wv').textContent = w + 'px'; render(); updateFade() }
+  $('w').oninput = e => setWidth(+e.target.value)
+  document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => setWidth(+b.dataset.w))
+  window.addEventListener('resize', () => { render(); updateFade() })
+  render(); updateFade()
+  $('tl').scrollLeft = 190 * Z
+</script>
+</body>
+</html>

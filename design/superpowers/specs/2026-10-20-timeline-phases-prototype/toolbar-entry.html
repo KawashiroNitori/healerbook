@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>阶段入口原型</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; margin: 0; padding: 20px 24px; background: #f3f4f6; color: #111827; }
+  h2 { margin: 0 0 4px; font-size: 18px; }
+  .sub { color: #4b5563; font-size: 13px; margin: 0 0 14px; line-height: 1.6; }
+  .ctrl { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ctrl button { padding: 3px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; }
+  .ctrl input[type=range] { width: 320px; }
+  .stage { resize: horizontal; overflow: hidden; border: 1px dashed #9ca3af; border-radius: 8px; background: #fff; min-width: 300px; max-width: 100%; }
+
+  .tb { height: 48px; display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; background: #fff; position: relative; }
+  .scroll-wrap { flex: 1; min-width: 0; position: relative; height: 100%; }
+  .scroll { height: 100%; overflow-x: auto; display: flex; align-items: center; gap: 8px; padding: 0 16px; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+  .fade { position: absolute; right: 0; top: 0; bottom: 0; width: 96px; pointer-events: none; background: linear-gradient(to right, rgba(255,255,255,0), #fff 80%); opacity: 0; transition: opacity .15s; }
+  .fade.on { opacity: 1; }
+  .ic { width: 30px; height: 30px; flex: none; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: #374151; background: #f3f4f6; font-size: 14px; cursor: pointer; user-select: none; }
+  .ic:hover { background: #e5e7eb; }
+  .seg { display: inline-flex; flex: none; gap: 2px; padding: 2px; border: 1px solid #e5e7eb; border-radius: 7px; background: #f9fafb; }
+  .seg .ic { width: 26px; height: 26px; background: transparent; }
+  .seg .ic.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+  .sep { width: 1px; height: 22px; flex: none; background: #e5e7eb; margin: 0 2px; }
+  .zoom { width: 96px; flex: none; }
+
+  .pin { flex: none; padding: 0 12px 0 6px; position: relative; }
+  .phase { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #c084fc; border-radius: 6px; background: #faf5ff; color: #7e22ce; font-weight: 500; font-size: 13px; white-space: nowrap; cursor: pointer; }
+  .phase:hover { background: #f3e8ff; }
+  .phase .t { color: #a78bfa; font-variant-numeric: tabular-nums; }
+  .dd { position: absolute; right: 12px; top: 40px; z-index: 10; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.14); padding: 4px 0; width: 240px; font-size: 13px; display: none; }
+  .dd.open { display: block; }
+  .dd div { padding: 7px 12px; display: flex; justify-content: space-between; gap: 12px; cursor: pointer; }
+  .dd div:hover { background: #f9fafb; }
+  .dd .cur { background: #f3e8ff; color: #7e22ce; }
+  .dd span:last-child { color: #9ca3af; font-variant-numeric: tabular-nums; }
+
+  .tl { height: 150px; overflow-x: auto; position: relative; background: #fafafa; }
+  .tl-inner { position: relative; height: 100%; }
+  .ruler { position: absolute; left: 0; right: 0; top: 0; height: 22px; background: #f3f4f6; border-bottom: 1px solid #e5e7eb; }
+  .tick { position: absolute; top: 4px; font-size: 10px; color: #6b7280; transform: translateX(-50%); }
+  .pfade { position: absolute; top: 0; bottom: 0; width: 200px; border-left: 2px solid #a855f7; background: linear-gradient(to right, rgba(168,85,247,.16), rgba(168,85,247,0)); }
+  .pname { position: absolute; top: 4px; padding-left: 6px; font-size: 10px; font-weight: 600; color: #7e22ce; white-space: nowrap; }
+  .readout { font-size: 12px; color: #6b7280; padding: 6px 12px; border-top: 1px solid #e5e7eb; }
+</style>
+</head>
+<body>
+<h2>v9：可交互原型（工具栏右端的阶段入口 + 渐隐分隔）</h2>
+<p class="sub">拖动滑块，或者拖右下角，改变编辑器宽度。窄到按钮放不下时，按钮区可以横向滑动（触控板 / Shift+滚轮 / 拖动），右边缘会出现渐隐；滑到最右端时渐隐消失。点紫色入口可以展开菜单，选一个阶段后，下面的时间轴会跳过去，滚动时入口上的当前阶段也会跟着变。</p>
+
+<div class="ctrl">
+  宽度 <input id="w" type="range" min="320" max="1200" value="1100"> <span id="wv"></span>
+  <button data-w="375">手机 375</button><button data-w="600">中等 600</button><button data-w="1100">宽屏 1100</button>
+</div>
+
+<div class="stage" id="stage" style="width:1100px">
+  <div class="tb">
+    <div class="scroll-wrap">
+      <div class="scroll" id="scroll">
+        <span class="ic">−</span><input class="zoom" type="range"><span class="ic">+</span><span class="ic">⋯</span>
+        <span class="seg"><span class="ic on">✋</span><span class="ic">⬚</span></span><span class="sep"></span>
+        <span class="ic">↶</span><span class="ic">↷</span><span class="sep"></span>
+        <span class="ic">▶</span><span class="ic">🔓</span><span class="ic">👁</span><span class="ic">⤓</span>
+      </div>
+      <div class="fade" id="fade"></div>
+    </div>
+    <div class="pin">
+      <span class="phase" id="entry"></span>
+      <div class="dd" id="dd"></div>
+    </div>
+  </div>
+  <div class="tl" id="tl"><div class="tl-inner" id="tli"></div></div>
+  <div class="readout" id="ro"></div>
+</div>
+
+<script>
+  const PHASES = [
+    { short: 'P1', name: 'P1: Kefka', t: 0 },
+    { short: 'P2', name: 'P2: Forsaken Kefka', t: 209 },
+    { short: 'P3', name: 'P3: Exdeath and Chaos', t: 429 },
+    { short: 'P4', name: 'P4: Kefka Says', t: 739 },
+    { short: 'P5', name: 'P5: Ultima Kefka', t: 903 },
+  ]
+  const END = 1127, PX = 6, LEAD = 40
+  const fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')
+  const $ = id => document.getElementById(id)
+  const stage = $('stage'), scroll = $('scroll'), fade = $('fade'), entry = $('entry'), dd = $('dd'), tl = $('tl'), tli = $('tli')
+
+  // 时间轴
+  tli.style.width = END * PX + 'px'
+  let html = '<div class="ruler">'
+  for (let s = 0; s <= END; s += 30) html += `<span class="tick" style="left:${s * PX}px">${fmt(s)}</span>`
+  html += '</div>'
+  for (const p of PHASES) html += `<div class="pfade" style="left:${p.t * PX}px"></div><span class="pname" style="left:${p.t * PX}px">${p.name}</span>`
+  tli.innerHTML = html
+
+  let cur = 0
+  function curPhase() {
+    const t = (tl.scrollLeft + LEAD) / PX
+    let i = 0
+    PHASES.forEach((p, k) => { if (p.t <= t + 0.5) i = k })
+    return i
+  }
+  function renderEntry() {
+    const p = PHASES[cur], w = stage.offsetWidth
+    entry.innerHTML = w >= 900 ? `${p.name} <span class="t">${fmt(p.t)}</span> ▾`
+      : w >= 520 ? `${p.short} <span class="t">${fmt(p.t)}</span> ▾`
+      : `${p.short} ▾`
+    dd.innerHTML = PHASES.map((q, k) => `<div data-k="${k}" class="${k === cur ? 'cur' : ''}"><span>${q.name}</span><span>${fmt(q.t)}</span></div>`).join('')
+    $('ro').textContent = `当前视口起点 ${fmt(Math.max(0, Math.round(tl.scrollLeft / PX)))} · 所在阶段 ${p.name}`
+  }
+  function updateFade() {
+    const overflow = scroll.scrollWidth > scroll.clientWidth + 1
+    const atEnd = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 1
+    fade.classList.toggle('on', overflow && !atEnd)
+  }
+  function setWidth(w) {
+    stage.style.width = w + 'px'; $('w').value = w; $('wv').textContent = w + 'px'
+  }
+
+  entry.onclick = e => { e.stopPropagation(); dd.classList.toggle('open') }
+  dd.onclick = e => {
+    const row = e.target.closest('[data-k]'); if (!row) return
+    const k = +row.dataset.k
+    tl.scrollTo({ left: Math.max(0, PHASES[k].t * PX - LEAD), behavior: 'smooth' })
+    dd.classList.remove('open')
+  }
+  document.addEventListener('click', () => dd.classList.remove('open'))
+  tl.addEventListener('scroll', () => { const i = curPhase(); if (i !== cur) { cur = i } renderEntry() })
+  scroll.addEventListener('scroll', updateFade)
+  $('w').oninput = e => setWidth(+e.target.value)
+  document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => setWidth(+b.dataset.w))
+
+  // 拖动按钮区横滑
+  let drag = null
+  scroll.addEventListener('pointerdown', e => { if (e.target.tagName === 'INPUT') return; drag = { x: e.clientX, l: scroll.scrollLeft } })
+  window.addEventListener('pointermove', e => { if (drag) scroll.scrollLeft = drag.l - (e.clientX - drag.x) })
+  window.addEventListener('pointerup', () => drag = null)
+
+  new ResizeObserver(() => { updateFade(); renderEntry(); $('wv').textContent = stage.offsetWidth + 'px'; $('w').value = stage.offsetWidth }).observe(stage)
+  setWidth(1100); renderEntry(); updateFade()
+</script>
+</body>
+</html>
