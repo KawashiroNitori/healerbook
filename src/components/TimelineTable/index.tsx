@@ -472,7 +472,9 @@ export default function TimelineTableView() {
   }, [rows, reportViewAnchor])
   useEffect(
     () => () => {
+      // 必须复位：StrictMode 下会卸载后再挂载同一实例，残留的帧 id 会让 reportViewAnchor 永远提前返回
       if (anchorRafRef.current !== null) cancelAnimationFrame(anchorRafRef.current)
+      anchorRafRef.current = null
       useTimelineStore.getState().setViewAnchorTime(null)
     },
     []
