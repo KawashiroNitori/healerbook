@@ -239,6 +239,28 @@
     "discard": "",
     "title": ""
   },
+  "phase": {
+    "add": "페이즈",
+    "addAtCurrent": "현재 위치에 페이즈 추가",
+    "addHere": "여기에 페이즈 추가",
+    "beforeFirst": "시작 전",
+    "confirmDelete": "삭제할까요?",
+    "delete": "페이즈 삭제",
+    "dragToAdjust": "드래그하여 시작 시간 조정",
+    "editTime": "시작 시간 수정",
+    "editTimeShortcut": "시간 클릭",
+    "hoverHintTableName": "더블클릭하여 이름 변경 · 우클릭하여 더 보기",
+    "hoverHintTableTime": "클릭하여 시작 시간 수정",
+    "hoverHintTimeline": "드래그하여 시간 조정 · 더블클릭하여 이름 변경 · 우클릭하여 더 보기",
+    "jumpTo": "페이즈로 이동",
+    "noRoom": "인접한 페이즈 사이에 공간이 없습니다 (최소 1초 간격)",
+    "none": "페이즈 없음",
+    "rename": "이름 변경",
+    "renameShortcut": "더블클릭",
+    "renameShortcutTable": "이름 더블클릭",
+    "renameTooltip": "이름 변경 (더블클릭)",
+    "timeClamped": "인접한 페이즈 사이로 조정했습니다 (최소 1초 간격)"
+  },
   "playerDamage": {
     "death": "",
     "mitigationBreakdown": "",
@@ -381,6 +403,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "",
+    "clickToEditTime": "클릭하여 시간 수정",
     "conditionNotMet": "",
     "viewAnnotation": ""
   }

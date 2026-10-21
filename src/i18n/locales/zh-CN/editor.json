@@ -242,12 +242,10 @@
   "phase": {
     "add": "阶段",
     "addAtCurrent": "在当前位置添加阶段",
-    "addBeforeRow": "在此行前添加阶段",
     "addHere": "在此处添加阶段",
     "beforeFirst": "开场前",
     "confirmDelete": "确认删除？",
     "delete": "删除阶段",
-    "deleteTooltip": "删除（{key}）",
     "dragToAdjust": "拖动调整开始时间",
     "editTime": "修改开始时间",
     "editTimeShortcut": "单击时间",

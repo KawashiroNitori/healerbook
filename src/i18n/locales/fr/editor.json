@@ -239,6 +239,28 @@
     "discard": "Abandonner",
     "title": "Certaines actions ne peuvent pas être collées"
   },
+  "phase": {
+    "add": "Phase",
+    "addAtCurrent": "Ajouter une phase à la position actuelle",
+    "addHere": "Ajouter une phase ici",
+    "beforeFirst": "Avant la première phase",
+    "confirmDelete": "Confirmer la suppression ?",
+    "delete": "Supprimer la phase",
+    "dragToAdjust": "Faites glisser pour ajuster l'instant de début",
+    "editTime": "Modifier l'instant de début",
+    "editTimeShortcut": "Cliquer sur l'instant",
+    "hoverHintTableName": "Double-clic pour renommer · Clic droit pour plus d'options",
+    "hoverHintTableTime": "Cliquez pour modifier l'instant de début",
+    "hoverHintTimeline": "Faites glisser pour ajuster l'instant · Double-clic pour renommer · Clic droit pour plus d'options",
+    "jumpTo": "Aller à la phase",
+    "noRoom": "Pas d'espace entre les phases adjacentes (au moins 1 s d'écart)",
+    "none": "Aucune phase",
+    "rename": "Renommer",
+    "renameShortcut": "Double-clic",
+    "renameShortcutTable": "Double-clic sur le nom",
+    "renameTooltip": "Renommer (double-clic)",
+    "timeClamped": "Ajusté entre les phases adjacentes (au moins 1 s d'écart)"
+  },
   "playerDamage": {
     "death": "💀 Mort",
     "mitigationBreakdown": "Composition de la réduction",
@@ -381,6 +403,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "Impossible d'ajouter l'action",
+    "clickToEditTime": "Cliquez pour modifier l'instant",
     "conditionNotMet": "Les conditions de déclenchement ne sont pas remplies à cet instant",
     "viewAnnotation": "Voir la note"
   }

@@ -239,6 +239,28 @@
     "discard": "Verwerfen",
     "title": "Einige Aktionen können nicht eingefügt werden"
   },
+  "phase": {
+    "add": "Phase",
+    "addAtCurrent": "Phase an aktueller Position hinzufügen",
+    "addHere": "Phase hier hinzufügen",
+    "beforeFirst": "Vor der ersten Phase",
+    "confirmDelete": "Wirklich löschen?",
+    "delete": "Phase löschen",
+    "dragToAdjust": "Ziehen, um den Startzeitpunkt anzupassen",
+    "editTime": "Startzeitpunkt ändern",
+    "editTimeShortcut": "Zeit anklicken",
+    "hoverHintTableName": "Doppelklick zum Umbenennen · Rechtsklick für mehr",
+    "hoverHintTableTime": "Klicken, um den Startzeitpunkt zu ändern",
+    "hoverHintTimeline": "Ziehen, um den Zeitpunkt anzupassen · Doppelklick zum Umbenennen · Rechtsklick für mehr",
+    "jumpTo": "Zu Phase springen",
+    "noRoom": "Kein Platz zwischen benachbarten Phasen (mindestens 1 s Abstand)",
+    "none": "Keine Phasen",
+    "rename": "Umbenennen",
+    "renameShortcut": "Doppelklick",
+    "renameShortcutTable": "Namen doppelklicken",
+    "renameTooltip": "Umbenennen (Doppelklick)",
+    "timeClamped": "An benachbarte Phasen angepasst (mindestens 1 s Abstand)"
+  },
   "playerDamage": {
     "death": "💀 Tod",
     "mitigationBreakdown": "Zusammensetzung der Schadensminderung",
@@ -381,6 +403,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "Aktion kann nicht hinzugefügt werden",
+    "clickToEditTime": "Klicken, um den Zeitpunkt zu ändern",
     "conditionNotMet": "Zu diesem Zeitpunkt sind die Einsatzbedingungen nicht erfüllt",
     "viewAnnotation": "Notiz ansehen"
   }

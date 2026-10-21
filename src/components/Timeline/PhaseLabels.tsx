@@ -37,6 +37,8 @@ const TRASH_PATH = 'M3 6h18 M8 6V4h8v2 M19 6l-1 14H6L5 6'
 
 export interface PhaseHint {
   text: string
+  /** 快捷键标签，以 Kbd 显示在文案后 */
+  shortcut?: string
   /** 视口坐标（clientX / clientY） */
   x: number
   y: number
@@ -56,6 +58,7 @@ interface PhaseLabelsProps {
     selected: string
     rename: string
     remove: string
+    removeShortcut: string
   }
   onSelect: (id: string) => void
   /** 拖动中：返回钳制后的时间，标签吸附到该位置 */
@@ -110,12 +113,12 @@ export default function PhaseLabels({
     []
   )
 
-  const scheduleHint = (node: Konva.Node, text: string) => {
+  const scheduleHint = (node: Konva.Node, text: string, shortcut?: string) => {
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
     hintTimerRef.current = setTimeout(() => {
       if (draggingRef.current) return
       const r = clientRectOf(node)
-      onHint({ text, x: r.left, y: r.bottom + 4 })
+      onHint({ text, shortcut, x: r.left, y: r.bottom + 4 })
     }, HINT_DELAY_MS)
   }
 
@@ -234,10 +237,8 @@ export default function PhaseLabels({
                       onMouseEnter={e => {
                         setHoveredIcon(kind)
                         setCursor(e, 'pointer')
-                        scheduleHint(
-                          e.currentTarget,
-                          kind === 'rename' ? hints.rename : hints.remove
-                        )
+                        if (kind === 'rename') scheduleHint(e.currentTarget, hints.rename)
+                        else scheduleHint(e.currentTarget, hints.remove, hints.removeShortcut)
                       }}
                       onMouseLeave={e => {
                         setHoveredIcon(null)

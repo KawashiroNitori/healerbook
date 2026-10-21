@@ -47,7 +47,7 @@ import TableDataRow from './TableDataRow'
 import AnnotationRow from './AnnotationRow'
 import PhaseRow from './PhaseRow'
 import PhaseDeleteConfirm, { type PhaseDeleteRequest } from '../PhaseDeleteConfirm'
-import { addPhaseAt, movePhaseTo, removePhase, renamePhase } from '../phaseActions'
+import { movePhaseTo, removePhase, renamePhase } from '../phaseActions'
 import { phaseColor } from '@/utils/timelinePhases'
 import AddDamageRow from './AddDamageRow'
 import AddEventDialog from '../AddEventDialog'
@@ -250,17 +250,13 @@ export default function TimelineTableView() {
     field: 'name' | 'time'
   } | null>(null)
   const [phaseDeleteRequest, setPhaseDeleteRequest] = useState<PhaseDeleteRequest | null>(null)
-  // 行右键菜单：伤害事件行（在此行前添加阶段）/ 阶段行（改名、改时间、删除）
-  const [rowMenu, setRowMenu] = useState<
-    | { kind: 'damage'; x: number; y: number; time: number }
-    | { kind: 'phase'; x: number; y: number; phaseId: string; anchor: DOMRect }
-    | null
-  >(null)
-
-  const handleAddPhaseBeforeRow = (time: number) => {
-    const phase = addPhaseAt(time)
-    if (phase) setEditingPhase({ id: phase.id, field: 'name' })
-  }
+  // 阶段行右键菜单（改名、改时间、删除）
+  const [rowMenu, setRowMenu] = useState<{
+    x: number
+    y: number
+    phaseId: string
+    anchor: DOMRect
+  } | null>(null)
 
   // cast 锚定备注：castId → 该 cast 的备注（一个 cast 至多一条；历史多余数据取首条）
   const castAnnotationByCastId = useMemo(() => {
@@ -598,11 +594,6 @@ export default function TimelineTableView() {
                   onCellToggle={handleCellToggle}
                   isReadOnly={isReadOnly}
                   onCastContextMenu={handleCastContextMenu}
-                  onRowContextMenu={
-                    isReadOnly
-                      ? undefined
-                      : (event, x, y) => setRowMenu({ kind: 'damage', x, y, time: event.time })
-                  }
                 />
               ) : row.kind === 'phase' ? (
                 <PhaseRow
@@ -626,7 +617,6 @@ export default function TimelineTableView() {
                   onContextMenu={(x, y) => {
                     if (isReadOnly) return
                     setRowMenu({
-                      kind: 'phase',
                       x,
                       y,
                       phaseId: row.id,
@@ -715,7 +705,7 @@ export default function TimelineTableView() {
         </DropdownMenu>
       )}
 
-      {/* 行右键菜单：伤害事件行 → 在此行前添加阶段；阶段行 → 改名 / 改时间 / 删除 */}
+      {/* 阶段行右键菜单：改名 / 改时间 / 删除 */}
       {rowMenu && !isReadOnly && (
         <DropdownMenu open onOpenChange={open => !open && setRowMenu(null)}>
           <DropdownMenuTrigger asChild>
@@ -725,43 +715,33 @@ export default function TimelineTableView() {
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="bottom" className="min-w-[140px] text-[11px]">
-            {rowMenu.kind === 'damage' ? (
-              <DropdownMenuItem onClick={() => handleAddPhaseBeforeRow(rowMenu.time)}>
-                {t('editor:phase.addBeforeRow')}
-              </DropdownMenuItem>
-            ) : (
-              <>
-                <DropdownMenuItem
-                  onClick={() => setEditingPhase({ id: rowMenu.phaseId, field: 'name' })}
-                >
-                  {t('editor:phase.rename')}
-                  <DropdownMenuShortcut>
-                    {t('editor:phase.renameShortcutTable')}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setEditingPhase({ id: rowMenu.phaseId, field: 'time' })}
-                >
-                  {t('editor:phase.editTime')}
-                  <DropdownMenuShortcut>{t('editor:phase.editTimeShortcut')}</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => {
-                    const phase = timeline.phases?.find(p => p.id === rowMenu.phaseId)
-                    if (phase) {
-                      setPhaseDeleteRequest({
-                        phaseId: phase.id,
-                        phaseName: phase.name,
-                        anchor: rowMenu.anchor,
-                      })
-                    }
-                  }}
-                >
-                  {t('editor:phase.delete')}
-                </DropdownMenuItem>
-              </>
-            )}
+            <DropdownMenuItem
+              onClick={() => setEditingPhase({ id: rowMenu.phaseId, field: 'name' })}
+            >
+              {t('editor:phase.rename')}
+              <DropdownMenuShortcut>{t('editor:phase.renameShortcutTable')}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setEditingPhase({ id: rowMenu.phaseId, field: 'time' })}
+            >
+              {t('editor:phase.editTime')}
+              <DropdownMenuShortcut>{t('editor:phase.editTimeShortcut')}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => {
+                const phase = timeline.phases?.find(p => p.id === rowMenu.phaseId)
+                if (phase) {
+                  setPhaseDeleteRequest({
+                    phaseId: phase.id,
+                    phaseName: phase.name,
+                    anchor: rowMenu.anchor,
+                  })
+                }
+              }}
+            >
+              {t('editor:phase.delete')}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}

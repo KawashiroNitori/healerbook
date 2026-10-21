@@ -239,6 +239,28 @@
     "discard": "放棄",
     "title": "部分技能無法貼上"
   },
+  "phase": {
+    "add": "階段",
+    "addAtCurrent": "在目前位置新增階段",
+    "addHere": "在此處新增階段",
+    "beforeFirst": "開場前",
+    "confirmDelete": "確認刪除？",
+    "delete": "刪除階段",
+    "dragToAdjust": "拖曳調整開始時間",
+    "editTime": "修改開始時間",
+    "editTimeShortcut": "點擊時間",
+    "hoverHintTableName": "雙擊重新命名 · 右鍵更多",
+    "hoverHintTableTime": "點擊修改開始時間",
+    "hoverHintTimeline": "拖曳調整時間 · 雙擊重新命名 · 右鍵更多",
+    "jumpTo": "跳至階段",
+    "noRoom": "相鄰階段之間沒有空間（至少相隔 1 秒）",
+    "none": "無階段",
+    "rename": "重新命名",
+    "renameShortcut": "雙擊",
+    "renameShortcutTable": "雙擊名稱",
+    "renameTooltip": "重新命名（雙擊）",
+    "timeClamped": "已調整至相鄰階段之間（至少相隔 1 秒）"
+  },
   "playerDamage": {
     "death": "💀 死亡",
     "mitigationBreakdown": "減傷構成",
@@ -381,6 +403,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "無法新增技能",
+    "clickToEditTime": "點擊修改時間",
     "conditionNotMet": "此時刻不滿足發動條件",
     "viewAnnotation": "檢視備註"
   }

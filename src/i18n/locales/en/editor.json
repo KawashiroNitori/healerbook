@@ -239,6 +239,28 @@
     "discard": "Discard",
     "title": "Some actions cannot be pasted"
   },
+  "phase": {
+    "add": "Phase",
+    "addAtCurrent": "Add phase at current position",
+    "addHere": "Add phase here",
+    "beforeFirst": "Before first phase",
+    "confirmDelete": "Confirm delete?",
+    "delete": "Delete phase",
+    "dragToAdjust": "Drag to adjust start time",
+    "editTime": "Edit start time",
+    "editTimeShortcut": "Click time",
+    "hoverHintTableName": "Double-click to rename · Right-click for more",
+    "hoverHintTableTime": "Click to edit start time",
+    "hoverHintTimeline": "Drag to adjust time · Double-click to rename · Right-click for more",
+    "jumpTo": "Jump to phase",
+    "noRoom": "No room between adjacent phases (at least 1 s apart)",
+    "none": "No phases",
+    "rename": "Rename",
+    "renameShortcut": "Double-click",
+    "renameShortcutTable": "Double-click name",
+    "renameTooltip": "Rename (double-click)",
+    "timeClamped": "Adjusted to fit between adjacent phases (at least 1 s apart)"
+  },
   "playerDamage": {
     "death": "💀 Death",
     "mitigationBreakdown": "Mitigation breakdown",
@@ -381,6 +403,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "Cannot add action",
+    "clickToEditTime": "Click to edit time",
     "conditionNotMet": "Requirements are not met at this time",
     "viewAnnotation": "View note"
   }

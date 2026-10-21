@@ -239,6 +239,28 @@
     "discard": "破棄",
     "title": "一部のアクションを貼り付けできません"
   },
+  "phase": {
+    "add": "フェーズ",
+    "addAtCurrent": "現在位置にフェーズを追加",
+    "addHere": "ここにフェーズを追加",
+    "beforeFirst": "開始前",
+    "confirmDelete": "削除しますか？",
+    "delete": "フェーズを削除",
+    "dragToAdjust": "ドラッグで開始時刻を調整",
+    "editTime": "開始時刻を変更",
+    "editTimeShortcut": "時刻をクリック",
+    "hoverHintTableName": "ダブルクリックで名前を変更 · 右クリックでその他",
+    "hoverHintTableTime": "クリックで開始時刻を変更",
+    "hoverHintTimeline": "ドラッグで時刻を調整 · ダブルクリックで名前を変更 · 右クリックでその他",
+    "jumpTo": "フェーズへ移動",
+    "noRoom": "隣接するフェーズとの間に余裕がありません（1 秒以上の間隔が必要です）",
+    "none": "フェーズなし",
+    "rename": "名前を変更",
+    "renameShortcut": "ダブルクリック",
+    "renameShortcutTable": "名前をダブルクリック",
+    "renameTooltip": "名前を変更（ダブルクリック）",
+    "timeClamped": "隣接するフェーズの間に収まるよう調整しました（1 秒以上の間隔）"
+  },
   "playerDamage": {
     "death": "💀 死亡",
     "mitigationBreakdown": "軽減の内訳",
@@ -381,6 +403,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "アクションを追加できません",
+    "clickToEditTime": "クリックで時刻を変更",
     "conditionNotMet": "この時点では発動条件を満たしていません",
     "viewAnnotation": "メモを表示"
   }

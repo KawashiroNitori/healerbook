@@ -76,6 +76,7 @@ import { useFilterStore } from '@/store/filterStore'
 import { computeDamageCardGeometry } from './cardGeometry'
 import { getKonvaFontFamily } from '@/i18n'
 import { deleteKeyLabel } from '@/utils/platform'
+import { Kbd } from '@/components/ui/kbd'
 import {
   PHASE_VIEW_OFFSET_PX,
   clampPhaseTime,
@@ -2127,7 +2128,8 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                   idle: t('editor:phase.hoverHintTimeline'),
                   selected: t('editor:phase.dragToAdjust'),
                   rename: t('editor:phase.renameTooltip'),
-                  remove: t('editor:phase.deleteTooltip', { key: deleteKeyLabel }),
+                  remove: t('editor:phase.delete'),
+                  removeShortcut: deleteKeyLabel,
                 }}
                 onSelect={id => {
                   if (panJustEndedRef.current) return
@@ -2388,10 +2390,13 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       {/* 阶段名悬停提示（延迟出现，不拦截指针） */}
       {phaseHint && (
         <div
-          className="pointer-events-none fixed z-50 whitespace-nowrap rounded bg-gray-900 px-1.5 py-0.5 text-[11px] text-white"
+          className="pointer-events-none fixed z-50 flex items-center gap-1.5 whitespace-nowrap rounded bg-gray-900 px-1.5 py-0.5 text-[11px] text-white"
           style={{ left: phaseHint.x, top: phaseHint.y }}
         >
           {phaseHint.text}
+          {phaseHint.shortcut && (
+            <Kbd className="h-4 bg-white/20 text-[10px] text-white">{phaseHint.shortcut}</Kbd>
+          )}
         </div>
       )}
 

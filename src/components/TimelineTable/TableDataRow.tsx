@@ -70,8 +70,6 @@ interface TableDataRowProps {
     clientX: number,
     clientY: number
   ) => void
-  /** 右键行内其他区域（marker 格除外） */
-  onRowContextMenu?: (event: DamageEvent, clientX: number, clientY: number) => void
 }
 
 const EMPTY = '—'
@@ -128,7 +126,6 @@ export default function TableDataRow({
   onCellToggle,
   isReadOnly,
   onCastContextMenu,
-  onRowContextMenu,
 }: TableDataRowProps) {
   const { t } = useTranslation(['editor'])
   const { original, actual } = resolveDamageNumbers(event, timeline, calculationResult)
@@ -225,15 +222,6 @@ export default function TableDataRow({
       style={{ height: ROW_HEIGHT }}
       data-row-time={event.time}
       onMouseLeave={clearHover}
-      onContextMenu={
-        onRowContextMenu
-          ? e => {
-              e.preventDefault()
-              e.stopPropagation()
-              onRowContextMenu(event, e.clientX, e.clientY)
-            }
-          : undefined
-      }
     >
       {showCastStartTime && (
         <td
