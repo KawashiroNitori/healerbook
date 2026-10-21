@@ -3,11 +3,12 @@
  * 表格视图的伤害事件行
  *
  * 负责：
- * - 渲染时间、事件名、原始伤害、实际伤害四个粘性左侧列
+ * - 渲染时间、事件名、原始伤害、实际伤害四个粘性左侧列（时间格可单击直接输入）
  * - 遍历 skillTracks 渲染每个技能列，查 litCells 决定是否亮起
  * - 对编辑 / 回放、AoE / 死刑四种情况处理伤害数值来源
  */
 
+import { useState } from 'react'
 import { MessageSquareText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -17,6 +18,7 @@ import { cellKey, type CastMarker } from '@/utils/tableCellHitTest'
 import { deriveLethalDangerous } from '@/utils/lethalDanger'
 import { useUIStore } from '@/store/uiStore'
 import { useResourceHoverStore } from '@/store/resourceHoverStore'
+import { useTimelineStore } from '@/store/timelineStore'
 import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/types/calculation'
@@ -30,6 +32,7 @@ import {
   SKILL_COL_WIDTH,
   ROW_HEIGHT,
 } from './constants'
+import TimeCellInput from './TimeCellInput'
 
 interface TableDataRowProps {
   event: DamageEvent
@@ -178,6 +181,44 @@ export default function TableDataRow({
     useResourceHoverStore.getState().setHover(t, { x: e.clientX, y: e.clientY })
   const clearHover = () => useResourceHoverStore.getState().clearHover()
 
+  // 时间格单击直接输入（与阶段行一致）；读条开始仅在有完整读条窗口时可改，平移时保持读条时长
+  const updateDamageEvent = useTimelineStore(s => s.updateDamageEvent)
+  const [editingField, setEditingField] = useState<'time' | 'castStart' | null>(null)
+  const castWindow =
+    event.castStartTime != null && event.castEndTime != null
+      ? { start: event.castStartTime, duration: event.castEndTime - event.castStartTime }
+      : null
+  const renderTimeCell = (
+    field: 'time' | 'castStart',
+    value: number,
+    onChange: (time: number) => void
+  ) =>
+    editingField === field ? (
+      <div className="px-1">
+        <TimeCellInput
+          initial={value}
+          onCommit={time => {
+            onChange(time)
+            setEditingField(null)
+          }}
+          onCancel={() => setEditingField(null)}
+        />
+      </div>
+    ) : (
+      <button
+        type="button"
+        disabled={isReadOnly}
+        title={isReadOnly ? undefined : t('editor:timelineTable.clickToEditTime')}
+        className="h-full w-full px-2 text-right enabled:cursor-text enabled:hover:underline enabled:hover:decoration-dashed"
+        onClick={e => {
+          e.stopPropagation()
+          setEditingField(field)
+        }}
+      >
+        {formatTimeWithDecimal(value)}
+      </button>
+    )
+
   return (
     <tr
       className="group"
@@ -196,21 +237,30 @@ export default function TableDataRow({
     >
       {showCastStartTime && (
         <td
-          className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
+          className={`${stickyCell} ${stickyHoverClass} z-10 text-right tabular-nums ${castWindow ? 'p-0' : 'px-2'}`}
           style={{ width: CAST_START_COL_WIDTH, minWidth: CAST_START_COL_WIDTH, left: castLeft }}
           onMouseMove={event.castStartTime != null ? hoverAt(event.castStartTime) : undefined}
           onMouseLeave={event.castStartTime != null ? clearHover : undefined}
         >
-          {event.castStartTime != null ? formatTimeWithDecimal(event.castStartTime) : '-'}
+          {castWindow
+            ? renderTimeCell('castStart', castWindow.start, start =>
+                updateDamageEvent(event.id, {
+                  castStartTime: start,
+                  castEndTime: start + castWindow.duration,
+                })
+              )
+            : event.castStartTime != null
+              ? formatTimeWithDecimal(event.castStartTime)
+              : '-'}
         </td>
       )}
       <td
-        className={`${stickyCell} ${stickyHoverClass} z-10 px-2 text-right tabular-nums`}
+        className={`${stickyCell} ${stickyHoverClass} z-10 p-0 text-right tabular-nums`}
         style={{ width: TIME_COL_WIDTH, minWidth: TIME_COL_WIDTH, left: timeLeft }}
         onMouseMove={hoverAt(event.time)}
         onMouseLeave={clearHover}
       >
-        {formatTimeWithDecimal(event.time)}
+        {renderTimeCell('time', event.time, time => updateDamageEvent(event.id, { time }))}
       </td>
       <td
         className={`${stickyCell} ${stickyHoverClass} z-10 px-2`}

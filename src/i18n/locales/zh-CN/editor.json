@@ -405,6 +405,7 @@
   },
   "timelineTable": {
     "cannotAddAction": "无法添加技能",
+    "clickToEditTime": "单击修改时间",
     "conditionNotMet": "此时刻不满足发动条件",
     "viewAnnotation": "查看备注"
   }
