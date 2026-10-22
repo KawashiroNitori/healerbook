@@ -3,6 +3,12 @@ order: 99
 title: 更新日志
 ---
 
+## 2026-10-22
+
+<!-- viewUrl: /docs/howto/timeline-phases -->
+
+新增时间轴阶段功能！长战斗也能一眼看出打到了哪个阶段。从 FFLogs 导入或从副本模板新建时会自动带上阶段，也可以自己进行调整。
+
 ## 2026-10-05
 
 <!-- viewUrl: /docs/howto/timeline-level -->
