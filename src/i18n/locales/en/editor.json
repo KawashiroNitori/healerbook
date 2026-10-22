@@ -243,7 +243,7 @@
     "add": "Phase",
     "addAtCurrent": "Add phase at current position",
     "addHere": "Add phase here",
-    "beforeFirst": "Before first phase",
+    "beforeFirst": "Pre-pull",
     "confirmDelete": "Confirm delete?",
     "delete": "Delete phase",
     "dragToAdjust": "Drag to adjust start time",

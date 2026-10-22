@@ -243,7 +243,7 @@
     "add": "Phase",
     "addAtCurrent": "Phase an aktueller Position hinzufügen",
     "addHere": "Phase hier hinzufügen",
-    "beforeFirst": "Vor der ersten Phase",
+    "beforeFirst": "Vor dem Pull",
     "confirmDelete": "Wirklich löschen?",
     "delete": "Phase löschen",
     "dragToAdjust": "Ziehen, um den Startzeitpunkt anzupassen",

@@ -243,7 +243,7 @@
     "add": "Phase",
     "addAtCurrent": "Ajouter une phase à la position actuelle",
     "addHere": "Ajouter une phase ici",
-    "beforeFirst": "Avant la première phase",
+    "beforeFirst": "Avant le pull",
     "confirmDelete": "Confirmer la suppression ?",
     "delete": "Supprimer la phase",
     "dragToAdjust": "Faites glisser pour ajuster l'instant de début",
