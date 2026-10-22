@@ -4,7 +4,7 @@
  * - 入口显示「当前所在阶段」（由当前视图写入的阅读位置判定），文字随工具栏宽度分三档。
  * - 下拉：列出全部阶段，选择即跳转；悬停项时右侧时间被改名 / 删除按钮顶替；
  *   底部「在当前位置添加阶段」。只读时只能看和跳转。
- * - 无阶段时：可编辑显示虚线「＋ 阶段」，点击直接添加；只读显示「无阶段」。
+ * - 无阶段时：可编辑显示虚线「＋ 阶段」，点击打开仅含添加项的下拉；只读显示「无阶段」。
  */
 
 import { useMemo, useRef, useState } from 'react'
@@ -87,21 +87,10 @@ export default function PhaseNavigator({ width }: PhaseNavigatorProps) {
     setEditingId(phase.id)
   }
 
-  if (sorted.length === 0) {
-    if (isReadOnly) {
-      return (
-        <span className="text-xs text-muted-foreground whitespace-nowrap">{t('phase.none')}</span>
-      )
-    }
+  const isEmpty = sorted.length === 0
+  if (isEmpty && isReadOnly) {
     return (
-      <button
-        type="button"
-        onClick={handleAdd}
-        className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-border px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground whitespace-nowrap"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        {t('phase.add')}
-      </button>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{t('phase.none')}</span>
     )
   }
 
@@ -126,22 +115,32 @@ export default function PhaseNavigator({ width }: PhaseNavigatorProps) {
         modal={false}
       >
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            title={t('phase.jumpTo')}
-            className="inline-flex h-7 max-w-[320px] items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium whitespace-nowrap"
-            style={{
-              borderColor: phaseColorAlpha(curColor, 0.55),
-              backgroundColor: phaseColorAlpha(curColor, 0.06),
-              color: textColorOf(curColor),
-            }}
-          >
-            <span className="truncate">{entryLabel}</span>
-            {showTime && (
-              <span className="tabular-nums opacity-70">{formatTimeMinSec(current.time)}</span>
-            )}
-            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-          </button>
+          {isEmpty ? (
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-border px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground whitespace-nowrap"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('phase.add')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              title={t('phase.jumpTo')}
+              className="inline-flex h-7 max-w-[320px] items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium whitespace-nowrap"
+              style={{
+                borderColor: phaseColorAlpha(curColor, 0.55),
+                backgroundColor: phaseColorAlpha(curColor, 0.06),
+                color: textColorOf(curColor),
+              }}
+            >
+              <span className="truncate">{entryLabel}</span>
+              {showTime && (
+                <span className="tabular-nums opacity-70">{formatTimeMinSec(current.time)}</span>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            </button>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
@@ -253,7 +252,7 @@ export default function PhaseNavigator({ width }: PhaseNavigatorProps) {
           })}
           {!isReadOnly && (
             <>
-              <DropdownMenuSeparator />
+              {!isEmpty && <DropdownMenuSeparator />}
               <DropdownMenuItem
                 {...lockedPointerProps}
                 className="flex items-center justify-between gap-2"
