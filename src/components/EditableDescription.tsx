@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { TIMELINE_DESCRIPTION_MAX_LENGTH } from '@/constants/limits'
+import { linkify } from '@/utils/linkify'
 
 interface EditableDescriptionProps {
   value: string
@@ -98,7 +99,23 @@ export default function EditableDescription({
             className="z-50 w-96 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none"
           >
             {readOnly ? (
-              <p className="text-sm whitespace-pre-wrap break-all">{value}</p>
+              <p className="text-sm whitespace-pre-wrap break-all">
+                {linkify(value).map((segment, i) =>
+                  segment.type === 'link' ? (
+                    <a
+                      key={i}
+                      href={segment.text}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:text-blue-700 dark:hover:text-blue-300"
+                    >
+                      {segment.text}
+                    </a>
+                  ) : (
+                    segment.text
+                  )
+                )}
+              </p>
             ) : (
               <div className="space-y-2">
                 <textarea
