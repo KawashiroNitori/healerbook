@@ -55,6 +55,12 @@ export interface InvalidCastEventSummary {
   resourceId?: string
 }
 
+/** 某 trackGroup 成员「在此放置会被 pickUniqueMember 唯一选中」的区间（半开、升序、互不重叠） */
+export interface UniqueMemberIntervals {
+  action: MitigationAction
+  intervals: Interval[]
+}
+
 export interface PlacementEngine {
   getValidIntervals(
     action: MitigationAction,
@@ -73,6 +79,15 @@ export interface PlacementEngine {
     t: number,
     excludeCastEventId?: string
   ): MitigationAction | null
+  /**
+   * pickUniqueMember 的区间版本：组内每个成员被唯一选中的区间，按成员列出（无唯一区间的成员
+   * intervals 为空）。边界口径与 pickUniqueMember 一致，按 (trackGroup, playerId, excludeId) 缓存。
+   */
+  uniqueMemberIntervals(
+    trackGroup: number,
+    playerId: number,
+    excludeCastEventId?: string
+  ): UniqueMemberIntervals[]
   canPlaceCastEvent(
     action: MitigationAction,
     playerId: number,

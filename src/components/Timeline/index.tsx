@@ -55,9 +55,16 @@ import VerticalScrollbar, {
   type VerticalScrollbarHandle,
 } from './VerticalScrollbar'
 import type { TimelineMinimapHandle } from './TimelineMinimap'
-import { buildTrackIndexMap, trackKey, type SkillTrack } from '@/utils/skillTracks'
+import {
+  buildTrackIndexMap,
+  groupCastEventsByTrack,
+  trackKey,
+  type SkillTrack,
+} from '@/utils/skillTracks'
 import type { AnnotationAnchor } from '@/types/timeline'
-import type { MitigationAction } from '@/types/mitigation'
+import { effectiveTrackGroup, type MitigationAction } from '@/types/mitigation'
+import { computeRecallZones, findRecallZoneAt, type RecallZone } from '@/utils/placement/recall'
+import RecallGhost, { type RecallGhostHandle } from './RecallGhost'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
   TIMELINE_START_TIME,
@@ -205,6 +212,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
   const trackHighlightRef = useRef<Konva.Rect>(null)
   const timeIndicatorLineRef = useRef<Konva.Line>(null)
   const timeIndicatorTextRef = useRef<Konva.Text>(null)
+  // 收回技能虚影：Konva 组件句柄 + 当前虚影对应的放置目标（单击时据此放置）
+  const recallGhostRef = useRef<RecallGhostHandle>(null)
+  const recallTargetRef = useRef<{ groupId: number; playerId: number; time: number } | null>(null)
+  const lastRecallPlacedAtRef = useRef(0)
   // overlay Layer refs
   const mainOverlayLayerRef = useRef<Konva.Layer | null>(null)
   const fixedOverlayLayerRef = useRef<Konva.Layer | null>(null)
@@ -521,8 +532,70 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     [phaseLabelBoxes]
   )
 
+  // 每条技能轨道（按 skillTracks 下标）的收回生效区间 + 该轨 cast 起点。
+  // 生效区间取收回型变体与父技能互斥 placement 的唯一合法区间（computeRecallZones），
+  // 不等价于绿条；cast 起点用于避开图标本体（图标保留 tooltip / 选中）。
+  const recallZonesByTrack = useMemo(() => {
+    const result = new Map<number, { groupId: number; zones: RecallZone[]; castTimes: number[] }>()
+    if (!engine || !timeline || isReadOnly) return result
+    const castsByTrack = groupCastEventsByTrack(timeline.castEvents, actionMap)
+    skillTracks.forEach((track, index) => {
+      const parent = actionMap.get(track.actionId)
+      if (!parent) return
+      const groupId = effectiveTrackGroup(parent)
+      const zones = computeRecallZones(engine, groupId, track.playerId)
+      if (zones.length === 0) return
+      const castTimes = (castsByTrack.get(trackKey(track.playerId, groupId)) ?? []).map(
+        c => c.timestamp
+      )
+      result.set(index, { groupId, zones, castTimes })
+    })
+    return result
+  }, [engine, timeline, actionMap, skillTracks, isReadOnly])
+  const recallZonesByTrackRef = useRef(recallZonesByTrack)
+  useEffect(() => {
+    recallZonesByTrackRef.current = recallZonesByTrack
+    // 数据变化（如刚放置收回）后旧虚影失效，等下一次鼠标移动重新判定
+    recallTargetRef.current = null
+    recallGhostRef.current?.hide()
+  }, [recallZonesByTrack])
+  // 缩放后虚影 x 失效，同样等下一次鼠标移动重新判定
+  useEffect(() => {
+    recallTargetRef.current = null
+    recallGhostRef.current?.hide()
+  }, [zoomLevel])
+
+  const hideRecallGhost = useCallback(() => {
+    recallTargetRef.current = null
+    recallGhostRef.current?.hide()
+  }, [])
+
+  // 按鼠标所在轨道 / 时间更新收回虚影：只在收回生效区间内、且不在 cast 图标本体上时显示
+  const updateRecallGhost = useCallback(
+    (trackIndex: number | null, time: number) => {
+      if (trackIndex === null || useUIStore.getState().draggingId) return hideRecallGhost()
+      const entry = recallZonesByTrackRef.current.get(trackIndex)
+      if (!entry) return hideRecallGhost()
+      const t = Math.round(time * 10) / 10
+      const zone = findRecallZoneAt(entry.zones, t)
+      // 图标本体宽 30px，左边缘对齐 cast 时刻
+      const iconSec = 30 / zoomLevel
+      const overIcon = entry.castTimes.some(ts => t >= ts && t < ts + iconSec)
+      if (!zone || overIcon) return hideRecallGhost()
+      const track = skillTracks[trackIndex]
+      recallTargetRef.current = { groupId: entry.groupId, playerId: track.playerId, time: t }
+      recallGhostRef.current?.show({
+        icon: zone.variant.icon,
+        x: t * zoomLevel,
+        trackY: trackIndex * skillTrackHeight + skillTrackHeight / 2,
+      })
+    },
+    [zoomLevel, skillTracks, hideRecallGhost]
+  )
+
   // 隐藏十字准线所有元素（含轨道高亮与时间指示器）
   const hideCrosshair = useCallback(() => {
+    hideRecallGhost()
     crosshairFixedLineRef.current?.visible(false)
     crosshairMainLineRef.current?.visible(false)
     trackHighlightRef.current?.visible(false)
@@ -530,7 +603,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     timeIndicatorTextRef.current?.visible(false)
     fixedStageRef.current?.batchDraw()
     stageRef.current?.batchDraw()
-  }, [])
+  }, [hideRecallGhost])
 
   // 十字准线：鼠标移动事件（直接操作 Konva 节点，不触发 React 重渲染）
   const createCrosshairMoveHandler = useCallback(
@@ -626,6 +699,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
               highlight.visible(false)
             }
           }
+          updateRecallGhost(validTrack ? trackIndex : null, time)
         } else {
           hoverTrackIndexRef.current = null
         }
@@ -640,6 +714,7 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
       layoutData?.fixedAreaHeight,
       layoutData?.skillTracksHeight,
       hideCrosshair,
+      updateRecallGhost,
     ]
   )
 
@@ -1110,9 +1185,23 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     })
   }
 
+  // 单击收回虚影处：在虚影时间放置收回技能（复用 addCastAt：写父 id，变体由 simulate 解析）。
+  // 返回 true 表示点击已消费，调用方不再走原有的选中逻辑。
+  const handleRecallClick = (): boolean => {
+    const target = recallTargetRef.current
+    if (!target || isReadOnly) return false
+    if (panJustEndedRef.current || Date.now() - lastPanEndTimeRef.current < 300) return false
+    hideRecallGhost()
+    addCastAt(target.groupId, target.playerId, target.time)
+    lastRecallPlacedAtRef.current = Date.now()
+    return true
+  }
+
   // 处理双击轨道添加技能
   const handleDoubleClickTrack = (track: SkillTrack, time: number) => {
     if (isReadOnly) return
+    // 双击的第一下单击已在收回区间内放置了收回技能，不再重复添加
+    if (Date.now() - lastRecallPlacedAtRef.current < 500) return
     // 如果刚刚完成了平移操作，阻止误触发
     if (panJustEndedRef.current || Date.now() - lastPanEndTimeRef.current < 300) return
     addCastAt(track.actionId, track.playerId, time)
@@ -2288,17 +2377,21 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
                 crosshairLineRef={crosshairMainLineRef}
                 trackHighlightRef={trackHighlightRef}
                 overlayChildren={
-                  <PeerOverlayMain
-                    zoomLevel={zoomLevel}
-                    castEvents={timeline.castEvents}
-                    skillTracks={skillTracks}
-                    actionMap={actionMap}
-                    trackHeight={skillTrackHeight}
-                    skillTracksHeight={skillTracksHeight}
-                    annotations={skillAreaAnnotations}
-                    damageEvents={filteredDamageEvents}
-                  />
+                  <>
+                    <RecallGhost ref={recallGhostRef} />
+                    <PeerOverlayMain
+                      zoomLevel={zoomLevel}
+                      castEvents={timeline.castEvents}
+                      skillTracks={skillTracks}
+                      actionMap={actionMap}
+                      trackHeight={skillTrackHeight}
+                      skillTracksHeight={skillTracksHeight}
+                      annotations={skillAreaAnnotations}
+                      damageEvents={filteredDamageEvents}
+                    />
+                  </>
                 }
+                onRecallClick={handleRecallClick}
                 onSelectCastEvent={handleSelectCastEvent}
                 onUpdateCastEvent={handleCastEventDragEnd}
                 onContextMenu={handleContextMenu}

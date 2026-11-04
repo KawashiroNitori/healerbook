@@ -96,6 +96,43 @@ describe('placement 集成', () => {
     expect(invalid.some(r => r.castEvent.id === 'r')).toBe(false)
   })
 
+  it('uniqueMemberIntervals 与 pickUniqueMember 逐点一致（含合法区间端点）', () => {
+    const c = (id: string, actionId: number, timestamp: number) =>
+      ({ id, actionId, playerId: 1, timestamp }) as unknown as CastEvent
+    const scenarios: { casts: CastEvent[]; groupId: number }[] = [
+      { casts: [c('p', 7439, 10)], groupId: 7439 },
+      { casts: [c('p', 7439, 10), c('r', 7439, 14)], groupId: 7439 },
+      { casts: [c('h', 16557, 5)], groupId: 16557 },
+      { casts: [c('b', 25862, 8)], groupId: 25862 },
+      { casts: [c('s', 37014, 10)], groupId: 37013 },
+    ]
+    for (const { casts, groupId } of scenarios) {
+      const engine = makeEngine(casts)
+      const unique = engine.uniqueMemberIntervals(groupId, 1)
+      const lookup = (t: number) =>
+        unique.find(m => m.intervals.some(i => i.from <= t && t < i.to))?.action.id ?? null
+
+      // 0.1s 网格 + 各成员原始合法区间端点及其两侧
+      const times = new Set<number>()
+      for (let i = 0; i <= 900; i++) times.add(Math.round(i) / 10)
+      for (const m of unique) {
+        for (const iv of engine.getValidIntervals(m.action, 1)) {
+          for (const e of [iv.from, iv.to]) {
+            if (!Number.isFinite(e)) continue
+            times.add(e)
+            times.add(e - 1e-3)
+            times.add(e + 1e-3)
+          }
+        }
+      }
+      for (const t of times) {
+        expect(lookup(t), `group ${groupId} @ t=${t}`).toBe(
+          engine.pickUniqueMember(groupId, 1, t)?.id ?? null
+        )
+      }
+    }
+  })
+
   it('拖拽 37014 预览移除 buff：cast 自动跟随回 37013，仍合法不红框', () => {
     // 变体运行时派生 + 自动跟随语义：cast 存父 id，buff 消失时自动解析回非 buff 形态
     // （37013），该形态在此刻合法 → 不红框。旧"持久化具体变体"模型下会因 37016 失去

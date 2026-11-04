@@ -42,6 +42,11 @@ interface CastEventIconProps {
   onHover: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
   onHoverEnd: () => void
   onClickIcon: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
+  /**
+   * 鼠标左键单击时先询问：返回 true 表示点击已被消费（如在收回生效区间内放置收回技能），
+   * 不再选中本 cast，也不继续冒泡。仅鼠标 click，tap 不经过。
+   */
+  onClickIntercept?: () => boolean
   isReadOnly?: boolean
   /** 蓝条右端（秒）；null = 不画；Infinity = 截到 timelineEndSec */
   cdBarEnd: number | null
@@ -71,6 +76,7 @@ const CastEventIcon = memo(function CastEventIcon({
   onHover,
   onHoverEnd,
   onClickIcon,
+  onClickIntercept,
   isReadOnly = false,
   cdBarEnd,
   timelineEndSec,
@@ -131,7 +137,12 @@ const CastEventIcon = memo(function CastEventIcon({
       onClick={e => {
         // 右键不触发选中：避免在 onContextMenu 前把多选塌缩成单个，
         // 右键的选区 / 菜单逻辑统一由 handleContextMenu 处理
-        if (e.evt.button !== 2) onSelect()
+        if (e.evt.button === 2) return
+        if (e.evt.button === 0 && onClickIntercept?.()) {
+          e.cancelBubble = true
+          return
+        }
+        onSelect()
       }}
       onTap={onSelect}
       onDragMove={e => {

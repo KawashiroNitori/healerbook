@@ -9,9 +9,16 @@ import type {
   PlacementContext,
   PlacementEngine,
   StatusTimelineByPlayer,
+  UniqueMemberIntervals,
 } from '@/types/placement'
 import { TIME_EPS } from './types'
-import { complement, intersect, mergeOverlapping, sortIntervals } from './intervals'
+import {
+  complement,
+  intersect,
+  mergeOverlapping,
+  sortIntervals,
+  subtractIntervals,
+} from './intervals'
 import { deriveResourceEvents } from '@/utils/resource/compute'
 import { findResourceExhaustedCasts, probeResourceUnmetMessage } from '@/utils/resource/validator'
 import { resourceLegalIntervals } from '@/utils/resource/legalIntervals'
@@ -255,6 +262,44 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     return legal.length === 1 ? legal[0] : null
   }
 
+  // pickUniqueMember 的区间版本：每个成员「此处放置会被唯一选中」的区间。
+  //
+  // 边界口径与 canPlaceCastEvent 对齐：后者对每段合法区间按闭区间 + 两端 TIME_EPS 判定，
+  // 故这里先把各成员合法区间两端各外扩 TIME_EPS，再用「自身 − 其余成员并集」求唯一区间。
+  // 两成员合法区间相接处（如父技能 not(X) 与变体 whileStatus(X) 的交界点）两者都合法、
+  // pickUniqueMember 返回 null，这里同样不落入任何成员的区间。
+  // 结果是半开区间，与闭区间判定只在外扩后的端点这类零测度点上可能不同。
+  const uniqueMemberIntervalsCache = new Map<string, UniqueMemberIntervals[]>()
+  function uniqueMemberIntervals(
+    groupId: number,
+    playerId: number,
+    excludeId?: string
+  ): UniqueMemberIntervals[] {
+    const key = shadowKey(groupId, playerId, excludeId)
+    const cached = uniqueMemberIntervalsCache.get(key)
+    if (cached) return cached
+    const members = trackGroupMembers.get(groupId) ?? []
+    const dilated = members.map(m =>
+      mergeOverlapping(
+        sortIntervals(
+          getValidIntervals(m, playerId, excludeId).map(i => ({
+            from: i.from - TIME_EPS,
+            to: i.to + TIME_EPS,
+          }))
+        )
+      )
+    )
+    const result = members.map((action, idx) => {
+      const others = mergeOverlapping(sortIntervals(dilated.filter((_, j) => j !== idx).flat()))
+      return {
+        action,
+        intervals: subtractIntervals(dilated[idx], others).filter(i => i.to > i.from),
+      }
+    })
+    uniqueMemberIntervalsCache.set(key, result)
+    return result
+  }
+
   function findInvalidCastEvents(removeCastEventId?: string): InvalidCastEvent[] {
     const effectiveEvents = effectiveCastEvents(removeCastEventId)
 
@@ -330,6 +375,7 @@ export function createPlacementEngine(input: PlacementEngineInput): PlacementEng
     computeTrackShadow,
     computePlacementShadow,
     pickUniqueMember,
+    uniqueMemberIntervals,
     canPlaceCastEvent,
     findInvalidCastEvents,
     cdBarEndFor,

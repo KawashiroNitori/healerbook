@@ -75,6 +75,11 @@ interface SkillTracksCanvasProps {
   onHoverAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent>) => void
   onHoverActionEnd: () => void
   onClickAction: (action: MitigationAction, e: KonvaEventObject<MouseEvent | TouchEvent>) => void
+  /**
+   * 技能轨道上的鼠标左键单击（cast 条 / 轨道背景）先交给它：返回 true 表示已在收回生效区间内
+   * 放置收回技能，cast 不再被选中。
+   */
+  onRecallClick?: () => boolean
   isReadOnly?: boolean
   bgLayerRef?: RefObject<Konva.Layer | null>
   eventLayerRef?: RefObject<Konva.Layer | null>
@@ -136,6 +141,7 @@ export default function SkillTracksCanvas({
   onHoverAction,
   onHoverActionEnd,
   onClickAction,
+  onRecallClick,
   isReadOnly = false,
   bgLayerRef,
   eventLayerRef,
@@ -249,6 +255,11 @@ export default function SkillTracksCanvas({
             height={trackHeight}
             fill={index % 2 === 0 ? colors.trackBgEven : colors.trackBgOdd}
             draggableBackground={true}
+            onClick={e => {
+              // 收回生效区间可能超出绿条、落在轨道背景上
+              if (isReadOnly || e.evt.button !== 0) return
+              onRecallClick?.()
+            }}
             onDblClick={e => {
               if (isReadOnly || e.evt.button !== 0) return
               const layer = bgLayerRef?.current
@@ -704,6 +715,7 @@ export default function SkillTracksCanvas({
               onHover={onHoverAction}
               onHoverEnd={onHoverActionEnd}
               onClickIcon={onClickAction}
+              onClickIntercept={isReadOnly ? undefined : onRecallClick}
               isReadOnly={isReadOnly}
               cdBarEnd={engine?.cdBarEndFor(castEvent.id) ?? null}
               // 传给 CastEventIcon 的 timelineEndSec 直接复用 canvas 自身的 maxTime prop——
