@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { createPlacementEngine } from './engine'
-import { computeRecallZones, findRecallZoneAt, isRecallVariant } from './recall'
+import {
+  computeRecallZones,
+  findClosingRecallCast,
+  findRecallZoneAt,
+  isRecallVariant,
+} from './recall'
 import { MITIGATION_DATA } from '@/data/mitigationActions'
 import { simulate } from '@/utils/mitigationCalculator'
 import type { CastEvent, DamageEvent } from '@/types/timeline'
@@ -66,6 +71,50 @@ describe('computeRecallZones', () => {
     const zones = computeRecallZones(engine, 7439, 1)
     expect(findRecallZoneAt(zones, 13)?.variant.id).toBe(8324)
     expect(findRecallZoneAt(zones, 16)).toBeNull()
+  })
+
+  it('findClosingRecallCast：区间被后面的收回截断 → 返回该收回；自然到期 → null', () => {
+    const casts = [cast('p', 7439, 0), cast('r', 7439, 9)]
+    const { engine, full } = setup(casts)
+    const resolve = (c: CastEvent) =>
+      actions.get(full.resolvedVariantByCastId.get(c.id) ?? c.actionId)
+    expect(findRecallZoneAt(computeRecallZones(engine, 7439, 1), 5)).not.toBeNull()
+    expect(findClosingRecallCast(5, casts, resolve, 7439)?.id).toBe('r')
+
+    // 只放地星、不收回：区间自然到期结束，没有可前移的收回
+    const only = [cast('p', 7439, 0)]
+    const s2 = setup(only)
+    const resolve2 = (c: CastEvent) =>
+      actions.get(s2.full.resolvedVariantByCastId.get(c.id) ?? c.actionId)
+    expect(findClosingRecallCast(5, only, resolve2, 7439)).toBeNull()
+  })
+
+  it('findClosingRecallCast：收回变体自带 CD（天宫图 + 阳星合相升级，20s 收回）→ 仍找到 20s 收回', () => {
+    // 收回天宫图 16558 cd1：资源模型把 [19, 20) 扣出合法区间，收回区间末端落在 19 而非 20
+    const casts = [cast('h', 16557, 0), cast('a', 37030, 2), cast('r', 16557, 20)]
+    const { engine, full } = setup(casts)
+    const resolve = (c: CastEvent) =>
+      actions.get(full.resolvedVariantByCastId.get(c.id) ?? c.actionId)
+    const zone = findRecallZoneAt(computeRecallZones(engine, 16557, 1), 10)
+    expect(zone?.variant.id).toBe(16558)
+    expect(zone!.to).toBeLessThan(19.5)
+    expect(findClosingRecallCast(10, casts, resolve, 16557)?.id).toBe('r')
+    // 前移后：收回在 10s，时间轴无红框
+    const moved = setup([cast('h', 16557, 0), cast('a', 37030, 2), cast('r', 16557, 10)])
+    expect(moved.engine.findInvalidCastEvents()).toEqual([])
+  })
+
+  it('findClosingRecallCast：下一个 cast 是父技能（buff 自然到期后重放）→ null', () => {
+    const casts = [cast('p1', 7439, 0), cast('p2', 7439, 70), cast('r', 7439, 75)]
+    const { full } = setup(casts)
+    const resolve = (c: CastEvent) =>
+      actions.get(full.resolvedVariantByCastId.get(c.id) ?? c.actionId)
+    expect(findClosingRecallCast(5, casts, resolve, 7439)).toBeNull()
+  })
+
+  it('前移后的时间轴：收回移到 5s，原 9s 不复存在，无红框', () => {
+    const { engine } = setup([cast('p', 7439, 0), cast('r', 7439, 5)])
+    expect(engine.findInvalidCastEvents()).toEqual([])
   })
 
   it('无 buff 时无区间', () => {

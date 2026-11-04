@@ -35,6 +35,35 @@ export function computeRecallZones(
     .sort((a, b) => a.from - b.from)
 }
 
+/**
+ * 在 t（已确认处于收回生效区间内）放置收回时，找出截断当前 buff 窗口的已有收回 cast。
+ * 一个 buff 窗口只能收回一次：在它之前再放收回会提前移除 buff，使它回退为父技能并因 CD 变红，
+ * 故调用方应把它前移到 t 而非新增。
+ *
+ * 判定：同轨道 t 之后的下一个 cast 若解析为收回型变体，即为截断者。buff 存续期间父技能不可放，
+ * t 与该收回之间不会夹着其他 cast；若 buff 先自然到期、再放了新的父技能，下一个 cast 是父技能
+ * → 返回 null（照旧新增）。
+ * 不用「收回区间末端 ≈ cast 时间戳」判定：收回变体自身带 CD 时（如 cd1），资源模型会把其前
+ * cd 秒从合法区间扣掉，区间末端落在 cast 之前。
+ *
+ * @param trackCasts 同轨道（同 playerId + trackGroup）的 cast
+ * @param resolveVariant cast → simulate 解析出的实际变体
+ */
+export function findClosingRecallCast<C extends { timestamp: number }>(
+  t: number,
+  trackCasts: C[],
+  resolveVariant: (cast: C) => MitigationAction | undefined,
+  groupId: number
+): C | null {
+  let next: C | null = null
+  for (const c of trackCasts) {
+    if (c.timestamp > t && (!next || c.timestamp < next.timestamp)) next = c
+  }
+  if (!next) return null
+  const variant = resolveVariant(next)
+  return variant && isRecallVariant(variant, groupId) ? next : null
+}
+
 /** 在已排序的 zones 中查找包含 t 的区间（半开 [from, to)） */
 export function findRecallZoneAt(zones: RecallZone[], t: number): RecallZone | null {
   for (const z of zones) {

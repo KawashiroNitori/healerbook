@@ -63,7 +63,13 @@ import {
 } from '@/utils/skillTracks'
 import type { AnnotationAnchor } from '@/types/timeline'
 import { effectiveTrackGroup, type MitigationAction } from '@/types/mitigation'
-import { computeRecallZones, findRecallZoneAt, type RecallZone } from '@/utils/placement/recall'
+import {
+  computeRecallZones,
+  findClosingRecallCast,
+  findRecallZoneAt,
+  isRecallVariant,
+  type RecallZone,
+} from '@/utils/placement/recall'
 import RecallGhost, { type RecallGhostHandle } from './RecallGhost'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
@@ -1169,6 +1175,24 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
           description: unmetMsg ?? t('editor:timeline.addActionConditionUnmet'),
         })
         return
+      }
+      // 收回：若本区间已被后面的某个收回截断，把它前移到 time 而非新增——
+      // 否则那个收回会因 buff 被提前移除而回退为父技能、落在 CD 内变红。
+      if (isRecallVariant(member, groupId)) {
+        const trackCasts = timeline.castEvents.filter(c => {
+          const a = actionMap.get(c.actionId)
+          return c.playerId === playerId && (a ? effectiveTrackGroup(a) : c.actionId) === groupId
+        })
+        const closing = findClosingRecallCast(
+          time,
+          trackCasts,
+          c => actionMap.get(resolvedVariantByCastId.get(c.id) ?? c.actionId),
+          groupId
+        )
+        if (closing) {
+          useTimelineStore.getState().updateCastEvent(closing.id, { timestamp: time })
+          return
+        }
       }
     }
 
