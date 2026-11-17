@@ -62,14 +62,16 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
       - name: Publish DeepSeek result
         uses: actions/github-script@v7
         env:
           AI_RESULT: ${{ needs.analyze.outputs.result }}
         with:
           script: |
-            const body = process.env.AI_RESULT;
-            if (!body?.trim()) throw new Error('Empty DeepSeek response');
-            const issue_number = context.payload.issue?.number ?? context.payload.pull_request?.number;
-            if (!Number.isInteger(issue_number)) throw new Error('Missing target number');
-            await github.rest.issues.createComment({ ...context.repo, issue_number, body });
+            const { publishRespond } = require('./.github/scripts/ai-publish.cjs');
+            await publishRespond({ github, context, raw: process.env.AI_RESULT });
