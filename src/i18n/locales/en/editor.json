@@ -405,6 +405,7 @@
     "cannotAddAction": "Cannot add action",
     "clickToEditTime": "Click to edit time",
     "conditionNotMet": "Requirements are not met at this time",
+    "notEnoughCharges": "Not enough charges",
     "viewAnnotation": "View note"
   }
 }

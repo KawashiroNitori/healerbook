@@ -23,6 +23,8 @@ import type { DamageEvent, Timeline } from '@/types/timeline'
 import type { SkillTrack } from '@/utils/skillTracks'
 import type { CalculationResult } from '@/types/calculation'
 import type { MitigationAction } from '@/types/mitigation'
+import type { InvalidCastEventSummary } from '@/types/placement'
+import { RESOURCE_REGISTRY } from '@/data/resources'
 import {
   TIME_COL_WIDTH,
   CAST_START_COL_WIDTH,
@@ -49,6 +51,7 @@ interface TableDataRowProps {
    * 用于显示正确的变体图标，如 buff 期的 37016）和使用时刻（悬浮资源预览用）。
    */
   markerCells: Map<string, CastMarker>
+  invalidCastEventMap: Map<string, InvalidCastEventSummary>
   /** cast 锚定备注文本（castId → 合并文本）；marker 格右上角显示角标 */
   castAnnotationByCastId: Map<string, { id: string; text: string }>
   /** 用于按 actionId 查找变体真实图标 */
@@ -60,7 +63,7 @@ interface TableDataRowProps {
   /** 点击事件名时回调，传入事件 id（用于触发 PropertyPanel 打开） */
   onSelect: (eventId: string) => void
   /** 点击技能单元格切换放置状态 */
-  onCellToggle: (track: SkillTrack, event: DamageEvent, isLit: boolean) => void
+  onCellToggle: (track: SkillTrack, event: DamageEvent, marker?: CastMarker) => void
   /** 只读模式下禁止切换 */
   isReadOnly: boolean
   /** 右键 marker 单元格（cast）：弹出与时间轴一致的 castEvent 菜单 */
@@ -116,6 +119,7 @@ export default function TableDataRow({
   cdCells,
   shadowCells,
   markerCells,
+  invalidCastEventMap,
   castAnnotationByCastId,
   actionsById,
   calculationResult,
@@ -304,6 +308,20 @@ export default function TableDataRow({
         const marker = markerCells.get(key)
         const isMarker = marker !== undefined
         const markerAction = marker !== undefined ? actionsById.get(marker.actionId) : null
+        const invalid = marker && invalidCastEventMap.get(marker.castId)
+        const invalidMessage = invalid
+          ? [
+              invalid.reason !== 'resource_exhausted'
+                ? t('editor:timeline.addActionConditionUnmet')
+                : null,
+              invalid.reason !== 'placement_lost'
+                ? (invalid.resourceId && RESOURCE_REGISTRY[invalid.resourceId]?.unmetMessage) ||
+                  t('editor:timelineTable.notEnoughCharges')
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' / ')
+          : undefined
         const baseBg = index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
         return (
           <td
@@ -312,10 +330,12 @@ export default function TableDataRow({
               isNewPlayer ? 'border-l-2 border-l-foreground/20' : 'border-l'
             } ${isReadOnly ? '' : 'cursor-pointer'}`}
             style={{ width: SKILL_COL_WIDTH, minWidth: SKILL_COL_WIDTH }}
+            title={invalidMessage}
+            data-invalid-reason={invalid ? invalid.reason : undefined}
             onClick={e => {
               if (isReadOnly) return
               e.stopPropagation()
-              onCellToggle(track, event, isMarker)
+              onCellToggle(track, event, marker)
             }}
             onContextMenu={
               marker !== undefined && onCastContextMenu
@@ -340,7 +360,7 @@ export default function TableDataRow({
               <GameIcon
                 input={markerAction?.icon ?? track.actionIcon}
                 alt={markerAction?.name ?? track.actionName}
-                className="pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md"
+                className={`pointer-events-none absolute top-1/2 left-1/2 w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-md ${invalid ? 'ring-2 ring-red-500' : ''}`}
               />
             )}
             {isMarker && castAnnotationByCastId.has(marker.castId) && (

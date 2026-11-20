@@ -405,6 +405,7 @@
     "cannotAddAction": "Aktion kann nicht hinzugefügt werden",
     "clickToEditTime": "Klicken, um den Zeitpunkt zu ändern",
     "conditionNotMet": "Zu diesem Zeitpunkt sind die Einsatzbedingungen nicht erfüllt",
+    "notEnoughCharges": "Nicht genug Aufladungen",
     "viewAnnotation": "Notiz ansehen"
   }
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createPlacementEngine } from './engine'
+import { getInvalidCastEventMap, planCastPlacement } from './castPlacement'
 import {
   computeRecallZones,
   findClosingRecallCast,
@@ -125,5 +126,53 @@ describe('computeRecallZones', () => {
   it('组内无收回型变体（炽天附体期的降临之章）→ 无区间', () => {
     const { engine } = setup([cast('s', 37014, 10)])
     expect(computeRecallZones(engine, 37013, 1)).toEqual([])
+  })
+})
+
+describe('shared canvas and table cast placement', () => {
+  const actionId = 7439
+  const choosePlacement = (casts: CastEvent[], time: number) => {
+    const { engine, full } = setup(casts)
+    return planCastPlacement({
+      actionId,
+      playerId: 1,
+      time,
+      castEvents: casts,
+      actions,
+      resolvedVariantByCastId: full.resolvedVariantByCastId,
+      engine,
+    })
+  }
+
+  it('moves the same player’s closing recall to the actual table cast time', () => {
+    const casts = [cast('p', actionId, 0), cast('r', actionId, 9)]
+    const decision = choosePlacement(casts, 5 - 0.1)
+    expect(decision).toEqual({ kind: 'move', castId: 'r' })
+    const moved = casts.map(c => (c.id === 'r' ? { ...c, timestamp: 5 - 0.1 } : c))
+    expect(moved.map(c => [c.id, c.timestamp])).toEqual([
+      ['p', 0],
+      ['r', 4.9],
+    ])
+    expect(getInvalidCastEventMap(setup(moved).engine).size).toBe(0)
+  })
+
+  it('adds a recall when the current window ends naturally', () => {
+    const casts = [cast('p', actionId, 0), cast('later-placement', actionId, 70)]
+    expect(choosePlacement(casts, 5 - 0.1)).toEqual({ kind: 'add', actionId })
+  })
+
+  it('validates the earlier actual cast time when the table lead crosses a boundary', () => {
+    const casts = [cast('p', actionId, 0), cast('r', actionId, 9)]
+    expect(choosePlacement(casts, 9.05).kind).toBe('reject')
+    expect(choosePlacement(casts, 9.05 - 0.1)).toEqual({ kind: 'move', castId: 'r' })
+  })
+
+  it('keys the pre-existing conflict to the original late cast, with replay suppression', () => {
+    const casts = [cast('p', actionId, 0), cast('early', actionId, 4.9), cast('late', actionId, 9)]
+    const { engine } = setup(casts)
+    const invalid = getInvalidCastEventMap(engine)
+    expect([...invalid.keys()]).toEqual(['late'])
+    expect(invalid.get('late')?.reason).toBe('resource_exhausted')
+    expect(getInvalidCastEventMap(engine, true).size).toBe(0)
   })
 })
