@@ -28,7 +28,7 @@ import {
   useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
 import { createPlacementEngine } from '@/utils/placement/engine'
-import type { InvalidCastEventSummary, PlacementEngine } from '@/types/placement'
+import type { PlacementEngine } from '@/types/placement'
 import { getStatusById, getMultiplierForDamageType } from '@/utils/statusRegistry'
 import { getStatusName } from '@/utils/statusIconUtils'
 import { getSyncScrollProgress, setSyncScrollProgress } from '@/utils/syncScrollProgress'
@@ -63,13 +63,8 @@ import {
 } from '@/utils/skillTracks'
 import type { AnnotationAnchor } from '@/types/timeline'
 import { effectiveTrackGroup, type MitigationAction } from '@/types/mitigation'
-import {
-  computeRecallZones,
-  findClosingRecallCast,
-  findRecallZoneAt,
-  isRecallVariant,
-  type RecallZone,
-} from '@/utils/placement/recall'
+import { computeRecallZones, findRecallZoneAt, type RecallZone } from '@/utils/placement/recall'
+import { getInvalidCastEventMap, planCastPlacement } from '@/utils/placement/castPlacement'
 import RecallGhost, { type RecallGhostHandle } from './RecallGhost'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
@@ -316,15 +311,10 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline?.castEvents])
 
-  const invalidCastEventMap = useMemo(() => {
-    // 回放模式下数据来自 FFLogs 实战记录，placement/CD 校验对用户不可操作，
-    // 红框只是视觉噪声 → 直接返回空 Map 抑制标记
-    if (!engine || timeline?.isReplayMode) return new Map<string, InvalidCastEventSummary>()
-    const invalid = engine.findInvalidCastEvents(draggingId ?? undefined)
-    return new Map(
-      invalid.map(r => [r.castEvent.id, { reason: r.reason, resourceId: r.resourceId }])
-    )
-  }, [engine, draggingId, timeline?.isReplayMode])
+  const invalidCastEventMap = useMemo(
+    () => getInvalidCastEventMap(engine, timeline?.isReplayMode, draggingId ?? undefined),
+    [engine, draggingId, timeline?.isReplayMode]
+  )
 
   const showTooltip = useTooltipStore(s => s.showTooltip)
   const toggleTooltip = useTooltipStore(s => s.toggleTooltip)
@@ -1157,53 +1147,31 @@ export default function TimelineCanvas({ width, height }: TimelineCanvasProps) {
     toggleTooltip(action, anchorRect)
   }
 
-  // 向指定轨道添加技能（含变体选择、重叠检查、失败提示）。
-  // `actionId` 传入 track 的主成员 id；同轨道若声明了 trackGroup + placement，engine
-  // 会在 t 时刻选出唯一合法成员（如 buff 期内 37013 自动变 37016）。未接入 engine /
-  // 单成员组时退化为直接用传入的 actionId。
   const addCastAt = (actionId: number, playerId: number, time: number) => {
     if (!timeline) return
-
-    const parent = actionMap.get(actionId)
-    const groupId = parent ? (parent.trackGroup ?? parent.id) : actionId
-    if (engine && parent) {
-      // 仅做「该时刻是否存在合法变体」的存在性校验；具体变体交给 simulate 运行时推导。
-      const member = engine.pickUniqueMember(groupId, playerId, time)
-      if (!member) {
-        const unmetMsg = engine.getResourceUnmetMessageAt(parent, playerId, time)
-        toast.error(t('editor:timeline.addActionFailed'), {
-          description: unmetMsg ?? t('editor:timeline.addActionConditionUnmet'),
-        })
-        return
-      }
-      // 收回：若本区间已被后面的某个收回截断，把它前移到 time 而非新增——
-      // 否则那个收回会因 buff 被提前移除而回退为父技能、落在 CD 内变红。
-      if (isRecallVariant(member, groupId)) {
-        const trackCasts = timeline.castEvents.filter(c => {
-          const a = actionMap.get(c.actionId)
-          return c.playerId === playerId && (a ? effectiveTrackGroup(a) : c.actionId) === groupId
-        })
-        const closing = findClosingRecallCast(
-          time,
-          trackCasts,
-          c => actionMap.get(resolvedVariantByCastId.get(c.id) ?? c.actionId),
-          groupId
-        )
-        if (closing) {
-          useTimelineStore.getState().updateCastEvent(closing.id, { timestamp: time })
-          return
-        }
-      }
+    const placement = planCastPlacement({
+      actionId,
+      playerId,
+      time,
+      castEvents: timeline.castEvents,
+      actions: actionMap,
+      resolvedVariantByCastId,
+      engine,
+    })
+    if (placement.kind === 'reject') {
+      toast.error(t('editor:timeline.addActionFailed'), {
+        description: placement.message ?? t('editor:timeline.addActionConditionUnmet'),
+      })
+      return
     }
-
-    // CD 冲突 / 资源耗尽 已由 pickUniqueMember 内部 canPlaceCastEvent 闭环过滤
-    // （legal = placement ∩ resourceLegalIntervals）；此处不再重复 overlap 窗口检查——
-    // 旧 checkOverlap 按 action.cooldown 硬窗口互斥，与多充能（慰藉/献奉）语义冲突。
-    // 写入父 id（groupId），变体不持久化。
+    if (placement.kind === 'move') {
+      useTimelineStore.getState().updateCastEvent(placement.castId, { timestamp: time })
+      return
+    }
 
     addCastEvent({
       id: generateObjectId(),
-      actionId: groupId,
+      actionId: placement.actionId,
       timestamp: time,
       playerId,
     })

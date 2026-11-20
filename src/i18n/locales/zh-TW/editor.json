@@ -405,6 +405,7 @@
     "cannotAddAction": "無法新增技能",
     "clickToEditTime": "點擊修改時間",
     "conditionNotMet": "此時刻不滿足發動條件",
+    "notEnoughCharges": "可用層數不足",
     "viewAnnotation": "檢視備註"
   }
 }

@@ -28,6 +28,7 @@ import {
   useResolvedVariantByCastId,
   useStatusTimelineByPlayer,
 } from '@/contexts/DamageCalculationContext'
+import { getInvalidCastEventMap, planCastPlacement } from '@/utils/placement/castPlacement'
 import { createPlacementEngine } from '@/utils/placement/engine'
 import type { PlacementEngine } from '@/types/placement'
 import {
@@ -35,6 +36,7 @@ import {
   computeCdCellsByEvent,
   computeLitCellsByEvent,
   computeShadowCellsByEvent,
+  type CastMarker,
 } from '@/utils/tableCellHitTest'
 import { generateObjectId } from '@/utils/shortId'
 import { mergeAndSortRows } from '@/utils/tableRows'
@@ -79,6 +81,7 @@ export default function TimelineTableView() {
   const selectEvent = useTimelineStore(s => s.selectEvent)
   const addCastEvent = useTimelineStore(s => s.addCastEvent)
   const removeCastEvent = useTimelineStore(s => s.removeCastEvent)
+  const updateCastEvent = useTimelineStore(s => s.updateCastEvent)
   const addAnnotation = useTimelineStore(s => s.addAnnotation)
   const updateAnnotation = useTimelineStore(s => s.updateAnnotation)
   const removeAnnotation = useTimelineStore(s => s.removeAnnotation)
@@ -135,7 +138,7 @@ export default function TimelineTableView() {
   ])
 
   const markerCellsByEvent = useMemo(() => {
-    if (!timeline) return new Map<string, Map<string, number>>()
+    if (!timeline) return new Map<string, Map<string, CastMarker>>()
     return computeCastMarkerCells(
       filteredDamageEvents,
       filteredCastEvents,
@@ -181,61 +184,60 @@ export default function TimelineTableView() {
     return computeShadowCellsByEvent(filteredDamageEvents, skillTracks, shadowIntervalsForTrack)
   }, [timeline, engine, isReadOnly, filteredDamageEvents, skillTracks, actionsById])
 
-  // 单元格点击：在该行事件时刻放置/移除对应技能
-  // - 带图标的单元格（marker，即 cast 起点）→ 移除对应 cast
-  // - 淡绿色/空白单元格 → 尝试放置（冷却冲突时 toast 拒绝）
-  const handleCellToggle = useCallback(
-    (track: SkillTrack, event: DamageEvent, isMarker: boolean) => {
-      if (isReadOnly || !timeline) return
-      const parent = actionsById.get(track.actionId)
-      if (!parent) return
-      const groupId = parent.trackGroup ?? parent.id
+  const invalidCastEventMap = useMemo(
+    () => getInvalidCastEventMap(engine, timeline?.isReplayMode),
+    [engine, timeline?.isReplayMode]
+  )
 
-      if (isMarker) {
-        // 移除：marker 单元格落在 cast 起始刻，找同 playerId 同 trackGroup（涵盖变体
-        // 如 37016 挂在 37013 列上）里 timestamp ≤ event.time 最近的一条。
-        const matching = timeline.castEvents
-          .filter(ce => {
-            if (ce.playerId !== track.playerId) return false
-            if (ce.timestamp > event.time) return false
-            const ca = actionsById.get(ce.actionId)
-            if (!ca) return false
-            return effectiveTrackGroup(ca) === groupId
-          })
-          .sort((a, b) => b.timestamp - a.timestamp)[0]
-        if (matching) removeCastEvent(matching.id)
+  const handleCellToggle = useCallback(
+    (track: SkillTrack, event: DamageEvent, marker?: CastMarker) => {
+      if (isReadOnly || !timeline || !actionsById.has(track.actionId)) return
+
+      if (marker) {
+        removeCastEvent(marker.castId)
         return
       }
 
-      // 新增：仅做「该时刻是否存在合法变体」的存在性校验（buff 期 37013 列是否可放）；
-      // 具体变体交给 simulate 运行时推导，此处写入父 id（groupId），变体不持久化。
-      if (engine) {
-        const member = engine.pickUniqueMember(groupId, track.playerId, event.time)
-        if (!member) {
-          const unmetMsg = engine.getResourceUnmetMessageAt(parent, track.playerId, event.time)
-          toast.error(t('timelineTable.cannotAddAction'), {
-            description: unmetMsg ?? t('timelineTable.conditionNotMet'),
-          })
-          return
-        }
+      // 提前放置，使技能效果在伤害结算之前生效；校验和写入采用同一时刻。
+      const time = event.time - CAST_ANCHOR_LEAD
+      const placement = planCastPlacement({
+        actionId: track.actionId,
+        playerId: track.playerId,
+        time,
+        castEvents: timeline.castEvents,
+        actions: actionsById,
+        resolvedVariantByCastId,
+        engine,
+      })
+      if (placement.kind === 'reject') {
+        toast.error(t('timelineTable.cannotAddAction'), {
+          description: placement.message ?? t('timelineTable.conditionNotMet'),
+        })
+        return
+      }
+      if (placement.kind === 'move') {
+        updateCastEvent(placement.castId, { timestamp: time })
+        return
       }
 
-      // CD 冲突 / 资源耗尽 已由 pickUniqueMember 内部 canPlaceCastEvent 闭环过滤
-      // （legal = placement ∩ resourceLegalIntervals）；此处不再重复 overlap 窗口检查——
-      // 旧 overlap 按 action.cooldown 硬窗口互斥，与多充能（慰藉/献奉）语义冲突。
-      //
-      // 锚定时刻略提前于伤害发生时刻 CAST_ANCHOR_LEAD：cast 与伤害同刻时，simulator
-      // 在同一时间点的事件排序可能让状态附加晚于伤害结算，导致减伤不生效。提前 0.1s
-      // 保证状态在伤害落地前已挂上。绿格/marker 仍归到点击的这一行（相邻伤害事件间隔
-      // 远大于 0.1s）。
       addCastEvent({
         id: generateObjectId(),
-        actionId: groupId,
-        timestamp: event.time - CAST_ANCHOR_LEAD,
+        actionId: placement.actionId,
+        timestamp: time,
         playerId: track.playerId,
       })
     },
-    [isReadOnly, timeline, actionsById, addCastEvent, removeCastEvent, engine, t]
+    [
+      isReadOnly,
+      timeline,
+      actionsById,
+      resolvedVariantByCastId,
+      engine,
+      removeCastEvent,
+      updateCastEvent,
+      addCastEvent,
+      t,
+    ]
   )
 
   const rows = useMemo(() => {
@@ -584,6 +586,7 @@ export default function TimelineTableView() {
                   cdCells={cdCellsByEvent.get(row.id) ?? new Set()}
                   shadowCells={shadowCellsByEvent.get(row.id) ?? new Set()}
                   markerCells={markerCellsByEvent.get(row.id) ?? new Map()}
+                  invalidCastEventMap={invalidCastEventMap}
                   castAnnotationByCastId={castAnnotationByCastId}
                   actionsById={actionsById}
                   calculationResult={calculationResults.get(row.id)}

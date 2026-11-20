@@ -405,6 +405,7 @@
     "cannotAddAction": "アクションを追加できません",
     "clickToEditTime": "クリックで時刻を変更",
     "conditionNotMet": "この時点では発動条件を満たしていません",
+    "notEnoughCharges": "チャージが不足しています",
     "viewAnnotation": "メモを表示"
   }
 }

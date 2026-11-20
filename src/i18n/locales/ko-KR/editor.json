@@ -405,6 +405,7 @@
     "cannotAddAction": "",
     "clickToEditTime": "클릭하여 시간 수정",
     "conditionNotMet": "",
+    "notEnoughCharges": "충전 횟수가 부족합니다",
     "viewAnnotation": ""
   }
 }

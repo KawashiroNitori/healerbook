@@ -405,6 +405,7 @@
     "cannotAddAction": "Impossible d'ajouter l'action",
     "clickToEditTime": "Cliquez pour modifier l'instant",
     "conditionNotMet": "Les conditions de déclenchement ne sont pas remplies à cet instant",
+    "notEnoughCharges": "Charges insuffisantes",
     "viewAnnotation": "Voir la note"
   }
 }
